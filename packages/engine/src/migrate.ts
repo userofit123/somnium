@@ -8,6 +8,7 @@ import m005 from "./migrations/005_auth";
 import m006 from "./migrations/006_one_night";
 import m007 from "./migrations/007_detect_dismissed";
 import m008 from "./migrations/008_night_merge";
+import m009 from "./migrations/009_merge_record";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
@@ -18,6 +19,7 @@ export const MIGRATIONS: [string, string][] = [
   ["006_one_night", m006],
   ["007_detect_dismissed", m007],
   ["008_night_merge", m008],
+  ["009_merge_record", m009],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

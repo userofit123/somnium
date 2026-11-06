@@ -285,9 +285,9 @@ describe("the server holds no plaintext", () => {
     const nid = uuidv7(), badId = uuidv7();
     const change = async (tbl: string, id: string, row: Rec, key: Uint8Array, col: string, text: string): Promise<Change> =>
       ({ tbl, pk: { id }, op: "upsert", at, row: { id, ...row, [col]: await sealColumn(text, key, tbl, col, id) } });
-    const good = await change("nights", nid, { date: "2026-08-01" }, KEY, "notes", "opens fine");
+    const good = await change("nights", nid, { date: "2026-08-01", created_at: at }, KEY, "notes", "opens fine");
     // sealed under another key: this page must still go through
-    const bad = await change("nights", badId, { date: "2026-08-02" }, OTHER_KEY, "notes", "doesn't open");
+    const bad = await change("nights", badId, { date: "2026-08-02", created_at: at }, OTHER_KEY, "notes", "doesn't open");
     const res = await replica.applyRemote(fresh.db, U, [bad, good], 7, KEY);
     expect(res.unopened).toBe(1);
     expect((await replica.replicaMeta(fresh.db)).cursor).toBe(7);
@@ -302,7 +302,7 @@ describe("the server holds no plaintext", () => {
 
     // a plain value is kept as plain: the accepted limit in docs/security.md
     const injected = uuidv7();
-    await replica.applyRemote(fresh.db, U, [{ tbl: "nights", pk: { id: injected }, op: "upsert", at, row: { id: injected, date: "2026-08-03", notes: "not an envelope" } }], 7, KEY);
+    await replica.applyRemote(fresh.db, U, [{ tbl: "nights", pk: { id: injected }, op: "upsert", at, row: { id: injected, date: "2026-08-03", created_at: at, notes: "not an envelope" } }], 7, KEY);
     expect(((await fresh.handle({ method: "GET", path: `/nights/${injected}`, userId: U })).body as Rec).notes).toBe("not an envelope");
 
     // one bad row in a first copy doesn't stop it either, and its children stay out with it

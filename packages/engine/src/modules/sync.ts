@@ -49,7 +49,7 @@ export function syncRoutes(r: Router) {
       const wins = o ?? !(last && last.origin !== device && new Date(last.at) > new Date(c.at));
       (wins ? accepted : rejected).push(c);
     }
-    const { applied, failed, kept } = await applyChanges(ctx.q, ctx.userId, accepted, { origin: device });
+    const { applied, failed, kept, mergeFailed } = await applyChanges(ctx.q, ctx.userId, accepted, { origin: device });
     rejected.push(...kept);
     const now = await readRows(ctx.q, rejected);
     const back: Change[] = rejected.map((c) => {
@@ -57,6 +57,6 @@ export function syncRoutes(r: Router) {
       return { tbl: c.tbl, pk: c.pk, op: row ? "upsert" : "delete", at: new Date().toISOString(), row };
     });
     if (applied) ctx.changed("everything");
-    return { applied, rejected: back, failed: failed.map((f) => ({ tbl: f.change.tbl, pk: f.change.pk, error: f.error.slice(0, 200) })) };
+    return { applied, mergeFailed, rejected: back, failed: failed.map((f) => ({ tbl: f.change.tbl, pk: f.change.pk, error: f.error.slice(0, 200) })) };
   });
 }

@@ -61,7 +61,7 @@ describe("a row that arrives before its parent", () => {
     const looksSealed = await sealColumn("inner", OTHER_KEY, "dreams", "text", dreamId);
     const sealed = await sealColumn(looksSealed, KEY, "dreams", "text", dreamId);
     const dream: Change = { tbl: "dreams", pk: { id: dreamId }, op: "upsert", at, row: { id: dreamId, night_id: nightId, text: sealed } };
-    const night: Change = { tbl: "nights", pk: { id: nightId }, op: "upsert", at, row: { id: nightId, date: "2026-03-03" } };
+    const night: Change = { tbl: "nights", pk: { id: nightId }, op: "upsert", at, row: { id: nightId, date: "2026-03-03", created_at: at } };
 
     const first = await replica.applyRemote(d.eng.db, U, [dream], 11, KEY);
     expect([first.unopened, first.heldBack]).toEqual([0, 1]);
@@ -92,7 +92,7 @@ describe("a row that arrives before its parent", () => {
     const dream: Change = { tbl: "dreams", pk: { id: dreamId }, op: "upsert", at, row: { id: dreamId, night_id: nightId, text: await sealColumn("later", KEY, "dreams", "text", dreamId) } };
     await replica.applyRemote(d.eng.db, U, [dream], undefined, KEY);
     expect((await replica.applyRemote(d.eng.db, U, [], undefined, null)).heldBack).toBe(1);
-    const night: Change = { tbl: "nights", pk: { id: nightId }, op: "upsert", at, row: { id: nightId, date: "2026-03-04" } };
+    const night: Change = { tbl: "nights", pk: { id: nightId }, op: "upsert", at, row: { id: nightId, date: "2026-03-04", created_at: at } };
     expect((await replica.applyRemote(d.eng.db, U, [night], undefined, KEY)).heldBack).toBe(0);
     expect((await on(d.eng)("GET", `/dreams/${dreamId}`)).text).toBe("later");
   });
