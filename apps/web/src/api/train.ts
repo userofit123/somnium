@@ -46,6 +46,10 @@ export async function setLesson(lessonId: string, state: "active" | "done", know
 /** The morning date tonight's night is filed under. */
 export const tonightDate = (now = new Date()) => tonightOf(localYmd(now), now.getHours());
 
+/** The night someone up in the small hours or the early morning is in: before noon it is the one ending today (a
+ *  WBTB alarm at 05:30 or 06:30 belongs to last night, where tonightDate's 5 am turn would file it under the next). */
+export const nightNowDate = (now = new Date()) => tonightOf(localYmd(now), now.getHours(), 12);
+
 /** Tonight's night, if there is one yet. */
 export const tonightNight = (nights: NightRow[] | undefined, date = tonightDate()) => nights?.find((n) => n.date === date && !n.nap);
 
@@ -59,4 +63,32 @@ export async function planTonight(technique: string, add: boolean) {
   if (next.length !== cur.length || next.some((t, i) => t !== cur[i])) await api.put(`/nights/${id}`, { techniquesPlanned: next });
   invalidate(["journal", "train", "home"]);
   return { date, id };
+}
+
+/**
+ * WBTB from the planner (LDJ-25): the alarm time on tonight's night (plain: wbtb_wake_at) and "wbtb" in the plan. The
+ * bedtime goes on the night only when the person chose one for tonight; the usual one stays in Settings.
+ */
+export async function planWbtb(wakeAt: Date, bedtime: Date | null) {
+  const { date, id } = await planTonight("wbtb", true);
+  const body: Record<string, unknown> = { wbtbWakeAt: wakeAt.toISOString() };
+  if (bedtime) body.bedtime = bedtime.toISOString();
+  await api.put(`/nights/${id}`, body);
+  invalidate(["journal", "train", "home"]);
+  return { date, id };
+}
+
+/** Clears tonight's WBTB alarm and takes "wbtb" out of the plan. */
+export async function unplanWbtb() {
+  const { id } = await planTonight("wbtb", false);
+  await api.put(`/nights/${id}`, { wbtbWakeAt: null });
+  invalidate(["journal", "train", "home"]);
+}
+
+/** "Back to bed": the night was a WBTB night, with this many minutes up (0-600, the column's range). */
+export async function backToBed(minutes: number, date = nightNowDate()) {
+  const id = await ensureNight(date, false, uuidv7());
+  await api.put(`/nights/${id}`, { wbtbUsed: true, wbtbMinutesAwake: Math.max(0, Math.min(600, Math.round(minutes))) });
+  invalidate(["journal", "train", "home"]);
+  return id;
 }

@@ -355,6 +355,25 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
   });
 });
 
+describe("undo of a deleted dream", () => {
+  it("syncs: deleted on one device, restored there, live on the server and the other device", async () => {
+    const date = nextDate();
+    const a = await newDevice(), b = await newDevice();
+    const n = await on(a.eng)("POST", "/nights", { date });
+    const d = await on(a.eng)("POST", "/dreams", { nightId: n.id, text: "back again" });
+    await sync(a); await sync(b);
+    await later();
+    await on(a.eng)("DELETE", `/dreams/${d.id}`);
+    await sync(a); await sync(b);
+    expect((await serverRow("dreams", d.id)).deleted_at).not.toBeNull();
+    await later();
+    await on(a.eng)("POST", `/dreams/${d.id}/restore`);
+    for (let i = 0; i < 2; i++) { await sync(a); await sync(b); }
+    expect((await serverRow("dreams", d.id)).deleted_at).toBeNull();
+    for (const x of [a, b]) expect((await on(x.eng)("GET", `/dreams/${d.id}`)).id).toBe(d.id);
+  });
+});
+
 describe("what a device says about a merge is checked", () => {
   const fake = uuidv7();
   const send = async (changes: Change[]) => S()("POST", "/sync/push", { device: fake, changes });

@@ -399,7 +399,7 @@ ipcMain.handle("reminders:setPlan", (_e, items: unknown) => {
   const now = Date.now();
   for (const it of items.slice(0, 200)) {
     if (!it || typeof it.at !== "number" || typeof it.title !== "string" || typeof it.body !== "string" || typeof it.url !== "string") continue;
-    if (!it.url.startsWith("/check") || it.at < now - 60_000 || it.at > now + AHEAD) continue;
+    if (!(it.url.startsWith("/check") || it.url === "/train?guided=up") || it.at < now - 60_000 || it.at > now + AHEAD) continue;
     const r = { at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url };
     rcTimers.push(setTimeout(() => showReminder(r), Math.max(0, r.at - now)));
   }

@@ -212,6 +212,29 @@ describe("journal", () => {
     expect(await call(A, "GET", "/nights")).toEqual([]);
   });
 
+  it("brings a deleted dream back with the links it had, and not the ones removed before", async () => {
+    const n = await call<Night>(A, "POST", "/nights", { date: "2024-03-01" });
+    const d = await call<Dream>(A, "POST", "/dreams", { nightId: n.id, text: "to undo" });
+    const e1 = await call<Element>(A, "POST", "/elements", { kind: "place", name: "kept" });
+    const e2 = await call<Element>(A, "POST", "/elements", { kind: "place", name: "unlinked first" });
+    await call(A, "POST", `/dreams/${d.id}/elements`, { elementId: e1.id });
+    await call(A, "POST", `/dreams/${d.id}/elements`, { elementId: e2.id });
+    await call(A, "DELETE", `/dreams/${d.id}/elements/${e2.id}`);
+    await call(A, "DELETE", `/dreams/${d.id}`);
+    expect(await status(A, "GET", `/dreams/${d.id}`)).toBe(404);
+    const topics = await announced(() => call(A, "POST", `/dreams/${d.id}/restore`));
+    expect(topics).toContain("dreams");
+    expect((await call<DreamFull>(A, "GET", `/dreams/${d.id}`)).elements.map((l) => l.elementId)).toEqual([e1.id]);
+    // again is fine; another person's or an unknown dream is not found
+    expect(await status(A, "POST", `/dreams/${d.id}/restore`)).toBe(200);
+    expect(await status(B, "POST", `/dreams/${d.id}/restore`)).toBe(404);
+    expect(await status(A, "POST", `/dreams/${uuidv7()}/restore`)).toBe(404);
+    // not into a night that is gone
+    await call(A, "DELETE", `/dreams/${d.id}`);
+    await call(A, "DELETE", `/nights/${n.id}`);
+    expect(await status(A, "POST", `/dreams/${d.id}/restore`)).toBe(409);
+  });
+
   it("takes a night's dreams, their links and their media along when the night goes", async () => {
     const n = await call<Night>(A, "POST", "/nights", { date: "2026-11-06" });
     const d = await call<Dream>(A, "POST", "/dreams", { nightId: n.id, title: "env:t2" });

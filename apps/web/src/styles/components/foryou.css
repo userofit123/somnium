@@ -1,0 +1,10 @@
+/* "For you" (recommendations, LDJ-27) on Home and Train: theme and density tokens only. */
+.foryou .fylist { display: flex; flex-direction: column; gap: var(--hg); }
+.foryou .fyitem + .fyitem { padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.foryou .fyhead { display: flex; align-items: center; justify-content: space-between; gap: var(--hg); }
+.foryou .fyhead .t { font-weight: 600; color: var(--tx); }
+.foryou .fybody { margin: calc(var(--hg) / 2) 0 0; color: var(--tx); font-size: var(--fs-sm); line-height: 1.45; }
+.foryou .fywhy { margin: calc(var(--hg) / 2) 0 0; color: var(--tx2); }
+.foryou .fyfoot { display: flex; align-items: center; flex-wrap: wrap; gap: var(--hg); margin-top: calc(var(--hg) / 2); }
+.foryou .fycites { display: inline-flex; flex-wrap: wrap; gap: 2px; }
+.foryou .fyfoot .lnk.inl { font-size: var(--fs-xs); }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Tonight's plan: the techniques saved into tonight's night. Guided modes come later (LDJ-25); for now a list.
+// Tonight's plan: the techniques saved into tonight's night. The guided modes (LDJ-25) sit in the Guided card below it.
 import { computed } from "vue";
 import { articles } from "@somnium/knowledge/content";
 import { findTechnique } from "@somnium/knowledge/techniques";

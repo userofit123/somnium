@@ -21,6 +21,13 @@ import TonightCard from "../components/train/TonightCard.vue";
 import TechniqueLibrary from "../components/train/TechniqueLibrary.vue";
 import TechniqueView from "../components/train/TechniqueView.vue";
 import LessonView from "../components/train/LessonView.vue";
+import GuidedCard from "../components/train/guided/GuidedCard.vue";
+import { defineAsyncComponent } from "vue";
+import { nightNowDate } from "../api/train";
+import type { GuidedMode } from "../components/train/guided/GuidedView.vue";
+// the guided modes (LDJ-25) load when one opens: /train?guided=wbtb|up|mild|ssild|wild|drill
+const GuidedView = defineAsyncComponent(() => import("../components/train/guided/GuidedView.vue"));
+import ForYouCard from "../components/ForYouCard.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -32,6 +39,9 @@ await loaded(j.nights, t.course, t.practice);
 const today = useToday();
 const technique = computed(() => findTechnique(String(route.query.technique ?? "")));
 const openLesson = computed(() => findLesson(String(route.query.lesson ?? "")));
+const guided = computed(() => (["wbtb", "up", "mild", "ssild", "wild", "drill"] as const).find((m) => m === route.query.guided) as GuidedMode | undefined);
+// tonight's WBTB alarm, or, in the small hours and the morning after it, the one of the night now ending
+const wbtbAt = computed(() => tonightNight(j.nights.data.value)?.wbtbWakeAt ?? tonightNight(j.nights.data.value, nightNowDate())?.wbtbWakeAt ?? null);
 
 const rows = computed(() => t.course.data.value ?? []);
 const current = computed(() => currentLesson(rows.value));
@@ -75,14 +85,17 @@ async function next() {
 
 <template>
   <div class="page train">
-    <TechniqueView v-if="technique" :key="technique.id" :technique="technique" :planned="planned.includes(technique.id)" />
+    <GuidedView v-if="guided" :key="guided" :mode="guided" />
+    <TechniqueView v-else-if="technique" :key="technique.id" :technique="technique" :planned="planned.includes(technique.id)" />
     <LessonView v-else-if="openLesson" :key="openLesson.id" :lesson="openLesson" />
     <template v-else>
       <div class="ph"><div><h1>Train</h1></div><div class="acts"><button class="btn o s keep" @click="router.push('/check')">Log a check</button></div></div>
       <div class="grid g2 tgrid">
         <div class="tcol">
           <CourseCard :lesson="lesson" :row="row" :practice="t.practice.data.value ?? []" :today="today" :rule="rule" :moving="moving" @move-on="next" />
+          <ForYouCard />
           <TonightCard :planned="planned" />
+          <GuidedCard :wake-at="wbtbAt" />
         </div>
         <div class="tcol">
           <TechniqueLibrary :planned="planned" />

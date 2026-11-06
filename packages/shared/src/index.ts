@@ -18,3 +18,8 @@ export * from "./course";
 export * from "./home";
 export * from "./signs";
 export * from "./insights";
+export * from "./recommend";
+export * from "./guided";
+export * from "./exportDream";
+export * from "./dreamPage";
+export * from "./outbox";

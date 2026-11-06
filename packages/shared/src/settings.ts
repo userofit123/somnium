@@ -1,6 +1,7 @@
 // A person's settings, with defaults. Stored as JSON per user; missing keys fall back to these.
 // Nothing personal lives here (PLAN.md §4): these are preferences, and they sync in the clear.
 import { FEATURE_DEFAULTS } from "./features";
+import type { Dismissal } from "./recommend";
 
 export interface Settings {
   firstDay: 0 | 1;
@@ -22,6 +23,8 @@ export interface Settings {
     /** Dated answers per scale (ldfs, madre), oldest first. */
     assessments: Record<"ldfs" | "madre", { date: string; value: number }[]>;
   };
+  /** Recommendations (recommend.ts): rule ids dismissed for 14 days and the day each was dismissed. No personal data. */
+  recommend: { dismissed: Dismissal[] };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -35,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   layout: "auto",
   sleep: { bedtime: "23:00", wake: "07:00" },
   learn: { read: {}, last: "", assessments: { ldfs: [], madre: [] } },
+  recommend: { dismissed: [] },
 };
 
 /** Deep-merges saved settings over the defaults, so new settings get their default value. */

@@ -7,6 +7,8 @@
 // - Desktop app: the plan goes to the main process (preload's somniumNative.reminders), whose own timers show native
 //   notifications while the app runs, whatever the window is doing.
 // - Android app: nothing here; LDJ-29 schedules exact alarms from the same plan.
+// - The WBTB alarm (LDJ-25) rides the same plan: the planner stores its time on this device (setWbtbAlarm) and it is
+//   shown like a reminder, opening /train?guided=up. The same limits apply, and the guided screen says so.
 // Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
 // only when the person switched that on, and only while this device can read it.
 import { QueryObserver } from "@tanstack/vue-query";
@@ -17,7 +19,7 @@ import { keyring } from "../core/keyring";
 import { readStr, writeStr } from "../core/prefs";
 import { isNativeApp } from "./notifications";
 
-export interface DueReminder { at: number; title: string; body: string; url: string }
+export interface DueReminder { at: number; title: string; body: string; url: string; tag?: string }
 interface DesktopReminders { setPlan(items: DueReminder[]): Promise<unknown> }
 const desktop = (): DesktopReminders | undefined => (globalThis as any).somniumNative?.reminders;
 
@@ -65,9 +67,9 @@ export async function upcoming(s: RealityCheckSchedule, settings: Settings, now 
 }
 
 /** Shows one reminder now: through the service worker when there is one (a tap opens /check), else a plain one. */
-export async function showReminder(r: Pick<DueReminder, "title" | "body" | "url">) {
+export async function showReminder(r: Pick<DueReminder, "title" | "body" | "url" | "tag">) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
-  const opts: NotificationOptions = { body: r.body, tag: "somnium-reality-check", icon: "/icon-192.png", badge: "/icon-192.png", data: { url: r.url }, requireInteraction: false } as NotificationOptions;
+  const opts: NotificationOptions = { body: r.body, tag: (r as DueReminder).tag ?? "somnium-reality-check", icon: "/icon-192.png", badge: "/icon-192.png", data: { url: r.url }, requireInteraction: false } as NotificationOptions;
   const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
   if (reg) { await reg.showNotification(r.title, opts); return true; }
   const n = new Notification(r.title, opts);
@@ -81,12 +83,32 @@ let tick: ReturnType<typeof setInterval> | null = null, next: ReturnType<typeof 
 let plan: DueReminder[] = [], stops: (() => void)[] = [], planDate = "";
 let current: { row: Reminder | null; settings: Settings } = { row: null, settings: withDefaults({}) };
 
+// ----- the WBTB alarm (LDJ-25): one time, kept on this device; nothing personal in its words -----
+const WBTB = "somniumWbtbAlarm";
+export const WBTB_URL = "/train?guided=up";
+/** The WBTB alarm set on this device (ms), or null. */
+export function wbtbAlarm(): number | null {
+  const at = Number(readStr(WBTB, "0"));
+  return at > Date.now() - 60_000 ? at : null;
+}
+function wbtbItems(): DueReminder[] {
+  const at = wbtbAlarm();
+  return at ? [{ at, title: "Time for WBTB", body: "Get up for a while, then back to bed. Tap for the guide.", url: WBTB_URL, tag: "somnium-wbtb" }] : [];
+}
+/** Sets (or with null clears) the WBTB alarm here; the running scheduler (web or desktop) picks it up at once. */
+export async function setWbtbAlarm(at: number | null) {
+  writeStr(WBTB, at ? String(at) : "0");
+  if (tick) await replan();
+}
+
 async function replan() {
   const row = current.row;
   planDate = localDate(new Date());
-  if (!row || !row.enabled) { plan = []; await desktop()?.setPlan([]).catch(() => {}); arm(); return; }
-  const s = rcSchedule(row.schedule);
-  plan = await upcoming(s, current.settings, Date.now(), s.showSign ? await topSign() : null);
+  if (!row || !row.enabled) plan = wbtbItems();
+  else {
+    const s = rcSchedule(row.schedule);
+    plan = [...await upcoming(s, current.settings, Date.now(), s.showSign ? await topSign() : null), ...wbtbItems()].sort((a, b) => a.at - b.at);
+  }
   const d = desktop();
   if (d) { await d.setPlan(plan).catch(() => {}); plan = []; }
   arm();

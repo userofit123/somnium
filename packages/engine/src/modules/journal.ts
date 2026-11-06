@@ -118,6 +118,28 @@ export function journalRoutes(r: Router) {
     return { ok: true };
   });
 
+  // Undo for a delete: brings the dream back with the links and media that went with it (marked in the same moment, so
+  // the ones the person had removed earlier stay removed). Its night must still be there; elements that were removed
+  // since are not brought back as links. updated_at moves on, so on every device the restore wins over the delete.
+  r.post("/dreams/:id/restore", async (ctx, p) => {
+    const dreamId = id(p.id, "dream");
+    const gone = (await ctx.q.query<{ deleted_at: Date | string; night_id: string }>("SELECT deleted_at, night_id FROM dreams WHERE id = $1 AND deleted_at IS NOT NULL", [dreamId])).rows[0];
+    if (!gone) {
+      // already back (a second tap, another device): fine; never existed: 404
+      const live = (await ctx.q.query("SELECT 1 FROM dreams WHERE id = $1", [dreamId])).rows.length;
+      if (!live) throw notFound("Unknown dream");
+      return getLive<Dream>(ctx.q, "dreams", dreamId, "dream");
+    }
+    const night = (await ctx.q.query("SELECT 1 FROM nights WHERE id = $1 AND deleted_at IS NULL", [gone.night_id])).rows.length;
+    if (!night) throw conflict("This dream's night was deleted too, so it can't be brought back");
+    const at = gone.deleted_at;
+    await ctx.q.query("UPDATE dream_elements SET deleted_at = NULL, updated_at = now() WHERE dream_id = $1 AND deleted_at >= $2 AND element_id IN (SELECT id FROM elements WHERE deleted_at IS NULL)", [dreamId, at]);
+    await ctx.q.query("UPDATE media SET deleted_at = NULL, updated_at = now() WHERE dream_id = $1 AND deleted_at >= $2", [dreamId, at]);
+    const row = (await ctx.q.query<Record<string, unknown>>("UPDATE dreams SET deleted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *", [dreamId])).rows[0]!;
+    ctx.changed("dreams", "elements");
+    return camel<Dream>(row);
+  });
+
   r.get("/elements", async ({ q }, _p, _b, qs) => {
     const w: string[] = [], params: unknown[] = [];
     if (qs.kind) { params.push(enumOf(ELEMENT_KINDS, "theme")(qs.kind)); w.push(`kind = $${params.length}`); }

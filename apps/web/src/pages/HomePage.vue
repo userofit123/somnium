@@ -20,6 +20,8 @@ import TodayCard from "../components/home/TodayCard.vue";
 import TonightCard from "../components/home/TonightCard.vue";
 import RatesCard from "../components/home/RatesCard.vue";
 import ExtraCards from "../components/home/ExtraCards.vue";
+import ForYouCard from "../components/ForYouCard.vue";
+import { isPhone } from "../core/device";
 
 const j = useJournal();
 const t = useTrain();
@@ -99,10 +101,12 @@ const lucid = computed(() => {
     <div class="grid g2 hgrid">
       <div class="hcol">
         <MorningCard :state="morning" :date="when.lastNight" />
+        <ForYouCard v-if="isPhone" />
         <TodayCard :done="checksDone" :planned="plan.today" :next="next" :reminders-on="remindersOn" :today="today" :primary="morning.kind !== 'open'"
           :lesson="lesson ? { id: lesson.id, title: lesson.title } : null" :items="items" />
       </div>
       <div class="hcol">
+        <ForYouCard v-if="!isPhone" />
         <TonightCard :date="when.tonight" :same="when.same" :planned="planned" :intention="tonight?.intention ?? ''" />
         <RatesCard :rates="rates" />
         <ExtraCards :lesson="lessonCard" :tip="tip" :lucid="lucid" :signs="signs" />

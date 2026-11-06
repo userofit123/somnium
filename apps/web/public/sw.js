@@ -37,12 +37,15 @@ self.addEventListener("fetch", (e) => {
   if (r.mode === "navigate") { e.respondWith(page(e)); return; }
   if (keep(u.pathname)) {
     e.respondWith(caches.match(r).then((m) => m ?? fetch(r).then((res) => {
-      if (res.ok) { const c = res.clone(); caches.open(CACHE).then((cc) => cc.put(r, c)); }
+      if (keepable(res)) { const c = res.clone(); caches.open(CACHE).then((cc) => cc.put(r, c)); }
       return res;
     })));
   }
 });
 
+// The server answers any path it doesn't have with the app's page (200, HTML), a built file of an older version
+// included: that is never kept under the file's name, where it would stand in for the file for good.
+const keepable = (res) => res.ok && !/text\/html/.test(res.headers.get("content-type") ?? "");
 const keep = (p) => p.startsWith("/api/media/") || p.startsWith("/assets/") || p.startsWith("/fonts/") || /\.(png|svg|woff2?)$/.test(p);
 const PAGE_WAIT = 4000;
 
@@ -88,8 +91,32 @@ self.addEventListener("message", (e) => {
       if ((!isPage && !keep(u.pathname)) || (await cc.match(u.href))) continue;
       try {
         const res = await fetch(u.href, { method: "GET" });
-        if (res.ok) await (isPage ? keepPage(res) : cc.put(u.href, res));
+        if (isPage ? res.ok : keepable(res)) await (isPage ? keepPage(res) : cc.put(u.href, res));
       } catch { /* next time */ }
     }
+    await keepImported(cc);
   })());
 });
+
+// Code loaded only when it is needed (the dream analysis lexicons, the reality check screen's parts) is not on the
+// page's list until something has used it, and offline it then fails to load ("Failed to fetch dynamically imported
+// module"). So every kept built file is read for the files it can import ("./name-hash.js", "assets/name-hash.css"),
+// and those are kept too, and theirs in turn. Built names never change, so each is fetched once.
+const IMPORTED = /(?:\.\/|\/?assets\/)([\w.-]+\.(?:js|css|wasm|data))\b/g;
+async function keepImported(cc) {
+  const seen = new Set(), todo = [];
+  for (const r of await cc.keys()) { const p = new URL(r.url).pathname; if (p.startsWith("/assets/") && p.endsWith(".js")) todo.push(p); }
+  while (todo.length) {
+    const p = todo.pop();
+    if (seen.has(p)) continue;
+    seen.add(p);
+    let res = await cc.match(p);
+    if (!res) {
+      try { res = await fetch(p); } catch { continue; } // next time
+      if (!keepable(res)) continue;
+      await cc.put(p, res.clone());
+    }
+    if (!p.endsWith(".js")) continue;
+    for (const m of (await res.text()).matchAll(IMPORTED)) { const next = "/assets/" + m[1]; if (!seen.has(next)) todo.push(next); }
+  }
+}

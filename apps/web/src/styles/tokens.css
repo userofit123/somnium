@@ -40,6 +40,12 @@
   --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);
   --shadow-sheet: 0 30px 80px -20px #000a;
   --scrim: #0007;
+  /* the guided night screens (Train's WBTB, MILD, SSILD, WILD): a dim surface and soft text, the same in light and
+     dark so nothing lights up a dark bedroom */
+  --sdim: #07070b;
+  --sdim2: #12121a;
+  --sdimtx: #8d8a99;
+  --sdimtx2: #5f5c6b;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t-slide: .25s;
   /* the Android app hands the bars' sizes over as --nst / --nsb / --nsl / --nsr (older WebViews report no safe area);
