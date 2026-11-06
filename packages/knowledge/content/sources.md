@@ -1,0 +1,285 @@
+# Sources
+
+The four reference lists from RESEARCH.md, merged. Articles cite them in square brackets by part letter and number, for example [B40]. Letter suffixes (such as C5a) are kept as the research document numbered them.
+
+## Part A: History, origins and prevalence
+
+- **A1** LaBerge, S. and Rheingold, H. (1990). *Exploring the World of Lucid Dreaming*. New York: Ballantine.
+- **A2** Voss, U. and Hobson, J. A. (2015). What is the state of the art on lucid dreaming? In T. Metzinger and J. M. Windt (eds), *Open MIND*. Frankfurt: MIND Group. https://open-mind.net/papers/what-is-the-state-of-the-art-on-lucid-dreaming
+- **A3** Aristotle. *On Dreams* (De Insomniis), trans. J. I. Beare, Part 3 (462a). https://en.wikisource.org/wiki/On_Dreams_(Aristotle)
+- **A4** Papachristou, C. S. (2014). Aristotle's theory of "sleep and dreams" in the light of modern and contemporary experimental research. *E-Logos* 2014(1). https://e-logos.vse.cz/pdfs/elg/2014/01/17.pdf
+- **A5** Galen. *On Diagnosis from Dreams* (De dignotione ex insomniis), introduction and translation, Medicina Antiqua, UCL. https://www.homepages.ucl.ac.uk/~ucgajpd/medicina%20antiqua/Medant/DDnIntro.htm
+- **A6** Augustine of Hippo (415). Letter 159 to Evodius, trans. J. G. Cunningham, in *Nicene and Post-Nicene Fathers*, First Series, vol. 1. https://www.newadvent.org/fathers/1102159.htm
+- **A7** Mota-Rolim, S. A., Bulkeley, K., Campanelli, S., Lobao-Soares, B., de Araujo, D. B. and Ribeiro, S. (2020). The dream of God: how do religion and science see lucid dreaming and other conscious states during sleep? *Frontiers in Psychology* 11:555731. https://doi.org/10.3389/fpsyg.2020.555731
+- **A8** *Scrinium Augustini: The World of Augustine's Letters* (2018). Proceedings of the Torun workshop, 2015. Turnhout: Brepols. (Chapter arguing the Gennadius story may be Augustine's invention.)
+- **A9** *Mandukya Upanishad*, with commentary by Swami Krishnananda, section 4 (taijasa). https://www.swami-krishnananda.org/mand/mand_4.html
+- **A10** Wikipedia, "Turiya" and "Taijasa" (pointers to primary texts). https://en.wikipedia.org/wiki/Turiya
+- **A11** Wikipedia, "Dream yoga" (pointer; Six Yogas of Naropa, Kagyu lineage, Bön Dzogchen context). https://en.wikipedia.org/wiki/Dream_yoga
+- **A12** Wangyal, T. and Dahlby, M. (1998). *The Tibetan Yogas of Dream and Sleep*. Ithaca, NY: Snow Lion.
+- **A13** LaBerge, S. (2003). Lucid dreaming and the yoga of the dream state: a psychophysiological perspective. In B. A. Wallace (ed.), *Buddhism and Science*. New York: Columbia University Press. http://www.lucidity.com/wordpress/wp-content/uploads/2017/02/LaBerge2003-DreamYoga.pdf
+- **A14** *International Journal of Dream Research* (2026), paper on the relationship between lucid dreaming and Tibetan Buddhist dream yoga. https://journals.ub.uni-heidelberg.de/index.php/IJoDR/libraryFiles/downloadPublic/949
+- **A15** Aquinas, T. *Summa Theologiae* I, q. 84, a. 8, trans. Fathers of the English Dominican Province (1947). https://www.newadvent.org/summa/1084.htm
+- **A16** Psi Encyclopedia (Society for Psychical Research), "Lucid Dreaming". https://psi-encyclopedia.spr.ac.uk/articles/lucid-dreaming/
+- **A17** Wikipedia, "Marie-Jean-Leon, Marquis d'Hervey de Saint Denys" (pointer to Maury 1878 footnote, 1982 Duckworth and 2016 den Blanken translations). https://en.wikipedia.org/wiki/Marie-Jean-L%C3%A9on,_Marquis_d%27Hervey_de_Saint_Denys
+- **A18** Bulkeley, K. / Dream Studies Portal, "Bringing to life the secret history of lucid dreaming" (on Saint-Denys, with Hunt 1989 and LaBerge 1985). https://dreamstudies.org/marquis-dhervey-saint-denys/
+- **A19** van Eeden, F. (1913). A study of dreams. *Proceedings of the Society for Psychical Research* 26, 431-461. Full text: http://www.vitaumana.it/pag/xc05-eed.htm
+- **A20** Wikipedia, "Frederik van Eeden" (pointer). https://en.wikipedia.org/wiki/Frederik_van_Eeden
+- **A21** Saunders, D. T., Roe, C. A., Smith, G. and Clegg, H. (2016). Lucid dreaming incidence: a quality effects meta-analysis of 50 years of research. *Consciousness and Cognition* 43, 197-215. https://doi.org/10.1016/j.concog.2016.06.002 (author manuscript: https://nectar.northampton.ac.uk/8705/)
+- **A22** Arnold-Forster, M. (1921). *Studies in Dreams*. London: Allen and Unwin; New York: Macmillan. https://archive.org/details/studiesindreams00arnogoog
+- **A23** Wikipedia, "Oliver Fox (writer)" (pointer to *Astral Projection*, Rider, 1939, and *Occult Review* 1920). https://en.wikipedia.org/wiki/Oliver_Fox_(writer)
+- **A24** Rapport, N. (1948). Pleasant dreams! *Psychiatric Quarterly* 22, 309-317.
+- **A25** Tholey, P. (1989). Overview of the development of lucid dream research in Germany. *Lucidity Letter* 8(2), 1-30. https://www.gestalttheory.net/uploads/pdf/archive/1961_1990/overview_development_lucid_dream_Tholey.pdf
+- **A26** Tholey, P. (1983). Techniques for inducing and manipulating lucid dreams. *Perceptual and Motor Skills* 57, 79-90. https://doi.org/10.2466/pms.1983.57.1.79
+- **A27** Tholey, P. and Utecht, K. (1987). *Schoepferisch traeumen: Der Klartraum als Lebenshilfe*. Niedernhausen: Falken. See also Wikipedia, "Paul Tholey". https://en.wikipedia.org/wiki/Paul_Tholey
+- **A28** Green, C. (1968). *Lucid Dreams*. London: Hamish Hamilton / Oxford: Institute of Psychophysical Research. See also https://en.wikipedia.org/wiki/Celia_Green
+- **A29** Garfield, P. (1974). *Creative Dreaming*. New York: Simon and Schuster. See also https://en.wikipedia.org/wiki/Patricia_Garfield
+- **A30** Faraday, A. (1972). *Dream Power*. New York: Coward, McCann and Geoghegan; Faraday, A. (1974). *The Dream Game*. New York: Harper and Row. See also https://en.wikipedia.org/wiki/Ann_Faraday
+- **A31** Domhoff, G. W. (1985). *The Mystique of Dreams: A Search for Utopia through Senoi Dream Theory*. Berkeley: University of California Press. Updated online: "Senoi dream theory: myth, scientific method, and the dreamwork movement". https://dreams.ucsc.edu/Library/senoi.html
+- **A32** Castaneda, C. (1993). *The Art of Dreaming*. New York: HarperCollins. See https://en.wikipedia.org/wiki/The_Art_of_Dreaming
+- **A33** de Mille, R. (1976). *Castaneda's Journey: The Power and the Allegory*. Santa Barbara: Capra Press; de Mille, R. (ed.) (1980). *The Don Juan Papers: Further Castaneda Controversies*. Santa Barbara: Ross-Erikson. See also https://en.wikipedia.org/wiki/Carlos_Castaneda
+- **A34** Hearne, K. "Science (including lucid dream research)". https://www.keithhearne.com/science/
+- **A35** The Lucid Guide, "Who really proved lucid dreaming? Hearne vs LaBerge" (secondary synthesis with primary references). https://www.thelucidguide.com/post/who-scientifically-proved-lucid-dreaming-hearne-laberge
+- **A36** Hearne, K. M. T. (1978). *Lucid dreams: an electro-physiological and psychological study*. PhD thesis, University of Liverpool. https://doi.org/10.17638/03174691
+- **A37** LaBerge, S. (1980). Lucid dreaming as a learnable skill: a case study. *Perceptual and Motor Skills* 51, 1039-1042.
+- **A38** LaBerge, S., Nagel, L. E., Dement, W. C. and Zarcone, V. P. (1981). Lucid dreaming verified by volitional communication during REM sleep. *Perceptual and Motor Skills* 52(3), 727-732. https://doi.org/10.2466/pms.1981.52.3.727
+- **A39** *Lucidity Letter* archive and history, MacEwan University. https://journals.macewan.ca/lucidity/about
+- **A40** International Association for the Study of Dreams, "A brief history of IASD" and "On our 40th anniversary". https://asdreams.org/a-brief-history-of-iasd/ ; https://www.asdreams.org/?p=4126
+- **A41** Gackenbach, J. and LaBerge, S. (eds) (1988). *Conscious Mind, Sleeping Brain: Perspectives on Lucid Dreaming*. New York: Plenum. Includes Snyder, T. J. and Gackenbach, J., "Individual differences associated with lucid dreaming". https://doi.org/10.1007/978-1-4757-0423-5_10
+- **A42** Wikipedia, "Stephen LaBerge" (pointer to Lucidity Institute pages for PhD 1980, Institute 1987, books, DreamLight and NovaDreamer). https://en.wikipedia.org/wiki/Stephen_LaBerge
+- **A43** LaBerge, S. and Levitan, L. Induction of lucid dreams, including the use of the DreamLight. *Lucidity Letter*. https://journals.macewan.ca/lucidity/article/view/449
+- **A44** Voss, U., Holzmann, R., Tuin, I. and Hobson, J. A. (2009). Lucid dreaming: a state of consciousness with features of both waking and non-lucid dreaming. *Sleep* 32(9), 1191-1200. https://doi.org/10.1093/sleep/32.9.1191
+- **A45** Voss, U., Holzmann, R., Hobson, A., Paulus, W., Koppehele-Gossel, J., Klimke, A. and Nitsche, M. A. (2014). Induction of self awareness in dreams through frontal low current stimulation of gamma activity. *Nature Neuroscience* 17, 810-812. https://doi.org/10.1038/nn.3719
+- **A46** Blanchette-Carriere, C., Dumel, G., Paquette, T. and Nielsen, T. (2020). Attempted induction of signalled lucid dreaming by transcranial alternating current stimulation. *Consciousness and Cognition* 83:102957. https://www.sciencedirect.com/science/article/abs/pii/S1053810019305070
+- **A47** Dresler, M., Wehrle, R., Spoormaker, V. I., Koch, S. P., Holsboer, F., Steiger, A., Obrig, H., Saemann, P. G. and Czisch, M. (2012). Neural correlates of dream lucidity obtained from contrasting lucid versus non-lucid REM sleep: a combined EEG/fMRI case study. *Sleep* 35(7), 1017-1020. https://doi.org/10.5665/sleep.1974
+- **A48** Baird, B., Mota-Rolim, S. A. and Dresler, M. (2019). The cognitive neuroscience of lucid dreaming. *Neuroscience and Biobehavioral Reviews* 100, 305-323. https://doi.org/10.1016/j.neubiorev.2019.03.008
+- **A49** Stumbrys, T., Erlacher, D., Schaedlich, M. and Schredl, M. (2012). Induction of lucid dreams: a systematic review of evidence. *Consciousness and Cognition* 21(3), 1456-1475. https://doi.org/10.1016/j.concog.2012.07.003
+- **A50** Aspy, D. J., Delfabbro, P., Proeve, M. and Mohr, P. (2017). Reality testing and the mnemonic induction of lucid dreams: findings from the National Australian Lucid Dream Induction Study. *Dreaming* 27(3), 206-231. https://doi.org/10.1037/drm0000059
+- **A51** Adventure-Heart, D. J. [Aspy, D. J.] (2020). Findings from the International Lucid Dream Induction Study. *Frontiers in Psychology* 11:1746. https://doi.org/10.3389/fpsyg.2020.01746
+- **A52** LaBerge, S., LaMarca, K. and Baird, B. (2018). Pre-sleep treatment with galantamine stimulates lucid dreaming: a double-blind, placebo-controlled, crossover study. *PLOS ONE* 13(8): e0201246. https://doi.org/10.1371/journal.pone.0201246
+- **A53** Erlacher, D. and Schredl, M. (2010). Practicing a motor task in a lucid dream enhances subsequent performance: a pilot study. *The Sport Psychologist* 24(2), 157-167. https://doi.org/10.1123/tsp.24.2.157
+- **A54** Konkoly, K. R., Appel, K., Chabani, E., Mangiaruga, A., Gott, J., Mallett, R., Caughran, B., Witkowski, S., Whitmore, N. W., Mazurek, C. Y., Berent, J. B., Weber, F. D., Tuerker, B., Leu-Semenescu, S., Maranci, J.-B., Pipa, G., Arnulf, I., Oudiette, D., Dresler, M. and Paller, K. A. (2021). Real-time dialogue between experimenters and dreamers during REM sleep. *Current Biology* 31(7), 1417-1427. https://doi.org/10.1016/j.cub.2021.01.026
+- **A55** Smithsonian Magazine (2014), "Can a headband really help you take control of your dreams?"; iWinks Aurora Kickstarter page; Dream Studies Portal review of Remee and NovaDreamer 2. https://www.smithsonianmag.com/innovation/can-headband-really-help-you-take-control-your-dreams-180950094/ ; https://www.kickstarter.com/projects/iwinks/the-aurora-dream-enhancing-headband ; https://dreamstudies.org/lucid-dreaming-masks-reviewing-the-next-generation/
+- **A56** Mota-Rolim, S. A., Pavlou, A., Nascimento, G. C., Fontenele-Araujo, J. and Ribeiro, S. (2019). Portable devices to induce lucid dreams: are they reliable? *Frontiers in Neuroscience* 13:428. https://doi.org/10.3389/fnins.2019.00428
+- **A57** Vice (2025), "The man bringing lucid dreaming to the masses" (REMspace, Raduga; includes Konkoly's criticism); The Debrief (2024), "Startup claims first-ever two-way dream communication". https://www.vice.com/en/article/lucid-dreaming-tech-michael-raduga-remspace/ ; https://thedebrief.org/lucid-dreaming-breakthrough-startup-claims-first-ever-two-way-dream-communication/
+- **A58** LD4all, "The history of LD4all". https://community.ld4all.com/t/the-history-of-ld4all/30446/1
+- **A59** The Lucid Guide, "Senses Initiated Lucid Dream (SSILD)" and LD4all featured SSILD thread by CosmicIron. https://www.thelucidguide.com/techniques/senses-initiated-lucid-dream-(ssild) ; https://community.ld4all.com/t/senses-initiated-lucid-dream-ssild/36649
+- **A60** Schredl, M. and Erlacher, D. (2011). Frequency of lucid dreaming in a representative German sample. *Perceptual and Motor Skills* 112(1), 104-108. https://doi.org/10.2466/09.PMS.112.1.104-108
+- **A61** Voss, U., Frenzel, C., Koppehele-Gossel, J. and Hobson, A. (2012). Lucid dreaming: an age-dependent brain dissociation. *Journal of Sleep Research* 21(6), 634-642. https://doi.org/10.1111/j.1365-2869.2012.01022.x
+
+## Part B: The science and the evidence
+
+- **B1** Merck Manual Professional Version. Approach to the Patient With a Sleep or Wakefulness Disorder (sleep-stage percentages, cycle length). https://www.merckmanuals.com/professional/neurologic-disorders/sleep-and-wakefulness-disorders/approach-to-the-patient-with-a-sleep-or-wakefulness-disorder
+- **B2** National Heart, Lung, and Blood Institute. How Sleep Works: Sleep Phases and Stages. https://www.nhlbi.nih.gov/health/sleep/stages-of-sleep
+- **B3** Sleep Foundation (reviewed by A. Singh, MD; updated 2025-07-25). Stages of Sleep. https://www.sleepfoundation.org/stages-of-sleep
+- **B4** Brooks PL, Peever JH (2012). Identification of the transmitter and receptor mechanisms responsible for REM sleep paralysis. Journal of Neuroscience 32(29):9785-9795. doi:10.1523/JNEUROSCI.0482-12.2012
+- **B5** Ohayon MM, Priest RG, Caulet M, Guilleminault C (1996). Hypnagogic and hypnopompic hallucinations: pathological phenomena? British Journal of Psychiatry 169(4):459-467. doi:10.1192/bjp.169.4.459
+- **B6** Sharpless BA, Barber JP (2011). Lifetime prevalence rates of sleep paralysis: a systematic review. Sleep Medicine Reviews 15(5):311-315. doi:10.1016/j.smrv.2011.01.007
+- **B7** Denis D, Poerio GL (2017). Terror and bliss? Commonalities and distinctions between sleep paralysis, lucid dreaming, and their associations with waking life experiences. Journal of Sleep Research 26(1):38-47. doi:10.1111/jsr.12441
+- **B8** Buzzi G (2019). False awakenings in lucid dreamers: How they relate with lucid dreams, and how lucid dreamers relate with them. Dreaming 29(4). (Earlier version: International Journal of Dream Research, 2011.) https://www.researchgate.net/publication/338070430
+- **B9** Endo T, Roth C, Landolt HP, et al. (1998). Selective REM sleep deprivation in humans: effects on sleep and sleep EEG. American Journal of Physiology 274(4):R1186-R1194. doi:10.1152/ajpregu.1998.274.4.R1186
+- **B10** Feinberg I, Jones R, Walker JM, et al. (1975). Effects of high dosage delta-9-tetrahydrocannabinol on sleep patterns in man. Clinical Pharmacology and Therapeutics 17(4):458-466. doi:10.1002/cpt1975174458
+- **B11** Gillin JC, Lardon M, Ruiz C, et al. (1994). Dose-dependent effects of transdermal nicotine on early morning awakening and rapid eye movement sleep time in nonsmoking normal volunteers. Journal of Clinical Psychopharmacology 14(4):264-267. doi:10.1097/00004714-199408000-00006
+- **B12** Page F, Coleman G, Conduit R (2006). The effect of transdermal nicotine patches on sleep and dreams. Physiology and Behavior 88(4-5):425-432. doi:10.1016/j.physbeh.2006.04.009
+- **B13** Kunz D, Mahlberg R, Müller C, et al. (2004). Melatonin in patients with reduced REM sleep duration: two randomized controlled trials. Journal of Clinical Endocrinology and Metabolism 89(1):128-134. doi:10.1210/jc.2002-021057
+- **B14** Bolla KI, Lesage SR, Gamaldo CE, et al. (2008). Sleep disturbance in heavy marijuana users. Sleep 31(6):901-908. doi:10.1093/sleep/31.6.901
+- **B15** Baird B, Mota-Rolim SA, Dresler M (2019). The cognitive neuroscience of lucid dreaming. Neuroscience and Biobehavioral Reviews 100:305-323. doi:10.1016/j.neubiorev.2019.03.008
+- **B16** LaBerge SP, Nagel LE, Dement WC, Zarcone VP (1981). Lucid dreaming verified by volitional communication during REM sleep. Perceptual and Motor Skills 52(3):727-732. doi:10.2466/pms.1981.52.3.727
+- **B17** Voss U, Holzmann R, Tuin I, Hobson JA (2009). Lucid dreaming: a state of consciousness with features of both waking and non-lucid dreaming. Sleep 32(9):1191-1200. doi:10.1093/sleep/32.9.1191
+- **B18** Dresler M, Wehrle R, Spoormaker VI, et al. (2012). Neural correlates of dream lucidity obtained from contrasting lucid versus non-lucid REM sleep: a combined EEG/fMRI case study. Sleep 35(7):1017-1020. doi:10.5665/sleep.1974
+- **B19** Dresler M, Koch SP, Wehrle R, et al. (2011). Dreamed movement elicits activation in the sensorimotor cortex. Current Biology 21(21):1833-1837. doi:10.1016/j.cub.2011.09.029
+- **B20** Filevich E, Dresler M, Brick TR, Kühn S (2015). Metacognitive mechanisms underlying lucid dreaming. Journal of Neuroscience 35(3):1082-1088. doi:10.1523/JNEUROSCI.3342-14.2015
+- **B21** Baird B, Castelnovo A, Gosseries O, Tononi G (2018). Frequent lucid dreaming associated with increased functional connectivity between frontopolar cortex and temporoparietal association areas. Scientific Reports 8:17798. doi:10.1038/s41598-018-36190-w
+- **B22** Voss U, Schermelleh-Engel K, Windt J, Frenzel C, Hobson A (2013). Measuring consciousness in dreams: the lucidity and consciousness in dreams scale. Consciousness and Cognition 22(1):8-21. doi:10.1016/j.concog.2012.11.001
+- **B23** Voss U, Holzmann R, Hobson A, et al. (2014). Induction of self awareness in dreams through frontal low current stimulation of gamma activity. Nature Neuroscience 17(6):810-812. doi:10.1038/nn.3719
+- **B24** Blanchette-Carrière C, Julien SH, Picard-Deland C, et al. (2020). Attempted induction of signalled lucid dreaming by transcranial alternating current stimulation. Consciousness and Cognition 83:102957. doi:10.1016/j.concog.2020.102957
+- **B25** Stumbrys T, Erlacher D, Schredl M (2013). Testing the involvement of the prefrontal cortex in lucid dreaming: a tDCS study. Consciousness and Cognition 22(4):1214-1222. doi:10.1016/j.concog.2013.08.005
+- **B26** Siclari F, Baird B, Perogamvros L, et al. (2017). The neural correlates of dreaming. Nature Neuroscience 20(6):872-878. doi:10.1038/nn.4545
+- **B27** Konkoly KR, Appel K, Chabani E, et al. (2021). Real-time dialogue between experimenters and dreamers during REM sleep. Current Biology 31(7):1417-1427.e6. doi:10.1016/j.cub.2021.01.026
+- **B28** Demirel Ç, Gott J, Appel K, et al. (2025). Electrophysiological correlates of lucid dreaming: sensor and source level signatures. Journal of Neuroscience 45(20):e2237242025. doi:10.1523/JNEUROSCI.2237-24.2025
+- **B29** Dodet P, Chavez M, Leu-Semenescu S, Golmard JL, Arnulf I (2015). Lucid dreaming in narcolepsy. Sleep 38(3):487-497. doi:10.5665/sleep.4516
+- **B30** Rak M, Beitinger P, Steiger A, Schredl M, Dresler M (2015). Increased lucid dreaming frequency in narcolepsy. Sleep 38(5):787-792. doi:10.5665/sleep.4676
+- **B31** Mota-Rolim SA, Targino ZH, Souza BC, et al. (2013). Dream characteristics in a Brazilian sample: an online survey focusing on lucid dreaming. Frontiers in Human Neuroscience 7:836. doi:10.3389/fnhum.2013.00836
+- **B32** Saunders DT, Roe CA, Smith G, Clegg H (2016). Lucid dreaming incidence: a quality effects meta-analysis of 50 years of research. Consciousness and Cognition 43:197-215. doi:10.1016/j.concog.2016.06.002
+- **B33** Schredl M, Erlacher D (2011). Frequency of lucid dreaming in a representative German sample. Perceptual and Motor Skills 112(1):104-108. doi:10.2466/09.PMS.112.1.104-108
+- **B34** Stumbrys T, Erlacher D, Schädlich M, Schredl M (2012). Induction of lucid dreams: a systematic review of evidence. Consciousness and Cognition 21(3):1456-1475. doi:10.1016/j.concog.2012.07.003
+- **B35** Tan S, Fan J (2023). A systematic review of new empirical data on lucid dream induction techniques. Journal of Sleep Research 32(3):e13786. doi:10.1111/jsr.13786. (See also Dolgov et al. 2024, International Journal of Medicine and Psychology, for the DEILD/SSILD/Tholey "promising" grouping: https://journals.rcsi.science/2658-3313/article/view/391271)
+- **B36** Tholey P (1983). Techniques for inducing and manipulating lucid dreams. Perceptual and Motor Skills 57(1):79-90. doi:10.2466/pms.1983.57.1.79
+- **B37** Aspy DJ, Delfabbro P, Proeve M, Mohr P (2017). Reality testing and the mnemonic induction of lucid dreams: findings from the national Australian lucid dream induction study. Dreaming 27(3):206-231. doi:10.1037/drm0000059
+- **B38** Aspy DJ (2020). Findings from the International Lucid Dream Induction Study. Frontiers in Psychology 11:1746. doi:10.3389/fpsyg.2020.01746
+- **B39** Erlacher D, Stumbrys T (2020). Wake up, work on dreams, back to bed and lucid dream: a sleep laboratory study. Frontiers in Psychology 11:1383. doi:10.3389/fpsyg.2020.01383
+- **B40** Erlacher D, Furrer V, Ineichen M, Braillard J, Schmid D (2022). Combining wake-up-back-to-bed with cognitive induction techniques: does earlier sleep interruption reduce lucid dream induction rate? Clocks and Sleep 4(2):230-239. doi:10.3390/clockssleep4020021
+- **B41** LaBerge S, Levitan L (1995). Validity established of DreamLight cues for eliciting lucid dreaming. Dreaming 5(3):159-168. doi:10.1037/h0094432
+- **B42** Carr M, Konkoly K, Mallett R, Edwards C, Appel K, Blagrove M (2023; advance online 2020). Combining presleep cognitive training and REM-sleep stimulation in a laboratory morning nap for lucid dream induction. Psychology of Consciousness: Theory, Research, and Practice 10(4):413-430. doi:10.1037/cns0000227
+- **B43** Konkoly KR, Mallett R, et al. (2024). Provoking lucid dreams at home with sensory cues paired with pre-sleep cognitive training. Consciousness and Cognition 125:103759. doi:10.1016/j.concog.2024.103759
+- **B44** Erlacher D, Schmid D, Bischof F, Hammer J, Stumbrys T (2020). Ring, ring, ring... Are you dreaming? Combining acoustic stimulation and reality testing for lucid dream induction: a sleep laboratory study. International Journal of Dream Research 13(2):267-273. https://journals.ub.uni-heidelberg.de/index.php/IJoDR/article/view/74880
+- **B45** Erlacher D, Schmid D, Schuler S, Rasch B (2020). Inducing lucid dreams by olfactory-cued reactivation of reality testing during early-morning sleep: a proof of concept. Consciousness and Cognition 83:102975. doi:10.1016/j.concog.2020.102975
+- **B46** Baird B, Riedner BA, Boly M, Davidson RJ, Tononi G (2019). Increased lucid dream frequency in long-term meditators but not following mindfulness-based stress reduction training. Psychology of Consciousness: Theory, Research, and Practice 6(1):40-54. doi:10.1037/cns0000176
+- **B47** Gackenbach J (2006). Video game play and lucid dreams: implications for the development of consciousness. Dreaming 16(2):96-110. doi:10.1037/1053-0797.16.2.96
+- **B48** Aspy DJ (2016). Is dream recall underestimated by retrospective measures and enhanced by keeping a logbook? An empirical investigation. Consciousness and Cognition 42:181-203. doi:10.1016/j.concog.2016.03.015
+- **B49** Stumbrys T, Erlacher D, Schredl M (2013). Reliability and stability of lucid dream and nightmare frequency scales. International Journal of Dream Research 6(2):123-126. doi:10.11588/ijodr.2013.2.11137
+- **B50** Schredl M, Berres S, Klingauf A, Schellhaas S, Göritz AS (2014). The Mannheim Dream questionnaire (MADRE): retest reliability, age and gender effects. International Journal of Dream Research 7(2):141-147. doi:10.11588/ijodr.2014.2.16675
+- **B51** Snyder TJ, Gackenbach J (1988). Individual differences associated with lucid dreaming. In Gackenbach J, LaBerge S (eds), Conscious Mind, Sleeping Brain. Plenum, New York. doi:10.1007/978-1-4757-0423-5_10
+- **B52** LaBerge S, LaMarca K, Baird B (2018). Pre-sleep treatment with galantamine stimulates lucid dreaming: a double-blind, placebo-controlled, crossover study. PLOS ONE 13(8):e0201246. doi:10.1371/journal.pone.0201246
+- **B53** Sparrow G, Hurd R, Carlson R, Molina A (2018). Exploring the effects of galantamine paired with meditation and dream reliving on recalled dreams: toward an integrated protocol for lucid dream induction and nightmare resolution. Consciousness and Cognition 63:74-88. doi:10.1016/j.concog.2018.05.012
+- **B54** Oldoni AA, Bacchi AD, Mendes FR, Tiba PA, Mota-Rolim S (2024). Neuropsychopharmacological induction of (lucid) dreams: a narrative review. Brain Sciences 14(5):426. doi:10.3390/brainsci14050426
+- **B55** Aspy DJ, Madden NA, Delfabbro P (2018). Effects of vitamin B6 (pyridoxine) and a B complex preparation on dreaming and sleep. Perceptual and Motor Skills 125(3):451-462. doi:10.1177/0031512518770326
+- **B56** Galantamine hydrobromide tablets, US prescribing information (cardiac conduction, syncope, pulmonary, seizure and GI warnings). https://www.drugs.com/pro/galantamine.html
+- **B57** Spoormaker VI, van den Bout J (2006). Lucid dreaming treatment for nightmares: a pilot study. Psychotherapy and Psychosomatics 75(6):389-394. doi:10.1159/000095446
+- **B58** Zadra AL, Pihl RO (1997). Lucid dreaming as a treatment for recurrent nightmares. Psychotherapy and Psychosomatics 66(1):50-55. doi:10.1159/000289106
+- **B59** Holzinger B, Klösch G, Saletu B (2015). Studies with lucid dreaming as add-on therapy to Gestalt therapy. Acta Neurologica Scandinavica 131(6):355-363. doi:10.1111/ane.12362
+- **B60** Holzinger B, Saletu B, Klösch G (2020). Cognitions in sleep: lucid dreaming as an intervention for nightmares in patients with posttraumatic stress disorder. Frontiers in Psychology 11:1826. doi:10.3389/fpsyg.2020.01826
+- **B61** Lancee J, van den Bout J, Spoormaker VI (2010). Expanding self-help imagery rehearsal therapy for nightmares with sleep hygiene and lucid dreaming: a waiting-list controlled trial. International Journal of Dream Research 3(2):111-120. https://journals.ub.uni-heidelberg.de/index.php/IJoDR/article/view/6128
+- **B62** de Macêdo TCF, Ferreira GH, de Almondes KM, Kirov R, Mota-Rolim SA (2019). My dream, my rules: can lucid dreaming treat nightmares? Frontiers in Psychology 10:2618. doi:10.3389/fpsyg.2019.02618
+- **B63** Ouchene R, El Habchi N, Demina A, Petit B, Trojak B (2023). The effectiveness of lucid dreaming therapy in patients with nightmares: a systematic review. L'Encéphale 49(5):525-531. doi:10.1016/j.encep.2023.01.008
+- **B64** Erlacher D, Schredl M (2010). Practicing a motor task in a lucid dream enhances subsequent performance: a pilot study. The Sport Psychologist 24(2):157-167. doi:10.1123/tsp.24.2.157
+- **B65** Stumbrys T, Erlacher D, Schredl M (2016). Effectiveness of motor practice in lucid dreams: a comparison with physical and mental practice. Journal of Sports Sciences 34(1):27-34. doi:10.1080/02640414.2015.1030342
+- **B66** Schädlich M, Erlacher D, Schredl M (2017). Improvement of darts performance following lucid dream practice depends on the number of distractions while rehearsing within the dream: a sleep laboratory pilot study. Journal of Sports Sciences 35(23):2365-2372. doi:10.1080/02640414.2016.1267387
+- **B67** Schädlich M, Erlacher D (2012). Applications of lucid dreams: an online study. International Journal of Dream Research 5(2):134-138. doi:10.11588/ijodr.2012.2.9505
+- **B68** Schredl M, Dyck S, Kühnel A (2020). Lucid dreaming and the feeling of being refreshed in the morning: a diary study. Clocks and Sleep 2(1):54-60. doi:10.3390/clockssleep2010007
+- **B69** Vallat R, Ruby PM (2019). Is it a good idea to cultivate lucid dreaming? Frontiers in Psychology 10:2585. doi:10.3389/fpsyg.2019.02585
+- **B70** Soffer-Dudek N (2020). Are lucid dreams good for us? Are we asking the right question? A call for caution in lucid dream research. Frontiers in Neuroscience 13:1423. doi:10.3389/fnins.2019.01423
+- **B71** Aviram L, Soffer-Dudek N (2018). Lucid dreaming: intensity, but not frequency, is inversely related to psychopathology. Frontiers in Psychology 9:384. doi:10.3389/fpsyg.2018.00384
+- **B72** Mota NB, Resende A, Mota-Rolim SA, Copelli M, Ribeiro S (2016). Psychosis and the control of lucid dreaming. Frontiers in Psychology 7:294. doi:10.3389/fpsyg.2016.00294
+- **B73** Taitz I (2011). Learning lucid dreaming and its effect on depression in undergraduates. International Journal of Dream Research 4(2):117-126. https://journals.ub.uni-heidelberg.de/index.php/IJoDR/article/view/9123
+- **B74** Sackwild L, Stumbrys T (2021). The healing and transformative potential of lucid dreaming for treating clinical depression. International Journal of Dream Research 14(2):296-308. doi:10.11588/ijodr.2021.2.81533
+- **B75** Stumbrys T (2023). Dispelling the shadows of the lucid night: an exploration of potential adverse effects of lucid dreaming. Psychology of Consciousness: Theory, Research, and Practice 10(2):152-163. doi:10.1037/cns0000288
+- **B76** Mallett R, Sowin L, Raider R, Konkoly KR, Paller KA (2022). Benefits and concerns of seeking and experiencing lucid dreams: benefits are tied to successful induction and dream control. Sleep Advances 3(1):zpac027. doi:10.1093/sleepadvances/zpac027
+- **B77** Gott J, Rak M, Bovy L, et al. (2020). Sleep fragmentation and lucid dreaming. Consciousness and Cognition 84:102988. doi:10.1016/j.concog.2020.102988
+- **B78** Tzioridou S, et al. (2025). The clinical neuroscience of lucid dreaming. Neuroscience and Biobehavioral Reviews 169:106011. doi:10.1016/j.neubiorev.2025.106011
+- **B79** Mallett R, et al. (2021). Exploring the range of reported dream lucidity. Philosophy and the Mind Sciences 2. https://philosophymindscience.org/index.php/phimisci/article/view/63
+- **B80** Schadow C, Schredl M, Rieger J, Göritz AS (2018). The relationship between lucid dream frequency and sleep quality: two cross-sectional studies. International Journal of Dream Research 11(2):154-159.
+- **B81** Smith BV, Blagrove M (2015). Lucid dreaming frequency and alarm clock snooze button use. Dreaming 25(4):291-299. doi:10.1037/drm0000012
+- **B82** Blagrove M, Hartnell SJ (2000). Lucid dreaming: associations with internal locus of control, need for cognition and creativity. Personality and Individual Differences 28(1):41-47. doi:10.1016/S0191-8869(99)00078-1
+
+## Part C: Dream signs, dream content, recall and journaling; existing tools
+
+- **C1** LaBerge, S., and Rheingold, H. (1990). *Exploring the World of Lucid Dreaming*. New York: Ballantine Books. Chapters 2-3 (Dreamsign Inventory; Cataloging Your Dreamsigns; Critical State Testing; Reflection-Intention; MILD). ISBN 978-0-345-37410-3.
+- **C2** Levitan, L., and LaBerge, S. (1995). *A Course in Lucid Dreaming*. Palo Alto: The Lucidity Institute, Inc. Unit 1 "Developing Dream Awareness" (Keeping a Dream Journal; Dream Recall Aids and Progress Logs; Exercise 2 Dreamsign Awareness; Dreamsign Awareness Scale).
+- **C3** Tholey, P. (1983). Techniques for inducing and manipulating lucid dreams. *Perceptual and Motor Skills*, 57, 79-90.
+- **C4** Tholey, P. (1989). Overview of the development of lucid dream research in Germany. *Lucidity Letter*, 8(2). https://journals.macewan.ca/lucidity/article/download/399/310/
+- **C5** Hervey de Saint-Denys, M.-J.-L. (1867/1982). *Dreams and How to Guide Them* (trans. N. Fry, ed. M. Schatzman). London: Duckworth. Wikipedia: https://en.wikipedia.org/wiki/Marie-Jean-L%C3%A9on,_Marquis_d%27Hervey_de_Saint_Denys
+- **C5a** Malamud, J. R. (1983). Review of *Dreams and How to Guide Them*. *Lucidity Letter*, 2(2). https://journals.macewan.ca/lucidity/article/download/588/502/1858
+- **C6** van Eeden, F. (1913). A study of dreams. *Proceedings of the Society for Psychical Research*, 26, 431-461.
+- **C6a** Wikipedia, "Lucid dream" (van Eeden diary dates and 352 lucid dreams). https://en.wikipedia.org/wiki/Lucid_dream
+- **C7** Hall, C. S., and Van de Castle, R. L. (1966). *The Content Analysis of Dreams*. New York: Appleton-Century-Crofts.
+- **C8** Domhoff, G. W. "Content analysis explained", The Quantitative Study of Dreams, UCSC. https://dreams.ucsc.edu/Info/content_analysis.html
+- **C8a** Domhoff, G. W. (1999). Article on the Hall/Van de Castle system and norms (sample of 500 male and 500 female dreams), reproduced at https://dreams.ucsc.edu/Library/domhoff_1999a.html
+- **C9** Domhoff, G. W., and Schneider, A. Hall/Van de Castle normative findings. https://dreams.ucsc.edu/Norms/main.html
+- **C9a** Hall/Van de Castle coding rules, web edition published with permission of G. W. Domhoff. https://surrealist.org/dreams/hvdc.html
+- **C10** Schneider, A., and Domhoff, G. W. DreamBank.net (over 20,000 reports; CC BY-NC-SA 4.0). https://dreambank.net/
+- **C11** Domhoff, G. W., and Schneider, A. (2008). Studying dream content using the archive and search engine on DreamBank.net. *Consciousness and Cognition*, 17, 1238-1247.
+- **C12** Domhoff, G. W. (2017). The invasion of the concept snatchers: the origins, distortions, and future of the continuity hypothesis. *Dreaming*, 27(1). https://dreams.ucsc.edu/Library/domhoff_2017.html
+- **C12a** Domhoff, G. W., and Schneider, A. (2020). DreamBank word-string case study of two long dream series (4,329 and 664 reports; "Izzy" and "Jasmine"), *Dreaming*, 30. Linked from https://dreambank.net/ (exact title not retrieved).
+- **C12b** Schredl, M. (2017). Theorizing about the continuity between waking and dreaming: comment on Domhoff (2017). *Dreaming*, 27(4).
+- **C13** Nielsen, T. A., Zadra, A. L., Simard, V., Kuiken, D., Smith, C., Stenstrom, P., and Paquette, T. (2003). The typical dreams of Canadian university students. *Dreaming*, 13(4), 211-235. PDF: https://dreamscience.ca/en/documents/publications/_2003_Nielsen_Reprint_D_13_211-235_TDQ.pdf
+- **C13a** Carr, M. (2014). What are the most common dream themes? *Psychology Today*. https://www.psychologytoday.com/gb/blog/dream-factory/201411/what-are-the-most-common-dream-themes
+- **C14** Schredl, M., Ciric, P., Götz, S., and Wittmann, L. (2004). Typical dreams: stability and gender differences. *Journal of Psychology*, 138(6), 485-494. PMID 15612605.
+- **C16** Friedrich et al. (2025). Typical dream themes in a large internet sample: a replication and extension. *Journal of Sleep Research*. https://onlinelibrary.wiley.com/doi/10.1111/jsr.70476
+- **C17** Gauchat, A., Séguin, J. R., McSween-Cadieux, E., and Zadra, A. (2015). The content of recurrent dreams in young adolescents. *Consciousness and Cognition*, 37, 103-111 (summarises Zadra 1996: 110 adults, 77.3% disturbing, escapes/pursuits 25.9%). https://pmc.ncbi.nlm.nih.gov/articles/PMC4851546
+- **C18** Zadra, A., and Donderi, D. C. (2000). Nightmares and bad dreams: their prevalence and relationship to well-being. *Journal of Abnormal Psychology*, 109(2), 273-281. PMID 10895565.
+- **C19** Robert, G., and Zadra, A. (2014). Thematic and content analysis of idiopathic nightmares and bad dreams. *Sleep*, 37(2), 409-417. PMID 24497669.
+- **C20** Merritt, J. M., Stickgold, R., Pace-Schott, E., Williams, J., and Hobson, J. A. (1994). Emotion profiles in the dreams of men and women. *Consciousness and Cognition*, 3(1), 46-60.
+- **C21** Sikka, P., Valli, K., Virta, T., and Revonsuo, A. (2014). I know how you felt last night, or do I? Self- and external ratings of emotions in REM sleep dreams. *Consciousness and Cognition*, 25, 51-66.
+- **C21a** Sikka, P., Feilhauer, D., Valli, K., and Revonsuo, A. (2017). How you measure is what you get: differences in self- and external ratings of emotional experiences in home dreams. *American Journal of Psychology*, 130(3).
+- **C22** Hobson, J. A., Hoffman, S. A., Helfand, R., and Kostner, D. (1987). Dream bizarreness and the activation-synthesis hypothesis. *Human Neurobiology*, 6, 157-164.
+- **C22a** Revonsuo, A., and Salmivalli, C. (1995). A content analysis of bizarre elements in dreams. *Dreaming*, 5(3), 169-187.
+- **C23** Nielsen, T. A., and Powell, R. A. (1989). The "dream-lag" effect: a 6-day temporal delay in dream content incorporation. *Psychiatric Journal of the University of Ottawa*, 14, 561-565; Nielsen, T. A., and Powell, R. A. (1992). The day-residue and dream-lag effects: a literature review and limited replication of two temporal effects in dream formation. *Dreaming*, 2(2), 67-77.
+- **C24** Blagrove, M., Henley-Einion, J., Barnett, A., Edwards, D., and Seage, C. H. (2011). A replication of the 5-7 day dream-lag effect with comparison of dreams to future events as control for baseline matching. *Consciousness and Cognition*, 20(2), 384-391. https://orca.cardiff.ac.uk/79669/
+- **C24a** Blagrove, M., Fouquet, N. C., Henley-Einion, J. A., Pace-Schott, E. F., Davies, A. C., Neuschaffer, J. L., and Turnbull, O. H. (2011). Assessing the dream-lag effect for REM and NREM stage 2 dreams. *PLoS ONE*, 6(10), e26708. PMID 22046336.
+- **C25** Schredl, M. (2008). Dream recall frequency in a representative German sample. *Perceptual and Motor Skills*, 106(3), 699-702. PMID 18712190.
+- **C26** Schredl, M., and Erlacher, D. (2011). Frequency of lucid dreaming in a representative German sample. *Perceptual and Motor Skills*, 112(1), 104-108. PMID 21466083.
+- **C27** Saunders, D. T., Roe, C. A., Smith, G., and Clegg, H. (2016). Lucid dreaming incidence: a quality effects meta-analysis of 50 years of research. *Consciousness and Cognition*, 43, 197-215. PMID 27337287.
+- **C28** Schredl, M., Wittmann, L., Ciric, P., and Götz, S. (2003). Factors of home dream recall: a structural equation model. *Journal of Sleep Research*, 12(2), 133-141. PMID 12753350.
+- **C28a** Schredl, M. Measuring dream recall frequency with questionnaire scales and diaries: reliability and validity. *International Journal of Dream Research* (Heidelberg); and Schredl's review conclusion that trait factors explain under 10% of variance and that attitude and recall should be measured independently. https://journals.ub.uni-heidelberg.de/index.php/IJoDR
+- **C29** Nielsen, T. A. (2000). A review of mentation in REM and NREM sleep: "covert" REM sleep as a possible reconciliation of two opposing models. *Behavioral and Brain Sciences*, 23, 851-866 (81.9% REM vs 43% NREM recall).
+- **C29a** Stucky, B. (2025). We are the sensors of consciousness! A review and analysis on how awakenings during sleep influence dream recall. *Nature and Science of Sleep*, 17. https://www.ncbi.nlm.nih.gov/pmc/articles/PMC12053782/
+- **C30** Schredl, M. (2002). Questionnaires and diaries as research instruments in dream research: methodological issues. *Dreaming*, 12(1), 17-26 (diary raised recall in low/medium recallers, N = 285).
+- **C30a** Schredl, M. (2025). Four-week dream diary study reporting a logbook enhancement effect (N = 81). *International Journal of Dream Research*. (Located via search; exact title not retrieved.)
+- **C31** Carskadon, M. A., and Dement, W. C. (2011). Normal human sleep: an overview. In Kryger, Roth and Dement (eds), *Principles and Practice of Sleep Medicine*, 5th ed., 16-26. Elsevier.
+- **C32** Aspy, D. J., Delfabbro, P., Proeve, M., and Mohr, P. (2017). Reality testing and the mnemonic induction of lucid dreams: findings from the national Australian lucid dream induction study. *Dreaming*, 27(3), 206-231.
+- **C33** Aspy, D. J. (2020). Findings from the International Lucid Dream Induction Study. *Frontiers in Psychology*, 11, 1746. https://pmc.ncbi.nlm.nih.gov/articles/PMC7379166
+- **C34** Stumbrys, T., Erlacher, D., Schädlich, M., and Schredl, M. (2012). Induction of lucid dreams: a systematic review of evidence. *Consciousness and Cognition*, 21(3), 1456-1475. PMID 22841958.
+- **C35** Voss, U., Schermelleh-Engel, K., Windt, J., Frenzel, C., and Hobson, A. (2013). Measuring consciousness in dreams: the lucidity and consciousness in dreams scale. *Consciousness and Cognition*, 22(1), 8-21. PMID 23220345.
+- **C36** Schredl, M., Fulda, S., and Reinhard, I. (2006). Dream recall and the full moon. *Perceptual and Motor Skills*, 102 (196 participants, 28-111 diary nights, no association). Title and page numbers not independently confirmed.
+- **C37** Mohammad, S. M., and Turney, P. D. (2013). Crowdsourcing a word-emotion association lexicon. *Computational Intelligence*, 29(3), 436-465. Terms of use: https://saifmohammad.com/WebPages/NRC-Emotion-Lexicon.htm
+- **C38** Hutto, C. J., and Gilbert, E. (2014). VADER: a parsimonious rule-based model for sentiment analysis of social media text. ICWSM. Package vaderSentiment 3.3.2, MIT licence: https://pypi.org/project/vaderSentiment/
+- **C39a** Awoken - Lucid Dreaming Tool, Google Play metadata via AppGoblin. https://appgoblin.info/apps/com.lucid_dreaming.awoken
+- **C39b** Lucidity - Lucid Dream Journal (ch.b3nz.lucidity), Google Play metadata via AppGoblin. https://appgoblin.info/apps/ch.b3nz.lucidity
+- **C39c** Laghash (2019). Lucid reviews: Awoken lucid dreaming app. https://laghash.blogspot.com/2019/07/lucid-reviews-awoken-lucid-dreaming-app.html
+- **C39d** Lucidity - Lucid Dreaming (Shane Curtis), App Store. https://apps.apple.com/us/app/id1121048340
+- **C39e** Oniri - Your Dream Journal, App Store (Canada). https://apps.apple.com/ca/app/oniri-your-dream-journal/id968737914
+- **C39f** World of Lucid Dreaming, Oniri review (random-frequency reminders; formerly "Capture"). https://www.world-of-lucid-dreaming.com/oniri-app-review.html
+- **C39g** Elsewhere Dream Journal, App Store. https://apps.apple.com/us/app/id6445864345
+- **C39h** Dream Journal Ultimate, App Store. https://apps.apple.com/us/app/-/id802558054
+- **C39i** DreamWell: Lucid Dreaming, App Store. https://apps.apple.com/us/app/id1560429014
+- **C39j** DreamKeeper - My Dream Journal, App Store. https://apps.apple.com/us/app/-/id530958563
+- **C39k** Luci - Lucid Dream Journal (Sam Ruston), AppFollow listing. https://appfollow.io/android/luci-lucid-dream-journal/com.samruston.luci?country=us
+- **C39l** Dreamboard App, App Store. https://apps.apple.com/gb/app/dreamboard-app/id571848963
+- **C39m** Dream Catcher: Lucid Journal (Snaps Studio AB), AppGoblin. https://appgoblin.info/apps/com.vojtkovszky.dreamcatcher
+- **C39n** World of Lucid Dreaming, Lucid Dreamer app page. https://www.world-of-lucid-dreaming.com/lucid-dreamer-app.html
+- **C39o** HowToLucid: Lucid Dreaming Aid, user reviews. https://justuseapp.com/en/app/1448465177/howtolucid-lucid-dreaming-aid/reviews
+- **C39p** Lucid Reality, user reviews. https://justuseapp.com/en/app/1417122335/lucid-reality/reviews
+- **C39q** MILD Trainer: Lucid Dreaming, App Store. https://apps.apple.com/app/id1530667456
+- **C39r** Reality Check: Lucid Dreams (Oneironaut LLC), App Store. https://apps.apple.com/us/app/-/id6755739747
+- **C40a** BitFlaker/lucidsourcekit (GPL-3.0). https://github.com/BitFlaker/lucidsourcekit
+- **C40b** lucidcode/Lightened-Dream. https://github.com/lucidcode/Lightened-Dream
+- **C40c** FaulknerMassimo/drem. https://github.com/FaulknerMassimo/drem
+- **C40d** shivapkarnekanti-svg/dreamlog. https://github.com/shivapkarnekanti-svg/dreamlog
+- **C40e** Webdreamjournal/DreamJournal. https://github.com/Webdreamjournal/DreamJournal
+- **C40f** mrmaxguns/dream-journal (MIT). https://github.com/mrmaxguns/dream-journal
+- **C40g** wefwa232/dreamy. https://github.com/wefwa232/dreamy
+- **C40h** bleonard252/lucidlog. https://github.com/bleonard252/lucidlog
+- **C40i** emolionl/openlucid. https://github.com/emolionl/openlucid
+- **C40j** Obsidian community plugins "Dream Journal" and "Dream Analyzer". https://community.obsidian.md/plugins/dream-journal ; https://community.obsidian.md/plugins/dream-analyzer
+- **C41** Waggoner, R. (2008). *Lucid Dreaming: Gateway to the Inner Self*. Needham, MA: Moment Point Press / Red Wheel Weiser. ISBN 978-1-930491-14-4.
+- **C41a** Mallett, R., et al. (2021). Exploring the range of reported dream lucidity. *Philosophy and the Mind Sciences*, 2. https://philosophymindscience.org/index.php/phimisci/article/view/8941
+- **C42** Garfield, P. (1974/1995). *Creative Dreaming*. New York: Simon and Schuster. Interview: HowStuffWorks, "On dreams and dreaming". https://health.howstuffworks.com/mental-health/sleep/journal/on-dreams-and-dreaming.htm
+- **C43** Love, D. (2013). *Are You Dreaming? Exploring Lucid Dreams: A Comprehensive Guide*. Enchanted Loom Publishing. Review: https://www.world-of-lucid-dreaming.com/are-you-dreaming-review-daniel-love.html
+- **C44** Morley, C. (2013). *Lucid Dreaming: A Beginner's Guide to Becoming Conscious in Your Dreams*. Hay House (reissued as *Lucid Dreaming Made Easy*; *Dreams of Awakening*, 2013/2024).
+- **C45** Yuschak, T. (2006). *Advanced Lucid Dreaming: The Power of Supplements*. Lulu.
+- **C46** World of Lucid Dreaming. "The four types of dream signs". https://www.world-of-lucid-dreaming.com/dream-signs.html
+- **C47** Griffith, R. M., Miyagi, O., and Tago, A. (1958). The universality of typical dreams: Japanese vs. Americans. *American Anthropologist*, 60, 1173-1179.
+- **C48** Nielsen, T. A., Kuiken, D., Alain, G., Stenstrom, P., and Powell, R. A. (2004). Immediate and delayed incorporations of events into dreams: further replication and implications for dream function. *Journal of Sleep Research*, 13, 327-336.
+- **C49** Cordi, M., Ackermann, S., Bes, F. W., Hartmann, F., Konrad, B. N., Genzel, L., Pawlowski, M., Steiger, A., Schulz, H., Rasch, B., and Dresler, M. (2014). Lunar cycle effects on sleep: no evidence. *Current Biology*, 24(12), R549-R550 (1,265 volunteers, 2,097 nights).
+
+## Part D: Techniques, in-dream skills, traditions and training programmes
+
+- **D1** LaBerge, S. & Rheingold, H. (1990). *Exploring the World of Lucid Dreaming*. New York: Ballantine. ISBN 0-345-37410-X. (Chapters 1-6 and 10 read in full text; chapter 6 also at https://www.dralamountain.org/wp-content/uploads/2014/12/Exploring-the-World-of-Lucid-Dreaming-Chapter-Six.pdf)
+- **D2** LaBerge, S. (1980). Lucid dreaming as a learnable skill: A case study. *Perceptual and Motor Skills*, 51, 1039-1042.
+- **D3** The Lucidity Institute. *Lucid Dreaming Frequently Asked Questions*, sections 3.2.2-3.2.5 and 4.2. http://www.lucidity.com/LucidDreamingFAQ2.html (archived copy consulted).
+- **D4** LaBerge, S., Phillips, L. & Levitan, L. (1994). An hour of wakefulness before morning naps makes lucidity more likely. *NightLight*, 6(3). http://www.lucidity.com/NL63.RU.Naps.html (cites Levitan 1990, 1991; Edelstein & LaBerge 1992; Levitan, LaBerge & Dole 1992; LaBerge 1994 NightLight 6(1)).
+- **D5** Levitan, L. & LaBerge, S. (1995). *A Course in Lucid Dreaming*. Palo Alto: The Lucidity Institute.
+- **D6** Tholey, P. (1983). Techniques for inducing and manipulating lucid dreams. *Perceptual and Motor Skills*, 57, 79-90. https://doi.org/10.2466/pms.1983.57.1.79
+- **D7** Tholey, P. (1988). Overview of the German research in the field of lucid dreaming. *Lucidity Letter*, 7(1). https://journals.macewan.ca/lucidity/article/download/804/745/2323
+- **D8** Tholey, P. (1989). Overview of the development of lucid dream research in Germany. *Lucidity Letter*, 8(2), 1-30. https://www.gestalttheory.net/uploads/pdf/archive/Overview_Development_Lucid_Dream_paul_tholey.pdf
+- **D9** Tholey, P. (1989). Consciousness and abilities of dream characters observed during lucid dreaming. *Perceptual and Motor Skills*, 68, 567-578. https://gwern.net/doc/psychology/vision/dream/1989-tholey.pdf
+- **D10** Tholey, P. (1988). A model for lucidity training as a means of self-healing and psychological growth. In J. Gackenbach & S. LaBerge (eds), *Conscious Mind, Sleeping Brain* (pp. 263-287). New York: Plenum.
+- **D11** Aspy, D. J., Delfabbro, P., Proeve, M. & Mohr, P. (2017). Reality testing and the mnemonic induction of lucid dreams: Findings from the national Australian lucid dream induction study. *Dreaming*, 27(3), 206-231. https://doi.org/10.1037/drm0000059
+- **D12** Aspy, D. J. (2020). Findings from the International Lucid Dream Induction Study. *Frontiers in Psychology*, 11, 1746. https://doi.org/10.3389/fpsyg.2020.01746 (PMC7379166)
+- **D13** Erlacher, D. & Stumbrys, T. (2020). Wake up, work on dreams, back to bed and lucid dream: A sleep laboratory study. *Frontiers in Psychology*, 11, 1383. https://doi.org/10.3389/fpsyg.2020.01383 (PMC7332853)
+- **D14** Erlacher, D. et al. (2022). Combining wake-up-back-to-bed with cognitive induction techniques: Does earlier sleep interruption reduce lucid dream induction rate? *Clocks & Sleep*, 4(2). https://pmc.ncbi.nlm.nih.gov/articles/PMC9149976/
+- **D15** Stumbrys, T., Erlacher, D., Schädlich, M. & Schredl, M. (2012). Induction of lucid dreams: A systematic review of evidence. *Consciousness and Cognition*, 21(3), 1456-1475.
+- **D16** Stumbrys, T., Erlacher, D. & Schredl, M. (2016). Effectiveness of motor practice in lucid dreams: a comparison with physical and mental practice. *Journal of Sports Sciences*, 34(1), 27-34. https://pubmed.ncbi.nlm.nih.gov/25846062/
+- **D17** Schädlich, M., Erlacher, D. & Schredl, M. (2017). Improvement of darts performance following lucid dream practice depends on the number of distractions while rehearsing within the dream. *Journal of Sports Sciences*, 35(23), 2365-2372.
+- **D18** Stumbrys, T., Erlacher, D. & Malinowski, P. (2015). Meta-awareness during day and night: The relationship between mindfulness and lucid dreaming. *Imagination, Cognition and Personality*, 34(4), 415-433.
+- **D19** Cosmic Iron (2013, 24 January). SSILD official tutorial 2.0. https://cosmiciron.blogspot.com/2013/01/senses-initiated-lucid-dream-ssild_16.html ; repost: https://community.ld4all.com/t/ssild-2-0-tutorial/38546
+- **D20** KingYoshi (2011, 28 March). All Day Awareness, A DILD Tutorial by KingYoshi. DreamViews. https://www.dreamviews.com/induction-techniques/113253-all-day-awareness-dild-tutorial-kingyoshi.html (archived copy consulted)
+- **D21** Hargarts (2004, 16 July). Finger Induced Lucid Dream (FILD). DreamViews. https://www.dreamviews.com/induction-techniques/4779-finger-induced-lucid-dream-fild.html (archived copy consulted)
+- **D22** Klace (c. 2007). DEILD - Dream Exit Induced Lucid Dream. DreamViews; reproduced on LD4all 5 March 2007. https://community.ld4all.com/t/deild-dream-exit-induced-lucid-dream/24758
+- **D23** Harrison, P. ("Pedro"). VILD - Visually Incubated Lucid Dream. LD4all, "The BIG VILD Topic" https://community.ld4all.com/t/the-big-vild-topic-part-i/8670 ; author's full description archived at https://en.wikibooks.org/wiki/Lucid_Dreaming/Appendices/VILD
+- **D24** Love, D. (2004). Cycle Adjustment Technique (reproduced at https://community.ld4all.com/t/cycle-adjustment-technique/23601); Love, D. (2013). *Are You Dreaming? Exploring Lucid Dreams: A Comprehensive Guide*. Enchanted Loom. ISBN 978-0957497702.
+- **D25** Castaneda, C. (1972). *Journey to Ixtlan: The Lessons of Don Juan*. New York: Simon & Schuster; Castaneda, C. (1993). *The Art of Dreaming*. HarperCollins.
+- **D26** Waggoner, R. (2009). *Lucid Dreaming: Gateway to the Inner Self*. Needham, MA: Moment Point Press. ISBN 978-1930491144.
+- **D27** Barrett, D. (1993). The "Committee of Sleep": A study of dream incubation for problem solving. *Dreaming*, 3(2), 115-122; Barrett, D. (2001). *The Committee of Sleep*. New York: Crown.
+- **D28** Wangyal, T. (1998; rev. ed. 2022). *The Tibetan Yogas of Dream and Sleep*. Ithaca: Snow Lion / Boulder: Shambhala. Author's summaries: https://www.shambhala.com/snowlion_articles/the-tibetan-yogas-of-dream-and-sleep/ and https://www.lionsroar.com/lucidity-without-limit/ ; course outline https://wisdomexperience.org/courses/dream-yoga/
+- **D29** Norbu, C. N. (1992; rev. ed. 2002). *Dream Yoga and the Practice of Natural Light* (ed. M. Katz). Ithaca: Snow Lion. Publisher excerpt: https://www.shambhala.com/snowlion_articles/dream-yoga-and-the-practice-of-natural-light-3/
+- **D30** Mullin, G. H. (trans.) (2005). *The Six Yogas of Naropa: Tsongkhapa's Commentary*. Ithaca: Snow Lion; Kragh, U. T. (2015) on Gampopa's *Closely Stringed Pearls*; summarised at https://en.wikipedia.org/wiki/Six_Dharmas_of_Naropa
+- **D31** Wallace, B. A. (2012). *Dreaming Yourself Awake: Lucid Dreaming and Tibetan Dream Yoga for Insight and Transformation*. Boston: Shambhala.
+- **D32** Morley, C. (2013; rev. ed. 2024). *Dreams of Awakening: Lucid Dreaming and Mindfulness of Dream and Sleep*. London: Hay House. Workshop description: https://alternatives.org.uk/event/mindfulness-dream-sleep
+- **D33** Holecek, A. (2016). *Dream Yoga: Illuminating Your Life Through Lucid Dreaming and the Tibetan Yogas of Sleep*. Boulder: Sounds True.
+- **D34** Yuschak, T. (2006). *Advanced Lucid Dreaming: The Power of Supplements*. Lulu.
+- **D35** Evans-Wentz, W. Y. (ed.) (1935). *Tibetan Yoga and Secret Doctrines*. Oxford University Press (source of "The Yoga of the Dream State" used by LaBerge).
+- **D36** Ngak'chang Rinpoche (1998). Dream yoga (Aro gTér teaching). https://encyclopaedia.arobuddhism.org/shared/text/d/dream_yoga_ar_eng.php
+- **D37** LaBerge, S., LaMarca, K. & Baird, B. (2018). Pre-sleep treatment with galantamine stimulates lucid dreaming: A double-blind, placebo-controlled, crossover study. *PLoS ONE*, 13(8), e0201246.
+- **D38** Sparrow, G. S. (1976). *Lucid Dreaming: Dawning of the Clear Light*. Virginia Beach: A.R.E. Press (as cited in [1]).
+
