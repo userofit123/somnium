@@ -290,14 +290,7 @@ html.phone { --tabh: 64px; }
 .optb .t { font-weight: 600; }
 .optb .s:not(.btn) { font-size: 12.5px; color: var(--tx2); margin-top: 2px; }
 
-.tick { width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--ol); background: var(--s1); cursor: pointer; display: grid; place-items: center; color: var(--tx2); margin: 0 auto; }
-.tick:disabled { opacity: .35; cursor: not-allowed; }
-.tick.on { background: var(--pos); border-color: transparent; color: var(--bg); }
-.tick.on svg { stroke-width: 2.6; }
 
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13.5px; }
-.kv dt { color: var(--tx2); }
-.kv dd { margin: 0; text-transform: capitalize; }
 .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ol); margin-bottom: var(--spg); overflow-x: auto; scrollbar-width: none; }
 .tabs button { border: 0; background: none; padding: 10px 14px; font-size: 14px; color: var(--tx2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-weight: 500; }
 .tabs button.on { color: var(--tx); border-bottom-color: var(--acc); font-weight: 600; }
@@ -332,8 +325,6 @@ html.phone .cal .dots i.plan { background: none; border: 1px solid var(--ec, var
 .chart .cbar[data-dim] { fill: color-mix(in srgb, var(--acc) 75%, transparent); }
 .chart .goal { stroke: var(--tx2); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
 .ctip { position: absolute; pointer-events: none; background: var(--tx); color: var(--bg); padding: 6px 9px; border-radius: 9px; font-size: 12px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); z-index: 5; }
-.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; overflow-x: auto; padding-bottom: 4px; }
-.heat i { width: 11px; height: 11px; border-radius: 3px; background: var(--s2); }
 
 /* progress bars */
 .pbar { height: 8px; border-radius: 8px; background: var(--s2); overflow: hidden; }
@@ -347,11 +338,6 @@ html.phone .cal .dots i.plan { background: none; border: 1px solid var(--ec, var
 .auth .logo { margin: 0; }
 .err { color: var(--neg); font-size: 13px; margin: 6px 0 10px; }
 
-/* keypad sheet (phone number entry) */
-.kp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.kp button { height: 54px; border-radius: 14px; border: 0; background: var(--s2); font-size: 22px; font-weight: 500; cursor: pointer; font-variant-numeric: tabular-nums; }
-.kp button.k2 { background: var(--s1); font-size: 15px; }
-.kpv { font-size: 40px; font-weight: 600; text-align: center; padding: 6px 0 12px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
 .step { display: flex; align-items: center; gap: 8px; }
 
 @media (max-width: 860px) { .ph .acts .btn:not(.keep) { display: none; } }
@@ -381,22 +367,16 @@ html.phone .grid.g4 .stat .val { font-size: clamp(24px, 7.4vw, var(--fs-val)); w
 .chips.hscroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
 html:not(.phone) .chips.hscroll { margin-inline: 0; padding-inline: 0; flex-wrap: wrap; }
 .chips.hscroll::-webkit-scrollbar { display: none; }
-.leaflet-control-attribution { font-size: 10px !important; }
 /* form rows wrap on narrow screens instead of squeezing dates and times */
 .frow { flex-wrap: wrap; }
 .frow > * { flex: 1 1 140px; }
 /* a setting row with a control: the label keeps at least ~half the row, the control gives way */
 .li > .grow { min-width: 42%; }
 .li > select, .li > .fpick, .li > input:not([type=checkbox]) { flex: 0 1 auto; min-width: 0; max-width: 56%; }
-main.withbar { padding-bottom: calc(120px + var(--sb)); }
-main.withbar2 { padding-bottom: calc(190px + var(--sb)); }
-main.withbar3 { padding-bottom: calc(260px + var(--sb)); }
 /* inside a card, toggles line up with list rows */
 .card .tgl { padding-inline: 4px; }
 .rcard { display: flex; flex-direction: column; }
 html.phone .tabs button { padding: 10px 11px; }
-/* hides the hairline seams between map tiles at fractional zoom */
-.leaflet-tile-container img { width: 256.5px !important; height: 256.5px !important; }
 .grid.g3.keep { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid.g2.keep { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
@@ -405,10 +385,6 @@ html.phone .tabs button { padding: 10px 11px; }
   border-radius: 999px; background: var(--s2); border: 1px solid var(--ol); color: var(--tx2); font-size: 12.5px; box-shadow: var(--shadow-sheet); pointer-events: none; }
 html[data-nav="mini"]:not(.phone) .syncpill { left: calc(92px + var(--sl)); }
 html.phone .syncpill { left: 50%; translate: -50% 0; bottom: calc(var(--tabh) + var(--sb) + 12px); white-space: nowrap; }
-html.phone .pshell.withbar .syncpill { bottom: calc(var(--tabh) + var(--sb) + 80px); }
-html.phone .pshell.withbar2 .syncpill { bottom: calc(var(--tabh) + var(--sb) + 132px); }
-html.phone .pshell.withbar3 .syncpill { bottom: calc(var(--tabh) + var(--sb) + 184px); }
-html.phone:has(.pshell.withbar2) .tst { bottom: calc(var(--tabh) + 132px + var(--sb)); }
 .sp-enter-active, .sp-leave-active { transition: opacity .25s, transform .25s var(--ease); }
 .sp-enter-from, .sp-leave-to { opacity: 0; transform: translateY(8px); }
 
@@ -463,11 +439,8 @@ html.phone .scr.leaving .sht { animation: up .22s ease-in reverse forwards; }
   }
 }
 /* controls */
-.fchip, .tick, .cal .d, .stt, .qb, .ib, .tabs button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
-.tick:active, .fchip:active, .btn:active, .ib:active, .qb:active { transform: scale(.96); }
-@media (prefers-reduced-motion: no-preference) { .tick.on svg { animation: pop .28s var(--ease); } }
-@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
-.pbar i, .bodymap .m { transition: width .5s var(--ease), fill .4s; }
+.fchip, .cal .d, .stt, .qb, .ib, .tabs button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
+.pbar i { transition: width .5s var(--ease); }
 /* the page tabs' underline glides to the chosen tab (core/segSlide.ts) */
 .tabs { position: relative; }
 .tabs.tsl button.on { border-bottom-color: transparent; }

@@ -12,7 +12,7 @@ export interface MenuItem { label: string; hint?: string; icon?: string; run: ()
 const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; align?: "start" | "end" }>();
 const open = ref(false), pos = ref({ top: 0, left: 0 }), btn = ref<HTMLElement | null>(null), el = ref<HTMLElement | null>(null);
 // on the phone the menu is a bottom sheet over a scrim, so the page stays still behind it; on a computer it is a small popover with
-// no scrim, and locking would shift fixed elements (the add button, minibars) by the scrollbar width on every open
+// no scrim, and locking would shift fixed elements (the add button, bottom bars) by the scrollbar width on every open
 let unlock = () => {};
 async function toggle() {
   open.value = !open.value;

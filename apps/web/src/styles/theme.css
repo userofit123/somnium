@@ -44,7 +44,7 @@ html[data-bg="flat"]::before {
 }
 
 body.outline .card:not(.hero),
-body.outline table:not(.sets),
+body.outline table,
 body.outline .bgrp {
   background: transparent;
   border-width: 1.5px;
@@ -192,18 +192,18 @@ html[data-tex="static"] body::before {
 
 /* ===== surfaces ===== */
 
-body.outline :is(.card,table:not(.sets),.bgrp):not(.hero) {
+body.outline :is(.card,table,.bgrp):not(.hero) {
   background: transparent;
   border-width: 1.5px;
 }
 
 /* raised: a soft edge light on top, a darker edge below, and a shadow that falls behind whatever is underneath */
 
-body.raised :is(.card,table:not(.sets),.bgrp,.jhero,.seg:not(.apseg),.ftools input,.ftools select) {
+body.raised :is(.card,table,.bgrp,.jhero,.seg:not(.apseg),.ftools input,.ftools select) {
   position: relative;
 }
 
-body.raised :is(.card,table:not(.sets),.bgrp):not(.hero) {
+body.raised :is(.card,table,.bgrp):not(.hero) {
   background: linear-gradient(180deg, color-mix(in srgb, #fff 7%, var(--s1)), var(--s1) 60%);
   border-color: color-mix(in srgb, var(--tx) 9%, transparent);
   border-bottom-color: color-mix(in srgb, var(--tx) 17%, transparent);
@@ -211,7 +211,7 @@ body.raised :is(.card,table:not(.sets),.bgrp):not(.hero) {
 }
 
 /* a table keeps one edge colour all round: its rows reach the corners, so a different colour below shows as a straight line that stops where the corner curves */
-:root body.raised table:not(.hero,.sets) {
+:root body.raised table:not(.hero) {
   border-bottom-color: color-mix(in srgb, var(--tx) 9%, transparent);
 }
 
@@ -226,7 +226,7 @@ body.raised .ftools :is(input,select) {
   box-shadow: 0 1px 1px color-mix(in srgb, #000 9%, transparent), 0 4px 10px -6px color-mix(in srgb, #000 35%, transparent);
 }
 
-html[data-mode=dark] body.raised :is(.card,table:not(.sets),.bgrp):not(.hero) {
+html[data-mode=dark] body.raised :is(.card,table,.bgrp):not(.hero) {
   background: linear-gradient(180deg, color-mix(in srgb, #fff 5%, var(--s1)), var(--s1) 60%);
   box-shadow: 0 1px 1px #0006, 0 12px 22px -12px #000c;
 }
@@ -260,11 +260,11 @@ html[data-mode=dark] body.glass {
 
 /* blocks in the page: the blurred backdrop sits just behind the block's own colour (a layer, so windows and menus inside still open
    where they should) */
-body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.rkeq) {
+body.glass :is(.card,table,.bgrp,.jhero,.fcard,.rkeq) {
   position: relative;
 }
 
-body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq)::before {
+body.glass :is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq)::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -304,7 +304,7 @@ body.glass :is(.rktip,.trtip) {
 /* filled parts that stand on the page by themselves (tab rows, round buttons, fields) blur what is behind them directly;
    inside a block they need not,
    the block already does */
-body.glass :is(.rkbr,.inf,.exo,.exbox,.exd,.exsamp,.txs-c,.jstat3,.stl,.phs > div,.trstats > div,.jstats > div,.exst > div,.cstn > div,.jfs > div,.wct,.bq,.sinfo,.trex,.trtog,.trleg .lgi,.tcs,.hdemo,.jt,.jct,.kvc,.atile,.phb,.phl,.txs2,.rule,.wnc,input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,.fpick,.ftools select):not(:is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq,.sheet,.pop,.askb,.help,.rcal,.dvbox,.tsug,.ddm,.cmenu,.toast,.sugb) *) {
+body.glass :is(.rkbr,.inf,.exo,.exbox,.exd,.exsamp,.txs-c,.jstat3,.stl,.phs > div,.trstats > div,.jstats > div,.exst > div,.cstn > div,.jfs > div,.wct,.bq,.sinfo,.trex,.trtog,.trleg .lgi,.tcs,.hdemo,.jt,.jct,.kvc,.atile,.phb,.phl,.txs2,.rule,.wnc,input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,.fpick,.ftools select):not(:is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq,.sheet,.pop,.askb,.help,.rcal,.dvbox,.tsug,.ddm,.cmenu,.toast,.sugb) *) {
   -webkit-backdrop-filter: var(--gfx);
   backdrop-filter: var(--gfx);
 }
@@ -326,12 +326,12 @@ body.glass .jhero {
 }
 
 /* the edge is the same quiet line the other surfaces have (no white rim) */
-body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
+body.glass :is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
   border-color: var(--ol);
   box-shadow: 0 1px 1px color-mix(in srgb, #000 6%, transparent), 0 10px 24px -14px color-mix(in srgb, #000 35%, transparent);
 }
 
-html[data-mode=dark] body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
+html[data-mode=dark] body.glass :is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
   border-color: var(--ol);
   box-shadow: 0 1px 1px #0005, 0 12px 26px -14px #000b;
 }
