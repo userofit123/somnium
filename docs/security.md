@@ -20,6 +20,8 @@ order and page rows; they say nothing on their own.
   (`sealing.ts` → `sealRows`) before they are sent to `/sync/push`.
 - **Pull** (`replica.applyRemote`) and the **first copy** (`replica.loadSnapshot`): what arrives from
   `/sync/pull` or `/sync/snapshot` is opened (`unsealRows`) before it is written to the device's copy.
+- Every request to `/sync/*` says whose copy it comes from (`x-somnium-copy-user`). The server answers 409 under any other
+  session, and the device then sends nothing more and starts over, so one person's rows can't reach another's account.
 - **The direct API** (`sealedApi.ts`, used by `httpTransport` in `apps/web/src/api/client.ts`): when the copy is
   not in use (the first copy still opening, a second tab, no IndexedDB or WebAssembly, a failed first copy), the
   app calls the journal routes itself. Request bodies are sealed before they leave and answers are opened when they
@@ -82,31 +84,60 @@ function (`packages/shared/src/lock.ts`); `apps/web/src/core/lock.ts` feeds it t
   idle time (10 minutes by default; 5, 15 or 30 minutes). It can't be turned off, and a saved value that isn't one of
   the choices falls back to the default.
 - **What locking does:** the data key is zeroed and dropped from memory, the shells and pages are unmounted so no dream
-  is in the page, the query cache with its decrypted answers is emptied, open questions are dismissed, and toasts are
-  dropped. A form with unsaved text is lost with its page.
+  is in the page, the query cache with its decrypted answers is emptied, open questions are dismissed, toasts are
+  dropped, and a question or toast raised later stays away until the next unlock. A session ending does all of this too.
+  A form with unsaved text is lost with its page.
+- **What can remain for a moment after locking:** work that seals or opens rows uses its own copy of the key, one step at
+  a time (a batch of rows in a sync, the first copy's rows, a file, a request's body on the direct path, the slow
+  re-wrap when the password changes). A step already running finishes with its copy, because zeroing it midway would seal
+  rows with zeros; the copy is zeroed as the step ends, and no further step starts. So the key can stay in memory for
+  as long as that one step takes, usually under a second, and with a big first copy or a slow password derivation a few
+  seconds. Sealing a request's body can include the lookup it needs from the server, up to 20 seconds at worst. The
+  other copies wait for no server answer. Text the step has opened stays in JavaScript's memory until it is collected:
+  JavaScript strings can't be zeroed. A request already sent can't be recalled, but its answer isn't opened, and a file
+  that finishes opening after the lock isn't kept. The password itself and Web Crypto's internal copies of keys can't be
+  zeroed either.
 - **System dialogs:** a file picker, the camera or the device's verification takes the app out of sight without the
   person leaving it, so they hold the lock back, for two minutes at most.
 - **Unlocking with the password:** the bundle (salt and wrapped key) is asked of the server when it answers, because the
   password may have changed elsewhere, and otherwise comes from a copy on the device made at sign-in. A successful
   unwrap is the proof, with no round trip needed. With no connection, the password that was current at the last
   contact is the one that works.
-- **Five wrong passwords in a row** sign the device out, which deletes its copy of the journal, including changes that
-  haven't reached the server. The count survives a reload. A cancelled verification or a missing connection isn't a
-  wrong try.
+- **Wrong tries cost time and nothing else.** A wrong password never deletes anything or signs anyone out. After five
+  wrong tries in a row, each further try has to wait: 1 minute, then 5, then 15, then 1 hour for every try after that.
+  The journal stays locked, the screen shows a countdown, and a try during a wait is refused before the password is
+  looked at. The right password starts the count over. Device verification follows the same count when it answers with
+  something that doesn't open the key; a cancelled verification or a missing connection never counts. The count and the
+  time of the last try are stored on the device, so reloading or restarting doesn't skip the wait. A clock moved back
+  counts as still waiting: the whole wait starts over from then, and it ends without moving the clock forward again.
+- **The limits of that wait:** it slows down someone using the app's own lock screen. It runs on the device, so moving
+  the clock forward shortens it and clearing the browser's data resets it. Anyone able to do that already has the
+  browser profile, which holds the plaintext copy (see the limits below) and the wrapped key that could be attacked
+  directly; only the password's strength and Argon2id stand against that.
+- **Signing out** is a choice on the lock screen, and it still deletes this device's copy. If changes haven't reached the
+  server, it says so first.
+- **Two people on one browser:** when someone else signs in, the earlier person's copy is deleted only if it holds nothing
+  unsent. A copy with unsent changes, or one the device can't vouch for, is kept, as are changes queued for that person, and
+  they are sent when that person next signs in and unlocks. Copies are separate per person and nothing of the kept copy is
+  shown or sent under another session. The limit: the kept copy stays on that device, in plaintext, until then, and if
+  that person never comes back it stays there. Anyone with that browser profile can read it with developer tools,
+  including the person who signed in next. Removing it takes signing in as its owner and signing out, or clearing the
+  browser's data, which loses the unsent changes.
 - **After an admin reset** there is no wrapped key, so the lock screen says the journal is sealed until the recovery key
   is entered. That entry comes with LDJ-7; until then the only ways on are signing in again and the screen right after.
 
 **Device verification** (web and PWA) uses a WebAuthn platform authenticator with the PRF extension: after the
 fingerprint, face or screen lock, the authenticator gives 32 secret bytes that wrap the data key, and only the wrapped
-blob is stored on the device. **WebAuthn without PRF can't release a key**: it confirms a presence and nothing more,
+blob is stored on the device, under that person's id: it is never offered to anyone else, and goes when someone else
+signs in here. The same holds for the device's copy of the password bundle. **WebAuthn without PRF can't release a key**: it confirms a presence and nothing more,
 and there would be nothing to open the journal with unless the key were stored unprotected. It never is. On such a
 device the person is told and uses the password. "Use password instead" is always there.
 
 **The desktop and Android apps** unlock with the password for now. WebAuthn refuses the desktop app's
 `http://127.0.0.1` address, and `safeStorage` alone asks for nothing, so keeping the key in it would open the
 journal for whoever clicks (LDJ-10). Android's Keystore and BiometricPrompt are LDJ-9. The desktop window's content
-protection is on by default, with a setting to allow screenshots. Electron applies it on Windows and macOS; on Linux
-it does nothing.
+protection is on by default, with a setting to allow screenshots. It is a request to the system, on Windows and macOS,
+and capture tools may ignore it. On Linux it does nothing, so the setting isn't shown there.
 
 **The honest limits.**
 
@@ -130,9 +161,11 @@ it does nothing.
 
 **When a session ends without signing out** (it expired, or was ended elsewhere), the tab leaves the device's copy at
 once and goes back to the server, and the copy stays closed on the device for the same person's return. If someone
-else signs in on this device first, that copy and that person's queued changes are deleted, unsent ones included:
+else signs in on this device first, that copy goes only if it holds nothing unsent. With unsent changes it stays, closed,
+with that person's queued changes, until they sign in and unlock again (see "Two people on one browser" above):
 a person's plaintext is never read by, nor sent under the session of, the next person (`packages/shared/src/copyOwner.ts`).
 Another tab that sees the session change reloads. Signing out also reloads the page when it has used the copy, because
 PGlite holds its IndexedDB connection for the life of the page and the deletion can only finish once the page lets go.
-When someone else signs in after an ended session, without a reload, the earlier person's copy is unreachable by the app
-at once, and the deletion finishes when that tab next reloads or closes. Until then it is on disk.
+When someone else signs in after an ended session and this page still holds an earlier copy that may go, the copy is
+unreachable by the app at once and the page reloads once, so the deletion really finishes; the person who just signed in
+then unlocks. If another tab still holds it too, it stays on disk until that tab reloads or closes.

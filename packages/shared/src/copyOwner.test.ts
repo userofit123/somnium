@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { copyDecision, leftByOthers } from "./copyOwner";
+import { copyDecision, leftByOthers, leftWithNothingUnsent, ownRecord, unlockRecordName, unlockRecordsToForget } from "./copyOwner";
 
 describe("whose copy a tab may work on", () => {
   it("closes the copy when the session ends (a 401), so the transport leaves it", () => {
@@ -21,5 +21,35 @@ describe("whose copy a tab may work on", () => {
     expect(leftByOthers(names, "/pglite/somnium-r-x-", "bob")).toEqual(["/pglite/somnium-r-x-ann"]);
     expect(leftByOthers(names, "/pglite/somnium-r-x-", "ann")).toEqual(["/pglite/somnium-r-x-bob"]);
     expect(leftByOthers(["/pglite/somnium-r-x-ann"], "/pglite/somnium-r-x-", "ann")).toEqual([]);
+  });
+});
+
+describe("what opens a journal on this device", () => {
+  const PLACE = "https://a.example", other = "https://a.example:8443";
+  const name = (id: string, place = PLACE) => unlockRecordName("somniumDeviceUnlock", place, id);
+
+  it("keeps each person's record under their own name", () => {
+    expect(name("ann")).not.toBe(name("bob"));
+  });
+  it("offers a record only to the person it belongs to", () => {
+    const ann = { owner: "ann", cred: {} };
+    expect(ownRecord(ann, "ann")).toBe(ann);
+    expect(ownRecord(ann, "bob")).toBeNull();
+    expect(ownRecord(ann, null)).toBeNull();
+  });
+  it("offers a record with no owner to nobody", () => {
+    expect(ownRecord<{ owner?: string; cred?: object }>({ cred: {} }, "ann")).toBeNull();
+    expect(ownRecord(null, "ann")).toBeNull();
+  });
+  it("forgets what others left on this server, older unowned records too, and nothing else", () => {
+    const stored = [name("ann"), name("bob"), "somniumDeviceUnlock:" + PLACE, name("cid", other), "somniumUnlock:" + PLACE + "#bob", "somniumTheme"];
+    expect(unlockRecordsToForget(stored, "somniumDeviceUnlock", PLACE, "ann")).toEqual([name("bob"), "somniumDeviceUnlock:" + PLACE]);
+  });
+});
+
+describe("a copy someone else left on this device", () => {
+  const notes: Record<string, string> = { clean: "0", waiting: "3", unknown: "" };
+  it("may go only when it is known to hold nothing unsent", () => {
+    expect(leftWithNothingUnsent(["clean", "waiting", "unknown"], (n) => notes[n]!)).toEqual(["clean"]);
   });
 });

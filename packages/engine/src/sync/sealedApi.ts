@@ -51,6 +51,11 @@ async function rowIdFor(method: string, path: string, body: Row, lookup: Lookup)
   return parts[1] ?? null;
 }
 
+/** A restore's preview, answered on the device: the file holds the whole journal in the clear. */
+export const isImportPreview = (path: string): boolean => clean(path) === "/import/preview";
+/** A file going up: sealed before it leaves. */
+export const isMediaUpload = (path: string): boolean => clean(path) === "/media";
+
 /** A file that says it is sealed is checked, not believed: anything else in its sealed columns would go out in the clear. */
 function refuseUnsealedFile(tables: Record<string, unknown>) {
   const refuse = () => new SealError("This file says it is sealed, but part of it is not. Nothing was sent.");
@@ -65,6 +70,11 @@ function refuseUnsealedFile(tables: Record<string, unknown>) {
   }
 }
 
+function refuseMisshapenTable(rows: unknown) {
+  if (!Array.isArray(rows) || rows.some((row) => !row || typeof row !== "object"))
+    throw new SealError("Part of this file isn't in the form Somnium expects. Nothing was sent.");
+}
+
 /** The body as it may leave the device: a journal row's sealed columns sealed, an import's rows sealed table by table. */
 export async function sealRequest(method: string, path: string, body: unknown, key: Uint8Array, lookup: Lookup): Promise<unknown> {
   if (clean(path) === "/import") {
@@ -73,7 +83,11 @@ export async function sealRequest(method: string, path: string, body: unknown, k
     // a server export restored as it is: already ciphertext
     if (b.data.sealed) { refuseUnsealedFile(b.data.tables); return body; }
     const tables: Record<string, unknown> = {};
-    for (const [t, rows] of Object.entries(b.data.tables)) tables[t] = Array.isArray(rows) ? await sealRows(t, rows as Row[], key) : rows;
+    for (const [t, rows] of Object.entries(b.data.tables)) {
+      // anything else would pass through the sealing untouched, and a table with sealed columns must not go out in the clear
+      if ((SEALED_COLUMNS[t] ?? []).length) refuseMisshapenTable(rows);
+      tables[t] = Array.isArray(rows) ? await sealRows(t, rows as Row[], key) : rows;
+    }
     return { ...b, data: { ...b.data, sealed: true, tables } };
   }
   const route = routeOf(path);

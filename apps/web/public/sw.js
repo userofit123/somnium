@@ -1,7 +1,8 @@
 // Somnium's service worker: makes the web app installable and lets it open without a connection.
 // Pages: the network first, the last copy when offline. Built files (hashed names, never change): from the cache.
 // Your data is not cached here (the app keeps its own copy of it, api/replica.ts); photos are, once seen, so they show
-// offline too. In development nothing is cached at all.
+// offline too. They are as the server holds them, sealed, and signing out deletes them (forgetCachedMedia in
+// api/media.ts). A fetch still on its way at that moment can add one back, sealed like the rest. In development nothing else is cached.
 const CACHE = "somnium-v3";
 const DEV = (p) => p.startsWith("/@") || p.startsWith("/src/") || p.startsWith("/node_modules/") || p.includes("?t=") || p.includes("?v=");
 

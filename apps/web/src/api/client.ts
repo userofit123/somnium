@@ -2,19 +2,24 @@
 // Screens never know which: they call api.get/post/put/del.
 import { ref } from "vue";
 import { sealColumn } from "@somnium/shared";
-import { LockedError, isJournalRoute, openResponse, previewImport, sealRequest, uuidv7 } from "@somnium/engine/sealed-api";
+import { LockedError, isImportPreview, isJournalRoute, isMediaUpload, openResponse, previewImport, sealRequest, uuidv7 } from "@somnium/engine/sealed-api";
 import { keyring } from "../core/keyring";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
-/** wait: how long to wait for an answer before counting it as no connection, in ms (0 = as long as it takes). */
-export interface RequestOptions { wait?: number }
+/** wait: how long to wait for an answer before counting it as no connection, in ms (0 = as long as it takes). headers: on top of the usual ones. */
+export interface RequestOptions { wait?: number; headers?: Record<string, string> }
 export interface Transport { request(method: string, path: string, body?: unknown, opts?: RequestOptions): Promise<unknown> }
 
 /** The server this app talks to ("" = the one it was loaded from) and, in the apps, a bearer token instead of the cookie. */
 export const server = ref<{ base: string; token: string | null }>({ base: "", token: null });
 
 const ANSWER_WAIT = 20_000;
+
+// Moves on when a session begins or ends. A request made under an earlier one may still answer 401 long after the next
+// person has signed in on this tab, and that says nothing about their session.
+let sessionEra = 0;
+export const newSessionEra = () => { sessionEra++; };
 
 const authHeaders = () => {
   const headers: Record<string, string> = { "x-somnium": "1" };
@@ -27,7 +32,8 @@ export const fetchFile = (path: string) => fetch(server.value.base + "/api" + pa
 
 const rawTransport: Transport = {
   async request(method, path, body, opts) {
-    const headers = authHeaders();
+    const askedIn = sessionEra;
+    const headers = { ...authHeaders(), ...opts?.headers };
     let payload: BodyInit | undefined;
     if (body instanceof Blob) { payload = body; headers["content-type"] = body.type || "application/octet-stream"; }
     else if (body !== undefined) { payload = JSON.stringify(body); headers["content-type"] = "application/json"; }
@@ -51,7 +57,7 @@ const rawTransport: Transport = {
     const text = await r.text();
     const data = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : null;
     if (!r.ok) {
-      if (r.status === 401) onUnauthorized();
+      if (r.status === 401 && askedIn === sessionEra) onUnauthorized();
       throw new ApiError(r.status, (data as any)?.error ?? `Request failed (${r.status})`);
     }
     return data;
@@ -64,6 +70,13 @@ let localDevice = false;
 export const setLocalDevice = (on: boolean) => { localDevice = on; };
 export const isLocalDevice = () => localDevice;
 
+/** One step's own copy of the key, zeroed when the step ends: none is held while waiting for the server. */
+async function withKeyCopy<T>(step: (key: Uint8Array) => Promise<T>): Promise<T> {
+  const key = keyring.get();
+  if (!key) throw new LockedError();
+  try { return await step(key); } finally { key.fill(0); }
+}
+
 /**
  * Everything that goes to a server goes through here, so no screen can send a sealed column in the clear, with or
  * without the device's copy in use (packages/engine/src/sync/sealedApi.ts). Without the key, journal requests are
@@ -72,29 +85,32 @@ export const isLocalDevice = () => localDevice;
 export const httpTransport: Transport = {
   async request(method, path, body, opts) {
     if (localDevice) return rawTransport.request(method, path, body, opts);
-    const plainPath = path.split("?")[0];
-    if (method === "POST" && plainPath === "/import/preview") {
+    if (method === "POST" && isImportPreview(path)) {
       const preview = previewImport(body);
       if (!preview) throw new ApiError(400, "This is not a Somnium export");
       return preview;
     }
-    const isUpload = method === "POST" && plainPath === "/media";
+    const isUpload = method === "POST" && isMediaUpload(path);
     if (!isUpload && !isJournalRoute(path)) return rawTransport.request(method, path, body, opts);
-    const key = keyring.get();
-    if (!key) throw new LockedError();
-    try {
-      if (isUpload) {
-        // the file is bound to its row like any sealed value, so the id is made here and sent along
-        const file = body as Blob, id = uuidv7();
-        const sealed = await sealColumn(new Uint8Array(await file.arrayBuffer()), key, "media", "data", id);
-        return await rawTransport.request(method, `${path}${path.includes("?") ? "&" : "?"}id=${id}`, new Blob([sealed], { type: file.type || "application/octet-stream" }), opts);
-      }
-      const out = await sealRequest(method, path, body, key, (p) => rawTransport.request("GET", p));
-      const answer = await rawTransport.request(method, path, method === "GET" || method === "DELETE" ? body : out, opts);
-      const { data, unopened } = await openResponse(path, answer, key);
-      if (unopened) console.warn(`${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened`);
-      return data;
-    } finally { key.fill(0); }
+    if (!keyring.isOpen()) throw new LockedError();
+    const opened = keyring.generation();
+    const stopIfLocked = () => { if (keyring.generation() !== opened) throw new LockedError(); };
+    if (isUpload) {
+      // the file is bound to its row like any sealed value, so the id is made here and sent along
+      const file = body as Blob, id = uuidv7();
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      stopIfLocked();
+      const sealed = await withKeyCopy((key) => sealColumn(bytes, key, "media", "data", id));
+      stopIfLocked();
+      return rawTransport.request(method, `${path}${path.includes("?") ? "&" : "?"}id=${id}`, new Blob([sealed], { type: file.type || "application/octet-stream" }), opts);
+    }
+    const out = await withKeyCopy((key) => sealRequest(method, path, body, key, (p) => rawTransport.request("GET", p)));
+    stopIfLocked();
+    const answer = await rawTransport.request(method, path, method === "GET" || method === "DELETE" ? body : out, opts);
+    stopIfLocked(); // an answer that arrives after the lock stays sealed
+    const { data, unopened } = await withKeyCopy((key) => openResponse(path, answer, key));
+    if (unopened) console.warn(`${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened`);
+    return data;
   },
 };
 

@@ -5,12 +5,12 @@
 // code from the admin (§4.4): a new password, with the journal sealed until a recovery key or signed-in device opens it.
 import { ref, computed } from "vue";
 import { createAccountKeys, openWithEncKey, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
-import { api } from "../api/client";
+import { api, newSessionEra } from "../api/client";
 import { session, loadSession } from "../core/session";
 import { deviceId } from "../core/prefs";
 import { keyring } from "../core/keyring";
 import { keysFor, type SignInKeys } from "../core/auth";
-import { markUnlocked, signedOutReason } from "../core/lock";
+import { markUnlocked } from "../core/lock";
 import { rememberBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
 import { current, setToken } from "../native/accounts";
@@ -24,7 +24,7 @@ if (f.value.invite) mode.value = "register";
 // after the password: the second factor. backup = the code field takes a one-time backup code instead
 const step = ref<"form" | "code" | "forgot" | "reset" | "recovery" | "resetDone">("form");
 const code = ref(""), backup = ref(false);
-const err = ref(signedOutReason()), busy = ref<"" | "unlock" | "send">("");
+const err = ref(""), busy = ref<"" | "unlock" | "send">("");
 // the reset code form, and what comes back: the sentence to show, and the sign-in to finish when it has been read
 const reset = ref({ code: "", password: "" });
 const resetMessage = ref("");
@@ -46,11 +46,12 @@ async function finish(r: any, encKey: Uint8Array | null, dataKey?: Uint8Array) {
     try { keyring.set(opened); } finally { opened.fill(0); } // the keyring has its own copy
   }
   else keyring.clear(); // after an admin reset: signed in, journal sealed until the recovery key or a signed-in device re-wraps it (LDJ-7)
-  // the lock screen opens the journal with this, also without a connection
-  if (r?.kdfSalt) rememberBundle({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword ?? null });
+  newSessionEra(); // a late 401 from the session before says nothing about this one
   markUnlocked(); // the password was just proven: no lock screen straight after signing in
   keys = null; f.value.password = ""; code.value = "";
   await loadSession();
+  // the lock screen opens the journal with this, also without a connection. It is this person's: known only from here on.
+  if (r?.kdfSalt && session.user) rememberBundle({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword ?? null });
 }
 
 async function go() {

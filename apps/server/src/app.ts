@@ -8,7 +8,7 @@ import cookie from "@fastify/cookie";
 import fstatic from "@fastify/static";
 import { createEngine, uuidv7, withUser, type Db, type Engine } from "@somnium/engine";
 import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handlers
-import { isSealed } from "@somnium/shared";
+import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, isSealed } from "@somnium/shared";
 import {
   hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, reserveTry, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
   newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
@@ -383,6 +383,10 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.all("/api/*", async (req, reply) => {
     if (!need(req, reply)) return;
     const url = new URL(req.url, "http://x");
+    // A device's copy belongs to one person. Sent under someone else's session (they signed in while it was opening, or in
+    // another tab) its rows would land in their account. The engine ignores empty path segments, so this does too.
+    if (url.pathname.split("/").filter(Boolean)[1] === "sync" && req.headers[COPY_OWNER_HEADER] !== req.user!.id)
+      return reply.code(COPY_OWNER_REFUSED).send({ error: "This copy belongs to another session" });
     const res = await engine.handle({ method: req.method, path: url.pathname, query: Object.fromEntries(url.searchParams), body: req.body, userId: req.user!.id });
     return reply.code(res.status).send(res.body);
   });

@@ -19,11 +19,11 @@ async function open(id: string): Promise<Blob> {
   if (!r.ok) throw new ApiError(r.status, "Can't get this file");
   const type = r.headers.get("content-type") ?? "application/octet-stream";
   if (isLocalDevice()) return new Blob([await r.arrayBuffer()], { type });
+  const sealed = await r.text();
+  if (!isSealed(sealed)) throw new ApiError(422, "This file can't be opened");
   const key = keyring.get();
   if (!key) throw new LockedError();
   try {
-    const sealed = await r.text();
-    if (!isSealed(sealed)) throw new ApiError(422, "This file can't be opened");
     const bytes = await unsealColumnBytes(sealed, key, "media", "data", id);
     return new Blob([bytes.slice()], { type });
   } finally { key.fill(0); }
@@ -38,7 +38,20 @@ export async function mediaObjectUrl(src: string | null | undefined): Promise<st
   const id = src.startsWith("media:") ? src.slice(6) : src;
   const have = urls.get(id);
   if (have) return have;
-  const url = URL.createObjectURL(await open(id));
+  const file = await open(id);
+  // locked while the file was opening: the lock has already let go of every URL, and a new one would hold the open file past it
+  if (!isLocalDevice() && !keyring.isOpen()) throw new LockedError();
+  const url = URL.createObjectURL(file);
   urls.set(id, url);
   return url;
+}
+
+/** Signing out: the service worker's copies of this person's files go too. They are sealed, but who has what is theirs. */
+export async function forgetCachedMedia() {
+  try {
+    for (const name of await caches.keys()) {
+      const cache = await caches.open(name);
+      for (const r of await cache.keys()) if (new URL(r.url).pathname.startsWith("/api/media/")) await cache.delete(r);
+    }
+  } catch { /* no cache here */ }
 }

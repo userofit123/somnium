@@ -5,58 +5,51 @@
 // toasts). Screens are unmounted by App.vue, so an unsaved form is lost on lock: a page that holds text worth keeping
 // has to save as the person types.
 import { nextTick, reactive, watch } from "vue";
-import { lockSettingsFrom, lockStep, startLockState, type LockEvent, type LockSettings } from "@somnium/shared";
+import { lockSettingsFrom, lockStep, startLockState, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings } from "@somnium/shared";
 import { usingHttp } from "../api/client";
 import { invalidate, queryClient } from "../api/live";
 import { startReplica } from "../api/replica";
-import { asking } from "./ask";
+import { closeQuestions, openQuestions } from "./ask";
 import { keyring } from "./keyring";
-import { readJson, readStr, writeJson, writeStr } from "./prefs";
-import { isLocalAccount, session, signOut } from "./session";
+import { readJson, writeJson } from "./prefs";
+import { isLocalAccount, session } from "./session";
 import { muteToasts } from "./toast";
 
 const SETTINGS = "somniumLock", TRIES = "somniumLockTries";
-const SIGNED_OUT_WHY = "somniumSignedOutWhy";
-/** Why this device was signed out, until the next sign-in. Signing out may reload the page, so it has to outlast that. */
-export const signedOutReason = (): string => readStr(SIGNED_OUT_WHY);
-const readTries = () => { const n = readJson<number>(TRIES, 0); return Number.isInteger(n) && n > 0 ? n : 0; };
 
-let state = startLockState(Date.now(), readTries());
-export const lock = reactive<{ locked: boolean; wrongTries: number; settings: LockSettings }>({
-  locked: true, wrongTries: state.wrongTries, settings: lockSettingsFrom(readJson(SETTINGS, null)),
+let state = startLockState(Date.now(), readJson(TRIES, 0));
+const saveTries = () => writeJson(TRIES, { count: state.wrongTries, lastAt: state.lastWrongAt });
+saveTries(); // a clock found to have gone back is settled here, for the next start too
+/** waitMs: how long until the next try may be made. */
+export const lock = reactive<{ locked: boolean; wrongTries: number; waitMs: number; settings: LockSettings }>({
+  locked: true, wrongTries: state.wrongTries, waitMs: wrongTryWaitLeft(state, Date.now()), settings: lockSettingsFrom(readJson(SETTINGS, null)),
 });
 muteToasts(true);
 
 function dispatch(e: LockEvent) {
-  const was = state.locked;
+  const was = state.locked, triesWere = state.wrongTries, lastWas = state.lastWrongAt;
   const r = lockStep(state, e, lock.settings);
   state = r.state;
   lock.locked = state.locked;
-  if (lock.wrongTries !== state.wrongTries) { lock.wrongTries = state.wrongTries; writeJson(TRIES, state.wrongTries); }
+  lock.wrongTries = state.wrongTries;
+  lock.waitMs = wrongTryWaitLeft(state, e.at);
+  if (triesWere !== state.wrongTries || lastWas !== state.lastWrongAt) saveTries();
   if (r.actions.includes("clearKey")) keyring.clear();
   if (!was && state.locked) onLocked();
-  if (was && !state.locked) muteToasts(false);
-  if (r.actions.includes("signOut")) void signOutAfterWrongTries();
+  if (was && !state.locked) { muteToasts(false); openQuestions(); }
 }
 
 function onLocked() {
   muteToasts(true);
   queryClient.clear();
   // a question left open may name what it is about; every asker treats "no answer" as cancel
-  const open = asking.cur;
-  if (open) { asking.cur = null; open.resolve(open.input || open.choices ? null : false); }
+  closeQuestions();
   // a closing sheet leaves a copy of itself on the page for its animation (components/Sheet.vue): not this time
   void nextTick(() => { for (const ghost of document.querySelectorAll(".scr.leaving")) ghost.remove(); });
 }
 
-async function signOutAfterWrongTries() {
-  writeStr(SIGNED_OUT_WHY, "Signed out after five wrong passwords."); // the sign-in screen says so, also across the reload signing out may need
-  await signOut({ force: true });
-}
-
 /** The password was just proven at sign-in, or the journal just opened on the lock screen. */
 export function markUnlocked() {
-  writeStr(SIGNED_OUT_WHY, "");
   dispatch({ type: "unlocked", at: Date.now() });
   void openCopyIfNone();
   // unlocked while the app was being left (the slow key derivation): the time away starts now
@@ -69,10 +62,28 @@ async function openCopyIfNone() {
   if (!user || !usingHttp() || (await isLocalAccount())) return;
   if (await startReplica(user)) invalidate(["*"]);
 }
+/** The password was right, but the lock screen has one more step before the journal shows: the idle time runs meanwhile. */
+export const keyOpenedOnLockScreen = () => dispatch({ type: "keyOpened", at: Date.now() });
 export const lockNow = () => dispatch({ type: "lock", at: Date.now() });
-export function wrongPassword() {
-  // another tab on this device may have counted some too
-  state = { ...state, wrongTries: Math.max(state.wrongTries, readTries()) };
+// Every tab writes the count as it changes, so what is stored is the truth: another tab may have counted a try, or unlocked.
+function takeStoredTries() {
+  const saved = readJson<unknown>(TRIES, null);
+  if (saved === null) return; // storage refused: this tab's own count stands
+  const t = wrongTriesFrom(saved, Date.now());
+  state = { ...state, wrongTries: t.count, lastWrongAt: t.lastAt };
+  // settled once and written back: taken again from the old value each time, a clock moved back would restart the wait for good
+  if ((saved as { lastAt?: unknown }).lastAt !== t.lastAt) saveTries();
+}
+/** How long until the next try may be made, in ms. Checked before each try, so one made during a wait never looks at the password. */
+export function wrongTryWait(): number {
+  takeStoredTries();
+  lock.wrongTries = state.wrongTries;
+  lock.waitMs = wrongTryWaitLeft(state, Date.now());
+  return lock.waitMs;
+}
+/** A wrong password, or a device verification that answered with the wrong thing. */
+export function wrongTry() {
+  takeStoredTries();
   dispatch({ type: "wrong", at: Date.now() });
 }
 export function setLockSettings(s: Partial<LockSettings>) {
@@ -119,14 +130,15 @@ export function startLock() {
   for (const ev of ["pointerdown", "keydown", "wheel", "touchstart"]) addEventListener(ev, active, { capture: true, passive: true });
   // a hidden tab's timers are slowed down to about one a minute, which only makes the key last that much longer;
   // coming back checks the time itself
-  setInterval(() => dispatch({ type: "tick", at: now() }), 1000);
+  setInterval(() => { takeStoredTries(); dispatch({ type: "tick", at: now() }); }, 1000);
 
-  // whatever ends the session (signing out, the server refusing it), the next one starts locked with a clean count
+  // whatever ends the session (signing out, the server refusing it), the next one starts locked with a clean count,
+  // and nothing of this one stays on the page over the sign-in screen. Toasts and questions stay off until the next unlock.
   watch(() => session.user?.id, (id) => {
     if (id) return;
     state = startLockState(now());
-    lock.locked = true; lock.wrongTries = 0;
-    writeJson(TRIES, 0);
-    muteToasts(false); // the sign-in screen shows nothing from the journal
+    lock.locked = true; lock.wrongTries = 0; lock.waitMs = 0;
+    saveTries();
+    onLocked();
   }, { flush: "sync" });
 }

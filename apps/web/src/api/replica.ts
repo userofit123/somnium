@@ -8,7 +8,8 @@ import { invalidate, setRemoteHandler } from "./live";
 import { readStr, writeStr } from "../core/prefs";
 import { keyring } from "../core/keyring";
 import { needsKey } from "@somnium/engine/sealed-api";
-import { leftByOthers } from "@somnium/shared";
+import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, leftByOthers, leftWithNothingUnsent } from "@somnium/shared";
+import { forgetCachedMedia } from "./media";
 
 // sealed: the journal key is open here, so sealed tables can leave (sealed) and arrive (opened). Without it the pill
 // says "Not syncing · locked": settings, goals and reminders still travel, the journal's rows wait, plaintext never
@@ -64,7 +65,18 @@ export async function eraseCopiesOf(base: string) {
     for (const d of (await (indexedDB as any).databases?.()) ?? []) if (d.name?.startsWith(start)) { await dropDatabase(d.name); writeStr("somniumUnsent:" + d.name.slice(8), "0"); }
   } catch { /* nothing kept */ }
 }
-const http = <T = any>(method: string, path: string, body?: unknown) => httpTransport.request(method, path, body) as Promise<T>;
+/** A request about this copy: it says whose copy it is, and the server refuses it under anyone else's session. */
+const http = <T = any>(owner: string, method: string, path: string, body?: unknown, wait?: number) =>
+  httpTransport.request(method, path, body, { wait, headers: { [COPY_OWNER_HEADER]: owner } }) as Promise<T>;
+const refusedAsNotOwner = (e: unknown) => e instanceof ApiError && e.status === COPY_OWNER_REFUSED;
+/** The server says the session is someone else's now (another tab signed in). A copy still wanted starts over, as the storage event in session.ts does. */
+function sessionMovedOn(mineEra: number) {
+  if (mineEra !== era) return; // already given up: whoever is signed in on this tab carries on undisturbed
+  leaveCopy();
+  location.reload();
+}
+/** Work on a copy stopped between two steps: it was given up, or the journal locked. */
+class Stopped extends Error {}
 
 const transport: Transport = {
   async request(method, path, body, opts) {
@@ -111,16 +123,23 @@ async function openCopy(user: { id: string }, mineEra: number): Promise<boolean>
     db = await pgliteDb(`idb://${name}`);
     eng = await createEngine(db, { mode: "local", seed: false });
     userId = user.id;
+    const goOn = () => { if (mineEra !== era) throw new Stopped(); };
+    goOn();
     if (!(await R.replicaMeta(db)).ready) {
       // the first copy needs the server once, and the key to open it: without the key there is no copy to work on
-      const key = keyring.get();
-      if (!key) { locked(); throw new Error(LOCKED); }
+      if (!keyring.isOpen()) { locked(); throw new Error(LOCKED); }
+      const opened = keyring.generation();
+      goOn();
       // everything you have in one answer: on a big history and a slow connection this takes far longer than an
-      // ordinary request is given
-      try { await R.loadSnapshot(db, await httpTransport.request("GET", "/sync/snapshot", undefined, { wait: 120_000 }), key); }
-      finally { key.fill(0); }
+      // ordinary request is given. No copy of the key while waiting for it: it is taken for the one step that needs it.
+      const snapshot = await http(user.id, "GET", "/sync/snapshot", undefined, 120_000);
+      goOn();
+      const key = keyring.generation() === opened ? keyring.get() : null;
+      if (!key) { locked(); throw new Error(LOCKED); }
+      try { await R.loadSnapshot(db, snapshot, key); } finally { key.fill(0); }
     }
-  } catch {
+  } catch (e) {
+    if (refusedAsNotOwner(e)) sessionMovedOn(mineEra);
     await db?.close().catch(() => {}); db = null; eng = null;
     releaseLock();
     return false;
@@ -131,7 +150,7 @@ async function openCopy(user: { id: string }, mineEra: number): Promise<boolean>
   // when the app was last open (a dream written on another device since, say) and then change again.
   // Bounded, so a slow connection still gets the copy within a few seconds; the sync carries on behind it.
   // Not when the server has just failed to answer (the app is opening offline): the sync below tries again anyway.
-  if (navigator.onLine && sync.online) await Promise.race([run(), new Promise((ok) => setTimeout(ok, 4000))]);
+  if (mineEra === era && navigator.onLine && sync.online) await Promise.race([run(mineEra), new Promise((ok) => setTimeout(ok, 4000))]);
   // given up while opening (the session ended): this must not become the transport of whoever signs in next
   if (mineEra !== era) { await closeCopy(); return false; }
   setTransport(transport);
@@ -155,24 +174,34 @@ async function openCopy(user: { id: string }, mineEra: number): Promise<boolean>
 export function schedule(ms = 400) {
   if (!sync.on) return;
   if (timer) clearTimeout(timer);
-  timer = setTimeout(run, ms);
+  timer = setTimeout(() => void run(era), ms);
 }
 
 /** Send what changed here, then fetch what changed elsewhere. */
-async function run() {
+async function run(mineEra: number) {
   if (running) { again = true; return; }
-  // this sync's own copy of the key, zeroed at the end: locking during a sync can't pull it out from under the sealing.
   // No key: sealed tables can neither be sealed for the server nor opened from it, so only the plain ones travel.
-  const key = keyring.get();
-  if (!key) locked();
+  const keyed = keyring.isOpen(), opened = keyring.generation(), owner = userId;
+  if (!keyed) locked();
   running = true; sync.syncing = true;
+  // Before every step: this copy may have been given up (the session ended, someone else signed in), and a lock or
+  // another sign-in moves the key on. A step already running ends first, but nothing new starts.
+  const goOn = () => { if (mineEra !== era || (keyed && keyring.generation() !== opened)) throw new Stopped(); };
+  // each step that seals or opens has its own copy of the key, zeroed as it ends, so none is held while waiting for the
+  // server. It is never zeroed sooner: rows still being sealed with it would be sealed with zeros.
+  const withKey = async (step: (key: Uint8Array) => Promise<any>): Promise<any> => {
+    goOn();
+    const key = keyring.get();
+    if (!key) throw new Stopped();
+    try { return await step(key); } finally { key.fill(0); }
+  };
   // when the request now in flight began: the grace counts from there, not from the start of a long sync
   let tried = Date.now();
-  const call = <T = any>(method: string, path: string, body?: unknown) => { tried = Date.now(); return http<T>(method, path, body); };
+  const call = <T = any>(method: string, path: string, body?: unknown) => { goOn(); tried = Date.now(); return http<T>(owner, method, path, body); };
   let changed = false, failed = 0;
   try {
     const meta = await R.replicaMeta(db);
-    if (!key) {
+    if (!keyed) {
       for (;;) {
         const out = await R.plainChanges(db);
         if (!out.changes.length) break;
@@ -192,11 +221,12 @@ async function run() {
       return;
     }
     for (;;) {
-      const out = await R.localChanges(db, 500, key); // sealed here, on the way out
+      const out = await withKey((key) => R.localChanges(db, 500, key)); // sealed here, on the way out
       if (!out.changes.length) break;
       const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
+      // before marking them sent: stopped here, they are sent again next time and the server's answer comes again.
+      if (res.rejected.length) { await withKey((key) => R.applyRemote(db, userId, res.rejected, undefined, key)); changed = true; }
       await R.markSent(db, out.upTo);
-      if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected, undefined, key); changed = true; }
       // the server couldn't take some (they no longer fit its data): say so rather than lose them without a word
       if (res.failed?.length) { failed = res.failed.length; console.warn(`Sync: the server refused ${failed} change${failed === 1 ? "" : "s"}`); }
     }
@@ -205,7 +235,7 @@ async function run() {
       const p = await call("GET", `/sync/pull?since=${m.cursor}&device=${encodeURIComponent(m.device)}`);
       // opened here, on the way in. A row that arrived before the row it belongs to is held back and tried again by
       // the engine on every pull, so nothing here has to retry it
-      await R.applyRemote(db, userId, p.changes, p.cursor, key);
+      await withKey((key) => R.applyRemote(db, userId, p.changes, p.cursor, key));
       if (p.changes.length) changed = true;
       if (!p.more) break;
     }
@@ -219,7 +249,9 @@ async function run() {
     ].filter(Boolean).join(" · ");
     Object.assign(sync, { online: true, error: problems, lastAt: Date.now() });
   } catch (e) {
-    if (e instanceof ApiError && e.status === 0) unreachable(tried);
+    if (e instanceof Stopped) { if (!keyring.isOpen() && mineEra === era) locked(); }
+    else if (refusedAsNotOwner(e)) sessionMovedOn(mineEra);
+    else if (e instanceof ApiError && e.status === 0) unreachable(tried);
     else if ((e as Error).name === "LockedError") locked();
     else {
       // the server answered (with an error), so it is reachable: a later network failure gets its own grace
@@ -227,7 +259,6 @@ async function run() {
       sync.error = (e as Error).message;
     }
   } finally {
-    key?.fill(0);
     sync.waiting = await R.waitingCount(db).catch(() => sync.waiting);
     noteUnsent(sync.waiting);
     running = false; sync.syncing = false;
@@ -248,8 +279,10 @@ export function unreachable(since = Date.now()) {
   else schedule(RETRY_WAIT);
 }
 
-// A sync under way holds a copy of the key and writes to this database. It has to end before the database closes and
-// before anyone else can open theirs. It can't go on for long: without a session each of its requests fails.
+// A sync under way writes to this database, and its step in progress may hold a copy of the key. It has to end before the
+// database closes and before anyone else can open theirs. It can't go on for long: once the copy is given up it starts no
+// further step, whoever's session is live now, so what remains is the request or step already under way. The server
+// refuses such a request under anyone else's session.
 async function closeCopy() {
   while (running) await new Promise((ok) => setTimeout(ok, 50));
   again = false;
@@ -280,13 +313,21 @@ export function detachReplica(): Promise<void> {
   return inTurn(async () => { if (wasOn) await closeCopy(); });
 }
 
-/** Someone signed in: copies another person's ended session left on this device go, unsent changes included. */
-export function eraseCopiesLeftByOthers(user: { id: string }): Promise<void> {
+/** Someone signed in: a copy another person's ended session left on this device goes, unless it holds changes the server
+ *  hasn't got. Those wait for that person's next sign-in and unlock, which sends them.
+ *  True when a page still holds one being deleted: that only goes through once the page has reloaded. */
+export function eraseCopiesLeftByOthers(user: { id: string }): Promise<boolean> {
   return inTurn(async () => {
+    let stillHeld = false;
     const prefix = `/pglite/somnium-r-${hash(server.value.base || location.origin)}-`;
     let names: string[] = [];
     try { names = ((await (indexedDB as any).databases?.()) ?? []).map((d: any) => String(d.name)); } catch { /* nothing to list */ }
-    for (const n of leftByOthers(names, prefix, user.id)) { await dropDatabase(n); writeStr("somniumUnsent:" + n.slice(8), "0"); }
+    const left = leftByOthers(names, prefix, user.id);
+    const erase = leftWithNothingUnsent(left, (n) => readStr("somniumUnsent:" + n.slice(8), ""));
+    for (const n of erase) { if (await dropCopy(n)) stillHeld = true; else writeStr("somniumUnsent:" + n.slice(8), "0"); }
+    // a kept copy's photos stay too: they are sealed, and that person may come back offline
+    if (erase.length && erase.length === left.length) await forgetCachedMedia();
+    return stillHeld;
   });
 }
 

@@ -2,7 +2,7 @@
 // column, and the server never holds plaintext from a dream written through a device.
 import { describe, it, expect, beforeAll } from "vitest";
 import { newDataKey, isSealed, sealColumn, unsealColumn, SealError, toBase64url, randomBytes } from "@somnium/shared";
-import { createEngine, replica, SEALED_COLUMNS, SEALED_TABLES, sealRows, unsealRows, isJournalRoute, sealRequest, openResponse, previewImport, LockedError, type Engine, type Change } from "../src/index";
+import { createEngine, replica, SEALED_COLUMNS, SEALED_TABLES, sealRows, unsealRows, isJournalRoute, isImportPreview, isMediaUpload, sealRequest, openResponse, previewImport, LockedError, type Engine, type Change } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { SYNCED } from "../src/sync/tables";
 import { uuidv7 } from "../src/ids";
@@ -384,5 +384,32 @@ describe("the server holds no plaintext", () => {
     await sync(device, deviceId);
     expect(await replica.waitingCount(device.db)).toBe(0);
     expect(isSealed((await server.db.admin.query("SELECT text FROM dreams WHERE id = $1", [dream.id])).rows[0].text)).toBe(true);
+  });
+});
+
+describe("the routes that must not slip past the sealing", () => {
+  const lookup = async () => { throw new Error("no lookup expected"); };
+  it.each(["/import/preview", "/import/preview/", "/import//preview", "//import/preview", "/import/preview?x=1", "/import/x/../preview", "/import/preview#x"])("knows %s as the preview answered on the device", (p) => {
+    expect(isImportPreview(p)).toBe(true);
+  });
+  it.each(["/media", "/media/", "//media", "/media?dreamId=1", "/media/?dreamId=1", "/x/../media"])("knows %s as an upload to seal", (p) => {
+    expect(isMediaUpload(p)).toBe(true);
+  });
+  it("doesn't take other paths for them", () => {
+    expect(isImportPreview("/import")).toBe(false);
+    expect(isMediaUpload("/media/abc")).toBe(false);
+  });
+  it("refuses an unlabelled import whose table with sealed columns isn't a list of rows", async () => {
+    const send = (dreams: unknown) => sealRequest("POST", "/import", { data: { app: "somnium", tables: { dreams } } }, KEY, lookup);
+    await expect(send({ 0: { id: "d", text: "secret" } })).rejects.toBeInstanceOf(SealError);
+    await expect(send("secret dream")).rejects.toBeInstanceOf(SealError);
+    await expect(send(["secret dream"])).rejects.toBeInstanceOf(SealError);
+    await expect(send([null])).rejects.toBeInstanceOf(SealError);
+  });
+  it("leaves a table with nothing sealed alone, whatever its shape", async () => {
+    const plainTable = Object.keys(SEALED_COLUMNS).find((t) => !SEALED_COLUMNS[t]!.length) ?? "not_a_table";
+    const out = await sealRequest("POST", "/import", { data: { app: "somnium", tables: { [plainTable]: { a: 1 } } } }, KEY, lookup) as Rec;
+    expect(out.data.tables[plainTable]).toEqual({ a: 1 });
+    expect(out.data.sealed).toBe(true);
   });
 });

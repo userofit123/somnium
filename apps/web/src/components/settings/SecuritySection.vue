@@ -80,8 +80,9 @@ async function deviceOn() {
 }
 function deviceOff() { turnDeviceOff(); device.value = deviceStatus(); toast("Device verification is off"); }
 
-// the desktop app only: screenshots of the window, blank by default
-const privacy = (globalThis as { somniumNative?: { privacy?: { screenshotsAllowed(): Promise<boolean>; setScreenshotsAllowed(v: boolean): Promise<boolean> } } }).somniumNative?.privacy;
+// the desktop app only: asks the system to leave the window out of screenshots, on by default. Linux has no such request
+// (Electron's setContentProtection does nothing there), so the row isn't offered, and a capture tool can ignore it anywhere.
+const privacy = (globalThis as { somniumNative?: { privacy?: { canAskSystem: boolean; screenshotsAllowed(): Promise<boolean>; setScreenshotsAllowed(v: boolean): Promise<boolean> } } }).somniumNative?.privacy;
 const screenshots = ref(false);
 onMounted(async () => { if (privacy) screenshots.value = await privacy.screenshotsAllowed(); });
 async function toggleScreenshots() { if (privacy) screenshots.value = await privacy.setScreenshotsAllowed(!screenshots.value); }
@@ -103,8 +104,8 @@ function download() {
     <div v-if="localAccount === false" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Device verification</div><div class="s">{{ deviceText }}</div></div>
       <button v-if="device.on" class="qb" @click="deviceOff">Turn off</button>
       <button v-else-if="!isApp && deviceExists && !device.noPrf" class="qb acc" :disabled="busy" @click="deviceOn">Turn on</button></div>
-    <div v-if="privacy" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : "Blocked - screenshots and screen sharing show a blank window" }}</div></div>
-      <button class="qb" @click="toggleScreenshots">{{ screenshots ? "Block" : "Allow" }}</button></div>
+    <div v-if="privacy?.canAskSystem" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : "Asks the system to leave this window out of screenshots and screen sharing. Some capture tools may ignore this." }}</div></div>
+      <button class="qb" @click="toggleScreenshots">{{ screenshots ? "Ask to block" : "Allow" }}</button></div>
   </div>
   <div v-if="localAccount" class="card"><div class="li"><div class="grow"><div class="t">On this device only</div><div class="s">A local account has no password, so the lock screen only hides your journal. It doesn't keep anyone out.</div></div></div></div>
   <template v-else-if="localAccount === false">

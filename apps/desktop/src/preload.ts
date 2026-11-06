@@ -28,6 +28,8 @@ const api = {
     chooser: () => accountCall("accounts:chooser"),
   },
   privacy: {
+    // Electron's content protection is a request to the system, and Linux has nothing to ask
+    canAskSystem: process.platform !== "linux",
     screenshotsAllowed: () => ipcRenderer.invoke("privacy:screenshots"),
     setScreenshotsAllowed: (allow: boolean) => ipcRenderer.invoke("privacy:setScreenshots", allow),
   },

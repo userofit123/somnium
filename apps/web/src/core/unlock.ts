@@ -7,25 +7,33 @@
 //
 // The desktop and Android apps don't use WebAuthn: the desktop app runs from http://127.0.0.1, which WebAuthn refuses,
 // and Android has its own path. Their device verification is LDJ-10 (safeStorage) and LDJ-9 (Keystore, BiometricPrompt).
-import { SealError, fromBase64url, hkdf, openWithDevice, openWithPassword, randomBytes, toBase64url, wrapForDevice } from "@somnium/shared";
+import { SealError, fromBase64url, hkdf, openWithDevice, openWithPassword, ownRecord, randomBytes, toBase64url, unlockRecordName, unlockRecordsToForget, wrapForDevice } from "@somnium/shared";
 import { api, server } from "../api/client";
 import { keyring } from "./keyring";
-import { readJson, writeJson } from "./prefs";
+import { readJson, storedKeys, writeJson } from "./prefs";
+import { session } from "./session";
 
 export interface UnlockBundle { salt: string; wrappedByPassword: string | null }
 interface DeviceCredential { credentialId: string; prfSalt: string; wrapped: string }
 /** This device's verification for this account. noPrf: tried, and this authenticator can't release a key. */
-interface DeviceRecord { off?: boolean; asked?: boolean; noPrf?: boolean; cred?: DeviceCredential }
+interface DeviceRecord { owner?: string; off?: boolean; asked?: boolean; noPrf?: boolean; cred?: DeviceCredential }
 
 const place = () => server.value.base || location.origin;
-const bundleKey = () => "somniumUnlock:" + place();
-const deviceKey = () => "somniumDeviceUnlock:" + place();
-const readDevice = () => readJson<DeviceRecord>(deviceKey(), {});
-const writeDevice = (r: DeviceRecord) => writeJson(deviceKey(), r);
+const BUNDLE = "somniumUnlock", DEVICE = "somniumDeviceUnlock";
+// Both records are per person: the next person on this device must never be offered what opens someone else's journal.
+// That key in their session would seal their rows where they could never open them.
+const me = () => session.user?.id ?? null;
+const readOwn = <T extends { owner?: string }>(kind: string): T | null => {
+  const id = me();
+  return id ? ownRecord(readJson<T | null>(unlockRecordName(kind, place(), id), null), id) : null;
+};
+const writeOwn = (kind: string, r: object, id = me()) => { if (id) writeJson(unlockRecordName(kind, place(), id), { ...r, owner: id }); };
+const readDevice = (): DeviceRecord => readOwn<DeviceRecord>(DEVICE) ?? {};
+const writeDevice = (r: DeviceRecord) => writeOwn(DEVICE, r);
 
 // ----- the password -----
-export const rememberBundle = (b: UnlockBundle) => writeJson(bundleKey(), b);
-export const cachedBundle = () => readJson<UnlockBundle | null>(bundleKey(), null);
+export const rememberBundle = (b: UnlockBundle) => writeOwn(BUNDLE, b);
+export const cachedBundle = () => readOwn<UnlockBundle & { owner?: string }>(BUNDLE);
 
 /** The server's bundle when it answers (the password may have changed elsewhere), this device's copy when it doesn't. */
 export async function freshBundle(): Promise<UnlockBundle | null> {
@@ -54,6 +62,7 @@ const inApp = () => !!(globalThis as { somniumNative?: unknown }).somniumNative;
 const hasDomainName = () => !/^(\d+\.){3}\d+$|^\[/.test(location.hostname);
 // the PRF output is already secret; this only ties it to this one use
 const kekFrom = (prf: ArrayBuffer, prfSalt: Uint8Array) => hkdf(new Uint8Array(prf), prfSalt, "somnium-device-unlock");
+const wipePrf = (prf: ArrayBuffer | null | undefined) => { if (prf) new Uint8Array(prf).fill(0); };
 
 /** Whether this browser has a platform authenticator (Windows Hello, Touch ID, Android screen lock). */
 export async function deviceVerifierExists(): Promise<boolean> {
@@ -81,9 +90,10 @@ async function askPrf(credentialId: Uint8Array, prfSalt: Uint8Array): Promise<Ar
 
 /** Sets it up with the open key. "noPrf": this device can't release a key, so nothing was stored. Throws when cancelled. */
 export async function setUpDevice(username: string): Promise<"on" | "noPrf"> {
-  const dataKey = keyring.get();
-  if (!dataKey) throw new Error("Unlock first");
+  if (!keyring.isOpen()) throw new Error("Unlock first");
+  const owner = me(), opened = keyring.generation();
   const noPrf = () => { writeDevice({ asked: true, noPrf: true }); return "noPrf" as const; };
+  let output: ArrayBuffer | null | undefined, kek: Uint8Array | undefined, dataKey: Uint8Array | null = null;
   try {
     // browsers that can say so in advance spare the person a verification that leads nowhere
     const caps = await (PublicKeyCredential as unknown as { getClientCapabilities?: () => Promise<Record<string, boolean>> }).getClientCapabilities?.().catch(() => null);
@@ -103,14 +113,17 @@ export async function setUpDevice(username: string): Promise<"on" | "noPrf"> {
     const prf = (made.getClientExtensionResults() as { prf?: { enabled?: boolean; results?: { first?: ArrayBuffer } } }).prf;
     const credentialId = new Uint8Array(made.rawId);
     // some authenticators give the output while being made; others only say they can, and need asking once more
-    const output = prf?.results?.first ?? (prf?.enabled ? await askPrf(credentialId, prfSalt) : null);
+    output = prf?.results?.first ?? (prf?.enabled ? await askPrf(credentialId, prfSalt) : null);
     if (!output) return noPrf();
-    const kek = await kekFrom(output, prfSalt);
+    kek = await kekFrom(output, prfSalt);
+    // taken only now: the dialog above can stay open for a minute. The lock or another sign-in may have come meanwhile.
+    dataKey = keyring.generation() === opened && me() === owner ? keyring.get() : null;
+    if (!dataKey) throw new Error("Unlock first");
     const wrapped = await wrapForDevice(dataKey, kek);
-    kek.fill(0);
+    if (keyring.generation() !== opened || me() !== owner) throw new Error("Unlock first");
     writeDevice({ asked: true, cred: { credentialId: toBase64url(credentialId), prfSalt: toBase64url(prfSalt), wrapped } });
     return "on";
-  } finally { dataKey.fill(0); }
+  } finally { dataKey?.fill(0); kek?.fill(0); wipePrf(output); }
 }
 
 /** Opens the journal with the device's verification. Throws when cancelled or when it can't be used any more. */
@@ -120,16 +133,21 @@ export async function unlockWithDevice(): Promise<void> {
   const prfSalt = fromBase64url(cred.prfSalt);
   const output = await askPrf(fromBase64url(cred.credentialId), prfSalt);
   if (!output) throw new Error("This device didn't release the key");
-  const kek = await kekFrom(output, prfSalt);
+  let kek: Uint8Array | undefined;
   try {
+    kek = await kekFrom(output, prfSalt);
     const key = await openWithDevice(cred.wrapped, kek);
     keyring.set(key);
     key.fill(0);
-  } finally { kek.fill(0); }
+  } finally { kek?.fill(0); wipePrf(output); }
 }
 
-/** Signing out leaves nothing that could open the journal here. */
-export function forgetUnlock() {
-  writeJson(bundleKey(), null);
-  writeJson(deviceKey(), null);
+/** Signing out leaves nothing that could open this person's journal here. */
+export function forgetUnlock(userId: string) {
+  writeJson(unlockRecordName(BUNDLE, place(), userId), null);
+  writeJson(unlockRecordName(DEVICE, place(), userId), null);
+}
+/** Someone is signed in: what another person's ended session left on this device goes, older records without an owner too. */
+export function forgetUnlocksOfOthers(userId: string) {
+  for (const kind of [BUNDLE, DEVICE]) for (const n of unlockRecordsToForget(storedKeys(), kind, place(), userId)) writeJson(n, null);
 }

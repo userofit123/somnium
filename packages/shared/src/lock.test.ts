@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCK_SETTINGS, LOCK_HOLD_MAX_MS, MAX_WRONG_TRIES, lockSettingsFrom, lockStep, startLockState, type LockEvent, type LockSettings, type LockState } from "./lock";
+import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
 
 const T0 = 1_000_000;
 const cfg = (delayMs = 0, idleMs = 600_000): LockSettings => ({ delayMs, idleMs });
@@ -100,27 +100,157 @@ describe("app lock", () => {
     expect(lockStep(startLockState(T0), { type: "away", at: T0 + 1 }, cfg()).actions).toEqual(["clearKey"]);
   });
 
-  it("signs out on the fifth wrong try, not before, and a good try starts the count over", () => {
-    let s = startLockState(T0);
-    for (let i = 1; i < MAX_WRONG_TRIES; i++) {
-      const r = lockStep(s, { type: "wrong", at: T0 + i }, cfg());
-      s = r.state;
-      expect(r.actions).toEqual([]);
-      expect(s.wrongTries).toBe(i);
-    }
-    expect(lockStep(s, { type: "wrong", at: T0 + 9 }, cfg()).actions).toEqual(["clearKey", "signOut"]);
-    const good = lockStep(s, { type: "unlocked", at: T0 + 9 }, cfg()).state;
-    expect(good.wrongTries).toBe(0);
-    expect(good.locked).toBe(false);
-  });
-
-  it("counts tries carried over a reload towards the five", () => {
-    expect(lockStep(startLockState(T0, 4), { type: "wrong", at: T0 }, cfg()).actions).toContain("signOut");
-  });
-
   it("ignores saved settings that aren't among the choices, so no value turns the lock off", () => {
     expect(lockSettingsFrom({ delayMs: 86_400_000, idleMs: 0 })).toEqual(DEFAULT_LOCK_SETTINGS);
     expect(lockSettingsFrom(null)).toEqual(DEFAULT_LOCK_SETTINGS);
     expect(lockSettingsFrom({ delayMs: 60_000, idleMs: 300_000 })).toEqual({ delayMs: 60_000, idleMs: 300_000 });
+  });
+
+  describe("with the key open on the lock screen (offering device verification)", () => {
+    const idle = 300_000, c = cfg(0, idle);
+    const offering = (at = T0) => lockStep(startLockState(at), { type: "keyOpened", at }, c).state;
+
+    it("drops the key once idle, and stays locked", () => {
+      expect(lockStep(offering(), { type: "tick", at: T0 + idle - 1 }, c).actions).toEqual([]);
+      const r = lockStep(offering(), { type: "tick", at: T0 + idle }, c);
+      expect(r.actions).toEqual(["clearKey"]);
+      expect(r.state.locked).toBe(true);
+      expect(r.state.keyOpenWhileLocked).toBe(false);
+    });
+    it("asks only once, and a plain lock screen has nothing to drop", () => {
+      const once = lockStep(offering(), { type: "tick", at: T0 + idle }, c).state;
+      expect(lockStep(once, { type: "tick", at: T0 + idle + 1000 }, c).actions).toEqual([]);
+      expect(lockStep(startLockState(T0), { type: "tick", at: T0 + idle * 10 }, c).actions).toEqual([]);
+    });
+    it("counts activity on that step as being here", () => {
+      const moved = lockStep(offering(), { type: "activity", at: T0 + idle - 1 }, c).state;
+      expect(moved.locked).toBe(true);
+      expect(lockStep(moved, { type: "tick", at: T0 + idle + 1 }, c).actions).toEqual([]);
+    });
+    it("doesn't take the first tap after the idle time as being here", () => {
+      expect(lockStep(offering(), { type: "activity", at: T0 + idle }, c).actions).toEqual(["clearKey"]);
+    });
+    it("waits while the device's verification dialog is open", () => {
+      const held = lockStep(offering(), { type: "hold", at: T0 + idle - 1, ms: 60_000 }, c).state;
+      expect(lockStep(held, { type: "tick", at: T0 + idle + 1 }, c).actions).toEqual([]);
+    });
+    it("is over once the journal opens", () => {
+      const s = lockStep(offering(), { type: "unlocked", at: T0 + 1 }, c).state;
+      expect(s.keyOpenWhileLocked).toBe(false);
+      expect(s.locked).toBe(false);
+    });
+    it("drops the key on leaving, and it is not asked for again on the way back", () => {
+      const away = lockStep(offering(), { type: "away", at: T0 + 1 }, c);
+      expect(away.actions).toEqual(["clearKey"]);
+      expect(away.state.keyOpenWhileLocked).toBe(false);
+    });
+  });
+
+  describe("wrong tries cost time, and nothing else", () => {
+    const MIN = 60_000, c = cfg();
+    const wrong = (s: LockState, at: number) => lockStep(s, { type: "wrong", at }, c);
+    /** Wrong tries one after the other, each as soon as it is allowed. Returns the state and the time of the last. */
+    function wrongTries(n: number, from = T0) {
+      let s = startLockState(from), at = from;
+      for (let i = 0; i < n; i++) { at += wrongTryWaitLeft(s, at); s = wrong(s, at).state; }
+      return { s, at };
+    }
+
+    it("waits 1, 5 and 15 minutes after the fifth, then an hour for every try after that", () => {
+      expect([0, 4, 5, 6, 7, 8, 9, 50].map(waitAfterWrongTries)).toEqual([0, 0, MIN, 5 * MIN, 15 * MIN, 60 * MIN, 60 * MIN, 60 * MIN]);
+      expect(WRONG_TRY_WAITS_MS).toHaveLength(4);
+      for (const n of [5, 6, 7, 8, 9]) {
+        const { s, at } = wrongTries(n);
+        expect(s.wrongTries).toBe(n);
+        expect(wrongTryWaitLeft(s, at)).toBe(waitAfterWrongTries(n));
+      }
+    });
+    it("never asks to delete or sign out anything, however many tries", () => {
+      let s = startLockState(T0), at = T0;
+      for (let i = 0; i < 12; i++) {
+        at += wrongTryWaitLeft(s, at);
+        const r = wrong(s, at);
+        expect(r.actions).toEqual([]);
+        expect(r.state.locked).toBe(true);
+        s = r.state;
+      }
+    });
+    it("doesn't count a try made during a wait, nor let it shorten the wait", () => {
+      const { s, at } = wrongTries(5);
+      const r = wrong(s, at + 1000);
+      expect(r.state.wrongTries).toBe(5);
+      expect(r.state.lastWrongAt).toBe(at);
+      expect(wrongTryWaitLeft(r.state, at + MIN)).toBe(0);
+    });
+    it("stays locked through the wait, and has no wait before the fifth", () => {
+      const { s, at } = wrongTries(4);
+      expect(wrongTryWaitLeft(s, at)).toBe(0);
+      const after = lockStep(wrongTries(5).s, { type: "tick", at: T0 + 1000 }, c).state;
+      expect(after.locked).toBe(true);
+    });
+    it("starts over on the right password, also when the lock screen has one more step", () => {
+      const { s, at } = wrongTries(6);
+      const good = lockStep(s, { type: "unlocked", at: at + 1 }, c).state;
+      expect([good.wrongTries, good.lastWrongAt, wrongTryWaitLeft(good, at + 1)]).toEqual([0, null, 0]);
+      const offered = lockStep(s, { type: "keyOpened", at: at + 1 }, c).state;
+      expect([offered.wrongTries, offered.lastWrongAt]).toEqual([0, null]);
+    });
+
+    describe("reloading", () => {
+      /** What the app stores and reads back. */
+      const reload = (s: LockState, at: number) => startLockState(at, JSON.parse(JSON.stringify({ count: s.wrongTries, lastAt: s.lastWrongAt })));
+
+      it("can't skip the wait, however often it happens", () => {
+        const { s, at } = wrongTries(6);
+        let now = at, again = s;
+        for (let i = 0; i < 20; i++) { now += 1000; again = reload(again, now); expect(wrongTryWaitLeft(again, now)).toBe(5 * MIN - (now - at)); }
+        expect(wrong(again, now).state.wrongTries).toBe(6);
+      });
+      it("keeps counting up from where it was", () => {
+        const { s, at } = wrongTries(5);
+        const later = at + MIN;
+        const next = wrong(reload(s, later), later).state;
+        expect(next.wrongTries).toBe(6);
+        expect(wrongTryWaitLeft(reload(next, later), later)).toBe(5 * MIN);
+      });
+      it("waits from now when the time of the last try is missing or spoiled", () => {
+        for (const saved of [5, { count: 5 }, { count: 5, lastAt: "soon" }, { count: 5, lastAt: null }])
+          expect(wrongTryWaitLeft(startLockState(T0, saved), T0)).toBe(MIN);
+      });
+      it("takes nonsense as no wrong tries", () => {
+        for (const saved of [null, undefined, "x", -2, 1.5, {}, { count: "9" }]) expect(wrongTriesFrom(saved, T0)).toEqual({ count: 0, lastAt: null });
+      });
+    });
+
+    describe("a clock moved back", () => {
+      it("is still waiting, for the whole wait", () => {
+        const { s, at } = wrongTries(5);
+        expect(wrongTryWaitLeft(s, at - 3_600_000)).toBe(MIN);
+        expect(wrong(s, at - 3_600_000).state.wrongTries).toBe(5);
+      });
+      it("doesn't need moving forward again: the wait ends a whole wait after it was noticed", () => {
+        const { s, at } = wrongTries(5), back = at - 3_600_000;
+        const noticed = lockStep(s, { type: "tick", at: back }, c).state;
+        expect(noticed.lastWrongAt).toBe(back);
+        expect(wrongTryWaitLeft(noticed, back + MIN - 1)).toBe(1);
+        expect(wrongTryWaitLeft(noticed, back + MIN)).toBe(0);
+      });
+      it("is the same when found on a start", () => {
+        const { s, at } = wrongTries(5), back = at - 3_600_000;
+        const started = startLockState(back, { count: s.wrongTries, lastAt: s.lastWrongAt });
+        expect(started.lastWrongAt).toBe(back);
+        expect(wrongTryWaitLeft(started, back)).toBe(MIN);
+        expect(started.locked).toBe(true);
+      });
+    });
+
+    it("counts a device verification only when it answered with the wrong thing", () => {
+      const named = (name: string) => Object.assign(new Error("x"), { name });
+      expect(deviceFailureCounts(named("SealError"))).toBe(true);
+      for (const e of [named("NotAllowedError"), named("AbortError"), named("TypeError"), new Error("no connection"), null]) expect(deviceFailureCounts(e)).toBe(false);
+    });
+    it("shows the wait plainly, never as nothing while still waiting", () => {
+      expect([1, 999, 60_000, 299_001, 3_600_000, 0].map(formatWait)).toEqual(["0:01", "0:01", "1:00", "5:00", "1:00:00", "0:00"]);
+    });
   });
 });

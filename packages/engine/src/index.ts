@@ -25,7 +25,7 @@ export * as replica from "./sync/replica";
 export type { Change } from "./sync/core";
 export { SEALED_COLUMNS, SEALED_SETTING_KEYS, SEALED_TABLES, isSealedColumn, isSealedSettingKey } from "./sealed";
 export { sealRows, unsealRows, sealChanges, unsealChanges, needsKey, LockedError, BYTES_COLUMNS } from "./sync/sealing";
-export { isJournalRoute, sealRequest, openResponse, previewImport } from "./sync/sealedApi";
+export { isJournalRoute, isImportPreview, isMediaUpload, sealRequest, openResponse, previewImport } from "./sync/sealedApi";
 
 export interface Request { method: string; path: string; query?: Record<string, string>; body?: unknown; userId: string }
 export interface Response { status: number; body: unknown }

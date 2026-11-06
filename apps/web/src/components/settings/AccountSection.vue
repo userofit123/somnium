@@ -52,16 +52,21 @@ async function changePassword() {
   const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
   if (again !== next) { toastError(new Error("The passwords don't match")); return; }
   const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
-  const dataKey = keyring.get();
-  if (!dataKey) { toastError(new Error("This device has not unlocked your journal. Sign out and in again first.")); return; }
+  if (!keyring.isOpen()) { toastError(new Error("This device has not unlocked your journal. Sign out and in again first.")); return; }
+  const opened = keyring.generation();
   try {
     toast("Unlocking...");
     const cur = await keysFor(user.value!.username, current);
-    const bundle = await rewrap(dataKey, next);
+    // locked during that slow step: nothing more happens, and no copy of the key is made
+    const dataKey = keyring.generation() === opened ? keyring.get() : null;
+    if (!dataKey) return;
+    let bundle;
+    try { bundle = await rewrap(dataKey, next); } finally { dataKey.fill(0); }
+    if (keyring.generation() !== opened) return;
     await api.post("/auth/password", { current: cur.authKeyText, authKey: bundle.authKey, kdfSalt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword });
     rememberBundle({ salt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword }); // the lock screen takes the new password from now on
     sessions.refetch(); toast("Password changed. Other devices were signed out.");
-  } catch (e) { toastError(e); } finally { dataKey.fill(0); }
+  } catch (e) { toastError(e); }
 }
 // straight to the server, never queued: without a connection it fails and nothing is deleted.
 // A wrong password leaves you signed in; ask again.

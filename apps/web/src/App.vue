@@ -40,5 +40,6 @@ watch(signedIn, (v) => (v ? startLive() : stopLive()), { immediate: true });
     <Overlays />
   </template>
   <Toasts />
-  <AskHost v-if="!lock.locked || !session.user" />
+  <!-- the account chooser asks its own questions, before anyone is signed in; nothing else may ask until the journal is open -->
+  <AskHost v-if="needAccount || (session.user && !lock.locked)" />
 </template>

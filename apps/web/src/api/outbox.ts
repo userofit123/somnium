@@ -21,8 +21,9 @@ export function openOutbox(place: string, userId: string | null) {
   if (next === key) return;
   key = next;
   waiting.value = key ? readJson<Item[]>(key, []) : [];
-  // someone else signed in here: what an earlier person's ended session left queued goes, like their copy
-  if (userId) for (const k of leftByOthers(storedKeys(), `${OLD_KEY}:${place}:`, userId)) writeJson(k, null);
+  // someone else signed in here: what an earlier person's ended session left queued waits for them, under their name.
+  // Only empty lists go.
+  if (userId) for (const k of leftByOthers(storedKeys(), `${OLD_KEY}:${place}:`, userId)) if (!readJson<Item[]>(k, []).length) writeJson(k, null);
   ended.clear();
   void flush();
 }

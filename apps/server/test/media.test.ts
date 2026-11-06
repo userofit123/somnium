@@ -7,7 +7,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { pgliteDb } from "@somnium/engine/pglite";
 import { uuidv7, type Db } from "@somnium/engine";
-import { isSealed, newDataKey, sealColumn, unsealColumnBytes } from "@somnium/shared";
+import { COPY_OWNER_HEADER, isSealed, newDataKey, sealColumn, unsealColumnBytes } from "@somnium/shared";
 import { buildApp } from "../src/app";
 import { createSession } from "../src/auth";
 
@@ -77,7 +77,7 @@ describe("media", () => {
     const { id } = r.json();
     // the text read off the photo arrives the way a device sends it, through sync, and only sealed
     const row = (await db.admin.query("SELECT to_jsonb(m) AS r FROM media m WHERE id = $1", [id])).rows[0].r;
-    const push = (ocr: string) => app.inject({ method: "POST", url: "/api/sync/push", headers: ann, payload: { device: "d", changes: [{ tbl: "media", pk: { id }, op: "upsert", at: new Date().toISOString(), row: { ...row, ocr_text: ocr } }] } });
+    const push = (ocr: string) => app.inject({ method: "POST", url: "/api/sync/push", headers: { ...ann, [COPY_OWNER_HEADER]: annId }, payload: { device: "d", changes: [{ tbl: "media", pk: { id }, op: "upsert", at: new Date().toISOString(), row: { ...row, ocr_text: ocr } }] } });
     expect((await push(OCR)).statusCode).toBe(400);
     expect((await push(await sealColumn(OCR, KEY, "media", "ocr_text", id))).statusCode).toBe(200);
     expect(isSealed((await db.admin.query("SELECT ocr_text FROM media WHERE id = $1", [id])).rows[0].ocr_text)).toBe(true);
@@ -113,7 +113,7 @@ describe("media", () => {
     for (const p of evil) {
       // a new row that names nothing but a path: there is no file, whatever it says
       const fresh = uuidv7();
-      const made = await app.inject({ method: "POST", url: "/api/sync/push", headers: ann, payload: { device: "d", changes: [{ tbl: "media", pk: { id: fresh }, op: "upsert", at: at(), row: { ...row, id: fresh, path: p } }] } });
+      const made = await app.inject({ method: "POST", url: "/api/sync/push", headers: { ...ann, [COPY_OWNER_HEADER]: annId }, payload: { device: "d", changes: [{ tbl: "media", pk: { id: fresh }, op: "upsert", at: at(), row: { ...row, id: fresh, path: p } }] } });
       expect(made.statusCode).toBe(200);
       expect((await db.admin.query("SELECT path FROM media WHERE id = $1", [fresh])).rows[0].path).toBe(p); // the push did store it
       const got = await get(ann, fresh);
@@ -121,7 +121,7 @@ describe("media", () => {
       expect(got.body).not.toContain("root:");
       expect(got.body).not.toContain(secret);
       // a real row pointed elsewhere still serves only its own file
-      const moved = await app.inject({ method: "POST", url: "/api/sync/push", headers: ann, payload: { device: "d", changes: [{ tbl: "media", pk: { id: realId }, op: "upsert", at: at(), row: { ...row, path: p } }] } });
+      const moved = await app.inject({ method: "POST", url: "/api/sync/push", headers: { ...ann, [COPY_OWNER_HEADER]: annId }, payload: { device: "d", changes: [{ tbl: "media", pk: { id: realId }, op: "upsert", at: at(), row: { ...row, path: p } }] } });
       expect(moved.statusCode).toBe(200);
       const own = await get(ann, realId);
       expect(own.statusCode).toBe(200);

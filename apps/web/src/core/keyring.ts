@@ -9,6 +9,7 @@
 type Listener = (open: boolean) => void;
 
 let current: Uint8Array | null = null;
+let changes = 0;
 const listeners = new Set<Listener>();
 const tell = () => { for (const fn of listeners) { try { fn(current !== null); } catch { /* a listener's problem is its own */ } } };
 
@@ -17,6 +18,8 @@ export const keyring = {
   get(): Uint8Array | null { return current ? new Uint8Array(current) : null; },
   /** Whether the key is open, without making a copy of it. */
   isOpen(): boolean { return current !== null; },
+  /** Moves on whenever the key is set or cleared. Work that spans several steps compares it, and stops when it has moved. */
+  generation(): number { return changes; },
   set(k: Uint8Array): void {
     if (k.length !== 32) throw new Error("A data key is 32 bytes");
     // an all-zero key is a key someone has already wiped: sealing with it would look fine and protect nothing
@@ -24,11 +27,13 @@ export const keyring = {
     const next = new Uint8Array(k); // our own copy: the caller may zero theirs
     current?.fill(0);
     current = next;
+    changes++;
     tell();
   },
   clear(): void {
     if (current) current.fill(0);
     current = null;
+    changes++;
     tell();
   },
   /** Called with whether the key is open whenever it is set or cleared; returns an unsubscribe function. */
