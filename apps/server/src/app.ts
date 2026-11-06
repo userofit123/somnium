@@ -11,7 +11,7 @@ import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handl
 import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, isSealed } from "@somnium/shared";
 import {
   hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, reserveTry, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
-  newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
+  newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, standInRecoverySalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
   useTotp, noteAccount, validDeviceId, ServerKeyError, RESET_MESSAGE, COOKIE, SESSION_DAYS, type SessionUser,
 } from "./auth";
 import { VERSION, API_LEVEL, checkForUpdate } from "./version";
@@ -178,7 +178,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     return { ok: true };
   });
   // the way back in when the password is lost and the admin gave a reset code (PLAN.md §4.4): a new password, but
-  // no wrapped data key - the journal stays sealed until a recovery key or a signed-in device re-wraps it
+  // no wrapped data key - the journal stays sealed until the recovery key re-wraps it (/auth/recovery/finish).
+  // A signed-in device cannot help yet: the reset signs every device out and each forgets the key (LDJ-10).
   app.post("/api/auth/reset", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
@@ -198,6 +199,81 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [u.id]);
     await noteAccount(db, u.id, "Password set with a reset code. Two-factor sign-in is off.");
     return { ok: true, sealed: true, message: RESET_MESSAGE };
+  });
+  // ----- the recovery key (PLAN.md §4.1, §4.4) -----
+  // It wraps the same data key as the password. The server keeps its salt, the wrapped key and a scrypt hash of its
+  // verifier (a second HKDF output, useless for unwrapping); the key itself is made and shown on the device, once.
+  const badRecovery = "The recovery key does not look right. Update the app and try again.";
+  const wrongRecovery = "That recovery key is not right";
+  const validRecovery = (r: any) => validSalt(r?.recoverySalt) && validWrapped(r?.wrappedByRecovery) && validAuthKey(r?.recoveryVerifier);
+  // make or replace it from Settings → Security: needs the password, like every other change to how you get in
+  app.post("/api/auth/recovery-key", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const b = req.body as any;
+    if (!(await recheck(req, reply, b?.authKey))) return;
+    if (!validRecovery(b)) return reply.code(400).send({ error: badRecovery });
+    const had = (await db.admin.query("SELECT recovery_verifier FROM users WHERE id = $1", [req.user!.id])).rows[0]?.recovery_verifier;
+    await db.admin.query("UPDATE users SET recovery_salt = $2, wrapped_by_recovery = $3, recovery_verifier = $4, recovery_made_at = now() WHERE id = $1",
+      [req.user!.id, b.recoverySalt, b.wrappedByRecovery, await hashSecret(b.recoveryVerifier)]);
+    await noteAccount(db, req.user!.id, had ? "Recovery key replaced. The old one no longer works." : "Recovery key made");
+    return { ok: true };
+  });
+  // the salt to derive the verifier from. Like /auth/salt, a name without an account, or without a recovery key, gets
+  // a stand-in that is the same every time, so the answer never says which names exist or have a key.
+  app.get("/api/auth/recovery/salt", async (req, reply) => {
+    const name = String((req.query as any)?.username ?? "").toLowerCase();
+    if (!validUsername(name)) return reply.code(400).send({ error: badName });
+    const u = (await db.admin.query("SELECT recovery_salt FROM users WHERE username = $1 AND recovery_verifier IS NOT NULL", [name])).rows[0];
+    return { recoverySalt: u?.recovery_salt ?? standInRecoverySalt(name, serverKey) };
+  });
+  // Checks a typed key's verifier (counted like a password try) and only then hands over the wrapped data key. A wrong
+  // key, an unknown name and an account without a key all get the same answer after the same slow hash.
+  const checkRecovery = async (req: FastifyRequest, reply: FastifyReply, b: any) => {
+    const name = String(b?.username ?? "").toLowerCase();
+    const release = reserveTry([`ip:${req.ip}`, `u:${name}`]); // the same count as signing in: a name gets five guesses in all, not five per door;
+    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return null; }
+    const u = (await db.admin.query("SELECT id, disabled_at, recovery_salt, wrapped_by_recovery, recovery_verifier, totp_enabled, totp_secret, wrapped_by_password FROM users WHERE username = $1", [name])).rows[0];
+    const ok = await checkSecret(validAuthKey(b?.recoveryVerifier) ? b.recoveryVerifier : "", u?.recovery_verifier ?? null);
+    if (!u || !ok || u.disabled_at) { reply.code(403).send({ error: wrongRecovery }); return null; }
+    return { u, release };
+  };
+  app.post("/api/auth/recovery/open", async (req, reply) => {
+    const c = await checkRecovery(req, reply, req.body);
+    if (!c) return;
+    c.release();
+    return { recoverySalt: c.u.recovery_salt, wrappedByRecovery: c.u.wrapped_by_recovery, totpRequired: !!c.u.totp_enabled };
+  });
+  // The new password and a new recovery key in one step, both made on the device from the opened data key
+  // (changePassword, addRecoveryKey). The old key is used up in the same statement that checks it is still the one
+  // that was verified, so of two uses at once only one wins. With two-factor on, an authenticator or backup code is
+  // needed as well (Money Manager's rule): a recovery key alone does not get past a second factor. Every session ends;
+  // the one asking keeps going (the lock screen, after an admin reset) or a new one starts (the sign-in screen).
+  app.post("/api/auth/recovery/finish", async (req, reply) => {
+    const b = req.body as any;
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt) || !validWrapped(b?.wrappedByPassword) || !validRecovery(b?.next)) return reply.code(400).send({ error: badBundle });
+    const c = await checkRecovery(req, reply, b);
+    if (!c) return;
+    const { u, release } = c;
+    if (u.totp_enabled) {
+      const code = b?.code;
+      if (code === undefined || code === null || code === "") { release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
+      const good = (await useTotp(db, u.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, u.id, code));
+      if (!good) return reply.code(403).send({ error: "That code is not right", totpRequired: true });
+    }
+    const used = await db.admin.query(
+      `UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = $4, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL,
+         recovery_salt = $5, wrapped_by_recovery = $6, recovery_verifier = $7, recovery_made_at = now()
+       WHERE id = $1 AND recovery_verifier = $8 RETURNING id`,
+      [u.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword, b.next.recoverySalt, b.next.wrappedByRecovery, await hashSecret(b.next.recoveryVerifier), u.recovery_verifier]);
+    if (!used.rows.length) return reply.code(403).send({ error: wrongRecovery });
+    release();
+    const keep = req.user && req.user.id === u.id ? req.user.sessionId : null;
+    await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id IS DISTINCT FROM $2", [u.id, keep]);
+    await noteAccount(db, u.id, u.wrapped_by_password
+      ? "Password set with the recovery key. A new recovery key was made and every other device was signed out."
+      : "Journal opened again with the recovery key after a password reset. A new recovery key was made.");
+    const token = keep ? undefined : await signIn(req, reply, u.id, b);
+    return { ok: true, token, kdfSalt: b.kdfSalt, wrappedByPassword: b.wrappedByPassword };
   });
   app.delete("/api/auth/account", async (req, reply) => {
     if (!need(req, reply)) return;

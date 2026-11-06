@@ -2,7 +2,8 @@
 // Server admin: people on this server (invite, disable, reset password, turn two-factor off, make admin, remove), who may
 // sign up, and invites. The server never sees a password (PLAN.md §4.1), so an admin cannot set one: new people
 // join with an invite link, and a lost password gets a one-time reset code. The journal stays sealed after a
-// reset until the person's recovery key or a signed-in device re-wraps the data key (§4.4).
+// reset until the person's recovery key re-wraps the data key (§4.4). A signed-in device cannot: the reset signs
+// every device out and none keeps the key yet (LDJ-10); widen the dialog's promise only when that is built.
 import { useFmt } from "../../core/format";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
@@ -16,7 +17,7 @@ const users = useQuery({ queryKey: ["settings", "admin-users"], queryFn: () => a
 const cfg = useQuery({ queryKey: ["settings", "admin-cfg"], queryFn: () => api.get("/admin/settings") });
 const run = async (fn: () => Promise<unknown>, msg?: string) => { try { await fn(); users.refetch(); cfg.refetch(); if (msg) toast(msg); } catch (e) { toastError(e); } };
 async function reset(u: any) {
-  if (!(await confirm(`Reset the password for ${u.username}?`, { text: "They get a one-time code to choose a new password. Their dreams stay sealed until they use their recovery key or a device that is still signed in.", ok: "Make a reset code" }))) return;
+  if (!(await confirm(`Reset the password for ${u.username}?`, { text: "They get a one-time code to choose a new password. Their dreams stay sealed until they enter their recovery key. Without it, nobody can open them.", ok: "Make a reset code" }))) return;
   try {
     const r = await api.put(`/admin/users/${u.id}`, { resetPassword: true });
     await navigator.clipboard?.writeText(r.resetCode).catch(() => {});

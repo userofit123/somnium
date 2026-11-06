@@ -169,3 +169,23 @@ PGlite holds its IndexedDB connection for the life of the page and the deletion 
 When someone else signs in after an ended session and this page still holds an earlier copy that may go, the copy is
 unreachable by the app at once and the page reloads once, so the deletion really finishes; the person who just signed in
 then unlocks. If another tab still holds it too, it stays on disk until that tab reloads or closes.
+
+## The recovery key
+
+Made on the device in Settings → Security (or straight after sign-up), from the open data key, and shown once:
+20 characters from 31 unambiguous ones. Argon2id over it gives two HKDF keys: one wraps the data key and never
+leaves the device; the other, the verifier, goes to the server and is kept only as a scrypt hash. The server holds
+the salt, the wrapped key and that hash, so it cannot open the journal with what it has.
+
+**Forgot password** (sign-in screen, or the lock screen): the device asks `/api/auth/recovery/salt` (an unknown
+name, or an account without a key, gets a stand-in salt that is the same every time), derives the verifier and sends
+it to `/api/auth/recovery/open`. Only a right verifier gets the wrapped data key back; a wrong key, an unknown name
+and a missing key get the same answer, and every try counts against the same limit as signing in. The device opens
+the data key, re-wraps it under a new password and makes a new recovery key; `/api/auth/recovery/finish` checks the
+verifier again and swaps password and recovery key in one statement bound to the old verifier, so a key works once
+even when two requests race. With two-factor sign-in on, an authenticator or backup code is needed too. Every other
+session ends and the activity log notes it.
+
+**After an admin reset** the password no longer wraps the data key, and the journal is sealed. A reset signs out
+every device and none of them keeps the key, so only the recovery key opens it again (on the lock screen, which
+also comes straight after signing in). Device-held keys that would survive this are LDJ-10.

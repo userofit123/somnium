@@ -4,20 +4,26 @@
 // row each further try waits longer; nothing is ever deleted or signed out for it. Wrong tries are wrong passwords and
 // device verifications that answer with the wrong thing: a cancelled verification or no connection never counts.
 // While a wait runs, a try is refused before the password is looked at.
+// The recovery key (PLAN.md §4.4) opens the journal here too: after an admin reset (the sealed state: no password wraps
+// the data key) and when the password is forgotten. It re-wraps the data key under the password typed with it, makes a
+// new recovery key and signs the other devices out. Wrong keys are counted by the server, like sign-in tries.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import { FREE_WRONG_TRIES, deviceFailureCounts, formatWait } from "@somnium/shared";
+import { FREE_WRONG_TRIES, PASSWORD_MIN, deviceFailureCounts, formatWait, passwordProblem } from "@somnium/shared";
 import { isLocalAccount, session, signOut, unsentChanges } from "../core/session";
 import { keyOpenedOnLockScreen, lock, markUnlocked, whileVerifying, wrongTry, wrongTryWait } from "../core/lock";
 import { keyring } from "../core/keyring";
-import { cachedBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
+import { downloadRecoveryKey, finishRecovery, openRecovery } from "../core/recovery";
+import { cachedBundle, rememberBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
 
-type Step = "loading" | "password" | "device" | "offer" | "noPrf" | "recovery" | "signOut" | "local";
+type Step = "loading" | "password" | "device" | "offer" | "noPrf" | "recovery" | "newKey" | "signOut" | "local";
 const step = ref<Step>("loading");
 const password = ref(""), err = ref(""), busy = ref(false);
 const bundle = ref<UnlockBundle | null>(cachedBundle());
 const canUseDevice = ref(false);
 const pwInput = ref<HTMLInputElement | null>(null);
+const rec = ref({ key: "", password: "", code: "" });
+const totpNeeded = ref(false), newKey = ref(""), saved = ref(false);
 // the server's answer, when it comes, replaces the copy on this device; a try waits for it
 let loaded: Promise<void> = Promise.resolve();
 
@@ -94,6 +100,34 @@ async function setUp() {
 }
 function notNow() { declineDevice(); openJournal(); }
 
+function showRecovery() { step.value = "recovery"; err.value = ""; rec.value = { key: "", password: "", code: "" }; }
+// one step: the key is checked and opened, then the password re-wraps it. The key is the proof, so no wrong-try count
+// here: the server counts wrong keys for this account and makes them wait.
+async function useRecoveryKey() {
+  if (busy.value) return;
+  err.value = ""; busy.value = true;
+  let dataKey: Uint8Array | null = null;
+  try {
+    const problem = await passwordProblem(rec.value.password);
+    if (problem) { err.value = problem; return; }
+    const opened = await openRecovery(session.user?.username ?? "", rec.value.key);
+    dataKey = opened.dataKey;
+    if (opened.totpRequired && !rec.value.code) { totpNeeded.value = true; err.value = "Type the code from your authenticator app, or a backup code."; return; }
+    const done = await finishRecovery(opened, rec.value.password, rec.value.code, {});
+    rememberBundle({ salt: done.kdfSalt, wrappedByPassword: done.wrappedByPassword });
+    bundle.value = { salt: done.kdfSalt, wrappedByPassword: done.wrappedByPassword };
+    keyring.set(dataKey);
+    rec.value = { key: "", password: "", code: "" };
+    newKey.value = done.recoveryKey; saved.value = false;
+    step.value = "newKey";
+  } catch (e) {
+    err.value = (e as Error).name === "SealError" ? "That recovery key is not right" : (e as Error).message;
+    if (/code/.test(err.value)) totpNeeded.value = true;
+  } finally { dataKey?.fill(0); busy.value = false; }
+}
+async function copyKey() { try { await navigator.clipboard.writeText(newKey.value); } catch { err.value = "Could not copy. Write it down instead."; } }
+function leaveNewKey() { newKey.value = ""; keyOpenedOnLockScreen(); openJournal(); }
+
 async function askSignOut() { if (unsent.value) { step.value = "signOut"; err.value = ""; } else await leave(); }
 async function leave() {
   if (busy.value) return;
@@ -131,11 +165,28 @@ async function leave() {
       <button type="button" class="btn block lg" @click="openJournal">Continue</button>
     </div>
 
-    <div v-else-if="step === 'recovery'" class="card">
+    <form v-else-if="step === 'recovery'" class="card" @submit.prevent="useRecoveryKey">
       <Logo />
       <h1>Recovery key</h1>
-      <p class="muted auth-lede">Coming in the next update</p>
-      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="step = 'password'">Back</button></p>
+      <p class="muted auth-lede">{{ sealed ? "Your recovery key opens your journal again. Type the password you sign in with now: from here on it opens your journal too." : "Your recovery key opens your journal and sets a new password. Your other devices are signed out." }}</p>
+      <input class="lock-user" type="text" autocomplete="username" :value="session.user?.username" readonly tabindex="-1" aria-hidden="true" />
+      <div class="fld"><label for="lock-rk">Recovery key</label><input id="lock-rk" v-model="rec.key" class="lock-mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus /></div>
+      <div class="fld"><label for="lock-np">{{ sealed ? "Your password" : "New password" }}</label><input id="lock-np" v-model="rec.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
+      <div v-if="totpNeeded" class="fld"><label for="lock-code">Code from your authenticator, or a backup code</label><input id="lock-code" v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
+      <div v-if="err" class="err" role="alert">{{ err }}</div>
+      <button class="btn block lg" :disabled="busy">{{ busy ? "Opening..." : "Open journal" }}</button>
+      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="sealed ? (step = 'password') : showPassword()">Back</button></p>
+    </form>
+
+    <div v-else-if="step === 'newKey'" class="card">
+      <Logo />
+      <h1>Your new recovery key</h1>
+      <p class="muted auth-lede">The one you typed no longer works. Save this one somewhere safe and private - it is shown only now.</p>
+      <code class="lock-key lock-mono">{{ newKey }}</code>
+      <div class="lock-row"><button type="button" class="qb" @click="copyKey">Copy</button><button type="button" class="qb" @click="downloadRecoveryKey(session.user?.username ?? '', newKey)">Download as text</button></div>
+      <label class="lock-check"><input v-model="saved" type="checkbox" /> I saved my recovery key</label>
+      <div v-if="err" class="err" role="alert">{{ err }}</div>
+      <button type="button" class="btn block lg" :disabled="!saved" @click="leaveNewKey">Open journal</button>
     </div>
 
     <div v-else-if="step === 'signOut'" class="card">
@@ -149,8 +200,9 @@ async function leave() {
     <div v-else-if="sealed" class="card">
       <Logo />
       <h1>Your journal is sealed</h1>
+      <!-- only the recovery key is promised: a reset signed every device out, and none keeps the key yet (LDJ-10) -->
       <p class="muted auth-lede">Your password was reset, so nothing here can open your dreams until your recovery key is entered.</p>
-      <button type="button" class="btn block lg" @click="step = 'recovery'">Enter recovery key</button>
+      <button type="button" class="btn block lg" @click="showRecovery">Enter recovery key</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="askSignOut">Sign out</button></p>
     </div>
 
@@ -177,6 +229,7 @@ async function leave() {
       <p v-else-if="triesText" class="tiny lock-tries">{{ triesText }}</p>
       <button class="btn block lg" :disabled="busy || waiting">{{ busy ? "Unlocking..." : "Unlock" }}</button>
       <p v-if="canUseDevice" class="center tiny auth-link"><button type="button" class="lock-link acc" @click="step = 'device'; err = ''">Use this device instead</button></p>
+      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="showRecovery">Forgot password? Use your recovery key</button></p>
       <p class="center tiny auth-link"><button type="button" class="lock-link muted" @click="askSignOut">Sign out</button></p>
     </form>
   </div>
@@ -189,5 +242,9 @@ async function leave() {
 .auth-link { margin-top: var(--cpy); }
 .lock-tries { margin-bottom: var(--hg); }
 .lock-link { padding: 0; border: 0; background: none; cursor: pointer; font-size: inherit; }
+.lock-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
+.lock-key { display: block; text-align: center; font-size: var(--fs-lg, 1.15em); padding: var(--cpy) var(--cpx); border-radius: var(--r-sm); background: var(--s1); word-break: break-all; user-select: all; }
+.lock-row { display: flex; justify-content: center; gap: var(--hg); flex-wrap: wrap; margin: var(--hg) 0; }
+.lock-check { display: flex; align-items: center; gap: var(--hg); margin-bottom: var(--cpy); font-size: var(--fs-sm); }
 .lock-user { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 </style>

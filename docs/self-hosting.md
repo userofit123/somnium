@@ -29,8 +29,9 @@ somnium.example.com {
 - The server never sees a password: the device turns it into a sign-in key, and the journal's data key is stored
   only wrapped by that password (PLAN.md §4.1). So an admin cannot set a password. **Reset password** makes a
   one-time reset code (valid a day) with which the person chooses a new password on the sign-in screen; their
-  journal stays sealed until they use their recovery key or a device that is still signed in, which re-wraps the
-  data key. Without either of those, their dreams cannot be read by anyone, the admin included.
+  journal stays sealed until they enter their recovery key, which re-wraps the data key. Without it, their dreams
+  cannot be read by anyone, the admin included. (A reset signs out every device, and no device keeps the data key
+  yet, so a signed-in device cannot open the journal after a reset; that comes with device-held keys, LDJ-10.)
 - When nobody can get into the admin panel, the same two things work on the server itself (same `DATABASE_URL`
   or `DATA_DIR` as the server):
   `node --import tsx apps/server/src/cli.ts reset-password <username>` and

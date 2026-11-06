@@ -187,7 +187,7 @@ describe("changing the password", () => {
     expect((await post("/auth/reset", { username: "lost", code: "AAAAA-AAAAA", authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403);
     const done = await post("/auth/reset", { username: "lost", code, authKey: fresh.authKey, kdfSalt: fresh.salt });
     expect(done.statusCode).toBe(200);
-    expect(done.json()).toEqual({ ok: true, sealed: true, message: "Your password is set. Your journal stays sealed until you enter your recovery key or open the app on a device that is still signed in." });
+    expect(done.json()).toEqual({ ok: true, sealed: true, message: "Your password is set. Your journal stays sealed until you enter your recovery key." });
     expect((await post("/auth/reset", { username: "lost", code, authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403); // one-time
     expect((await signIn("lost", keys.authKey)).statusCode).toBe(401);
     const r = await signIn("lost", fresh.authKey);

@@ -1,13 +1,17 @@
 <script setup lang="ts">
 // Settings → Security (PLAN.md §4.2, §4.4): two-factor sign-in with an authenticator app and eight one-time backup
-// codes, ported from Money Manager's SecurityPane. The recovery key and the "can you get back in?" checklist come
-// with LDJ-7; the rows here are the skeleton they join. The app lock's rows (PLAN.md §4.3) are here too: its delay can
+// codes, ported from Money Manager's SecurityPane; the recovery key (made here from the open data key, shown once); and
+// the "Can you get back in?" checklist, each row read from the real state, never assumed. The app lock's rows (PLAN.md §4.3) are here too: its delay can
 // change, but no row turns it off. Device verification wraps the data key when set up; nothing else here touches it.
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { LOCK_DELAYS, LOCK_IDLE_TIMES } from "@somnium/shared";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
-import { useMe } from "../../api/queries";
+import { useMe, useSettings } from "../../api/queries";
+import { useRouter } from "vue-router";
+import { keyring } from "../../core/keyring";
+import { lockNow } from "../../core/lock";
+import { downloadRecoveryKey, makeRecoveryKey } from "../../core/recovery";
 import { prompt } from "../../core/ask";
 import { toast, toastError } from "../../core/toast";
 import { useFmt } from "../../core/format";
@@ -27,6 +31,45 @@ isLocalAccount().then((v) => { localAccount.value = v; });
 type Security = { totpEnabled: boolean; backupCodesLeft: number; recoveryMadeAt: string | null; passwordChangedAt: string | null; sealed: boolean };
 const sec = useQuery({ queryKey: ["settings", "security"], queryFn: () => api.get<Security>("/auth/security"), enabled: computed(() => localAccount.value === false) });
 const totp = computed(() => !!sec.data.value?.totpEnabled);
+const settings = useSettings();
+const router = useRouter();
+type Session = { id: string; platform: string; current: boolean };
+const sessions = useQuery({ queryKey: ["settings", "sessions"], queryFn: () => api.get<Session[]>("/auth/sessions"), enabled: computed(() => localAccount.value === false) });
+
+// ----- the recovery key: made here, shown once, then only its hash and the wrapped key are on the server -----
+const recoveryKey = ref<string | null>(null), keySaved = ref(false);
+const journalOpen = ref(keyring.isOpen());
+const stopKeyring = keyring.onChange((open) => { journalOpen.value = open; });
+onBeforeUnmount(() => { stopKeyring(); recoveryKey.value = null; });
+async function makeKey() {
+  const replacing = !!sec.data.value?.recoveryMadeAt;
+  const password = await prompt(replacing ? "Replace your recovery key" : "Make your recovery key", { text: replacing ? "The old key stops working. Type your password." : "Type your password.", placeholder: "Password", ok: "Next", secret: true }); if (!password) return;
+  busy.value = true;
+  try { recoveryKey.value = await makeRecoveryKey(await authKeyFor(username.value, password)); keySaved.value = false; sec.refetch(); }
+  catch (e) { toastError(e); } finally { busy.value = false; }
+}
+function keySavedDone() { recoveryKey.value = null; toast("Recovery key saved"); }
+
+// ----- "Can you get back in?" (PLAN.md §4.4) -----
+const otherDevices = computed(() => (sessions.data.value ?? []).filter((x) => !x.current && x.platform !== "api").length);
+const checks = computed(() => {
+  const s = sec.data.value, left = s?.backupCodesLeft ?? 0, b = settings.value.backup;
+  return [
+    { key: "recovery", ok: !!s?.recoveryMadeAt, t: "Recovery key saved",
+      s: s?.recoveryMadeAt ? `Made ${fmt.value.date(s.recoveryMadeAt, { day: "numeric", month: "short", year: "numeric" })}` : "Not made yet - without it a forgotten password locks your journal for good",
+      action: s?.recoveryMadeAt ? "Replace" : "Make key", run: makeKey, disabled: !journalOpen.value },
+    { key: "devices", ok: otherDevices.value > 0, t: "Another device signed in",
+      s: otherDevices.value ? `${otherDevices.value} other ${otherDevices.value === 1 ? "device" : "devices"} - your journal stays open there if this one is lost` : "Only this one",
+      action: "Devices", run: () => router.push("/settings/account"), disabled: false },
+    { key: "codes", ok: totp.value && left > 0, t: "Backup codes saved",
+      s: !totp.value ? "Two-factor sign-in is off, so there are none" : left ? `${left} of 8 left` : "None left - make new ones",
+      action: totp.value ? "New codes" : "", run: newCodes, disabled: false },
+    { key: "backups", ok: !!b.on, t: "Automatic backups on",
+      s: b.on ? (b.every === "weekly" ? "On · every week" : "On · every day") : "Off",
+      action: b.on ? "" : "Turn on", run: () => router.push("/settings/backup"), disabled: false },
+  ];
+});
+const noWayBack = computed(() => !!sec.data.value && checks.value.every((c) => !c.ok));
 
 // setting up: the secret shown once, as a QR code and as text, until a code from the app confirms it
 const start = ref<{ secret: string; url: string } | null>(null);
@@ -88,6 +131,7 @@ onMounted(async () => { if (privacy) screenshots.value = await privacy.screensho
 async function toggleScreenshots() { if (privacy) screenshots.value = await privacy.setScreenshotsAllowed(!screenshots.value); }
 
 const copy = async (text: string, what: string) => { try { await navigator.clipboard.writeText(text); toast(`${what} copied`); } catch { toastError(new Error("Could not copy")); } };
+function downloadKey() { downloadRecoveryKey(username.value, recoveryKey.value!); }
 function download() {
   const blob = new Blob([`Somnium backup codes for ${username.value}\nEach one signs you in once when you cannot use your authenticator app.\n\n${codes.value!.join("\n")}\n`], { type: "text/plain" });
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "somnium-backup-codes.txt" });
@@ -109,6 +153,28 @@ function download() {
   </div>
   <div v-if="localAccount" class="card"><div class="li"><div class="grow"><div class="t">On this device only</div><div class="s">A local account has no password, so the lock screen only hides your journal. It doesn't keep anyone out.</div></div></div></div>
   <template v-else-if="localAccount === false">
+    <div class="sh"><h2>Can you get back in?</h2></div>
+    <p class="tiny hgap">Nobody can send you your password or open your journal for you, the admin included. These are your ways back.</p>
+    <div class="card flush">
+      <div v-for="c in checks" :key="c.key" class="li">
+        <Icon :name="c.ok ? 'check' : 'info'" :size="18" :class="c.ok ? 'sec-ok' : 'muted'" />
+        <div class="grow"><div class="t">{{ c.t }}</div><div class="s">{{ c.s }}</div></div>
+        <button v-if="c.action" class="qb" :class="{ acc: !c.ok }" :disabled="c.disabled || busy" @click="c.run">{{ c.action }}</button>
+      </div>
+    </div>
+    <p v-if="noWayBack" class="tiny sec-warn" role="status">None of these is set up. If you forget your password, your journal cannot be opened again. Making a recovery key takes a second.</p>
+    <p v-else-if="!journalOpen && sec.data.value?.sealed" class="tiny">Your journal is sealed, so a recovery key cannot be made here until it is open again.</p>
+
+    <!-- the recovery key, once: after this only its hash and the wrapped data key are kept -->
+    <div v-if="recoveryKey" class="card sec-codes">
+      <div class="t">Your recovery key</div>
+      <p class="s">Save it somewhere safe and private - a password manager, or printed. It opens your journal and sets a new password if you forget yours. It is shown only now; any older key no longer works.</p>
+      <code class="sec-mono sec-key-text">{{ recoveryKey }}</code>
+      <div class="sec-actions"><button class="qb" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="qb" @click="downloadKey"><Icon name="download" :size="15" />Download as text</button></div>
+      <label class="sec-check"><input v-model="keySaved" type="checkbox" /> I saved my recovery key</label>
+      <div class="sec-actions"><button class="btn" :disabled="!keySaved" @click="keySavedDone">Done</button></div>
+    </div>
+
     <div class="sh"><h2>Two-factor sign-in</h2></div>
     <p class="tiny hgap">A code from an authenticator app on top of your password. Any app works - Aegis, Google Authenticator, 1Password, ...</p>
     <div class="card flush">
@@ -143,7 +209,8 @@ function download() {
     <div class="sh"><h2>Password</h2></div>
     <div class="card flush">
       <div class="li"><div class="grow"><div class="t">Last changed</div><div class="s">{{ sec.data.value?.passwordChangedAt ? fmt.date(sec.data.value.passwordChangedAt, { day: "numeric", month: "short", year: "numeric" }) : "-" }} · change it under Account</div></div></div>
-      <div v-if="sec.data.value?.sealed" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Your journal is sealed</div><div class="s">The password was reset, so this device cannot open your dreams. Use your recovery key, or a device that is still signed in, to unlock them again.</div></div></div>
+      <div v-if="sec.data.value?.sealed" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Your journal is sealed</div><div class="s">The password was reset, so this device cannot open your dreams. Your recovery key opens them again.</div></div>
+        <button class="qb acc" @click="lockNow()">Enter recovery key</button></div>
     </div>
     <p class="tiny">The server only ever sees a key made from your password, never the password itself. Your dreams are sealed on this device before they go anywhere.</p>
   </template>
@@ -157,5 +224,9 @@ function download() {
 .sec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--hg) var(--spg); margin: var(--spg) 0; }
 .sec-actions { display: flex; align-items: center; gap: var(--hg); flex-wrap: wrap; }
 .sec-codes .s { margin-top: var(--hg); }
+.sec-ok { color: var(--pos); }
+.sec-warn { margin-top: var(--hg); }
+.sec-key-text { display: block; margin: var(--spg) 0; font-size: var(--fs-lg, 1.15em); user-select: all; }
+.sec-check { display: flex; align-items: center; gap: var(--hg); margin: var(--spg) 0; font-size: var(--fs-sm); }
 @media (max-width: 480px) { .sec-qrrow { flex-direction: column; align-items: center; } }
 </style>

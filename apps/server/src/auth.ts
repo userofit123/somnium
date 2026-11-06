@@ -204,6 +204,11 @@ export function decryptForServer(blob: string, key: Buffer): string {
 export const standInSalt = (username: string, key: Buffer): string =>
   crypto.createHmac("sha256", key).update("stand-in-salt:" + username).digest().subarray(0, 16).toString("base64url");
 
+/** The recovery salt GET /auth/recovery/salt answers for a name with no account, or an account with no recovery key:
+ *  its own label, so it never equals the stand-in sign-in salt (that would tell real names from made-up ones). */
+export const standInRecoverySalt = (username: string, key: Buffer): string =>
+  crypto.createHmac("sha256", key).update("stand-in-recovery-salt:" + username).digest().subarray(0, 16).toString("base64url");
+
 // ---------- TOTP (RFC 6238, SHA-1, 6 digits, 30 s) ----------
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
 export const b32encode = (buf: Buffer): string => { let bits = "", out = ""; for (const b of buf) bits += b.toString(2).padStart(8, "0"); for (let i = 0; i < bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5).padEnd(5, "0"), 2)]; return out; };
@@ -272,7 +277,10 @@ export async function useBackupCode(db: Db, userId: string, typed: unknown): Pro
 
 /** A one-time reset code for an account whose password is lost (PLAN.md §4.4, admin only): valid for a day. The
  *  journal stays sealed: the code only lets the person set a new password (new authKey, no wrapped data key). */
-export const RESET_MESSAGE = "Your password is set. Your journal stays sealed until you enter your recovery key or open the app on a device that is still signed in.";
+// It promises only the recovery key: a reset signs out every device and each forgets the data key, so "a device that
+// is still signed in" cannot open it yet. Device-held keys (Keystore / safeStorage) are LDJ-10; when they let a device
+// re-wrap after a reset, widen this sentence and its copies (AuthScreen, AdminSection, cli.ts, LockScreen, docs).
+export const RESET_MESSAGE = "Your password is set. Your journal stays sealed until you enter your recovery key.";
 export async function issueResetCode(db: Db, userId: string): Promise<string> {
   const code = newCode();
   await db.admin.query("UPDATE users SET reset_code_hash = $2, reset_expires_at = now() + interval '1 day' WHERE id = $1", [userId, await hashSecret(code)]);
