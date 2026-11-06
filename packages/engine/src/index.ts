@@ -11,6 +11,9 @@ import { settingsRoutes } from "./modules/settings";
 import { dataRoutes } from "./modules/data";
 import { syncRoutes } from "./modules/sync";
 import { activityLogRoutes } from "./modules/activitylog";
+import { journalRoutes } from "./modules/journal";
+import { checkRoutes } from "./modules/checks";
+import { practiceRoutes } from "./modules/practice";
 
 export type { Db, Sql } from "./db";
 export { withUser } from "./db";
@@ -19,6 +22,7 @@ export { uuidv7, isUuid } from "./ids";
 export { exportAll, importAll } from "./modules/data";
 export * as replica from "./sync/replica";
 export type { Change } from "./sync/core";
+export { SEALED_COLUMNS, SEALED_SETTING_KEYS, SEALED_TABLES, isSealedColumn, isSealedSettingKey } from "./sealed";
 
 export interface Request { method: string; path: string; query?: Record<string, string>; body?: unknown; userId: string }
 export interface Response { status: number; body: unknown }
@@ -37,7 +41,7 @@ export interface Engine {
 export async function createEngine(db: Db, opts: { mode: "server" | "local"; now?: () => Date; seed?: boolean } = { mode: "server" }): Promise<Engine> {
   await migrate(db);
   const router = new Router();
-  for (const add of [settingsRoutes, dataRoutes, syncRoutes, activityLogRoutes]) add(router);
+  for (const add of [settingsRoutes, dataRoutes, syncRoutes, activityLogRoutes, journalRoutes, checkRoutes, practiceRoutes]) add(router);
   const listeners = new Set<Listener>();
   const now = opts.now ?? (() => new Date());
 

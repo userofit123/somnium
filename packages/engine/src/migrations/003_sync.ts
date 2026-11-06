@@ -1,7 +1,7 @@
 // Offline use with sync (PLAN.md §2.4): every change to a person's rows is written to sync_log by a trigger, on the
 // server and on each device. A device sends the server its changes since it last did, and fetches everyone else's.
 // The same triggers run in both places; a device applying the server's rows sets somnium.sync_apply so they aren't sent back.
-import { SYNCED } from "../sync/tables";
+import { syncTriggers } from "../sync/tables";
 
 const ME = "NULLIF(current_setting('app.user_id', true), '')::uuid";
 
@@ -38,5 +38,6 @@ BEGIN
   RETURN NULL;
 END $$;
 
-${SYNCED.map((t) => `CREATE TRIGGER sync_log AFTER INSERT OR UPDATE OR DELETE ON ${t.name} FOR EACH ROW EXECUTE FUNCTION somnium_log_change(${t.pk.map((c) => `'${c}'`).join(", ")});`).join("\n")}
+-- only the tables that exist at this point; later migrations add their own (sync/tables.ts)
+${syncTriggers(["user_settings"])}
 `;

@@ -6,7 +6,7 @@ import { bad } from "../errors";
 import { oneOf } from "../util";
 
 export const EXPORT_FORMAT = 1;
-const TABLES: readonly string[] = [] as const;
+const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders"] as const;
 
 export async function exportAll(q: Sql, userId: string) {
   const tables: Record<string, any[]> = {};

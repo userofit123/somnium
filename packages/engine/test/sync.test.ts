@@ -66,4 +66,23 @@ describe("sync", () => {
     expect((await S()("GET", "/me")).settings.firstDay).toBe(2);
     expect((await D()("GET", "/me")).settings.firstDay).toBe(2);
   });
+
+  it("sends a dream written on the device, and its removal", async () => {
+    const night = await D()("POST", "/nights", { date: "2026-11-05" });
+    const dream = await D()("POST", "/dreams", { nightId: night.id, title: "env:t", lucid: true, lucidityLevel: 3 });
+    expect(await replica.waitingCount(device.db)).toBe(2);
+    await sync();
+    const onServer = await S()("GET", `/dreams/${dream.id}`);
+    expect(onServer.title).toBe("env:t");
+    expect(onServer.nightId).toBe(night.id);
+    expect((await S()("GET", "/nights"))[0].dreamCount).toBe(1);
+    // a removal is a marked row, so it travels like any change
+    await D()("DELETE", `/dreams/${dream.id}`);
+    await sync();
+    expect((await server.handle({ method: "GET", path: `/dreams/${dream.id}`, userId: U })).status).toBe(404);
+    // and a dream written on the server reaches the device
+    const back = await S()("POST", "/dreams", { nightId: night.id, text: "env:x" });
+    await sync();
+    expect((await D()("GET", `/dreams/${back.id}`)).text).toBe("env:x");
+  });
 });

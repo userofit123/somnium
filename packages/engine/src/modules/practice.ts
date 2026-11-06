@@ -1,0 +1,60 @@
+// Training: the practice log (a day's lessons, techniques and habits), progress through the course, goals and
+// reminders (PLAN.md §5, §6.4, §8, §9). The course's content and the recommendation rules live elsewhere.
+import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
+import type { Router } from "../router";
+import { id, str, intOrNull, bool, dateStr } from "../util";
+import { columns, sealed, timeOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
+
+const PRACTICE: Fields = {
+  date: required(dateStr, "date"),
+  item: required((v) => (v == null || v === "" ? null : str(v, 80)), "item"),
+  done: (v) => bool(v, true),
+  minutes: (v) => intOrNull(v, 0, 1440),
+  note: sealed,
+};
+const LESSON: Fields = { state: enumOf(LESSON_STATES, "open"), done_at: timeOrNull, answers: sealed };
+const GOAL: Fields = {
+  kind: required(enumOf(GOAL_KINDS, ""), "kind"),
+  target: required((v) => intOrNull(v, 1, 1000), "target"),
+  period: enumOf(GOAL_PERIODS, "week"),
+};
+const REMINDER: Fields = { kind: required(enumOf(REMINDER_KINDS, ""), "kind"), schedule: json, enabled: (v) => bool(v, true) };
+
+export function practiceRoutes(r: Router) {
+  r.get("/practice", async ({ q }, _p, _b, qs) => {
+    const w: string[] = [], params: unknown[] = [];
+    const from = dateStr(qs.from), to = dateStr(qs.to);
+    if (from) { params.push(from); w.push(`date >= $${params.length}`); }
+    if (to) { params.push(to); w.push(`date <= $${params.length}`); }
+    return listLive<PracticeLog>(q, "practice_log", w.join(" AND "), params, "date DESC, created_at DESC", 2000);
+  });
+  r.get("/practice/:id", async ({ q }, p) => getLive<PracticeLog>(q, "practice_log", id(p.id), "practice entry"));
+  r.post("/practice", async (ctx, _p, b) => insertRow<PracticeLog>(ctx, "practice_log", "practice", columns(PRACTICE, b, true)));
+  r.put("/practice/:id", async (ctx, p, b) => updateRow<PracticeLog>(ctx, "practice_log", "practice", id(p.id), columns(PRACTICE, b, false), "practice entry"));
+  r.del("/practice/:id", async (ctx, p) => { await removeRow(ctx, "practice_log", "practice", id(p.id), "practice entry"); return { ok: true }; });
+
+  // the course: one row per lesson, written by its lesson id (the bundled content's), made on first touch
+  r.get("/course", async ({ q }) => listLive<CourseProgress>(q, "course_progress", "", [], "created_at", 1000));
+  r.put("/course/:lessonId", async (ctx, p, b) => {
+    const lessonId = str(p.lessonId, 80);
+    const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [lessonId])).rows[0];
+    return cur
+      ? updateRow<CourseProgress>(ctx, "course_progress", "course", cur.id, columns(LESSON, b, false), "lesson")
+      : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...columns(LESSON, b, true) });
+  });
+  r.del("/course/:lessonId", async (ctx, p) => {
+    const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [str(p.lessonId, 80)])).rows[0];
+    if (cur) await removeRow(ctx, "course_progress", "course", cur.id, "lesson");
+    return { ok: true };
+  });
+
+  r.get("/goals", async ({ q }) => listLive<Goal>(q, "goals", "", [], "created_at"));
+  r.post("/goals", async (ctx, _p, b) => insertRow<Goal>(ctx, "goals", "goals", columns(GOAL, b, true)));
+  r.put("/goals/:id", async (ctx, p, b) => updateRow<Goal>(ctx, "goals", "goals", id(p.id), columns(GOAL, b, false), "goal"));
+  r.del("/goals/:id", async (ctx, p) => { await removeRow(ctx, "goals", "goals", id(p.id), "goal"); return { ok: true }; });
+
+  r.get("/reminders", async ({ q }) => listLive<Reminder>(q, "reminders", "", [], "created_at"));
+  r.post("/reminders", async (ctx, _p, b) => insertRow<Reminder>(ctx, "reminders", "reminders", columns(REMINDER, b, true)));
+  r.put("/reminders/:id", async (ctx, p, b) => updateRow<Reminder>(ctx, "reminders", "reminders", id(p.id), columns(REMINDER, b, false), "reminder"));
+  r.del("/reminders/:id", async (ctx, p) => { await removeRow(ctx, "reminders", "reminders", id(p.id), "reminder"); return { ok: true }; });
+}
