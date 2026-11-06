@@ -158,8 +158,8 @@ coming back from another app.
   with "Use password instead" always available), otherwise the **password**. Five wrong tries in a row sign the
   device out (and on the apps clear the device-wrapped key).
 - **Cryptographically, on the apps,** the data key is dropped from memory on lock and comes back from the
-  Keystore / safeStorage after device verification. On the web the lock is a screen lock: the key stays in the
-  tab's memory (the honest limit, stated in docs/security.md).
+  Keystore / safeStorage after device verification. On the web the key is dropped from memory too and comes back
+  from the password or from WebAuthn's PRF output; without PRF, the password (limits stated in docs/security.md).
 - The lock cannot be turned off, only its delay changed; the device-verification option can be turned off (then
   it is always the password).
 
@@ -291,7 +291,7 @@ Everything runs on the device, offline, on the replica. Nothing is sent anywhere
    class), places (home, school, work, vehicles, nature, cities), objects, actions (flying, falling, being chased,
    running, driving, fighting, talking, searching), emotions (an emotion lexicon with an open licence, see
    RESEARCH.md), sensations, and **typical dream themes** (Nielsen 2003 / Schredl), and **dream sign categories**
-   (LaBerge's inner awareness / action / form / context cues such as "suddenly", "could fly", "my teeth", "dead",
+   (LaBerge's inner awareness / action / form / context cues such as "could fly", "teeth fell out", "my dead",
    "didn't make sense", "appeared out of nowhere").
 3. Each hit becomes a suggested element with a confidence and a span; the editor underlines it; one tap confirms.
    Confirmed suggestions teach the matcher (a confirmed alias is kept in the element).

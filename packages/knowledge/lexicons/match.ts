@@ -26,8 +26,10 @@ interface Token {
   end: number;
 }
 
-// Plurals that are different words: without this, "news" would match "new" and "glasses" would match "glass".
-const NOT_INFLECTED = new Set(["news", "glasses", "tired", "here", "there"]);
+// Words that look inflected but are not, or whose stripped form is a different word: "news" is not the plural of "new",
+// "fired" (sacked) is not "fire", "landed" is not "landing", "parked" is not "park", "kidding" is not "kid" and
+// "meet" is not "meeting". They keep their own stem, so only the word itself (and its plural) matches.
+const KEEP_WHOLE = new Set(["news", "glasses", "tired", "here", "there", "fired", "landed", "landing", "parked", "kidding", "kidded", "meeting"]);
 const IRREGULAR: Readonly<Record<string, string>> = { men: "man", women: "woman" };
 const HAS_VOWEL = /[aeiouy]/;
 // Doubled final consonants are undone (stopped -> stop), except the ones English keeps (fall, miss, buzz).
@@ -35,10 +37,26 @@ const DOUBLED = /([^aeiouylsz])\1$/;
 // One short syllable means a silent e went missing: caring -> care, so it never collides with "car".
 const SHORT_SYLLABLE = /^[^aeiouy]*[aeiouy][^aeiouwxy]$/;
 const LOST_E = /[vcuz]$/;
+// Porter-style restore-e for the other endings where -ed/-ing eats a silent e, so "changed", "changing" and "change"
+// share a stem. Each pattern is limited to the shapes that really lose an e: "floated" and "listed" keep their
+// stem because the digraph (oa) or the ending (-ist) does not, and "hanging" is a real -ng word.
+const KEEP_NG = new Set(["hang", "bang", "clang", "gang", "twang"]);
+const LOST_E_WORDS = new Set(["creat"]);
+const LOST_E_ENDINGS: readonly RegExp[] = [
+  /[aeu]ng$/, // change, arrange, challenge, plunge
+  /(?:^|[^aeiouy])(?:ta|wa|pa|ba)st$/, // taste, waste, paste
+  /dg$/, // judge, dodge, bridge
+  /[bcdfgkpstz]l$/, // tremble, giggle, handle, tickle, circle
+  /[^aeiouy]at$/, // celebrate, relate
+  /[^aeiouy]ap$/, // escape
+  /is$/, // realise, surprise, raise
+  /(?:[^aeiouy]i|ui)d$/, // decide, guide
+];
 
 function restoreBase(stripped: string): string {
   if (DOUBLED.test(stripped)) return stripped.slice(0, -1);
-  if (SHORT_SYLLABLE.test(stripped) || LOST_E.test(stripped)) return `${stripped}e`;
+  if (SHORT_SYLLABLE.test(stripped) || LOST_E.test(stripped) || LOST_E_WORDS.has(stripped)) return `${stripped}e`;
+  if (!KEEP_NG.has(stripped) && LOST_E_ENDINGS.some((re) => re.test(stripped))) return `${stripped}e`;
   return stripped;
 }
 
@@ -61,15 +79,30 @@ function stripVerbEnding(word: string): string {
   return word;
 }
 
+// "déjà vu" and "deja vu" are the same words. Only the stem is folded, so spans still fit the original text.
+const foldDiacritics = (word: string) => word.normalize("NFD").replace(/\p{M}/gu, "");
+
 /** Simple plural, -ing and -ed stripping. Both sides of a match go through this, so it only has to be consistent. */
 export function stem(word: string): string {
-  const lower = word.toLowerCase().replace(/'s$/, "");
-  if (NOT_INFLECTED.has(lower)) return lower;
+  // "couldnt" is "couldn't": only n't is folded, because "we're" -> "were" and "i'll" -> "ill" would be other words.
+  const lower = foldDiacritics(word.toLowerCase()).replace(/’/g, "'").replace(/'s$/, "").replace(/n't$/, "nt");
+  if (KEEP_WHOLE.has(lower)) return lower;
   const irregular = IRREGULAR[lower];
   if (irregular) return irregular;
   if (lower.endsWith("ied") || lower.endsWith("ies")) return `${lower.slice(0, -3)}y`;
   if (lower.endsWith("ie")) return `${lower.slice(0, -2)}y`;
-  return stripVerbEnding(stripPlural(lower));
+  const singular = stripPlural(lower);
+  if (KEEP_WHOLE.has(singular)) return singular;
+  return stripVerbEnding(singular);
+}
+
+// Where a verb form is not the sense the lexicons mean: "fell asleep" and "fell in love" are not falling.
+const NOT_FALLING_NEXT: readonly (readonly string[])[] = [["asleep"], ["in", "love"]];
+const FALL_STEMS = new Set(["fall", "fell", "fallen"]);
+
+function isNegativeContext(tokens: readonly Token[], last: number): boolean {
+  if (!FALL_STEMS.has(tokens[last]!.stem)) return false;
+  return NOT_FALLING_NEXT.some((seq) => seq.every((s, k) => tokens[last + 1 + k]?.stem === s));
 }
 
 // Curly apostrophes come from phone keyboards. The swap keeps the length, so spans still fit the original text.
@@ -79,7 +112,7 @@ function straightenApostrophes(text: string): string {
 
 function tokenise(text: string): Token[] {
   const tokens: Token[] = [];
-  for (const m of straightenApostrophes(text).matchAll(/[\p{L}\p{N}]+(?:['-][\p{L}\p{N}]+)*/gu)) {
+  for (const m of straightenApostrophes(text).matchAll(/[\p{L}\p{N}\p{M}]+(?:['-][\p{L}\p{N}\p{M}]+)*/gu)) {
     tokens.push({ stem: stem(m[0]), start: m.index, end: m.index + m[0].length });
   }
   return tokens;
@@ -99,6 +132,7 @@ export function matchLexicon(text: string, lexicon: readonly MatchableEntry[]): 
       if (stems.length === 0) continue;
       for (let i = 0; i + stems.length <= tokens.length; i++) {
         if (!stems.every((s, j) => tokens[i + j]?.stem === s)) continue;
+        if (isNegativeContext(tokens, i + stems.length - 1)) continue;
         const start = tokens[i]!.start;
         const end = tokens[i + stems.length - 1]!.end;
         found.push({ name: entry.name, term, start, end, text: text.slice(start, end), ...(entry.group ? { group: entry.group } : {}) });

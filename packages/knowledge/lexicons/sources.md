@@ -1,8 +1,8 @@
 # Lexicon sources
 
 What each file is built from. References are to `RESEARCH.md`: `C13` is number 13 in the reference list of Part C,
-`D8` is number 8 in the list of Part D. The two lists are numbered separately, so C1 and D1 happen to be the same book
-while C3 and D3 are not. `C§7` and `D§1.2` point to a section, for statements that have no numbered reference (usually
+`D8` is number 8 in the list of Part D, `B37` is number 37 in the list of Part B. The lists are numbered separately,
+so C1 and D1 happen to be the same book while C3 and D3 are not. `C§7` and `D§1.2` point to a section, for statements that have no numbered reference (usually
 "no study was found").
 
 ## Licence
@@ -21,7 +21,7 @@ DreamBank reports (C10, CC BY-NC-SA 4.0) were not used to build any file.
 
 | File | Built from | Written by us |
 |---|---|---|
-| `characters.json` | Groups follow the HVDC character codes: family, relatives, known, prominent, occupational, stranger, dead, imaginary, animals (C7, C8, C9a). | All terms. |
+| `characters.json` | Groups are adapted from the HVDC character codes: the identity codes (immediate family, relative, known, prominent, occupational, ethnic or national, stranger, uncertain) and the number codes for dead and imaginary characters, plus animals (C9a; RESEARCH.md Part C section 2.1). Our group names are not the HVDC names. | All terms. |
 | `places.json` | Groups follow the plan (PLAN.md section 7.1); the HVDC setting codes for familiar, distorted, unfamiliar and questionable settings motivate the `unknown` group (C9a). | All terms. |
 | `objects.json` | HVDC object classes as a starting point (C9a), extended with the objects that matter for dream signs and reality checks: clocks, mirrors, text, light switches (C1, D1). | All terms. |
 | `actions.json` | HVDC activities, aggression, friendliness, sexuality and misfortune codes (C9a), and the typical themes (C13). | All terms. |
@@ -49,7 +49,8 @@ positive and negative valence, and was written from scratch for this project.
 The NRC Word-Emotion Association Lexicon (EmoLex, C37) would be the obvious source, and it was **not used**: it is free
 only for non-commercial research and educational use, it prohibits redistribution of the data, and commercial use needs
 a licence from NRC. Bundling it in a distributed app would break those terms. No EmoLex data was consulted, copied or
-derived from. The 8-emotion list is a common framing of basic emotions; the words are ours.
+derived from. The eight emotion labels and the two valence labels are our own choice of categories; no source in RESEARCH.md
+lists them, and the words under them are ours.
 
 VADER (C38, MIT licence) is the alternative Part C names for valence. It is not bundled here; ours keeps the app free of
 extra data files.
@@ -59,8 +60,9 @@ reports skews negative (C21, C21a). The person's own rating should always win ov
 
 ## Reality checks: strength of evidence
 
-Reality testing on its own did not raise lucid dreaming over one week in two field studies (D11, D12; also C32, C33),
-and a systematic review found no induction technique verified to work reliably (C34). `evidence` in `checks.json` states
-this per check, and marks community checks (nose pinch, finger through palm, counting fingers, jumping, mirror) as such
-instead of claiming support for them. Pinching yourself is left out on purpose: LaBerge rejects it because it just
+Reality testing on its own did not raise lucid dreaming over one week in two field studies (D11, D12; also C32, C33;
+RESEARCH.md Part B sections 3.3 and 3.12, B37 and B38), and a systematic review found no induction technique verified
+to work reliably (C34). Every `evidence` note in `checks.json` carries that caveat and cites B§3.12, B37 and B38, and
+marks community checks (nose pinch, finger through palm, counting fingers, jumping, mirror) as such instead of claiming
+support for them. Pinching yourself is left out on purpose: LaBerge rejects it because it just
 produces a convincing pinch (D§1.2).

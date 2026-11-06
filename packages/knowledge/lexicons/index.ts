@@ -32,6 +32,8 @@ export interface DreamTheme {
   prevalenceTotal: number;
   prevalenceMen: number;
   prevalenceWomen: number;
+  /** Softer wording for screens. `name` stays as published so it still matches the paper. */
+  displayName?: string;
   terms: string[];
 }
 
@@ -52,7 +54,7 @@ export interface RealityCheck {
   howTo: string;
   pairsWith: SignCategory[];
   evidence: string;
-  /** RESEARCH.md references: "C13" is number 13 in the Part C list; "C§7" is Part C section 7, for claims with no numbered reference. */
+  /** RESEARCH.md references: "C13" is number 13 in the Part C list; "C§7" is Part C section 7, for claims with no numbered reference; "B37" and "B§3.12" are the same for Part B. */
   sources: string[];
 }
 
