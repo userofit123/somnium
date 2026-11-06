@@ -4,9 +4,10 @@
 // The desktop app has its own implementation in Electron (apps/desktop), exposed the same way as window.somniumNative.
 import { reactive } from "vue";
 import { readJson, writeJson } from "../core/prefs";
-import { server, setTransport, httpTransport, type Transport, ApiError } from "../api/client";
+import { server, setTransport, httpTransport, sealingTransport, type Transport, ApiError } from "../api/client";
 
-export interface Account { id: string; kind: "local" | "server"; name: string; url?: string; token?: string }
+/** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared), kept with the account. */
+export interface Account { id: string; kind: "local" | "server"; name: string; url?: string; token?: string; keys?: unknown }
 const KEY = "somniumAccounts";
 export const accounts = reactive<{ list: Account[]; active: string | null }>(readJson(KEY, { list: [], active: null }));
 const save = () => writeJson(KEY, accounts);
@@ -16,17 +17,14 @@ let engine: any = null, localDb: any = null;
 async function localTransport(acc: Account): Promise<Transport> {
   const [{ createEngine }, { pgliteDb }] = await Promise.all([import("@somnium/engine"), import("@somnium/engine/pglite")]);
   const db = localDb = await pgliteDb(`idb://somnium-${acc.id}`);
-  engine = await createEngine(db, { mode: "local" });
+  // sealed at rest like a server (LDJ-53): the engine refuses a sealed column in the clear, and the transport below
+  // seals every one before it gets here
+  engine = await createEngine(db, { mode: "server" });
   const userId = await engine.ensureLocalUser(acc.name);
   const { invalidate } = await import("../api/live");
   engine.onChange((_u: string, topics: string[]) => invalidate(topics));
-  return {
+  const sealed = sealingTransport({
     async request(method, path, body) {
-      // photos added to a local account are kept as data inside it
-      if (path.split("?")[0] === "/media" && body instanceof Blob) {
-        const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(body); });
-        return { id: url, url };
-      }
       if (path.startsWith("/auth/status")) return { setupNeeded: false, registration: "closed", user: { id: userId, username: "me", role: "admin" }, version: (import.meta as any).env?.VITE_VERSION ?? "", apiLevel: 1 };
       if (path.startsWith("/update-check") || path.startsWith("/version")) return (globalThis as any).somniumNative?.update?.check?.() ?? { newer: false };
       if (path.startsWith("/auth/")) return { ok: true };
@@ -35,8 +33,27 @@ async function localTransport(acc: Account): Promise<Transport> {
       if (r.status !== 200) throw new ApiError(r.status, r.body?.error ?? "Something went wrong");
       return r.body;
     },
+  });
+  return {
+    async request(method, path, body, opts) {
+      // photos added to a local account are kept as data inside it: in the dream's own text, which is sealed
+      if (path.split("?")[0] === "/media" && body instanceof Blob) {
+        const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(body); });
+        return { id: url, url };
+      }
+      return sealed.request(method, path, body, opts);
+    },
   };
 }
+/** The open local account's keys as stored (checked by the caller), and storing new ones. */
+export const localKeys = async () => { const acc = current(); return acc?.kind === "local" ? acc.keys ?? null : null; };
+export async function setLocalKeys(keys: unknown) {
+  const acc = current();
+  if (acc?.kind !== "local") throw new Error("Not a local account");
+  acc.keys = keys; save();
+}
+/** After a journal made before passwords was sealed in place: its old plaintext leaves the database files. */
+export async function compactLocal() { await engine?.compact(); }
 
 /** Points the app at the open account. Returns false when there is none (the chooser shows). */
 export async function connect(): Promise<boolean> {

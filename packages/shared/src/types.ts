@@ -88,6 +88,8 @@ export interface Dream extends Owned {
   lucidTrigger: string | null; // sealed
   wakeMethod: WakeMethod | null;
   favourite: boolean;
+  /** suggestion keys dismissed for this dream, a JSON list (LDJ-18) */
+  dismissed: string | null; // sealed
 }
 
 export interface Element extends Owned {

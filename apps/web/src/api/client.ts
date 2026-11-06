@@ -64,8 +64,9 @@ const rawTransport: Transport = {
   },
 };
 
-// A local account in the desktop app talks to the server inside the app, over this same transport. Its data stays on
-// the device as plaintext (docs/security.md), so nothing is sealed. Off until it is known to be one: when in doubt, seal.
+// A local account in the desktop app talks to the server inside the app, over this same transport, and is sealed the
+// same way (LDJ-53): its database holds ciphertext in the sealed columns, like a server's. Known here so the screens
+// can tell the journal is on this device (journal.ts onDevice) and so files written before sealing still open.
 let localDevice = false;
 export const setLocalDevice = (on: boolean) => { localDevice = on; };
 export const isLocalDevice = () => localDevice;
@@ -77,42 +78,55 @@ async function withKeyCopy<T>(step: (key: Uint8Array) => Promise<T>): Promise<T>
   try { return await step(key); } finally { key.fill(0); }
 }
 
+/** The one journal write allowed without the key: a new reality check from /check, which opens over the lock screen
+ *  (LDJ-28). Its only sealed column, the note, must be absent; anything else still needs the key. */
+const CHECK_FIELDS = new Set(["id", "at", "kind", "outcome", "prompted"]);
+const isUnsealedCheck = (method: string, path: string, body: unknown) =>
+  method === "POST" && path === "/reality-checks" && !!body && typeof body === "object" && !Array.isArray(body) && Object.keys(body).every((k) => CHECK_FIELDS.has(k));
+
 /**
- * Everything that goes to a server goes through here, so no screen can send a sealed column in the clear, with or
- * without the device's copy in use (packages/engine/src/sync/sealedApi.ts). Without the key, journal requests are
- * refused here rather than sent. Settings, sign-in, admin and version requests carry nothing sealed and pass as they are.
+ * Everything that goes to the journal's store goes through this, so no screen can send a sealed column in the clear:
+ * a server, with or without the device's copy in use (packages/engine/src/sync/sealedApi.ts), and a local account's
+ * own database (the desktop app's server inside the app, the Android app's engine). Without the key, journal
+ * requests are refused here rather than sent. Settings, sign-in, admin and version requests carry nothing sealed and
+ * pass as they are.
  */
-export const httpTransport: Transport = {
-  async request(method, path, body, opts) {
-    if (localDevice) return rawTransport.request(method, path, body, opts);
-    if (method === "POST" && isImportPreview(path)) {
-      const preview = previewImport(body);
-      if (!preview) throw new ApiError(400, "This is not a Somnium export");
-      return preview;
-    }
-    const isUpload = method === "POST" && isMediaUpload(path);
-    if (!isUpload && !isJournalRoute(path)) return rawTransport.request(method, path, body, opts);
-    if (!keyring.isOpen()) throw new LockedError();
-    const opened = keyring.generation();
-    const stopIfLocked = () => { if (keyring.generation() !== opened) throw new LockedError(); };
-    if (isUpload) {
-      // the file is bound to its row like any sealed value, so the id is made here and sent along
-      const file = body as Blob, id = uuidv7();
-      const bytes = new Uint8Array(await file.arrayBuffer());
+export function sealingTransport(raw: Transport): Transport {
+  return {
+    async request(method, path, body, opts) {
+      if (method === "POST" && isImportPreview(path)) {
+        const preview = previewImport(body);
+        if (!preview) throw new ApiError(400, "This is not a Somnium export");
+        return preview;
+      }
+      const isUpload = method === "POST" && isMediaUpload(path);
+      if (!isUpload && !isJournalRoute(path)) return raw.request(method, path, body, opts);
+      if (!keyring.isOpen()) {
+        if (isUnsealedCheck(method, path, body)) return raw.request(method, path, body, opts);
+        throw new LockedError();
+      }
+      const opened = keyring.generation();
+      const stopIfLocked = () => { if (keyring.generation() !== opened) throw new LockedError(); };
+      if (isUpload) {
+        // the file is bound to its row like any sealed value, so the id is made here and sent along
+        const file = body as Blob, id = uuidv7();
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        stopIfLocked();
+        const sealed = await withKeyCopy((key) => sealColumn(bytes, key, "media", "data", id));
+        stopIfLocked();
+        return raw.request(method, `${path}${path.includes("?") ? "&" : "?"}id=${id}`, new Blob([sealed], { type: file.type || "application/octet-stream" }), opts);
+      }
+      const out = await withKeyCopy((key) => sealRequest(method, path, body, key, (p) => raw.request("GET", p)));
       stopIfLocked();
-      const sealed = await withKeyCopy((key) => sealColumn(bytes, key, "media", "data", id));
-      stopIfLocked();
-      return rawTransport.request(method, `${path}${path.includes("?") ? "&" : "?"}id=${id}`, new Blob([sealed], { type: file.type || "application/octet-stream" }), opts);
-    }
-    const out = await withKeyCopy((key) => sealRequest(method, path, body, key, (p) => rawTransport.request("GET", p)));
-    stopIfLocked();
-    const answer = await rawTransport.request(method, path, method === "GET" || method === "DELETE" ? body : out, opts);
-    stopIfLocked(); // an answer that arrives after the lock stays sealed
-    const { data, unopened } = await withKeyCopy((key) => openResponse(path, answer, key));
-    if (unopened) console.warn(`${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened`);
-    return data;
-  },
-};
+      const answer = await raw.request(method, path, method === "GET" || method === "DELETE" ? body : out, opts);
+      stopIfLocked(); // an answer that arrives after the lock stays sealed
+      const { data, unopened } = await withKeyCopy((key) => openResponse(path, answer, key));
+      if (unopened) console.warn(`${unopened} row${unopened === 1 ? "" : "s"} couldn't be opened`);
+      return data;
+    },
+  };
+}
+export const httpTransport: Transport = sealingTransport(rawTransport);
 
 let transport: Transport = httpTransport;
 export const usingHttp = () => transport === httpTransport;

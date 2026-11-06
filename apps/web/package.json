@@ -13,6 +13,7 @@
     "@tanstack/vue-query": "5.62.7",
     "@somnium/shared": "workspace:*",
     "@somnium/engine": "workspace:*",
+    "@somnium/knowledge": "workspace:*",
     "@electric-sql/pglite": "0.2.15",
     "qrcode-generator": "2.0.4"
   },

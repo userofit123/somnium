@@ -122,7 +122,9 @@ Dreams are among the most private things a person writes down. The design is **t
   3. **this device** (apps only): the data key wrapped by a key in the Android Keystore (user-authentication
      bound) or Electron `safeStorage`, so the app can unlock with the device's fingerprint / face / screen lock
      without the password, and so a signed-in device can set a new password when the old one is forgotten (§4.4).
-- **Local accounts** use the same envelope; the data key is wrapped by the password and by the device.
+- **Local accounts** use the same envelope, kept in the account's own record on the device; the data key is wrapped by
+  the password, the recovery key and (LDJ-9/10) the device. Their database is sealed at rest like a server's: the app
+  seals the sealed columns before the local engine stores them and opens them on the way back (LDJ-53, docs/security.md).
 - Changing the password re-wraps the data key (no re-encryption of data). Making a new recovery key re-wraps too.
 - The device replica (PGlite in IndexedDB / the app's storage) holds plaintext so the app can search and analyse
   offline; it is protected by the device and by the app lock (§4.3). On sign-out the replica is deleted.

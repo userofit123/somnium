@@ -26,7 +26,7 @@ async function renameAcc(id: string, cur: string) { const n = await prompt("Name
         <p class="muted" style="margin-bottom:18px">{{ accounts.list.length ? "Open an account, or add another." : "Choose how to use Somnium. You can add the other kind later." }}</p>
         <div class="opt-list">
           <div v-for="a in accounts.list" :key="a.id" class="row"><button class="optb" @click="open(a.id)"><span class="oi">{{ a.name.slice(0, 1).toUpperCase() }}</span><div class="grow"><div class="t">{{ a.name }}</div><div class="s">{{ a.kind === "local" ? "On this phone" : a.url }}</div></div></button><Menu :items="[{ label: 'Rename', icon: 'edit', run: () => renameAcc(a.id, a.name) }, { label: 'Remove', icon: 'trash', danger: true, sep: true, run: () => remove(a.id) }]" /></div>
-          <button class="optb" @click="mode = 'local'"><span class="oi"><Icon name="device" /></span><div class="grow"><div class="t">Use Somnium on this phone</div><div class="s">Everything stays here. Nothing to set up.</div></div></button>
+          <button class="optb" @click="mode = 'local'"><span class="oi"><Icon name="device" /></span><div class="grow"><div class="t">Use Somnium on this phone</div><div class="s">Everything stays here, sealed with a password you choose.</div></div></button>
           <button class="optb" @click="mode = 'server'"><span class="oi"><Icon name="server" /></span><div class="grow"><div class="t">Connect to a server</div><div class="s">Your data on your own Somnium server, the same on every device.</div></div></button>
         </div>
       </template>

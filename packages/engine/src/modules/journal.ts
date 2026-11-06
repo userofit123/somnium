@@ -22,6 +22,7 @@ const DREAM: Fields = {
   emotion_overall: (v) => intOrNull(v, -2, 2), duration_est: (v) => intOrNull(v, 0, 600),
   nightmare: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
   became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), favourite: (v) => bool(v),
+  dismissed: sealed,
 };
 const ELEMENT: Fields = {
   kind: enumOf(ELEMENT_KINDS, "theme"),

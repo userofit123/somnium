@@ -19,7 +19,10 @@ export const router = createRouter({
     { path: "/signs", name: "signs", component: () => import("./pages/SignsPage.vue") },
     { path: "/train", name: "train", component: () => import("./pages/TrainPage.vue") },
     { path: "/insights", name: "insights", component: () => import("./pages/InsightsPage.vue") },
-    { path: "/learn", name: "learn", component: () => import("./pages/LearnPage.vue") },
+    { path: "/learn/:sub(.*)?", name: "learn", component: () => import("./pages/LearnPage.vue") },
+    // a reality check from a reminder or by hand: App.vue shows it over the lock screen; its note is a page behind the lock
+    { path: "/check", name: "check", component: () => import("./shell/CheckScreen.vue") },
+    { path: "/check/note/:id", name: "check-note", component: () => import("./pages/CheckNotePage.vue") },
     { path: "/more", name: "more", component: () => import("./pages/MorePage.vue") },
     { path: "/settings/:section?", name: "settings", component: () => import("./pages/SettingsPage.vue") },
     { path: "/:rest(.*)", redirect: "/" },

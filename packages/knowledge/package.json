@@ -4,7 +4,11 @@
   "type": "module",
   "exports": {
     "./lexicons": "./lexicons/index.ts",
-    "./content": "./src/content.ts"
+    "./content": "./src/content.ts",
+    "./markdown": "./src/markdown.ts",
+    "./search": "./src/search.ts",
+    "./learn": "./src/learn.ts",
+    "./assessments": "./src/assessments.ts"
   },
   "scripts": {
     "test": "vitest run",

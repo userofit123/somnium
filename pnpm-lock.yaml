@@ -112,6 +112,9 @@ importers:
       '@somnium/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@somnium/knowledge':
+        specifier: workspace:*
+        version: link:../../packages/knowledge
       '@somnium/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -187,6 +190,9 @@ importers:
         specifier: 4.12.0
         version: 4.12.0
     devDependencies:
+      '@somnium/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
       typescript:
         specifier: 5.7.2
         version: 5.7.2

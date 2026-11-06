@@ -26,6 +26,10 @@ const api = {
     rename: (id: string, name: string) => accountCall("accounts:rename", id, name),
     remove: (id: string) => accountCall("accounts:remove", id),
     chooser: () => accountCall("accounts:chooser"),
+    // a local account's keys (LDJ-53): the envelope only, never the data key
+    keys: () => accountCall("accounts:keys"),
+    setKeys: (keys: unknown) => accountCall("accounts:setKeys", keys),
+    compact: () => accountCall("accounts:compact"),
   },
   privacy: {
     // Electron's content protection is a request to the system, and Linux has nothing to ask
@@ -33,6 +37,8 @@ const api = {
     screenshotsAllowed: () => ipcRenderer.invoke("privacy:screenshots"),
     setScreenshotsAllowed: (allow: boolean) => ipcRenderer.invoke("privacy:setScreenshots", allow),
   },
+  // reality check reminders: the page sends the plan (times and words), the main process shows them (main.ts)
+  reminders: { setPlan: (items: { at: number; title: string; body: string; url: string }[]) => ipcRenderer.invoke("reminders:setPlan", items) },
   saveBackup: (name: string, bytes: Uint8Array, keep: number) => ipcRenderer.invoke("backup:save", name, bytes, keep),
   backupFolder: () => ipcRenderer.invoke("backup:folder"),
   chooseBackupFolder: () => ipcRenderer.invoke("backup:choose"),

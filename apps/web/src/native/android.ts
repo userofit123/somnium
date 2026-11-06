@@ -1,6 +1,6 @@
 // Inside the Android app (Capacitor): accounts, backups to a folder on the phone, the in-app updater, the system bars'
 // colours, and the back button. Exposed as window.somniumNative, like the desktop app.
-import { accounts, addLocal, addServer, open, remove, rename, chooser } from "./accounts";
+import { accounts, addLocal, addServer, open, remove, rename, chooser, localKeys, setLocalKeys, compactLocal } from "./accounts";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 import { REPO, newer, fetchWithin } from "../core/releases";
 import { applyTheme } from "../core/theme";
@@ -28,9 +28,10 @@ export function installAndroidBridge() {
   (globalThis as any).somniumNative = {
     platform: "android",
     accounts: {
-      list: async () => ({ list: accounts.list.map(({ token, ...a }) => a), active: accounts.active }),
-      current: async () => accounts.list.find((a) => a.id === accounts.active) ?? null,
+      list: async () => ({ list: accounts.list.map(({ token, keys, ...a }) => a), active: accounts.active }),
+      current: async () => { const a = accounts.list.find((x) => x.id === accounts.active); if (!a) return null; const { keys, ...rest } = a; return rest; },
       addLocal, addServer, open, remove, rename, chooser,
+      keys: localKeys, setKeys: setLocalKeys, compact: compactLocal,
     },
     // backups go to Documents/Somnium on the phone (the Filesystem plugin), newest `keep` are kept
     async saveBackup(name: string, bytes: Uint8Array, keep: number) {

@@ -12,3 +12,6 @@ export {
   createAccountKeys, openWithPassword, openWithEncKey, changePassword, addRecoveryKey, openWithRecoveryKey, wrapForDevice, openWithDevice,
   type PasswordBundle, type AccountKeys, type RecoveryBundle, type RecoveryKeySet,
 } from "./envelope";
+export {
+  localKeysFrom, createLocalKeys, openLocalWithPassword, rewrapLocalPassword, addLocalRecoveryKey, recoverLocal, type LocalKeys,
+} from "./localAccount";

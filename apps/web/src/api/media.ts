@@ -18,9 +18,10 @@ async function open(id: string): Promise<Blob> {
   const r = await fetchFile(`/media/${encodeURIComponent(id)}`);
   if (!r.ok) throw new ApiError(r.status, "Can't get this file");
   const type = r.headers.get("content-type") ?? "application/octet-stream";
-  if (isLocalDevice()) return new Blob([await r.arrayBuffer()], { type });
-  const sealed = await r.text();
-  if (!isSealed(sealed)) throw new ApiError(422, "This file can't be opened");
+  const buf = await r.arrayBuffer();
+  const sealed = new TextDecoder().decode(buf);
+  // a local account's file from before it had a password is kept as it was (LDJ-53); a server's never is
+  if (!isSealed(sealed)) { if (isLocalDevice()) return new Blob([buf], { type }); throw new ApiError(422, "This file can't be opened"); }
   const key = keyring.get();
   if (!key) throw new LockedError();
   try {
@@ -40,7 +41,7 @@ export async function mediaObjectUrl(src: string | null | undefined): Promise<st
   if (have) return have;
   const file = await open(id);
   // locked while the file was opening: the lock has already let go of every URL, and a new one would hold the open file past it
-  if (!isLocalDevice() && !keyring.isOpen()) throw new LockedError();
+  if (!keyring.isOpen()) throw new LockedError();
   const url = URL.createObjectURL(file);
   urls.set(id, url);
   return url;

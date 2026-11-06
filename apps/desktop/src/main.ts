@@ -11,30 +11,36 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 
-interface Account { id: string; kind: "local" | "server"; name: string; url?: string; port?: number }
+/** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
+ *  or the recovery key, kept with the account and gone with it. */
+interface Account { id: string; kind: "local" | "server"; name: string; url?: string; port?: number; keys?: unknown }
+// what the screens may see of an account: never another account's keys
+const shown = ({ keys, ...a }: Account) => a;
 const USER = app.getPath("userData");
 const ACCOUNTS = path.join(USER, "accounts.json");
 const RES = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "../../..");
 const WEB = app.isPackaged ? path.join(RES, "web") : path.join(RES, "apps/web/dist");
 
 const readAccounts = (): { list: Account[]; active: string | null } => { try { return JSON.parse(fs.readFileSync(ACCOUNTS, "utf8")); } catch { return { list: [], active: null }; } };
-const writeAccounts = (a: { list: Account[]; active: string | null }) => { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(ACCOUNTS, JSON.stringify(a, null, 2)); };
+const writeAccounts = (a: { list: Account[]; active: string | null }) => { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(ACCOUNTS, JSON.stringify(a, null, 2), { mode: 0o600 }); };
 
 let win: BrowserWindow | null = null;
-let running: { id: string; port: number; close: () => Promise<void> } | null = null;
+let running: { id: string; port: number; close: () => Promise<void>; compact?: () => Promise<void> } | null = null;
 
 // ----- local accounts: the Somnium server inside the app -----
-async function startLocal(acc: Account): Promise<{ port: number; close: () => Promise<void>; token: string }> {
+async function startLocal(acc: Account): Promise<{ port: number; close: () => Promise<void>; compact: () => Promise<void>; token: string }> {
   const dir = path.join(USER, "accounts", acc.id);
   fs.mkdirSync(dir, { recursive: true });
   const { pgliteDb } = await import("@somnium/engine/pglite");
   const { buildApp, localSession } = await import("@somnium/server/src/app");
   const db = await pgliteDb(path.join(dir, "db"));
-  const { app: srv } = await buildApp({ db, dataDir: dir, webDir: WEB, logger: false, mode: "local" });
+  // sealed at rest like a server (LDJ-53): the screens seal every sealed column before it gets here, and the server's
+  // rules refuse one in the clear
+  const { app: srv, engine } = await buildApp({ db, dataDir: dir, webDir: WEB, logger: false, mode: "server" });
   await srv.listen({ host: "127.0.0.1", port: 0 });
   const port = (srv.server.address() as any).port;
   const token = await localSession(db, acc.name);
-  return { port, token, close: async () => { await srv.close(); await db.close(); } };
+  return { port, token, close: async () => { await srv.close(); await db.close(); }, compact: () => engine.compact() };
 }
 
 // ----- server accounts: local screens, the API proxied to the server -----
@@ -88,7 +94,7 @@ async function openAccount(id: string) {
     const s = await startLocal(acc);
     port = s.port;
     await part.cookies.set({ url: `http://127.0.0.1:${port}`, name: "somnium_session", value: s.token, httpOnly: true, expirationDate: Date.now() / 1000 + 3600 * 24 * 365 });
-    running = { id, port, close: s.close };
+    running = { id, port, close: s.close, compact: s.compact };
   } else {
     const s = await startProxy(acc);
     port = s.port;
@@ -139,7 +145,7 @@ ipcMain.handle("privacy:setScreenshots", (_e, allow: unknown) => {
   for (const w of BrowserWindow.getAllWindows()) w.setContentProtection(allow !== true);
   return allow === true;
 });
-ipcMain.handle("accounts:list", () => readAccounts());
+ipcMain.handle("accounts:list", () => { const a = readAccounts(); return { ...a, list: a.list.map(shown) }; });
 ipcMain.handle("accounts:addLocal", async (_e, name: string) => { const a = readAccounts(); const acc: Account = { id: crypto.randomUUID(), kind: "local", name: name || "Me" }; a.list.push(acc); writeAccounts(a); await openAccount(acc.id); });
 /** "somnium.home", "192.168.1.5:8080" or "https://Somnium.Example.com/x/" → "https://somnium.home" (https unless told otherwise). Same rules as the Android app (apps/web/src/native/accounts.ts). */
 function serverAddress(input: string) {
@@ -182,7 +188,19 @@ ipcMain.handle("accounts:remove", async (_e, id: string) => {
   writeAccounts({ list: a.list.filter((x) => x.id !== id), active: wasOpen ? null : a.active });
   if (wasOpen) showChooser();
 });
-ipcMain.handle("accounts:current", () => { const a = readAccounts(); return a.list.find((x) => x.id === a.active) ?? null; });
+ipcMain.handle("accounts:current", () => { const a = readAccounts(); const acc = a.list.find((x) => x.id === a.active); return acc ? shown(acc) : null; });
+// The open local account's keys (LDJ-53). Only the account that is running: its screens are the only ones that can ask.
+const openLocal = () => { const a = readAccounts(); const acc = a.list.find((x) => x.id === a.active && x.id === running?.id); return acc?.kind === "local" ? { a, acc } : null; };
+ipcMain.handle("accounts:keys", () => openLocal()?.acc.keys ?? null);
+ipcMain.handle("accounts:setKeys", (_e, keys: unknown) => {
+  const o = openLocal();
+  if (!o) throw new Error("Not a local account");
+  // only the envelope's short text fields: the screens check the shape (localKeysFrom), this keeps the file small and plain
+  if (!keys || typeof keys !== "object" || JSON.stringify(keys).length > 4000) throw new Error("Those keys don't look right");
+  o.acc.keys = Object.fromEntries(Object.entries(keys as Record<string, unknown>).filter(([, v]) => v === null || typeof v === "string"));
+  writeAccounts(o.a);
+});
+ipcMain.handle("accounts:compact", () => running?.compact?.());
 
 const backupDir = () => { const f = path.join(USER, "backup-folder.txt"); try { return fs.readFileSync(f, "utf8").trim(); } catch { return path.join(app.getPath("documents"), "Somnium Backups"); } };
 ipcMain.handle("backup:folder", () => backupDir());
@@ -249,6 +267,37 @@ ipcMain.handle("update:metered", () => new Promise<{ metered: boolean; known: bo
     /uint32 [1-4]\b/, /uint32 [13]\b/);
   else done({ metered: false, known: false });
 }));
+
+// ----- reality check reminders (PLAN.md §9) -----
+// The page works out the plan (packages/shared/src/reminders.ts, the same for every device) and sends it here with the
+// words; the main process keeps the timers, so a reminder comes while the window is minimised, hidden or behind others.
+// Closing the window quits the app (as Motus does: no tray), and with it the reminders. A tap brings the window back on
+// /check, which opens over the lock screen and logs the check. Only what the page sends is shown: the question and the
+// check's own instruction (plus the top dream sign's name if the person turned that on).
+let rcTimers: ReturnType<typeof setTimeout>[] = [];
+const rcShown = new Set<Notification>(); // held: a notification that is garbage-collected loses its click
+const LATE = 15 * 60_000, AHEAD = 3 * 86_400_000;
+function showReminder(r: { at: number; title: string; body: string; url: string }) {
+  if (!Notification.isSupported() || Date.now() - r.at > LATE) return; // the computer slept through it: skipped, not late
+  const n = new Notification({ title: r.title, body: r.body, icon: path.join(__dirname, "icon.png") });
+  n.on("click", () => { rcShown.delete(n); if (!win) return; if (win.isMinimized()) win.restore(); win.show(); win.focus(); win.webContents.send("app:open", r.url); });
+  n.on("close", () => rcShown.delete(n));
+  rcShown.add(n);
+  n.show();
+}
+ipcMain.handle("reminders:setPlan", (_e, items: unknown) => {
+  for (const t of rcTimers) clearTimeout(t);
+  rcTimers = [];
+  if (!Array.isArray(items)) return 0;
+  const now = Date.now();
+  for (const it of items.slice(0, 200)) {
+    if (!it || typeof it.at !== "number" || typeof it.title !== "string" || typeof it.body !== "string" || typeof it.url !== "string") continue;
+    if (!it.url.startsWith("/check") || it.at < now - 60_000 || it.at > now + AHEAD) continue;
+    const r = { at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url };
+    rcTimers.push(setTimeout(() => showReminder(r), Math.max(0, r.at - now)));
+  }
+  return rcTimers.length;
+});
 
 app.setAppUserModelId("org.somnium.app");
 if (!app.requestSingleInstanceLock()) app.quit();

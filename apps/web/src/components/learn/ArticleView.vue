@@ -1,0 +1,70 @@
+<script setup lang="ts">
+// One article: the rendered body, sources with the reviewed date, the "try it" button, previous and next.
+import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from "vue";
+import { useRouter } from "vue-router";
+import { articles, sources, type Article } from "@somnium/knowledge/content";
+import { parseMarkdown } from "@somnium/knowledge/markdown";
+import { neighbours } from "@somnium/knowledge/learn";
+import { sections } from "@somnium/knowledge/content";
+import LearnBlocks from "./LearnBlocks.vue";
+import SourceSheet from "./SourceSheet.vue";
+import { useLearn, recordRead, recordOpened } from "../../core/learn";
+
+const props = defineProps<{ article: Article }>();
+const router = useRouter();
+const { read, last } = useLearn();
+const blocks = computed(() => parseMarkdown(props.article.body));
+const near = computed(() => neighbours(articles, props.article.id));
+const sectionTitle = computed(() => sections.find((s) => s.id === props.article.section)?.title ?? "");
+const open = ref<string[] | null>(null);
+const end = ref<HTMLElement | null>(null);
+const listed = computed(() => props.article.sources.filter((id) => sources.has(id)));
+const showSources = ref(false);
+const techLabel = computed(() => (props.article.tryIt ?? "").replace(/-/g, " "));
+
+// "read" means scrolled to the end. A scroll listener, not an IntersectionObserver: a jump to the bottom (End key,
+// a fling) can pass the end marker between two frames, and it still counts as having reached the end.
+let timer = 0, done = false;
+function check() {
+  if (done || !end.value) return;
+  if (end.value.getBoundingClientRect().top <= innerHeight) { done = true; recordRead(read.value, props.article.id); removeEventListener("scroll", check); }
+}
+async function watchEnd() {
+  removeEventListener("scroll", check); done = false; clearTimeout(timer); await nextTick();
+  addEventListener("scroll", check, { passive: true });
+  // a short article that fits on screen counts once it has been shown for a moment
+  timer = window.setTimeout(check, 1200);
+}
+onMounted(() => { recordOpened(last.value, props.article.id); void watchEnd(); });
+watch(() => props.article.id, () => { showSources.value = false; recordOpened(last.value, props.article.id); void watchEnd(); });
+onBeforeUnmount(() => { removeEventListener("scroll", check); clearTimeout(timer); });
+const go = (a: Article) => router.push("/learn/" + a.id);
+</script>
+
+<template>
+  <article class="art">
+    <div class="eyebrow">{{ sectionTitle }}</div>
+    <h1>{{ article.title }}</h1>
+    <p class="lede">{{ article.summary }}</p>
+    <LearnBlocks :blocks="blocks" @cite="open = $event" />
+    <div v-if="article.tryIt" class="tryit card">
+      <div><b>Try it</b><div class="s">Put this into practice with the {{ techLabel }} technique.</div></div>
+      <router-link class="btn" :to="{ path: '/train', query: { technique: article.tryIt } }">Try it in Train</router-link>
+    </div>
+    <section class="srcs">
+      <button type="button" class="srch" :aria-expanded="showSources" @click="showSources = !showSources">
+        Sources ({{ listed.length }}) <span class="s">· reviewed {{ article.reviewed }}</span>
+      </button>
+      <ul v-if="showSources">
+        <li v-for="id in listed" :key="id"><button type="button" class="cite" @click="open = [id]">{{ id }}</button> <span class="s">{{ sources.get(id)?.text.replace(/https?:\/\/\S+/, "").trim() }}</span></li>
+      </ul>
+    </section>
+    <div ref="end" class="endmark" aria-hidden="true" />
+    <div v-if="near.prev || near.next" class="lpn" role="navigation" aria-label="In this section">
+      <button v-if="near.prev" type="button" class="card click prev" @click="go(near.prev!)"><span class="s">Previous</span><b>{{ near.prev.title }}</b></button>
+      <span v-else />
+      <button v-if="near.next" type="button" class="card click next" @click="go(near.next!)"><span class="s">Next</span><b>{{ near.next.title }}</b></button>
+    </div>
+    <SourceSheet v-if="open" :ids="open" @close="open = null" />
+  </article>
+</template>

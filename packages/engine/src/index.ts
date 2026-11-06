@@ -38,6 +38,9 @@ export interface Engine {
   onChange(fn: Listener): () => void;
   /** Creates the single person of a local (on-device) account, or returns the one that exists. */
   ensureLocalUser(name?: string): Promise<string>;
+  /** Local accounts only, after their plaintext was sealed in place: rewrites the tables and cycles the write-ahead
+   *  log, so the old plaintext versions of the rows don't stay behind in the database files. Slow on a big journal. */
+  compact(): Promise<void>;
 }
 
 /** seed: false for a device's copy of a server account (nothing is seeded yet; kept for the bundled content to come). */
@@ -82,6 +85,11 @@ export async function createEngine(db: Db, opts: { mode: "server" | "local"; now
       const id = uuidv7();
       await db.admin.query("INSERT INTO users (id, username, display_name, role) VALUES ($1, 'local', $2, 'admin')", [id, name]);
       return id;
+    },
+    async compact() {
+      await db.admin.exec("VACUUM FULL");
+      // a checkpoint lets go of the old log segments; switching first makes sure the ones holding old rows are among them
+      for (let i = 0; i < 3; i++) { await db.admin.query("SELECT pg_switch_wal()"); await db.admin.exec("CHECKPOINT"); }
     },
   };
 }

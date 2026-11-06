@@ -10,7 +10,7 @@
 // appear in their dreams) is unreadable on the server; the kind and colour of an element stay plain.
 export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   nights: ["substances", "notes", "intention"],
-  dreams: ["title", "text", "lucid_trigger"],
+  dreams: ["title", "text", "lucid_trigger", "dismissed"],
   elements: ["name", "aliases", "note"],
   dream_elements: ["span"],
   // ocr_text as text; the file (data) is sealed as bytes (sealBytes) before upload: a text envelope, so the column is text

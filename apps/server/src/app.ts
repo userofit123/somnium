@@ -16,8 +16,8 @@ import {
 } from "./auth";
 import { VERSION, API_LEVEL, checkForUpdate } from "./version";
 
-// mode "local": the desktop app's own server for a local account. Its data stays on the device as plaintext, so it
-// doesn't insist on envelopes the way a real server does.
+// mode "local": a server that takes the journal in the clear. Nothing uses it any more: the desktop app's own server for
+// a local account runs as "server", since its screens seal the journal like a server account's (LDJ-53).
 export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string; mode?: "server" | "local" }
 
 /** A local (on-device) account: one person, signed in automatically by the desktop app. Returns a session token for them. */

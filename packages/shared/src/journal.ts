@@ -116,8 +116,12 @@ export interface DreamDraft {
   /** element ids linked and unlinked here, not yet sent */
   link: string[];
   unlink: string[];
-  /** elements made here, not yet sent */
-  newElements: { id: string; name: string; kind: string }[];
+  /** elements made here, not yet sent (a confirmed suggestion may bring aliases, or mark a dream sign) */
+  newElements: { id: string; name: string; kind: string; aliases?: string | null; isDreamSign?: boolean; signCategory?: string | null }[];
+  /** how a link was made, for links that came from a confirmed suggestion (LDJ-18); others are manual */
+  linkMeta?: Record<string, { source: "detected" | "ocr"; confidence: number | null; span: string | null }>;
+  /** new aliases of the person's existing elements, learned from confirmed suggestions, not yet sent */
+  aliases?: Record<string, string>;
   /** when the person last changed it (ms) */
   savedAt: number;
 }

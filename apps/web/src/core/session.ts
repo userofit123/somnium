@@ -55,7 +55,7 @@ export async function loadSession() {
   }
   session.ready = true;
 }
-/** A local account in the desktop or Android app: everything on this device, no password and no server to ask. */
+/** A local account in the desktop or Android app: everything on this device, sealed with its own password (core/localLock.ts), no server to ask. */
 export async function isLocalAccount() {
   try { return (await (globalThis as any).somniumNative?.accounts?.current?.())?.kind === "local"; } catch { return false; }
 }

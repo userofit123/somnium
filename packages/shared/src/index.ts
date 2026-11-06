@@ -11,3 +11,5 @@ export * from "./password";
 export * from "./lock";
 export * from "./copyOwner";
 export * from "./journal";
+export * from "./detect";
+export * from "./reminders";

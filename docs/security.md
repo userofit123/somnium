@@ -33,7 +33,8 @@ order and page rows; they say nothing on their own.
 
 **The server refuses plaintext.** As a second line of defence, every engine handler that writes a sealed column,
 sync push, import and the media route answer 400 "must be sealed by the app" to a value that is not an envelope. A
-device's own database and a local account accept plaintext, since that is where plaintext belongs.
+local account's own database runs under the same rule (below). A server account's copy on a device accepts
+plaintext, since that is where its plaintext belongs.
 
 Each value is bound to its place by the authenticated data `<table>.<column>.<row id>`: a ciphertext moved to
 another row, column or table does not open, so someone holding the database but not the key cannot
@@ -57,15 +58,32 @@ later sync.
 Android and in Electron) is plaintext so the app can search and analyse offline. It is protected by the device
 (its storage and its screen lock) and by the app lock (PLAN.md §4.3). Signing out deletes the copy.
 
-**Local accounts** (no server) keep plaintext in their own database on the device for the same reason, with the
-same protection. Nothing of theirs ever leaves the device; sealing applies when data crosses to a server, and
-a local account has no server. They have no password and no data key today, which limits the app lock (below).
+**Local accounts** (no server; LDJ-53) are sealed at rest. Making one asks for a password (10+ characters, not on
+the common-password list, typed twice), makes the data key on the device and offers the recovery key at once. The
+envelope (salt, data key wrapped by the password, recovery salt, data key wrapped by the recovery key, recovery
+verifier) is kept in the account's own record: `accounts.json` in the desktop app's user folder (file mode 600),
+the account list in the Android app's storage. Their database (files in the desktop app, PGlite in the Android
+WebView's IndexedDB) holds the sealed columns as ciphertext, exactly as a server does: the app seals on the way in
+and opens on the way out through the same code a server account uses without a device copy
+(`apps/web/src/api/client.ts` `sealingTransport`), and the engine runs with the server's rule, refusing a sealed
+column in the clear. So a copied database folder holds no dream text without the password or the recovery key
+(`packages/engine/test/local-at-rest.test.ts` writes through that path to a database on disk and searches every
+byte of its files). Dates, counts and ratings stay plain, as on a server. The search and analysis screens work on
+what the engine hands back, opened in memory; nothing opened is written back to disk.
+A local account made before this (development builds only) is asked to set a password on its next start; what it
+holds is then exported, sealed and restored in one transaction, and the database is compacted (`VACUUM FULL`, the
+write-ahead log cycled) so the old plaintext rows leave its files. Two limits there: the storage underneath (a disk's
+free blocks, an SSD's spare area, IndexedDB's own files) may keep old bytes until they are overwritten, and photos a
+desktop local account stored as files before this stay as they were (new ones are sealed). Making a fresh account
+from a backup leaves neither behind.
 
 **Exports** carry the rows as the database they came from holds them, and say so: `"sealed": true` from the
-server (ciphertext, restorable only on the server), `"sealed": false` from a device (plaintext, for the person
-to keep and restore anywhere). The app opens a server's export on the device before saving it, so what a person
+server or a local account (ciphertext), `"sealed": false` from a server account's device copy (plaintext, for the
+person to keep and restore anywhere). The app opens a sealed export on the device before saving it, so what a person
 downloads is plaintext either way, and seals a plaintext file again before restoring it to a server. A sealed
-export is refused by a device's restore so ciphertext never lands in a plaintext database.
+export is refused by a server account's device copy so ciphertext never lands in a plaintext database. A backup
+from a local account is therefore the same file as one from a server account, and restores into a server (moving the
+account there) the same way.
 
 **The test** (`packages/engine/test/sealing.test.ts`): a dream, a night, an element, a reality check, a practice
 entry and a lesson's answers are written through a device with distinctive strings and synced; every table on
@@ -155,9 +173,12 @@ and capture tools may ignore it. On Linux it does nothing, so the setting isn't 
   a key or of decrypted text is left in memory until it is overwritten.
 - An operating system may keep a picture of the app for its task switcher, taken before the app learns it was hidden.
   The web can't prevent that. Android's `FLAG_SECURE` (LDJ-9) and the desktop's content protection can.
-- **A local account has no password**, so there is nothing to prove. Its lock screen hides the journal on the same
-  triggers, says plainly that it keeps no one out, and opens with a button. It is a privacy screen until local accounts
-  get a password or device verification.
+- **A local account's lock** works like a server account's: the password opens the data key from the account's own
+  record, a forgotten password is replaced with the recovery key (which is then replaced too), wrong passwords and wrong
+  recovery keys wait 1, 5, 15 and 60 minutes after five, and nothing is ever deleted. The record and the wrong-try count
+  are on the device, so someone with a copy of the app's storage can guess passwords offline, limited only by Argon2id,
+  or reset the count. Device verification is the password in the desktop and Android apps until LDJ-9 and LDJ-10:
+  WebAuthn refuses the desktop app's `http://127.0.0.1` address and the Android app has its own path.
 
 **When a session ends without signing out** (it expired, or was ended elsewhere), the tab leaves the device's copy at
 once and goes back to the server, and the copy stays closed on the device for the same person's return. If someone

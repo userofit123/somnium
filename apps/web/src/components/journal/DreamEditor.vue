@@ -3,9 +3,9 @@
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { elementMatches, fold, mergeDraft, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
-import { beginDraft, changeDream, deleteDream, endDraft, linkElement, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
+import { beginDraft, changeDream, deleteDream, endDraft, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { confirm } from "../../core/ask";
 import { toastError } from "../../core/toast";
@@ -13,7 +13,7 @@ import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Collapse from "../Collapse.vue";
 import NightSheet from "./NightSheet.vue";
-import { suggestElements } from "./detect";
+import { loadLexicons, suggestElements } from "./detect";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
 const props = defineProps<{ id: string; date?: string; full?: boolean; fresh?: boolean }>();
@@ -21,11 +21,11 @@ const emit = defineEmits<{ close: [] }>();
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "recurring", "falseAwakening", "sleepParalysis", "favourite"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
-const made = ref<Pick<Element, "id" | "name" | "kind">[]>([]);
+const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
 const ready = ref(false), loadError = ref(""), more = ref(false), nightOpen = ref(false), existed = ref(false);
 const textEl = ref<HTMLTextAreaElement | null>(null);
 
@@ -41,7 +41,7 @@ async function load() {
   const m = mergeDraft(row as any, draft);
   for (const k of FIELDS) if (m[k] !== undefined && m[k] !== null) f[k] = m[k];
   chosen.value = mergeLinks((row?.elements ?? []).map((l) => l.elementId), draft);
-  made.value = draft?.newElements.map((e) => ({ id: e.id, name: e.name, kind: e.kind as Element["kind"] })) ?? [];
+  made.value = draft?.newElements.map((e) => ({ id: e.id, name: e.name, kind: e.kind as Element["kind"], aliases: e.aliases ?? null })) ?? [];
   const nights: NightRow[] = j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
   const night = nights.find((n) => n.id === m.nightId);
   if (draft) Object.assign(where, { date: draft.date, nap: draft.nap, nightId: draft.nightId });
@@ -86,7 +86,7 @@ function createEl() {
   const name = typed.value.trim();
   if (!name) return;
   const id = uuidv7(), kind = newKind.value;
-  made.value.push({ id, name, kind });
+  made.value.push({ id, name, kind, aliases: null });
   chosen.value.push(id);
   linkElement(props.id, id, { name, kind });
   typed.value = "";
@@ -101,8 +101,48 @@ function onElKey(e: KeyboardEvent) {
   else if (e.key === "Enter") { e.preventDefault(); const m = matches.value[hi.value]; if (m) addEl(m.id); else if (!exact.value) createEl(); }
 }
 function removeEl(id: string) { chosen.value = chosen.value.filter((x) => x !== id); unlinkElement(props.id, id); }
-// LDJ-18 fills this in; the chips show whatever it finds
-const suggested = computed(() => suggestElements(f.text ?? "", all.value).filter((s) => !chosen.value.includes(s.id)));
+// "the app reads your dream" (PLAN.md §7.1): suggestions from the text, read on this device a moment after the
+// writing pauses, so typing never waits on it
+const readText = ref("");
+let readTimer: ReturnType<typeof setTimeout> | undefined;
+watch(() => f.text, (t) => { clearTimeout(readTimer); readTimer = setTimeout(() => (readText.value = t ?? ""), 600); });
+const dismissedKeys = computed(() => parseDismissed(f.dismissed));
+const own = computed(() => all.value.map((e) => ({ id: e.id, name: e.name, kind: e.kind, aliases: e.aliases ?? null })));
+const suggested = computed(() => suggestElements(readText.value, own.value, chosen.value, dismissedKeys.value));
+// the words the dream used for it, as written, when they are not the element's name already
+function saidAs(s: Suggestion, name: string | null, aliases: string | null): string | null {
+  if (s.type !== "element") return null;
+  const bare = (x: string) => fold(x).replace(/^(?:my|the|a|an) /, "").replace(/s$/, "");
+  let out = aliases;
+  for (const [a, b] of s.spans) {
+    const w = (f.text ?? "").slice(a, b).trim();
+    if (!w || w.split(/\s+/).length > 3 || [name ?? "", ...(out ?? "").split(",")].some((x) => x.trim() && bare(x) === bare(w))) continue;
+    out = addAlias({ name, aliases: out }, w.toLowerCase()) ?? out;
+  }
+  return out === aliases ? null : out;
+}
+/** One tap: links the person's element, or makes it, marked as found in the text with where and how sure. */
+function confirmSug(s: Suggestion) {
+  const meta = { source: "detected" as const, confidence: s.confidence, span: JSON.stringify(s.spans) };
+  const el = s.existingElementId ? all.value.find((e) => e.id === s.existingElementId) : undefined;
+  if (el) {
+    chosen.value.push(el.id);
+    linkElement(props.id, el.id, undefined, meta);
+    // found under another name ("mom" for Mother): the element answers to that name from now on
+    const taught = saidAs(s, el.name, el.aliases ?? null);
+    if (taught) {
+      teachAlias(props.id, el.id, taught);
+      const m = made.value.find((x) => x.id === el.id); if (m) m.aliases = taught; else el.aliases = taught;
+    }
+    return;
+  }
+  const id = uuidv7(), aliases = saidAs(s, s.name, null);
+  made.value.push({ id, name: s.name, kind: s.kind, aliases });
+  chosen.value.push(id);
+  linkElement(props.id, id, { name: s.name, kind: s.kind, aliases, ...(s.type === "sign" ? { isDreamSign: true, signCategory: s.signCategory ?? null } : {}) }, meta);
+}
+/** Not this one, for this dream: kept with the dream (sealed), so it stays gone after a reload and on other devices. */
+function dismissSug(s: Suggestion) { f.dismissed = JSON.stringify([...dismissedKeys.value, s.key]); }
 
 const state = computed(() => saveState[props.id]);
 const stateText = computed(() => ({ saving: "Saving", saved: "Saved", waiting: "Kept on this device · sends when the server is back", error: saveError[props.id] ?? "Couldn't save" } as Record<string, string>)[state.value ?? ""] ?? "");
@@ -122,14 +162,17 @@ const grow = () => { const t = textEl.value; if (!t || props.full) return; t.sty
 watch(() => f.text, () => nextTick(grow));
 onMounted(async () => {
   await load();
+  readText.value = f.text ?? "";
   await nextTick(); grow();
+  // after the first paint: the lexicons are a separate chunk, read only once there is a dream to read
+  setTimeout(() => void loadLexicons(), 0);
   // the keyboard opens on the text, with the date and title still in view above it
   if (props.full && ready.value && !f.text) textEl.value?.focus({ preventScroll: true });
 });
 // the lock unmounts this: what is waiting goes now (the device copy needs no key; the direct path sealed it already)
 const leaving = () => saveNow(props.id);
 addEventListener("pagehide", leaving);
-onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.id); endDraft(props.id); });
+onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide", leaving); saveNow(props.id); endDraft(props.id); });
 </script>
 
 <template>
@@ -145,6 +188,12 @@ onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.
       <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}</button>
       <input v-model="f.title" class="jtitle" placeholder="Title" maxlength="200" />
       <textarea ref="textEl" v-model="f.text" class="jtext" placeholder="I am standing in a house I don't know. The light is strange..." />
+      <div v-if="suggested.length" class="jfound" aria-label="Found in the text">
+        <span v-for="s in suggested" :key="s.key" class="jsg">
+          <button class="jsgo" :aria-label="'Add ' + s.name" @click="confirmSug(s)"><Icon name="plus" :size="12" />{{ s.name }}<span class="jkind">{{ ELEMENT_KIND_LABEL[s.kind] }}</span></button>
+          <button class="jx" :aria-label="'Not ' + s.name" @click="dismissSug(s)"><Icon name="close" :size="12" /></button>
+        </span>
+      </div>
 
       <div class="chips jchips">
         <button v-for="c in CHIPS" :key="c.k" class="fchip" :class="{ on: chipOn(c.k) }" :aria-pressed="chipOn(c.k)" @click="toggleChip(c.k)">{{ c.label }}</button>
@@ -165,9 +214,6 @@ onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.
         <label>Elements</label>
         <div v-if="chosenEls.length" class="chips jels">
           <span v-for="e in chosenEls" :key="e.id" class="fchip on">{{ e.name }}<button class="jx" :aria-label="'Remove ' + e.name" @click="removeEl(e.id)"><Icon name="close" :size="12" /></button></span>
-        </div>
-        <div v-if="suggested.length" class="chips jels">
-          <button v-for="s in suggested" :key="s.id" class="fchip" @click="addEl(s.id)"><Icon name="plus" :size="12" />{{ s.name }}</button>
         </div>
         <div class="jta">
           <input v-model="typed" placeholder="Add a person, place, thing..." maxlength="80" @keydown="onElKey" @input="hi = 0" />
@@ -220,6 +266,13 @@ onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.
 .jtext { min-height: 180px; resize: vertical; font-size: 16px; line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
 .jchips { margin: 0; }
+/* suggestions: quiet, so they read as an offer and not as part of the dream */
+.jfound { display: flex; flex-wrap: wrap; gap: 6px; margin-top: calc(-1 * var(--hg) / 2); }
+.jsg { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: 13px; max-width: 100%; }
+.jsgo { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
+.jkind { color: var(--tx2); font-size: 11px; margin-left: 2px; }
+.jsg .jx { color: var(--tx2); padding: 2px; }
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
 .jan { margin-top: 6px; color: var(--tx2); }

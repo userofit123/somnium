@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Settings → Account: everything about your account in one place. Who you are (name, optional email), username and role,
 // password, signing out, sync, every other place this account is signed in, and deleting it.
-// A local account (no server) has no password, no username to show and no other devices: those rows are left out.
+// A local account (no server) has no username to show and no other devices: those rows are left out. Its password is
+// changed on this device (core/localLock.ts).
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
@@ -10,6 +11,7 @@ import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
 import { sync, schedule } from "../../api/replica";
 import { signOut, isLocalAccount } from "../../core/session";
+import { changeLocalPassword } from "../../core/localLock";
 import { keyring } from "../../core/keyring";
 import { rememberBundle } from "../../core/unlock";
 import { authKeyFor, keysFor } from "../../core/auth";
@@ -68,6 +70,16 @@ async function changePassword() {
     sessions.refetch(); toast("Password changed. Other devices were signed out.");
   } catch (e) { toastError(e); }
 }
+// a local account (LDJ-53): the same re-wrap, kept in the account's record on this device
+async function changeLocal() {
+  const current = await prompt("Current password", { secret: true }); if (!current) return;
+  const next = await prompt("New password", { text: `At least ${PASSWORD_MIN} characters.`, secret: true, autocomplete: "new-password" }); if (!next) return;
+  const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
+  if (again !== next) { toastError(new Error("The passwords don't match")); return; }
+  const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
+  try { toast("Unlocking..."); if (await changeLocalPassword(current, next)) toast("Password changed"); else toastError(new Error("Wrong password")); }
+  catch (e) { toastError(e); }
+}
 // straight to the server, never queued: without a connection it fails and nothing is deleted.
 // A wrong password leaves you signed in; ask again.
 async function deleteAccount() {
@@ -91,7 +103,7 @@ async function deleteAccount() {
   <div class="card flush">
     <div class="li"><div class="grow t">Name</div><input class="ac-in" :value="user?.displayName ?? ''" placeholder="Your name" autocomplete="name" @change="saveMe({ displayName: val($event) })" /></div>
     <div class="li"><div class="grow"><div class="t">Email</div><div class="s">Optional</div></div><input class="ac-in" type="email" :value="user?.email ?? ''" placeholder="you@example.com" autocomplete="email" @change="saveMe({ email: val($event) })" /></div>
-    <div v-if="localAccount === false" class="li"><div class="grow t">Password</div><button class="qb" @click="changePassword">Change</button></div>
+    <div v-if="localAccount !== null" class="li"><div class="grow t">Password</div><button class="qb" @click="localAccount ? changeLocal() : changePassword()">Change</button></div>
     <div class="li"><div class="grow"><div class="t">Sign out</div><div class="s">From this device</div></div><button class="qb" @click="signOut()">Sign out</button></div>
   </div>
 

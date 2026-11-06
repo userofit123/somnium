@@ -153,11 +153,20 @@ export function moveDream(dreamId: string, date: string, nap: boolean, nightId: 
   const d = drafts.get(dreamId); if (!d) return;
   d.date = date; d.nap = nap; d.nightId = nightId; d.night = {}; touch(d);
 }
-export function linkElement(dreamId: string, elementId: string, made?: { name: string; kind: string }) {
+export function linkElement(dreamId: string, elementId: string, made?: Omit<DreamDraft["newElements"][number], "id">, meta?: NonNullable<DreamDraft["linkMeta"]>[string]) {
   const d = drafts.get(dreamId); if (!d) return;
   if (made) d.newElements.push({ id: elementId, ...made });
+  if (meta) d.linkMeta = { ...d.linkMeta, [elementId]: meta };
+  else if (d.linkMeta?.[elementId]) { const { [elementId]: _, ...rest } = d.linkMeta; d.linkMeta = rest; }
   d.unlink = d.unlink.filter((x) => x !== elementId);
   if (!d.link.includes(elementId)) d.link.push(elementId);
+  touch(d);
+}
+/** A name the person's element answers to from now on, learned when they confirm a suggestion (the whole list). */
+export function teachAlias(dreamId: string, elementId: string, aliases: string) {
+  const d = drafts.get(dreamId); if (!d) return;
+  const made = d.newElements.find((e) => e.id === elementId);
+  if (made) made.aliases = aliases; else d.aliases = { ...d.aliases, [elementId]: aliases };
   touch(d);
 }
 export function unlinkElement(dreamId: string, elementId: string) {
@@ -193,13 +202,14 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
     mine(); if (Object.keys(snap.night).length) await api.put(`/nights/${nightId}`, snap.night);
     for (const e of snap.newElements) {
       mine(); const there = await api.get(`/elements/${e.id}`).then(() => true, (x) => { if (status(x) === 404) return false; throw x; });
-      mine(); if (!there) await api.post("/elements", { id: e.id, name: e.name, kind: e.kind });
+      mine(); if (!there) await api.post("/elements", e);
     }
+    for (const [id, aliases] of Object.entries(snap.aliases ?? {})) { mine(); await api.put(`/elements/${id}`, { aliases }).catch((e) => { if (status(e) !== 404) throw e; }); }
     const body = { ...snap.dream, nightId };
     mine();
     try { await api.put(`/dreams/${dreamId}`, body); }
     catch (e) { if (status(e) !== 404) throw e; mine(); await api.post("/dreams", { ...body, id: dreamId }); }
-    for (const id of snap.link) { mine(); await api.post(`/dreams/${dreamId}/elements`, { elementId: id, source: "manual" }); }
+    for (const id of snap.link) { mine(); await api.post(`/dreams/${dreamId}/elements`, { elementId: id, ...(snap.linkMeta?.[id] ?? { source: "manual" }) }); }
     for (const id of snap.unlink) { mine(); await api.del(`/dreams/${dreamId}/elements/${id}`).catch((e) => { if (status(e) !== 404) throw e; }); }
     if (owner() !== who) return;
     // sent: take off what went, keep anything newer
@@ -207,6 +217,8 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
     for (const [k, v] of Object.entries(snap.night)) if (JSON.stringify(d.night[k]) === JSON.stringify(v)) delete d.night[k];
     d.newElements = d.newElements.filter((e) => !snap.newElements.some((x) => x.id === e.id));
     d.link = d.link.filter((x) => !snap.link.includes(x));
+    if (d.linkMeta) for (const id of snap.link) if (!d.link.includes(id)) delete d.linkMeta[id];
+    if (d.aliases) for (const [id, a] of Object.entries(snap.aliases ?? {})) if (d.aliases[id] === a) delete d.aliases[id];
     d.unlink = d.unlink.filter((x) => !snap.unlink.includes(x));
     sentUpTo.set(dreamId, snap.savedAt);
     if (d.savedAt === snap.savedAt) { dropStored(dreamId, snap.savedAt); saveState[dreamId] = "saved"; }

@@ -18,6 +18,8 @@ import { useFmt } from "../../core/format";
 import { authKeyFor } from "../../core/auth";
 import { qrPath, keyGroups } from "../../core/qr";
 import { isLocalAccount } from "../../core/session";
+import { checkLocalPassword, localKeys, makeLocalRecoveryKey } from "../../core/localLock";
+import type { LocalKeys } from "@somnium/shared";
 import { backupLog, folderName } from "../../core/backup";
 import { lock, setLockSettings, whileVerifying } from "../../core/lock";
 import { deviceStatus, deviceVerifierExists, setUpDevice, turnDeviceOff } from "../../core/unlock";
@@ -48,6 +50,19 @@ async function makeKey() {
   busy.value = true;
   try { recoveryKey.value = await makeRecoveryKey(await authKeyFor(username.value, password)); keySaved.value = false; sec.refetch(); }
   catch (e) { toastError(e); } finally { busy.value = false; }
+}
+// a local account (LDJ-53): the same key, kept in the account's record on this device
+const localInfo = ref<LocalKeys | null>(null);
+const loadLocalInfo = () => localKeys().then((k) => { localInfo.value = k; }).catch(() => {});
+isLocalAccount().then((v) => { if (v) void loadLocalInfo(); });
+async function makeLocalKey() {
+  const replacing = !!localInfo.value?.recoveryMadeAt;
+  const password = await prompt(replacing ? "Replace your recovery key" : "Make your recovery key", { text: replacing ? "The old key stops working. Type your password." : "Type your password.", placeholder: "Password", ok: "Next", secret: true }); if (!password) return;
+  busy.value = true;
+  try {
+    if (!(await checkLocalPassword(password))) { toastError(new Error("Wrong password")); return; }
+    recoveryKey.value = await makeLocalRecoveryKey(); keySaved.value = false; void loadLocalInfo();
+  } catch (e) { toastError(e); } finally { busy.value = false; }
 }
 function keySavedDone() { recoveryKey.value = null; toast("Recovery key saved"); }
 
@@ -177,7 +192,24 @@ function download() {
     <div v-if="privacy?.canAskSystem" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : "Asks the system to leave this window out of screenshots and screen sharing. Some capture tools may ignore this." }}</div></div>
       <button class="qb" @click="toggleScreenshots">{{ screenshots ? "Ask to block" : "Allow" }}</button></div>
   </div>
-  <div v-if="localAccount" class="card"><div class="li"><div class="grow"><div class="t">On this device only</div><div class="s">A local account has no password, so the lock screen only hides your journal. It doesn't keep anyone out.</div></div></div></div>
+  <template v-if="localAccount">
+    <div class="sh"><h2>Can you get back in?</h2></div>
+    <p class="tiny hgap">This journal is only on this device, sealed with your password. Nobody can send you the password. The recovery key is the way back in.</p>
+    <div class="card flush">
+      <div class="li"><Icon :name="localInfo?.recoveryMadeAt ? 'check' : 'info'" :size="18" :class="localInfo?.recoveryMadeAt ? 'sec-ok' : 'muted'" />
+        <div class="grow"><div class="t">Recovery key saved</div><div class="s">{{ localInfo?.recoveryMadeAt ? `Made ${fmt.date(localInfo.recoveryMadeAt, { day: "numeric", month: "short", year: "numeric" })}` : "Not made yet - without it a forgotten password locks your journal for good" }}</div></div>
+        <button class="qb" :class="{ acc: !localInfo?.recoveryMadeAt }" :disabled="!journalOpen || busy" @click="makeLocalKey">{{ localInfo?.recoveryMadeAt ? "Replace" : "Make key" }}</button></div>
+    </div>
+    <p class="tiny">Your dreams and notes are kept sealed in this device's database: a copy of its files holds no dream text without your password. Dates, counts and ratings stay plain, as on a server. While the journal is open, the key is in the app's memory, and it goes when the app locks.</p>
+    <div v-if="recoveryKey" class="card sec-codes">
+      <div class="t">Your recovery key</div>
+      <p class="s">Save it somewhere safe and private - a password manager, or printed. It opens your journal and sets a new password if you forget yours. It is shown only now; any older key no longer works.</p>
+      <code class="key-display sec-key-text">{{ recoveryKey }}</code>
+      <div class="sec-actions"><button class="qb" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="qb" @click="downloadRecoveryKey('your journal on this device', recoveryKey!)"><Icon name="download" :size="15" />Download as text</button></div>
+      <label class="sec-check"><input v-model="keySaved" type="checkbox" /> I saved my recovery key</label>
+      <div class="sec-actions"><button class="btn" :disabled="!keySaved" @click="keySavedDone">Done</button></div>
+    </div>
+  </template>
   <template v-else-if="localAccount === false">
     <div class="sh"><h2>Can you get back in?</h2></div>
     <p class="tiny hgap">Nobody can send you your password or open your journal for you, the admin included. These are your ways back.</p>
