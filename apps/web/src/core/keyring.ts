@@ -11,6 +11,7 @@ type Listener = (open: boolean) => void;
 let current: Uint8Array | null = null;
 let changes = 0;
 const listeners = new Set<Listener>();
+const beforeClear = new Set<() => void>();
 const tell = () => { for (const fn of listeners) { try { fn(current !== null); } catch { /* a listener's problem is its own */ } } };
 
 export const keyring = {
@@ -31,6 +32,8 @@ export const keyring = {
     tell();
   },
   clear(): void {
+    // last moment with the key: a draft still in memory is sealed now (api/journal.ts), with a copy taken here
+    if (current) for (const fn of beforeClear) { try { fn(); } catch { /* its own problem */ } }
     if (current) current.fill(0);
     current = null;
     changes++;
@@ -38,6 +41,8 @@ export const keyring = {
   },
   /** Called with whether the key is open whenever it is set or cleared; returns an unsubscribe function. */
   onChange(cb: Listener): () => void { listeners.add(cb); return () => listeners.delete(cb); },
+  /** Called (synchronously) just before the key is cleared, while get() still answers; returns an unsubscribe function. */
+  onBeforeClear(cb: () => void): () => void { beforeClear.add(cb); return () => beforeClear.delete(cb); },
 };
 
 /**

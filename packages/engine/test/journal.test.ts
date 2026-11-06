@@ -47,6 +47,9 @@ describe("journal", () => {
     element = await call<Element>(A, "POST", "/elements", { kind: "character", name: "env:n", isDreamSign: true, signCategory: "form" });
     const link = await call<DreamElement>(A, "POST", `/dreams/${dream.id}/elements`, { elementId: element.id, source: "manual", confidence: 0.9 });
     expect(link.elementId).toBe(element.id);
+    // every link at once, for the Journal's counts and element search; never another person's
+    expect((await call<DreamElement[]>(A, "GET", "/dream-elements")).map((l) => l.id)).toContain(link.id);
+    expect(await call<DreamElement[]>(B, "GET", "/dream-elements")).toEqual([]);
     // linking again updates the link there instead of making a second one
     await call(A, "POST", `/dreams/${dream.id}/elements`, { elementId: element.id, source: "detected" });
     const full = await call<DreamFull>(A, "GET", `/dreams/${dream.id}`);

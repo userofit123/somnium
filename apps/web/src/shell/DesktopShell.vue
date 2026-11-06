@@ -50,7 +50,8 @@ const acctMenu = computed(() => [
   { label: "Sign out", icon: "logout", run: async () => { await signOut(); } },
 ]);
 // one key per page, so moving between pages animates; settings sections animate inside the page instead
-const pageKey = (r: any) => (r.name === "settings" ? "settings" : r.path);
+// the Journal's dream panel opens beside its list, so the list stays put
+const pageKey = (r: any) => (r.name === "settings" ? "settings" : String(r.name ?? "").startsWith("journal") ? "journal" : r.path);
 // once a page has moved in, anything that appears on it later rises in by itself (see app.css)
 const arrived = (el: Element) => el.classList?.add("in");
 </script>

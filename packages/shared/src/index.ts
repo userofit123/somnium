@@ -10,3 +10,4 @@ export * from "./rates";
 export * from "./password";
 export * from "./lock";
 export * from "./copyOwner";
+export * from "./journal";

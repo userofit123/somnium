@@ -126,6 +126,9 @@ export function journalRoutes(r: Router) {
     return { ok: true };
   });
 
+  // every live link at once: what the Journal needs for element counts and searching by element on the device
+  r.get("/dream-elements", async ({ q }) => listLive<DreamElement>(q, "dream_elements", "", [], "created_at", 20000));
+
   // a link between a dream and an element; linking again updates the one there (source, confidence, where in the text)
   r.post("/dreams/:id/elements", async (ctx, p, b) => {
     const dreamId = id(p.id, "dream"), elementId = id(b.elementId, "element");

@@ -10,5 +10,6 @@ export const NAV = [
 ];
 /** Which menu item a page belongs to (a dream's own page belongs to the Journal, say) */
 export function section(routeName: string | undefined): string {
+  if (routeName?.startsWith("journal")) return "journal";
   return routeName ?? "";
 }

@@ -2,6 +2,8 @@ import { createApp } from "vue";
 import { VueQueryPlugin } from "@tanstack/vue-query";
 import App from "./App.vue";
 import { router } from "./router";
+// drafts kept sealed on this device are sent whenever the key and the server are back, whichever screen is open
+import "./api/journal";
 import { queryClient } from "./api/live";
 import { startTheme } from "./core/theme";
 import "./styles/index.css";

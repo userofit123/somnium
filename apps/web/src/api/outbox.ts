@@ -60,7 +60,8 @@ export async function flush() {
         if (mustWait(e)) break;
         // refused: drop it rather than block the rest. A change to something deleted meanwhile is expected and quiet;
         // anything else is said, never lost silently
-        if (!(e instanceof ApiError && e.status === 404)) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });
+        // a night made offline for a date that has one by now (one per date): the one there is used, nothing to say
+        if (!(e instanceof ApiError && (e.status === 404 || (e.status === 409 && it.method === "post" && it.path === "/nights")))) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });
       }
       // the list may have been cleared or changed hands while this was on its way
       if (waiting.value[0] !== it) break;
