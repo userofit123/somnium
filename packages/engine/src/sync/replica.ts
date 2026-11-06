@@ -150,7 +150,8 @@ export async function applyRemote(db: Db, userId: string, remote: Change[], curs
     // the server's version replaced an older change made here: that one need not be sent any more
     for (const c of take) await q.query("DELETE FROM sync_log WHERE seq > $1 AND tbl = $2 AND pk = $3::jsonb", [m.pushed, c.tbl, JSON.stringify(c.pk)]);
     // this copy's version stands against the server's: send it (again), so the server ends up the same
-    for (const c of [...keep, ...r.kept]) {
+    // and rows this copy changed itself while settling (two nights merged, LDJ-52): the server has to hear of them
+    for (const c of [...keep, ...r.kept, ...r.changed]) {
       const row = (await readRows(q, [c])).get(keyOf(c.tbl, c.pk));
       await q.query("INSERT INTO sync_log (user_id, tbl, pk, op) VALUES ($1, $2, $3::jsonb, $4)", [userId, c.tbl, JSON.stringify(c.pk), row ? "upsert" : "delete"]);
     }
