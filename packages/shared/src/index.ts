@@ -5,3 +5,5 @@ export * from "./features";
 export * from "./settings";
 export * from "./live";
 export * from "./version";
+export * from "./crypto";
+export * from "./rates";
