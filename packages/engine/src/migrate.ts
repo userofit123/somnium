@@ -4,12 +4,14 @@ import m001 from "./migrations/001_init";
 import m002 from "./migrations/002_isolation";
 import m003 from "./migrations/003_sync";
 import m004 from "./migrations/004_journal";
+import m005 from "./migrations/005_auth";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
   ["002_isolation", m002],
   ["003_sync", m003],
   ["004_journal", m004],
+  ["005_auth", m005],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

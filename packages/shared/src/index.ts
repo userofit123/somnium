@@ -7,3 +7,4 @@ export * from "./live";
 export * from "./version";
 export * from "./crypto";
 export * from "./rates";
+export * from "./password";

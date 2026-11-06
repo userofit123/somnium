@@ -8,18 +8,19 @@ import type { FastifyInstance } from "fastify";
 import { pgliteDb } from "@somnium/engine/pglite";
 import { uuidv7, type Db } from "@somnium/engine";
 import { buildApp } from "../src/app";
-import { hashPassword, createSession } from "../src/auth";
+import { hashSecret, createSession } from "../src/auth";
 
 let app: FastifyInstance, db: Db, dir: string;
-const PW = "correct horse";
+// the device sends authKey (derived from the password there) in place of the password; any 43-character base64url value will do here
+const PW = "Q".repeat(43);
 
 async function user(name: string, role = "user") {
-  await db.admin.query("INSERT INTO users (id, username, password_hash, role) VALUES ($1,$2,$3,$4)", [uuidv7(), name, await hashPassword(PW), role]);
-  const r = await app.inject({ method: "POST", url: "/api/auth/login", payload: { username: name, password: PW, wantToken: true } });
+  await db.admin.query("INSERT INTO users (id, username, auth_hash, role) VALUES ($1,$2,$3,$4)", [uuidv7(), name, await hashSecret(PW), role]);
+  const r = await app.inject({ method: "POST", url: "/api/auth/sign-in", payload: { username: name, authKey: PW, wantToken: true } });
   return { authorization: `Bearer ${r.json().token}` };
 }
-const del = (headers: Record<string, string>, password?: string) =>
-  app.inject({ method: "DELETE", url: "/api/auth/account", headers, payload: password === undefined ? {} : { password } });
+const del = (headers: Record<string, string>, authKey?: string) =>
+  app.inject({ method: "DELETE", url: "/api/auth/account", headers, payload: authKey === undefined ? {} : { authKey } });
 const signedIn = async (headers: Record<string, string>) => (await app.inject({ method: "GET", url: "/api/auth/sessions", headers })).statusCode === 200;
 
 beforeAll(async () => {
@@ -34,7 +35,7 @@ describe("deleting your own account", () => {
   it("needs the right password and keeps you signed in when it is wrong", async () => {
     const h = await user("ann");
     expect((await del(h)).statusCode).toBe(403);
-    const wrong = await del(h, "not it");
+    const wrong = await del(h, "W".repeat(43));
     expect(wrong.statusCode).toBe(403);
     expect(wrong.json().error).toBe("Wrong password");
     expect(await signedIn(h)).toBe(true);
@@ -48,7 +49,7 @@ describe("deleting your own account", () => {
   it("waits after too many wrong passwords, like signing in", async () => {
     const h = await user("bob");
     // the wrong tries above count too (same address), so the wait may start before the fifth here
-    for (let i = 0; i < 5; i++) expect([403, 429]).toContain((await del(h, "guess " + i)).statusCode);
+    for (let i = 0; i < 5; i++) expect([403, 429]).toContain((await del(h, String(i).repeat(43))).statusCode);
     expect((await del(h, PW)).statusCode).toBe(429);
     expect((await db.admin.query("SELECT 1 FROM users WHERE username = 'bob'")).rows.length).toBe(1);
   });
@@ -58,7 +59,7 @@ describe("signing out the other devices", () => {
   it("leaves API tokens alone", async () => {
     // a session made directly: the earlier wrong passwords here have put this address on the sign-in wait
     const id = uuidv7();
-    await db.admin.query("INSERT INTO users (id, username, password_hash) VALUES ($1,$2,$3)", [id, "cy", await hashPassword(PW)]);
+    await db.admin.query("INSERT INTO users (id, username, auth_hash) VALUES ($1,$2,$3)", [id, "cy", await hashSecret(PW)]);
     const h = { authorization: `Bearer ${await createSession(db, id, "Browser", "web")}` };
     const api = { authorization: `Bearer ${await createSession(db, id, "script", "api")}` };
     expect((await app.inject({ method: "POST", url: "/api/auth/logout-others", headers: h })).statusCode).toBe(200);

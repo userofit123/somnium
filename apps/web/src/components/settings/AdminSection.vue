@@ -1,5 +1,8 @@
 <script setup lang="ts">
-// Server admin: people on this server (add, disable, reset password, make admin, remove), who may sign up, and invites.
+// Server admin: people on this server (invite, disable, reset password, turn two-factor off, make admin, remove), who may
+// sign up, and invites. The server never sees a password (PLAN.md §4.1), so an admin cannot set one: new people
+// join with an invite link, and a lost password gets a one-time reset code. The journal stays sealed after a
+// reset until the person's recovery key or a signed-in device re-wraps the data key (§4.4).
 import { useFmt } from "../../core/format";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
@@ -12,12 +15,15 @@ import AppSelect from "../AppSelect.vue";
 const users = useQuery({ queryKey: ["settings", "admin-users"], queryFn: () => api.get("/admin/users") });
 const cfg = useQuery({ queryKey: ["settings", "admin-cfg"], queryFn: () => api.get("/admin/settings") });
 const run = async (fn: () => Promise<unknown>, msg?: string) => { try { await fn(); users.refetch(); cfg.refetch(); if (msg) toast(msg); } catch (e) { toastError(e); } };
-async function add() {
-  const username = await prompt("Username for the new person"); if (!username) return;
-  const password = await prompt("A first password", { text: "At least 8 characters. They can change it in Settings → Account.", secret: true, autocomplete: "new-password" }); if (!password) return;
-  run(() => api.post("/admin/users", { username, password }), "Account created");
+async function reset(u: any) {
+  if (!(await confirm(`Reset the password for ${u.username}?`, { text: "They get a one-time code to choose a new password. Their dreams stay sealed until they use their recovery key or a device that is still signed in.", ok: "Make a reset code" }))) return;
+  try {
+    const r = await api.put(`/admin/users/${u.id}`, { resetPassword: true });
+    await navigator.clipboard?.writeText(r.resetCode).catch(() => {});
+    await confirm(`Reset code for ${u.username}`, { text: `${r.resetCode}\n\nCopied. Valid for one day. They enter it on the sign-in screen under "Forgot password?".`, ok: "Done" });
+    users.refetch();
+  } catch (e) { toastError(e); }
 }
-async function reset(u: any) { const password = await prompt(`New password for ${u.username}`, { secret: true, autocomplete: "new-password" }); if (password) run(() => api.put(`/admin/users/${u.id}`, { password }), "Password changed"); }
 async function remove(u: any) { if (await confirm(`Remove ${u.username}?`, { text: "Everything they have in Somnium is deleted.", ok: "Remove", danger: true })) run(() => api.del(`/admin/users/${u.id}`), "Removed"); }
 async function invite() {
   const r = await api.post("/admin/invites");
@@ -30,11 +36,11 @@ const fmt = useFmt();
 
 <template>
   <div class="stack">
-    <div class="sh first"><h2>People</h2><button class="lnk" @click="add">Add</button></div>
+    <div class="sh first"><h2>People</h2><button class="lnk" @click="invite">Invite</button></div>
     <div class="card"><div v-for="u in users.data.value ?? []" :key="u.id" class="li">
-      <div class="grow"><div class="t">{{ u.displayName || u.username }} <span class="tiny">@{{ u.username }}</span><span v-if="u.role === 'admin'" class="mchip" style="margin-inline-start:6px">admin</span><span v-if="u.disabled" class="mchip" style="margin-inline-start:6px">disabled</span></div>
+      <div class="grow"><div class="t">{{ u.displayName || u.username }} <span class="tiny">@{{ u.username }}</span><span v-if="u.role === 'admin'" class="mchip" style="margin-inline-start:6px">admin</span><span v-if="u.disabled" class="mchip" style="margin-inline-start:6px">disabled</span><span v-if="u.totpEnabled" class="mchip" style="margin-inline-start:6px">2FA</span></div>
         <div class="s">Joined {{ fmt.date(u.createdAt) }}{{ u.lastSeenAt ? ` · last seen ${fmt.date(u.lastSeenAt)}` : "" }}</div></div>
-      <Menu v-if="u.id !== session.user?.id" :items="[{ label: 'Reset password', icon: 'key', run: () => reset(u) }, { label: u.role === 'admin' ? 'Remove admin' : 'Make admin', icon: 'user', run: () => run(() => api.put(`/admin/users/${u.id}`, { role: u.role === 'admin' ? 'user' : 'admin' }), u.role === 'admin' ? 'No longer an admin' : 'Made admin') },
+      <Menu v-if="u.id !== session.user?.id" :items="[{ label: 'Reset password', icon: 'key', run: () => reset(u) }, ...(u.totpEnabled ? [{ label: 'Turn off two-factor', icon: 'lock', run: () => run(() => api.put(`/admin/users/${u.id}`, { disable2fa: true }), 'Two-factor sign-in is off for them') }] : []), { label: u.role === 'admin' ? 'Remove admin' : 'Make admin', icon: 'user', run: () => run(() => api.put(`/admin/users/${u.id}`, { role: u.role === 'admin' ? 'user' : 'admin' }), u.role === 'admin' ? 'No longer an admin' : 'Made admin') },
         { label: u.disabled ? 'Enable' : 'Disable', icon: 'lock', run: () => run(() => api.put(`/admin/users/${u.id}`, { disabled: !u.disabled }), u.disabled ? 'Account enabled' : 'Account disabled') }, { label: 'Remove', icon: 'trash', danger: true, sep: true, run: () => remove(u) }]" />
     </div></div>
     <p class="tiny">Admins manage accounts but never see anyone's dreams or data.</p>

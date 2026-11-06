@@ -14,7 +14,7 @@ const fmt = useFmt();
 const log = useActivityLog();
 const entries = computed<any[]>(() => (log.data.value?.pages ?? []).flatMap((p: any) => p.entries));
 
-const ICON: Record<string, string> = { settings: "settings" };
+const ICON: Record<string, string> = { settings: "settings", account: "lock" };
 const PLACE: Record<string, (id: string, live?: boolean) => string> = { settings: () => "/settings" };
 const target = (e: any) => e.open && PLACE[e.open.kind]?.(e.open.id, e.open.live);
 const open = (e: any) => { const to = target(e); if (to) router.push(to); };

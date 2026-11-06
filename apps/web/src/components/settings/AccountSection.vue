@@ -10,6 +10,9 @@ import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
 import { sync, schedule } from "../../api/replica";
 import { signOut, isLocalAccount } from "../../core/session";
+import { keyring } from "../../core/keyring";
+import { authKeyFor, keysFor } from "../../core/auth";
+import { changePassword as rewrap, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
 import { prompt } from "../../core/ask";
 import { toast, toastError, savedToast, savedError } from "../../core/toast";
 import { useFmt, ago } from "../../core/format";
@@ -40,19 +43,30 @@ const icon = (x: Session) => (x.platform === "android" || /Android|iPhone/.test(
 async function endSession(id: string) { try { await api.del(`/auth/sessions/${id}`); sessions.refetch(); toast("Signed out that device"); } catch (e) { toastError(e); } }
 async function endOthers() { try { await api.post("/auth/logout-others"); sessions.refetch(); toast("Signed out everywhere else"); } catch (e) { toastError(e); } }
 
+// The password never goes to the server (PLAN.md §4.1): this device turns the current one into its authKey (the
+// proof), wraps the data key under the new one and sends the new bundle. The other devices are signed out.
 async function changePassword() {
   const current = await prompt("Current password", { secret: true }); if (!current) return;
-  const next = await prompt("New password", { text: "At least 8 characters.", secret: true, autocomplete: "new-password" }); if (!next) return;
+  const next = await prompt("New password", { text: `At least ${PASSWORD_MIN} characters.`, secret: true, autocomplete: "new-password" }); if (!next) return;
   const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
   if (again !== next) { toastError(new Error("The passwords don't match")); return; }
-  try { await api.put("/auth/password", { current, next }); sessions.refetch(); toast("Password changed. Other devices were signed out."); } catch (e) { toastError(e); }
+  const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
+  const dataKey = keyring.get();
+  if (!dataKey) { toastError(new Error("This device has not unlocked your journal. Sign out and in again first.")); return; }
+  try {
+    toast("Unlocking...");
+    const cur = await keysFor(user.value!.username, current);
+    const bundle = await rewrap(dataKey, next);
+    await api.post("/auth/password", { current: cur.authKeyText, authKey: bundle.authKey, kdfSalt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword });
+    sessions.refetch(); toast("Password changed. Other devices were signed out.");
+  } catch (e) { toastError(e); }
 }
 // straight to the server, never queued: without a connection it fails and nothing is deleted.
 // A wrong password leaves you signed in; ask again.
 async function deleteAccount() {
   const password = await prompt("Delete your account?", { text: "Everything you have in Somnium is deleted for good. Download a backup first if you might want it. Type your password to confirm.", placeholder: "Password", ok: "Delete account", secret: true, danger: true });
   if (!password) return;
-  try { await api.del("/auth/account", { password }); await signOut(); } catch (e) { toastError(e); }
+  try { await api.del("/auth/account", { authKey: await authKeyFor(user.value!.username, password) }); await signOut(); } catch (e) { toastError(e); }
 }
 </script>
 

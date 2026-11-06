@@ -6,6 +6,7 @@ import { readJson, writeJson } from "./prefs";
 import { startReplica, eraseReplica, sync, copyHasUnsent, unreachable } from "../api/replica";
 import { confirm } from "./ask";
 import { setToken } from "../native/accounts";
+import { keyring } from "./keyring";
 
 export const session = reactive<{ ready: boolean; setupNeeded: boolean; user: { id: string; username: string; role: string } | null; registration: string; version: string; apiLevel: number }>(
   { ready: false, setupNeeded: false, user: null, registration: "invite", version: "", apiLevel: 0 });
@@ -46,10 +47,11 @@ export async function signOut() {
     { text: "Signing out removes them from this device. Stay signed in and they're sent when the server can be reached.", ok: "Sign out anyway", danger: true }))) return;
   try { await api.post("/auth/logout"); } catch { /* signed out anyway */ }
   setToken(null);
+  keyring.clear(); // the data key leaves with the session (PLAN.md §4.1)
   await eraseReplica();
   writeJson(KEY(), null);
   session.user = null;
   queryClient.clear();
 }
 // the server no longer accepts the saved token (signed out elsewhere, or expired): forget it too
-setOnUnauthorized(() => { setToken(null); if (session.user) { session.user = null; writeJson(KEY(), null); queryClient.clear(); } });
+setOnUnauthorized(() => { setToken(null); if (session.user) { session.user = null; keyring.clear(); writeJson(KEY(), null); queryClient.clear(); } });

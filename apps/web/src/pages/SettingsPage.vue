@@ -13,6 +13,7 @@ import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
 import BackupSection from "../components/settings/BackupSection.vue";
 import AccountSection from "../components/settings/AccountSection.vue";
+import SecuritySection from "../components/settings/SecuritySection.vue";
 import DataSection from "../components/settings/DataSection.vue";
 import AdminSection from "../components/settings/AdminSection.vue";
 import AppVersionsSection from "../components/settings/AppVersionsSection.vue";
@@ -27,7 +28,7 @@ const sec = computed(() => String(route.params.section || (isPhone.value ? "" : 
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
 type Section = [key: string, name: string, icon: string, hint: string];
 const GROUPS = computed<[string, Section[]][]>(() => [
-  ["You", [["account", "Account", "user", "Name, password, devices, sync"],
+  ["You", [["account", "Account", "user", "Name, password, devices, sync"], ["security", "Security", "lock", "Two-factor sign-in, backup codes"],
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
     (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host]]],
   ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
@@ -67,6 +68,7 @@ await loaded(me);
       </div>
       <Transition name="sw" mode="out-in"><div v-if="sec" :key="sec" class="stack">
         <AccountSection v-if="sec === 'account'" />
+        <SecuritySection v-else-if="sec === 'security'" />
 
         <!-- how dates and times read everywhere (DatePicker, TimePicker) -->
         <template v-else-if="sec === 'formats'">

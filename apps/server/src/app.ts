@@ -7,7 +7,12 @@ import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest }
 import cookie from "@fastify/cookie";
 import fstatic from "@fastify/static";
 import { createEngine, uuidv7, withUser, type Db, type Engine } from "@somnium/engine";
-import { hashPassword, checkPassword, createSession, deviceLabel, userForToken, tooManyTries, recordFail, validUsername, validPassword, newInviteCode, COOKIE, SESSION_DAYS, type SessionUser } from "./auth";
+import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handlers
+import {
+  hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, tooManyTries, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
+  newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
+  COOKIE, SESSION_DAYS, type SessionUser,
+} from "./auth";
 import { VERSION, API_LEVEL, checkForUpdate } from "./version";
 
 export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string }
@@ -48,51 +53,68 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   const setCookie = (req: FastifyRequest, reply: FastifyReply, token: string) =>
     reply.setCookie(COOKIE, token, { httpOnly: true, sameSite: "lax", secure: req.protocol === "https", path: "/", maxAge: SESSION_DAYS * 86400 });
 
-  // ----- sign-in -----
+  // ----- sign-in (PLAN.md §4.1-4.2): the device sends authKey, never the password -----
+  const serverKey = loadServerKey(o.dataDir);
+  const publicUser = (u: SessionUser) => ({ id: u.id, username: u.username, role: u.role });
+  const badName = "Use 2-40 letters, numbers, dots, dashes or underscores for the username";
+  const badBundle = "The sign-in keys do not look right. Update the app and try again.";
   app.get("/api/auth/status", async (req) => {
     const users = Number((await db.admin.query("SELECT count(*) n FROM users")).rows[0].n);
-    return { setupNeeded: users === 0, registration: await meta("registration", "invite"), user: req.user ? { id: req.user.id, username: req.user.username, role: req.user.role } : null, version: VERSION, apiLevel: API_LEVEL };
+    return { setupNeeded: users === 0, registration: await meta("registration", "invite"), user: req.user ? publicUser(req.user) : null, version: VERSION, apiLevel: API_LEVEL };
   });
-  app.post("/api/auth/setup", async (req, reply) => {
-    const b = req.body as any;
-    if (Number((await db.admin.query("SELECT count(*) n FROM users")).rows[0].n) > 0) return reply.code(409).send({ error: "Already set up" });
-    if (!validUsername(b?.username)) return reply.code(400).send({ error: "Use 2-40 letters, numbers, dots, dashes or underscores for the username" });
-    if (!validPassword(b?.password)) return reply.code(400).send({ error: "Use at least 8 characters for the password" });
-    const id = uuidv7();
-    await db.admin.query("INSERT INTO users (id, username, password_hash, role, display_name) VALUES ($1,$2,$3,'admin',$4)", [id, b.username.toLowerCase(), await hashPassword(b.password), String(b.displayName ?? b.username).slice(0, 80)]);
-    const token = await createSession(db, id, deviceLabel(b.deviceName, req.headers["user-agent"]), String(b.platform ?? "web"));
+  // the salt the device needs to derive its keys. A name without an account gets a stand-in salt that is the same
+  // every time, so the answer never says whether the account exists.
+  app.get("/api/auth/salt", async (req, reply) => {
+    const name = String((req.query as any)?.username ?? "").toLowerCase();
+    if (!validUsername(name)) return reply.code(400).send({ error: badName });
+    const u = (await db.admin.query("SELECT kdf_salt FROM users WHERE username = $1", [name])).rows[0];
+    return { kdfSalt: u?.kdf_salt ?? standInSalt(name, serverKey) };
+  });
+  const signIn = async (req: FastifyRequest, reply: FastifyReply, id: string, b: any) => {
+    const device = deviceLabel(b?.deviceName, req.headers["user-agent"]);
+    await noteNewDevice(db, id, device);
+    const token = await createSession(db, id, device, String(b?.platform ?? "web"));
     setCookie(req, reply, token);
-    return { ok: true, token: b.wantToken ? token : undefined };
-  });
-  app.post("/api/auth/login", async (req, reply) => {
+    return b?.wantToken ? token : undefined;
+  };
+  // the first account is the admin and needs no invite; after that, who may join is the admin's setting
+  app.post("/api/auth/sign-up", async (req, reply) => {
     const b = req.body as any;
-    const name = String(b?.username ?? "").toLowerCase();
-    const keys = [`ip:${req.ip}`, `u:${name}`];
-    if (tooManyTries(keys)) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
-    const u = (await db.admin.query("SELECT id, password_hash, disabled_at FROM users WHERE username = $1", [name])).rows[0];
-    const ok = await checkPassword(String(b?.password ?? ""), u?.password_hash ?? null);
-    if (!u || !ok || u.disabled_at) { recordFail(keys); return reply.code(401).send({ error: "Wrong username or password" }); }
-    const token = await createSession(db, u.id, deviceLabel(b.deviceName, req.headers["user-agent"]), String(b.platform ?? "web"));
-    setCookie(req, reply, token);
-    return { ok: true, token: b.wantToken ? token : undefined };
-  });
-  app.post("/api/auth/register", async (req, reply) => {
-    const b = req.body as any;
-    const mode = await meta("registration", "invite");
-    if (mode === "closed") return reply.code(403).send({ error: "Ask the admin to create your account" });
-    if (!validUsername(b?.username)) return reply.code(400).send({ error: "Use 2-40 letters, numbers, dots, dashes or underscores for the username" });
-    if (!validPassword(b?.password)) return reply.code(400).send({ error: "Use at least 8 characters for the password" });
+    const first = Number((await db.admin.query("SELECT count(*) n FROM users")).rows[0].n) === 0;
+    const mode = first ? "open" : await meta("registration", "invite");
+    if (mode === "closed") return reply.code(403).send({ error: "Ask the admin for an invite" });
+    if (!validUsername(b?.username)) return reply.code(400).send({ error: badName });
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt) || !validWrapped(b?.wrappedByPassword)) return reply.code(400).send({ error: badBundle });
     if (mode === "invite") {
       const inv = (await db.admin.query("SELECT code FROM invites WHERE code = $1 AND used_by IS NULL AND expires_at > now()", [String(b.invite ?? "")])).rows[0];
       if (!inv) return reply.code(403).send({ error: "That invite code is not valid" });
     }
-    if ((await db.admin.query("SELECT 1 FROM users WHERE username = $1", [b.username.toLowerCase()])).rows.length) return reply.code(409).send({ error: "That username is taken" });
+    const name = b.username.toLowerCase();
+    if ((await db.admin.query("SELECT 1 FROM users WHERE username = $1", [name])).rows.length) return reply.code(409).send({ error: "That username is taken" });
     const id = uuidv7();
-    await db.admin.query("INSERT INTO users (id, username, password_hash, display_name) VALUES ($1,$2,$3,$4)", [id, b.username.toLowerCase(), await hashPassword(b.password), String(b.displayName ?? b.username).slice(0, 80)]);
+    await db.admin.query("INSERT INTO users (id, username, role, display_name, kdf_salt, auth_hash, wrapped_by_password, password_changed_at) VALUES ($1,$2,$3,$4,$5,$6,$7, now())",
+      [id, name, first ? "admin" : "user", String(b.displayName ?? b.username).slice(0, 80), b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
     if (mode === "invite") await db.admin.query("UPDATE invites SET used_by = $2 WHERE code = $1", [b.invite, id]);
-    const token = await createSession(db, id, deviceLabel(b.deviceName, req.headers["user-agent"]), String(b.platform ?? "web"));
-    setCookie(req, reply, token);
-    return { ok: true, token: b.wantToken ? token : undefined };
+    return { ok: true, token: await signIn(req, reply, id, b) };
+  });
+  // Sign-in answers the wrapped data key with the session, so the device can open the journal with the encKey it
+  // derived alongside authKey. With two-factor on it first answers { totpRequired: true } and waits for the same
+  // request again with a code (an authenticator's, or a backup code, which is used up).
+  app.post("/api/auth/sign-in", async (req, reply) => {
+    const b = req.body as any;
+    const name = String(b?.username ?? "").toLowerCase();
+    const keys = [`ip:${req.ip}`, `u:${name}`];
+    if (tooManyTries(keys)) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
+    const u = (await db.admin.query("SELECT id, auth_hash, disabled_at, kdf_salt, wrapped_by_password, totp_enabled, totp_secret FROM users WHERE username = $1", [name])).rows[0];
+    const ok = await checkSecret(validAuthKey(b?.authKey) ? b.authKey : "", u?.auth_hash ?? null);
+    if (!u || !ok || u.disabled_at) { recordFail(keys); return reply.code(401).send({ error: "Wrong username or password" }); }
+    if (u.totp_enabled) {
+      const code = b?.code ?? b?.totp;
+      if (code === undefined || code === null || code === "") return { ok: false, totpRequired: true };
+      const good = totpOk(decryptForServer(u.totp_secret, serverKey), code) || (await useBackupCode(db, u.id, code));
+      if (!good) { recordFail(keys); return reply.code(401).send({ error: "That code is not right" }); }
+    }
+    return { ok: true, totpRequired: false, kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password, token: await signIn(req, reply, u.id, b) };
   });
   app.post("/api/auth/logout", async (req, reply) => {
     if (req.user) await db.admin.query("DELETE FROM sessions WHERE id = $1", [req.user.sessionId]);
@@ -114,32 +136,52 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2 AND platform <> 'api'", [req.user!.id, req.user!.sessionId]);
     return { ok: true };
   });
-  // asking for the password again (changing it, deleting the account): the same check and the same wait after
-  // too many tries as signing in, so a device left signed in can't be used to guess it. A wrong password is a 403,
-  // not a 401: the app signs out on a 401, and a typo shouldn't do that.
-  const recheck = async (req: FastifyRequest, reply: FastifyReply, password: unknown, hash: string | null) => {
+  // asking for the password again (changing it, turning two-factor off, deleting the account): the device sends the
+  // current authKey; the same check and the same wait after too many tries as signing in, so a device left signed
+  // in can't be used to guess it. A wrong one is a 403, not a 401: the app signs out on a 401, and a typo shouldn't.
+  const recheck = async (req: FastifyRequest, reply: FastifyReply, authKey: unknown) => {
     const keys = [`ip:${req.ip}`, `u:${req.user!.username}`];
     if (tooManyTries(keys)) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return false; }
-    if (await checkPassword(String(password ?? ""), hash)) return true;
+    const u = (await db.admin.query("SELECT auth_hash FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) return true;
     recordFail(keys);
     reply.code(403).send({ error: "Wrong password" });
     return false;
   };
-  app.put("/api/auth/password", async (req, reply) => {
+  // a new password: the device re-derives the keys and re-wraps the data key (changePassword in @somnium/shared) and
+  // sends the new bundle with the current authKey. The other devices are signed out.
+  app.post("/api/auth/password", async (req, reply) => {
     if (!need(req, reply)) return;
     const b = req.body as any;
-    const u = (await db.admin.query("SELECT password_hash FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (!(await recheck(req, reply, b?.current, u.password_hash))) return;
-    if (!validPassword(b?.next)) return reply.code(400).send({ error: "Use at least 8 characters" });
-    await db.admin.query("UPDATE users SET password_hash = $2 WHERE id = $1", [req.user!.id, await hashPassword(b.next)]);
+    if (!(await recheck(req, reply, b?.current))) return;
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt) || !validWrapped(b?.wrappedByPassword)) return reply.code(400).send({ error: badBundle });
+    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = $4, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL WHERE id = $1",
+      [req.user!.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2", [req.user!.id, req.user!.sessionId]);
+    return { ok: true };
+  });
+  // the way back in when the password is lost and the admin gave a reset code (PLAN.md §4.4): a new password, but
+  // no wrapped data key - the journal stays sealed until a recovery key or a signed-in device re-wraps it
+  app.post("/api/auth/reset", async (req, reply) => {
+    const b = req.body as any;
+    const name = String(b?.username ?? "").toLowerCase();
+    const keys = [`ip:${req.ip}`, `u:${name}`];
+    if (tooManyTries(keys)) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) return reply.code(400).send({ error: badBundle });
+    const u = (await db.admin.query("SELECT id, reset_code_hash FROM users WHERE username = $1 AND reset_expires_at > now()", [name])).rows[0];
+    const ok = await checkSecret(plainCode(b?.code), u?.reset_code_hash ?? null);
+    if (!u || !ok) { recordFail(keys); return reply.code(403).send({ error: "That reset code is not right or has run out" }); }
+    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL WHERE id = $1",
+      [u.id, b.kdfSalt, await hashSecret(b.authKey)]);
+    await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [u.id]);
+    await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [u.id]);
     return { ok: true };
   });
   app.delete("/api/auth/account", async (req, reply) => {
     if (!need(req, reply)) return;
     const b = req.body as any;
-    const u = (await db.admin.query("SELECT password_hash, role FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (!(await recheck(req, reply, b?.password, u.password_hash))) return;
+    if (!(await recheck(req, reply, b?.authKey))) return;
+    const u = (await db.admin.query("SELECT role FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (u.role === "admin" && Number((await db.admin.query("SELECT count(*) n FROM users WHERE role = 'admin'")).rows[0].n) === 1)
       return reply.code(400).send({ error: "You are the only admin. Make someone else admin first." });
     await db.admin.query("DELETE FROM users WHERE id = $1", [req.user!.id]);
@@ -147,32 +189,65 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     return { ok: true };
   });
 
+  // ----- two-factor sign-in (Settings → Security) -----
+  app.get("/api/auth/security", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const u = (await db.admin.query("SELECT totp_enabled, recovery_made_at, password_changed_at, wrapped_by_password FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    const codes = Number((await db.admin.query("SELECT count(*) n FROM backup_codes WHERE user_id = $1 AND used_at IS NULL", [req.user!.id])).rows[0].n);
+    return { totpEnabled: !!u.totp_enabled, backupCodesLeft: codes, recoveryMadeAt: u.recovery_made_at, passwordChangedAt: u.password_changed_at, sealed: !u.wrapped_by_password };
+  });
+  // a fresh secret, shown once as a QR code and as text; sign-in does not ask for codes until /enable confirms one
+  app.post("/api/auth/2fa/start", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const secret = newTotpSecret();
+    await db.admin.query("UPDATE users SET totp_secret = $2, totp_enabled = false WHERE id = $1", [req.user!.id, encryptForServer(secret, serverKey)]);
+    return { secret, url: otpauthUrl(req.user!.username, secret) };
+  });
+  app.post("/api/auth/2fa/enable", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    if (!u.totp_secret || u.totp_enabled) return reply.code(400).send({ error: "Start by scanning a new code" });
+    if (!totpOk(decryptForServer(u.totp_secret, serverKey), (req.body as any)?.code)) return reply.code(403).send({ error: "That code is not right. Check the time on your phone and try the next one." });
+    await db.admin.query("UPDATE users SET totp_enabled = true WHERE id = $1", [req.user!.id]);
+    return { ok: true, backupCodes: await issueBackupCodes(db, req.user!.id) };
+  });
+  app.post("/api/auth/2fa/codes", async (req, reply) => {
+    if (!need(req, reply)) return;
+    if (!(await recheck(req, reply, (req.body as any)?.authKey))) return;
+    return { backupCodes: await issueBackupCodes(db, req.user!.id) };
+  });
+  app.post("/api/auth/2fa/disable", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const b = req.body as any;
+    if (!(await recheck(req, reply, b?.authKey))) return;
+    const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    if (u.totp_enabled && !totpOk(decryptForServer(u.totp_secret, serverKey), b?.code) && !(await useBackupCode(db, req.user!.id, b?.code))) return reply.code(403).send({ error: "That code is not right" });
+    await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL WHERE id = $1", [req.user!.id]);
+    await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [req.user!.id]);
+    return { ok: true };
+  });
+
   // ----- admin -----
   app.get("/api/admin/users", async (req, reply) => {
     if (!needAdmin(req, reply)) return;
     const { rows } = await db.admin.query(
-      `SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.disabled_at, (SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen_at FROM users u ORDER BY u.created_at`);
-    return rows.map((r: any) => ({ id: r.id, username: r.username, displayName: r.display_name, role: r.role, createdAt: r.created_at, disabled: !!r.disabled_at, lastSeenAt: r.last_seen_at }));
+      `SELECT u.id, u.username, u.display_name, u.role, u.created_at, u.disabled_at, u.totp_enabled, (SELECT max(last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen_at FROM users u ORDER BY u.created_at`);
+    return rows.map((r: any) => ({ id: r.id, username: r.username, displayName: r.display_name, role: r.role, createdAt: r.created_at, disabled: !!r.disabled_at, totpEnabled: !!r.totp_enabled, lastSeenAt: r.last_seen_at }));
   });
-  app.post("/api/admin/users", async (req, reply) => {
-    if (!needAdmin(req, reply)) return;
-    const b = req.body as any;
-    if (!validUsername(b?.username)) return reply.code(400).send({ error: "Invalid username" });
-    if (!validPassword(b?.password)) return reply.code(400).send({ error: "Use at least 8 characters for the password" });
-    if ((await db.admin.query("SELECT 1 FROM users WHERE username = $1", [b.username.toLowerCase()])).rows.length) return reply.code(409).send({ error: "That username is taken" });
-    const id = uuidv7();
-    await db.admin.query("INSERT INTO users (id, username, password_hash, role, display_name) VALUES ($1,$2,$3,$4,$5)",
-      [id, b.username.toLowerCase(), await hashPassword(b.password), b.role === "admin" ? "admin" : "user", String(b.displayName ?? b.username).slice(0, 80)]);
-    return { id };
-  });
+  // Admins add people with invites (the server cannot make an account's keys: it never sees a password). For a
+  // person who lost their password there is a one-time reset code (PLAN.md §4.4; the journal stays sealed), and
+  // for one who lost their authenticator and backup codes, two-factor can be turned off.
   app.put("/api/admin/users/:id", async (req, reply) => {
     if (!needAdmin(req, reply)) return;
     const b = req.body as any, id = (req.params as any).id;
     if (id === req.user!.id && (b.role === "user" || b.disabled)) return reply.code(400).send({ error: "You can't remove your own admin access" });
-    if (b.password) { if (!validPassword(b.password)) return reply.code(400).send({ error: "Use at least 8 characters" }); await db.admin.query("UPDATE users SET password_hash = $2 WHERE id = $1", [id, await hashPassword(b.password)]); await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); }
+    if (!(await db.admin.query("SELECT 1 FROM users WHERE id = $1", [id])).rows.length) return reply.code(404).send({ error: "No such account" });
+    let resetCode: string | undefined;
+    if (b.resetPassword) { resetCode = await issueResetCode(db, id); await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); }
+    if (b.disable2fa) { await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL WHERE id = $1", [id]); await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [id]); }
     if (b.role) await db.admin.query("UPDATE users SET role = $2 WHERE id = $1", [id, b.role === "admin" ? "admin" : "user"]);
     if (typeof b.disabled === "boolean") { await db.admin.query("UPDATE users SET disabled_at = CASE WHEN $2 THEN now() ELSE NULL END WHERE id = $1", [id, b.disabled]); if (b.disabled) await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); }
-    return { ok: true };
+    return { ok: true, resetCode };
   });
   app.delete("/api/admin/users/:id", async (req, reply) => {
     if (!needAdmin(req, reply)) return;
@@ -223,24 +298,37 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // ----- media: files people upload (journal photos and audio, sealed on the device before they get here) -----
   const mediaDir = path.join(o.dataDir, "media");
   fs.mkdirSync(mediaDir, { recursive: true });
+  // the file goes in the body; ?dreamId= hangs it on one of the person's live dreams. The row is written first and
+  // the file only once that worked (a file without a row would be unreachable and never cleaned up).
   app.post("/api/media", async (req, reply) => {
     if (!need(req, reply)) return;
     const buf = req.body as Buffer;
     if (!Buffer.isBuffer(buf) || !buf.length) return reply.code(400).send({ error: "Send the file as the request body" });
     const mime = String(req.headers["content-type"]);
+    const kind = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : "photo";
+    const dreamId = (req.query as Record<string, string | undefined>).dreamId || null;
+    if (dreamId && !isUuid(dreamId)) return reply.code(400).send({ error: "Invalid dream" });
     const id = uuidv7();
+    try {
+      await withUser(db, req.user!.id, async (q) => {
+        await visible(q, "dreams", dreamId, "dream");
+        await q.query("INSERT INTO media (id, user_id, kind, mime, size, path, dream_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
+          [id, req.user!.id, kind, mime, buf.length, `${req.user!.id}/${id}`, dreamId]);
+      });
+    } catch (e) {
+      if (e instanceof HttpError) return reply.code(e.status).send({ error: e.message });
+      throw e;
+    }
     const dir = path.join(mediaDir, req.user!.id);
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, id), buf, { mode: 0o600 });
-    await withUser(db, req.user!.id, (q) => q.query("INSERT INTO media (id, user_id, kind, mime, size, path) VALUES ($1,$2,$3,$4,$5,$6)",
-      [id, req.user!.id, mime.startsWith("video") ? "video" : "image", mime, buf.length, `${req.user!.id}/${id}`]));
     return { id, url: `/api/media/${id}` };
   });
   app.get("/api/media/:id", async (req, reply) => {
     if (!need(req, reply)) return;
     const id = (req.params as any).id;
     if (!/^[0-9a-f-]{36}$/.test(id)) return reply.code(404).send();
-    const m = await withUser(db, req.user!.id, async (q) => (await q.query("SELECT mime, path FROM media WHERE id = $1", [id])).rows[0]);
+    const m = await withUser(db, req.user!.id, async (q) => (await q.query("SELECT mime, path FROM media WHERE id = $1 AND deleted_at IS NULL", [id])).rows[0]);
     if (!m) return reply.code(404).send({ error: "Not found" });
     reply.header("content-type", m.mime).header("cache-control", "private, max-age=31536000, immutable");
     return reply.send(fs.createReadStream(path.join(mediaDir, m.path)));

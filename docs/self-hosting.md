@@ -24,8 +24,19 @@ somnium.example.com {
 
 ## Accounts
 
-- Settings → Server admin: add people, reset passwords, disable or remove accounts, choose who can sign up
-  (only the admin, people with an invite link, or anyone).
+- Settings → Server admin: invite people, reset passwords, turn two-factor sign-in off, disable or remove accounts,
+  choose who can sign up (only the admin, people with an invite link, or anyone).
+- The server never sees a password: the device turns it into a sign-in key, and the journal's data key is stored
+  only wrapped by that password (PLAN.md §4.1). So an admin cannot set a password. **Reset password** makes a
+  one-time reset code (valid a day) with which the person chooses a new password on the sign-in screen; their
+  journal stays sealed until they use their recovery key or a device that is still signed in, which re-wraps the
+  data key. Without either of those, their dreams cannot be read by anyone, the admin included.
+- When nobody can get into the admin panel, the same two things work on the server itself (same `DATABASE_URL`
+  or `DATA_DIR` as the server):
+  `node --import tsx apps/server/src/cli.ts reset-password <username>` and
+  `node --import tsx apps/server/src/cli.ts disable-2fa <username>`.
+- The server's own key, `DATA_DIR/app.key` (made on first start, or given as `APP_KEY`, 32 bytes base64), encrypts
+  two-factor secrets at rest and must stay with the database in backups.
 - Every person's data is kept apart by the database itself (row-level security). Admins cannot see anyone's dreams, and the server could not show them anyway: they are sealed.
 
 ## Updates
