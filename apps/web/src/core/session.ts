@@ -11,6 +11,7 @@ import { keyring } from "./keyring";
 import { forgetUnlock, forgetUnlocksOfOthers } from "./unlock";
 import { forgetCachedMedia } from "../api/media";
 import { clearOutbox, openOutbox, waiting as outboxWaiting } from "../api/outbox";
+import { forgetStoredDrafts, storedDraftCount } from "../api/draftStore";
 
 export const session = reactive<{ ready: boolean; setupNeeded: boolean; user: { id: string; username: string; role: string } | null; registration: string; version: string; apiLevel: number }>(
   { ready: false, setupNeeded: false, user: null, registration: "invite", version: "", apiLevel: 0 });
@@ -67,7 +68,7 @@ function reloadOnce(userId: string) {
 }
 
 /** What signing out would lose: changes on this device the server hasn't got. */
-export const unsentChanges = () => (sync.on ? sync.waiting : 0) + outboxWaiting.value.length;
+export const unsentChanges = () => (sync.on ? sync.waiting : 0) + outboxWaiting.value.length + (session.user ? storedDraftCount(server.value.base || location.origin, session.user.id) : 0);
 /** force: without asking first (the lock screen, which asks in its own way). */
 export async function signOut(o: { force?: boolean } = {}) {
   const unsent = unsentChanges();
@@ -84,6 +85,10 @@ export async function signOut(o: { force?: boolean } = {}) {
   await forgetCachedMedia();
   writeJson(KEY(), null);
   session.user = null;
+  // Drafts sealed here go with the rest of what hasn't been sent, as the question above said (the same rule as the
+  // outbox and the device copy). A session that ends without signing out keeps them for the person's next sign-in.
+  // After session.user is gone: a draft sealed as the key left (keyring.onBeforeClear) can't be written back now.
+  if (who) forgetStoredDrafts(server.value.base || location.origin, who.id);
   openOutbox(server.value.base || location.origin, null);
   queryClient.clear();
   // the plaintext copy only leaves the disk when this page lets go of it, and a reload also leaves nothing of it in memory

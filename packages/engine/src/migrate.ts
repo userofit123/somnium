@@ -5,6 +5,7 @@ import m002 from "./migrations/002_isolation";
 import m003 from "./migrations/003_sync";
 import m004 from "./migrations/004_journal";
 import m005 from "./migrations/005_auth";
+import m006 from "./migrations/006_one_night";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
@@ -12,6 +13,7 @@ export const MIGRATIONS: [string, string][] = [
   ["003_sync", m003],
   ["004_journal", m004],
   ["005_auth", m005],
+  ["006_one_night", m006],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

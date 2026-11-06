@@ -1,6 +1,8 @@
 // The Journal's pure logic (PLAN.md §6.2): nights grouped with their dreams, searching on the device, the month
 // calendar, and how a draft kept on the device meets the row it belongs to. Nothing here reads the clock or storage.
 
+import type { ElementKind } from "./types";
+
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
 export interface NightRef { id: string; date: string; nap: boolean; dreamCount?: number }
 export interface DreamRef {
@@ -184,3 +186,11 @@ export const TECHNIQUES: readonly { id: string; label: string }[] = [
   { id: "autosuggestion", label: "Autosuggestion" }, { id: "meditation", label: "Meditation" }, { id: "sound-cue", label: "Sound cue" },
   { id: "re-entry", label: "Re-entry" }, { id: "ada", label: "All-day awareness" }, { id: "cat", label: "CAT" },
 ];
+
+/** The kinds of element, as the person reads them. */
+export const ELEMENT_KIND_LABEL: Record<ElementKind, string> = {
+  character: "Character", place: "Place", object: "Object", action: "Action", emotion: "Emotion", theme: "Theme",
+  sensation: "Sensation", dream_sign: "Dream sign",
+};
+/** The kinds a new element can be given while writing (sensations and dream signs are set in Signs, PLAN.md §6.3). */
+export const NEW_ELEMENT_KINDS = ["character", "place", "object", "action", "emotion", "theme"] as const satisfies readonly ElementKind[];

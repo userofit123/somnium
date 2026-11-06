@@ -58,6 +58,7 @@ const searchNote = computed(() => {
 });
 
 const empty = computed(() => !groups.value.length);
+const fab = computed(() => isPhone.value && !mode.value && !empty.value);
 const todayLogged = computed(() => !!nightOfDate(j.nights.data.value ?? [], today));
 
 // the calendar
@@ -89,7 +90,7 @@ const menu = computed(() => [
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" :class="{ jfab: fab }">
     <template v-if="isPhone && mode">
       <DreamEditor v-if="mode === 'write'" :id="id" :key="id" :date="date" :fresh="fresh" full @close="closeWrite" />
       <DreamView v-else :id="id" :key="'r' + id" back @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
@@ -101,7 +102,8 @@ const menu = computed(() => [
           <div class="acts">
             <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" @click="setView('calendar')">Calendar</button></div>
             <Menu :items="menu" />
-            <button v-if="!empty && !isPhone && mode !== 'write'" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
+            <!-- with a dream open beside the list, its Edit or Done is the one primary button; this moves to the menu -->
+            <button v-if="!empty && !isPhone && !mode" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
           </div>
         </div>
 
@@ -142,7 +144,9 @@ const menu = computed(() => [
         </div>
       </aside>
     </div>
-    <button v-if="isPhone && !mode && !empty" class="fab" aria-label="Write a dream" @click="write()"><Icon name="plus" :size="26" /></button>
+    <!-- on the body, as in Motus's shell: inside the page, a transform from the page transition would make the page,
+         not the screen, what it is fixed to, and it would float over the list -->
+    <Teleport to="body"><button v-if="fab" class="fab" aria-label="Write a dream" @click="write()"><Icon name="plus" :size="26" /></button></Teleport>
 
     <Sheet v-if="filterOpen" title="Search filters" @close="filterOpen = false">
       <label class="tgl"><div class="grow"><div class="t">Lucid dreams only</div></div><span class="tg"><input v-model="filter.lucidOnly" type="checkbox" /></span></label>
@@ -175,4 +179,6 @@ const menu = computed(() => [
 .sh .row { gap: var(--hg); }
 .jg { gap: var(--hg); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
+/* the last row scrolls clear of the + button (58px tall, sitting above the tab bar) */
+.jfab { padding-bottom: calc(58px + var(--spg)); }
 </style>

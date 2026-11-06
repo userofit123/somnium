@@ -3,7 +3,7 @@
 // device (opened there), so it shows offline too.
 import { computed } from "vue";
 import { clockOf, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, SLEEP_ANCHORS, TECHNIQUES, VIVIDNESS_ANCHORS } from "@somnium/shared";
-import { api } from "../../api/client";
+import { send } from "../../api/outbox";
 import { invalidate } from "../../api/live";
 import { deleteDream, useJournal } from "../../api/journal";
 import { useFmt } from "../../core/format";
@@ -36,7 +36,8 @@ const facts = computed(() => {
     n.wbtbUsed && `WBTB${n.wbtbMinutesAwake ? ` ${n.wbtbMinutesAwake} min` : ""}`, ...(n.techniquesDone ?? []).map((t) => TECHNIQUES.find((x) => x.id === t)?.label ?? t)].filter(Boolean).join(" · ");
 });
 async function favourite() {
-  try { await api.put(`/dreams/${props.id}`, { favourite: !d.value?.favourite }); invalidate(["journal"]); } catch (e) { toastError(e); }
+  // through the outbox: offline on the direct path it waits there (a yes or no, nothing sealed)
+  try { await send("put", `/dreams/${props.id}`, { favourite: !d.value?.favourite }); invalidate(["journal"]); } catch (e) { toastError(e); }
 }
 async function remove() {
   if (!(await confirm("Delete this dream?", { ok: "Delete", danger: true }))) return;

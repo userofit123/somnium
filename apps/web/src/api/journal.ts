@@ -3,13 +3,16 @@
 // draft must survive a lock, a reload and a lost connection.
 //
 // Where a draft lives until the journal has it:
-// - With the device copy (api/replica.ts) or a local account, every save goes straight into the journal on this
-//   device, which works offline; the copy sends it when it can. Nothing else is kept.
-// - On the direct server path (no device copy: another tab has it, or this browser can't hold one) a save that
-//   hasn't reached the server is kept in this browser's storage sealed with the data key (never in the clear),
-//   bound to the person and the dream, and sent when the server and the key are back. The last change before a
-//   lock is sealed in the moment before the key is dropped (keyring.onBeforeClear).
-import { reactive } from "vue";
+// - Every change is sealed with the data key at once (never in the clear) into this browser's storage, bound to the
+//   person and the dream, and stays there until the journal has it. That copy is what survives a reload or a closed
+//   tab in the moment between a keystroke and the save: the journal's own write is asynchronous and a page going
+//   away doesn't wait for it. The last change before a lock is sealed in the moment before the key is dropped
+//   (keyring.onBeforeClear); a page being hidden or left sends what is waiting at once (flushDrafts).
+// - With the device copy (api/replica.ts) or a local account, the save goes into the journal on this device, which
+//   works offline; the copy sends it when it can.
+// - On the direct server path (no device copy: another tab has it, or this browser can't hold one) the save goes to
+//   the server; while it can't, the sealed copy waits and is sent when the server and the key are back.
+import { computed, reactive, ref, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { nightOfDate, sealText, unsealText, type Dream, type DreamDraft, type DreamElement, type Element, type Night } from "@somnium/shared";
 import { uuidv7 } from "@somnium/engine/sealed-api";
@@ -18,6 +21,7 @@ import { invalidate } from "./live";
 import { send } from "./outbox";
 import { keyring } from "../core/keyring";
 import { readJson, writeJson } from "../core/prefs";
+import { draftStoreKey } from "./draftStore";
 import { session } from "../core/session";
 
 export type NightRow = Night & { dreamCount: number; lucidCount: number };
@@ -75,21 +79,25 @@ export async function markNoRecall(date: string) {
 export type SaveState = "saving" | "saved" | "waiting" | "error";
 export const saveState = reactive<Record<string, SaveState>>({});
 export const saveError = reactive<Record<string, string>>({});
-/** Drafts kept sealed on this device, waiting for the server (the direct path only), by dream id. */
-export const unsent = reactive<{ ids: string[] }>({ ids: [] });
+// dream ids with a sealed copy in storage (which includes the one being typed, until it is saved)
+const storedIds = ref<string[]>([]);
+/** Drafts kept sealed on this device that the journal hasn't got: waiting for the server, or left by a closed page. */
+export const unsent = reactive({ ids: computed(() => storedIds.value.filter((id) => !drafts.has(id) || saveState[id] === "waiting" || saveState[id] === "error")) });
 
 type Stored = Record<string, { at: number; sealed: string }>;
 const owner = () => session.user?.id ?? "";
-const storeKey = () => `somniumDrafts:${server.value.base || location.origin}:${owner()}`;
+const storeKey = () => draftStoreKey(server.value.base || location.origin, owner());
 const aad = (dreamId: string) => `somnium-draft:${owner()}:${dreamId}`;
 const readStore = (): Stored => (owner() ? readJson<Stored>(storeKey(), {}) : {});
 function writeStore(s: Stored) {
   if (!owner()) return;
   if (Object.keys(s).length) writeJson(storeKey(), s); else try { localStorage.removeItem(storeKey()); } catch { /* storage blocked: nothing kept anyway */ }
-  unsent.ids = Object.keys(s);
+  storedIds.value = Object.keys(s);
 }
 
 const drafts = new Map<string, DreamDraft & { nap: boolean }>();
+// the newest change of each dream the journal has: a seal finishing after that must not bring it back as unsent
+const sentUpTo = new Map<string, number>();
 
 /** A draft sealed in this browser's storage, opened (null without the key or when there is none). */
 export async function openStored(dreamId: string): Promise<(DreamDraft & { nap: boolean }) | null> {
@@ -106,18 +114,15 @@ async function seal(d: DreamDraft, key: Uint8Array) {
   const sealed = await sealText(JSON.stringify(d), key, aad(d.dreamId));
   const s = readStore();
   // only ever replaced by a newer change, and not brought back once it was sent
-  if (!drafts.has(d.dreamId) || (s[d.dreamId]?.at ?? 0) > at) return;
+  if (!drafts.has(d.dreamId) || (s[d.dreamId]?.at ?? 0) > at || (sentUpTo.get(d.dreamId) ?? 0) >= at) return;
   s[d.dreamId] = { at, sealed };
   writeStore(s);
 }
-const sealTimers = new Map<string, ReturnType<typeof setTimeout>>();
-function sealSoon(d: DreamDraft) {
-  if (onDevice()) return;
-  clearTimeout(sealTimers.get(d.dreamId));
-  sealTimers.set(d.dreamId, setTimeout(() => {
-    const key = keyring.get();
-    if (key) void seal(d, key).finally(() => key.fill(0));
-  }, 150));
+// at once, with every change: sealing a dream's text takes well under a millisecond, and any wait here is a window
+// in which a reload loses the last words (a slower seal finishing late never replaces a newer one, see seal())
+function sealNow(d: DreamDraft) {
+  const key = keyring.get();
+  if (key) void seal(d, key).finally(() => key.fill(0));
 }
 function dropStored(dreamId: string, at: number) {
   const s = readStore();
@@ -130,7 +135,7 @@ export function beginDraft(d: DreamDraft & { nap: boolean }) { drafts.set(d.drea
 function touch(d: DreamDraft) {
   d.savedAt = Math.max(Date.now(), d.savedAt + 1);
   saveState[d.dreamId] = "saving";
-  sealSoon(d);
+  sealNow(d);
   pushSoon(d.dreamId);
 }
 /** The dream's fields as the person left them: every field, each time. */
@@ -164,7 +169,7 @@ export function unlinkElement(dreamId: string, elementId: string) {
 }
 
 const pushTimers = new Map<string, ReturnType<typeof setTimeout>>();
-function pushSoon(dreamId: string, ms = 700) {
+function pushSoon(dreamId: string, ms = 400) {
   clearTimeout(pushTimers.get(dreamId));
   pushTimers.set(dreamId, setTimeout(() => void push(dreamId), ms));
 }
@@ -180,28 +185,35 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
   pushing.add(dreamId);
   // what is sent this time: changes made while it is on its way stay for the next one
   const snap = structuredClone({ ...d });
+  // a draft is only ever sent under the session of the person who wrote it (another may sign in on this tab meanwhile)
+  const who = owner();
+  const mine = () => { if (!who || owner() !== who) throw new Error("signed out"); };
   try {
-    const nightId = await ensureNight(snap.date, snap.nap, snap.nightId);
-    if (Object.keys(snap.night).length) await api.put(`/nights/${nightId}`, snap.night);
+    mine(); const nightId = await ensureNight(snap.date, snap.nap, snap.nightId);
+    mine(); if (Object.keys(snap.night).length) await api.put(`/nights/${nightId}`, snap.night);
     for (const e of snap.newElements) {
-      const there = await api.get(`/elements/${e.id}`).then(() => true, (x) => { if (status(x) === 404) return false; throw x; });
-      if (!there) await api.post("/elements", { id: e.id, name: e.name, kind: e.kind });
+      mine(); const there = await api.get(`/elements/${e.id}`).then(() => true, (x) => { if (status(x) === 404) return false; throw x; });
+      mine(); if (!there) await api.post("/elements", { id: e.id, name: e.name, kind: e.kind });
     }
     const body = { ...snap.dream, nightId };
+    mine();
     try { await api.put(`/dreams/${dreamId}`, body); }
-    catch (e) { if (status(e) !== 404) throw e; await api.post("/dreams", { ...body, id: dreamId }); }
-    for (const id of snap.link) await api.post(`/dreams/${dreamId}/elements`, { elementId: id, source: "manual" });
-    for (const id of snap.unlink) await api.del(`/dreams/${dreamId}/elements/${id}`).catch((e) => { if (status(e) !== 404) throw e; });
+    catch (e) { if (status(e) !== 404) throw e; mine(); await api.post("/dreams", { ...body, id: dreamId }); }
+    for (const id of snap.link) { mine(); await api.post(`/dreams/${dreamId}/elements`, { elementId: id, source: "manual" }); }
+    for (const id of snap.unlink) { mine(); await api.del(`/dreams/${dreamId}/elements/${id}`).catch((e) => { if (status(e) !== 404) throw e; }); }
+    if (owner() !== who) return;
     // sent: take off what went, keep anything newer
     d.nightId = d.date === snap.date && d.nap === snap.nap ? nightId : d.nightId;
     for (const [k, v] of Object.entries(snap.night)) if (JSON.stringify(d.night[k]) === JSON.stringify(v)) delete d.night[k];
     d.newElements = d.newElements.filter((e) => !snap.newElements.some((x) => x.id === e.id));
     d.link = d.link.filter((x) => !snap.link.includes(x));
     d.unlink = d.unlink.filter((x) => !snap.unlink.includes(x));
+    sentUpTo.set(dreamId, snap.savedAt);
     if (d.savedAt === snap.savedAt) { dropStored(dreamId, snap.savedAt); saveState[dreamId] = "saved"; }
     delete saveError[dreamId];
     invalidate(["journal"]);
   } catch (e) {
+    if (owner() !== who) return; // that person's draft was sealed under their name as the key left
     if (isWaitable(e)) saveState[dreamId] = onDevice() ? "saving" : "waiting";
     else { saveState[dreamId] = "error"; saveError[dreamId] = e instanceof Error ? e.message : "Couldn't save"; }
   } finally {
@@ -213,8 +225,8 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
 /** Sends every draft kept sealed here (after an unlock, coming back online, or now and then). */
 export async function sendStored() {
   if (!keyring.isOpen()) return;
-  unsent.ids = Object.keys(readStore());
-  for (const id of unsent.ids) {
+  storedIds.value = Object.keys(readStore());
+  for (const id of storedIds.value) {
     if (drafts.has(id)) { void push(id); continue; }
     const d = await openStored(id);
     if (d) await push(id, d);
@@ -235,9 +247,20 @@ export function endDraft(dreamId: string) {
   if ((!saveState[dreamId] || saveState[dreamId] === "saved") && !pushTimers.has(dreamId) && !pushing.has(dreamId)) drafts.delete(dreamId);
 }
 
+/** The page is going away or out of sight: what is waiting is sealed (it already is, see sealNow) and sent now. */
+export function flushDrafts() {
+  for (const d of drafts.values()) {
+    if (!saveState[d.dreamId] || saveState[d.dreamId] === "saved") continue;
+    sealNow(d);
+    if (pushTimers.has(d.dreamId)) saveNow(d.dreamId);
+  }
+}
+addEventListener("pagehide", flushDrafts);
+addEventListener("beforeunload", flushDrafts);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushDrafts(); });
+
 // The lock is about to drop the key: every draft held in memory is sealed with a copy taken now.
 keyring.onBeforeClear(() => {
-  if (onDevice()) return;
   for (const d of drafts.values()) {
     // untouched (nothing typed yet) or already with the server: nothing to keep
     if (!saveState[d.dreamId] || saveState[d.dreamId] === "saved") continue;
@@ -246,5 +269,15 @@ keyring.onBeforeClear(() => {
   }
 });
 keyring.onChange((open) => { if (open) void sendStored(); });
+// Another person on this tab (or nobody): this tab's drafts belonged to the one before, and must never be sent under
+// the new session. What wasn't sent was sealed under that person's name as the key left, for their next sign-in.
+watch(() => session.user?.id, (now, before) => {
+  if (now === before) return;
+  for (const t of pushTimers.values()) clearTimeout(t);
+  pushTimers.clear(); drafts.clear(); sentUpTo.clear(); again.clear();
+  for (const k of Object.keys(saveState)) delete saveState[k];
+  for (const k of Object.keys(saveError)) delete saveError[k];
+  storedIds.value = Object.keys(readStore());
+}, { flush: "sync" });
 addEventListener("online", () => void sendStored());
 setInterval(() => void sendStored(), 20_000);

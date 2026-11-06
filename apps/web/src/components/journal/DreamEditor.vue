@@ -3,7 +3,7 @@
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { elementMatches, fold, mergeDraft, mergeLinks, nightOfDate, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element } from "@somnium/shared";
+import { elementMatches, fold, mergeDraft, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, endDraft, linkElement, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
@@ -79,17 +79,24 @@ const typed = ref(""), hi = ref(0);
 const matches = computed(() => elementMatches(all.value, typed.value, chosen.value, 6));
 const exact = computed(() => all.value.some((e) => e.name && fold(e.name) === fold(typed.value.trim())));
 function addEl(id: string) { chosen.value.push(id); linkElement(props.id, id); typed.value = ""; hi.value = 0; }
+// a new element's kind is picked in the create row; it starts as a character (what people note most, and the
+// placeholder's first word) and then stays at the kind picked last while this dream is open
+const newKind = ref<(typeof NEW_ELEMENT_KINDS)[number]>("character");
 function createEl() {
   const name = typed.value.trim();
   if (!name) return;
-  const id = uuidv7();
-  made.value.push({ id, name, kind: "theme" });
+  const id = uuidv7(), kind = newKind.value;
+  made.value.push({ id, name, kind });
   chosen.value.push(id);
-  linkElement(props.id, id, { name, kind: "theme" });
+  linkElement(props.id, id, { name, kind });
   typed.value = "";
 }
+const onCreate = computed(() => !exact.value && hi.value === matches.value.length);
+function stepKind(by: number) { const i = NEW_ELEMENT_KINDS.indexOf(newKind.value); newKind.value = NEW_ELEMENT_KINDS[(i + by + NEW_ELEMENT_KINDS.length) % NEW_ELEMENT_KINDS.length]!; }
 function onElKey(e: KeyboardEvent) {
-  if (e.key === "ArrowDown") { hi.value = Math.min(hi.value + 1, matches.value.length); e.preventDefault(); }
+  // on the create row, left and right pick its kind
+  if (onCreate.value && (e.key === "ArrowLeft" || e.key === "ArrowRight") && typed.value.trim()) { stepKind(e.key === "ArrowLeft" ? -1 : 1); e.preventDefault(); }
+  else if (e.key === "ArrowDown") { hi.value = Math.min(hi.value + 1, matches.value.length); e.preventDefault(); }
   else if (e.key === "ArrowUp") { hi.value = Math.max(hi.value - 1, 0); e.preventDefault(); }
   else if (e.key === "Enter") { e.preventDefault(); const m = matches.value[hi.value]; if (m) addEl(m.id); else if (!exact.value) createEl(); }
 }
@@ -166,8 +173,13 @@ onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.
           <input v-model="typed" placeholder="Add a person, place, thing..." maxlength="80" @keydown="onElKey" @input="hi = 0" />
           <div v-if="typed.trim()" class="card jsug">
             <div class="list">
-              <button v-for="(m, i) in matches" :key="m.id" class="li click" :class="{ hi: hi === i }" @mousedown.prevent="addEl(m.id)"><span class="grow">{{ m.name }}</span><span class="tiny">{{ m.kind }}</span></button>
-              <button v-if="!exact" class="li click" :class="{ hi: hi === matches.length }" @mousedown.prevent="createEl"><Icon name="plus" :size="14" /><span class="grow">New element: {{ typed.trim() }}</span></button>
+              <button v-for="(m, i) in matches" :key="m.id" class="li click" :class="{ hi: hi === i }" @mousedown.prevent="addEl(m.id)"><span class="grow">{{ m.name }}</span><span class="tiny">{{ ELEMENT_KIND_LABEL[m.kind] ?? m.kind }}</span></button>
+              <div v-if="!exact" class="jnew" :class="{ hi: onCreate }">
+                <button class="li click" @mousedown.prevent="createEl"><Icon name="plus" :size="14" /><span class="grow">New {{ ELEMENT_KIND_LABEL[newKind].toLowerCase() }}: {{ typed.trim() }}</span></button>
+                <div class="chips jkinds" role="radiogroup" aria-label="Kind of element">
+                  <button v-for="k in NEW_ELEMENT_KINDS" :key="k" class="fchip" :class="{ on: newKind === k }" role="radio" :aria-checked="newKind === k" @mousedown.prevent="newKind = k">{{ ELEMENT_KIND_LABEL[k] }}</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -217,7 +229,9 @@ onBeforeUnmount(() => { removeEventListener("pagehide", leaving); saveNow(props.
 .jta { position: relative; }
 .jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: 4px var(--cpx); }
 .jsug .li { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: var(--tx); text-align: start; font: inherit; }
-.jsug .li.hi { background: var(--s2); }
+.jsug .li.hi, .jnew.hi { background: var(--s2); }
+.jnew .li { background: none; }
+.jkinds { margin: 0; padding: 0 0 var(--hg); }
 .jmore { align-self: flex-start; padding-left: 0; }
 .fld { margin-bottom: 0; }
 </style>
