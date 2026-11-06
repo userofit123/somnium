@@ -254,6 +254,12 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const c = await checkRecovery(req, reply, b);
     if (!c) return;
     const { u, release } = c;
+    // After an admin reset (sealed: no password wraps the data key) the lock screen asks for the password this session
+    // just signed in with, and it becomes the one that opens the journal. Checking it here means a typo is refused
+    // instead of quietly becoming the new sign-in password. The key was right, so only the password try stays counted.
+    if (!u.wrapped_by_password && req.user && req.user.id === u.id) {
+      if (!(await recheck(req, reply, b?.current))) { release(); return; }
+    }
     if (u.totp_enabled) {
       const code = b?.code;
       if (code === undefined || code === null || code === "") { release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }

@@ -218,7 +218,17 @@ describe("the sealed journal after an admin reset", () => {
 
     // the lock screen: the key opens the data key, the password typed with it re-wraps it
     const opened = await openWithRecoveryKey((await post("/auth/recovery/open", { username: "sealy", recoveryVerifier: await verifierFor("sealy", set.recoveryKey) })).json(), set.recoveryKey);
-    const { pw, body } = await finishBody("sealy", opened.recoveryVerifier, opened.dataKey, "the password after reset");
+    // a typo in "Your password" is refused, not stored as the new sign-in password; the recovery key still works after
+    const typo = await finishBody("sealy", opened.recoveryVerifier, opened.dataKey, "the pasword after reset", { current: (await createAccountKeys("the pasword after reset")).authKey });
+    const wrong = await post("/auth/recovery/finish", typo.body, lockH);
+    expect(wrong.statusCode).toBe(403);
+    expect(wrong.json().error).toBe("Wrong password");
+    const missing = await post("/auth/recovery/finish", (await finishBody("sealy", opened.recoveryVerifier, opened.dataKey, "the password after reset")).body, lockH);
+    expect(missing.statusCode).toBe(403);
+    expect((await get("/auth/security", lockH)).json().sealed).toBe(true);
+    expect((await signIn("sealy", typo.pw.authKey)).statusCode).not.toBe(200);
+    forgetFails();
+    const { pw, body } = await finishBody("sealy", opened.recoveryVerifier, opened.dataKey, "the password after reset", { current: reset.authKey });
     const done = await post("/auth/recovery/finish", body, lockH);
     expect(done.statusCode).toBe(200);
     expect(done.json().token).toBeUndefined(); // the session asking keeps going

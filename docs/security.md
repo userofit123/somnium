@@ -124,7 +124,7 @@ function (`packages/shared/src/lock.ts`); `apps/web/src/core/lock.ts` feeds it t
   including the person who signed in next. Removing it takes signing in as its owner and signing out, or clearing the
   browser's data, which loses the unsent changes.
 - **After an admin reset** there is no wrapped key, so the lock screen says the journal is sealed until the recovery key
-  is entered. That entry comes with LDJ-7; until then the only ways on are signing in again and the screen right after.
+  is entered there (see The recovery key, below).
 
 **Device verification** (web and PWA) uses a WebAuthn platform authenticator with the PRF extension: after the
 fingerprint, face or screen lock, the authenticator gives 32 secret bytes that wrap the data key, and only the wrapped
@@ -186,6 +186,12 @@ verifier again and swaps password and recovery key in one statement bound to the
 even when two requests race. With two-factor sign-in on, an authenticator or backup code is needed too. Every other
 session ends and the activity log notes it.
 
+The limit: `/api/auth/recovery/open` hands back the wrapped data key before any second factor is asked for, so a
+stolen recovery key opens any sealed copy of the journal - a dump of the server, a sealed export or backup - even with
+two-factor sign-in on. Two-factor still guards the next step: setting a new password and signing in with it.
+
 **After an admin reset** the password no longer wraps the data key, and the journal is sealed. A reset signs out
 every device and none of them keeps the key, so only the recovery key opens it again (on the lock screen, which
-also comes straight after signing in). Device-held keys that would survive this are LDJ-10.
+also comes straight after signing in). There it asks for the password just signed in with, sent as `current` and
+checked against the reset's auth hash before anything is stored, so a typo is refused instead of quietly becoming
+the new sign-in password. Device-held keys that would survive this are LDJ-10.

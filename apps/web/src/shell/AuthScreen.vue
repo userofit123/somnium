@@ -5,7 +5,7 @@
 // recovery key (opens the journal here, sets a new password, makes a new key) or a reset code from the admin (a new
 // password, with the journal sealed until the recovery key opens it; a signed-in device cannot yet, LDJ-10).
 // Straight after sign-up it offers to make the recovery key; skipping leaves Settings → Security's checklist warning.
-import { ref, computed } from "vue";
+import { ref, computed, onBeforeUnmount, watch } from "vue";
 import { createAccountKeys, openWithEncKey, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
 import { api, newSessionEra } from "../api/client";
 import { session, loadSession } from "../core/session";
@@ -36,7 +36,7 @@ const setup = computed(() => session.setupNeeded);
 const creating = computed(() => setup.value || mode.value === "register");
 let keys: SignInKeys | null = null; // kept between the password step and the code step, so Argon2id runs once
 // the recovery key: what was typed, the data key it opened (held until the new key has been shown), and the new key
-const rec = ref({ key: "", password: "", code: "" });
+const rec = ref({ key: "", password: "", confirm: "", code: "" });
 let opened: OpenedRecovery | null = null;
 const newKey = ref(""), saved = ref(false), totpNeeded = ref(false);
 // after the new key is read: the sign-in to finish with, and the data key it opens
@@ -100,7 +100,14 @@ function back() { step.value = "form"; code.value = ""; err.value = ""; keys = n
 
 // ----- the recovery key -----
 let signUpAuthKey = "";
-function dropRecovery() { opened?.dataKey.fill(0); opened = null; rec.value = { key: "", password: "", code: "" }; totpNeeded.value = false; }
+// the held data key goes as soon as the key steps are left any other way than Continue / Skip (which use it)
+function dropPending() { pending?.dataKey.fill(0); pending = null; signUpAuthKey = ""; newKey.value = ""; }
+watch(step, (now, before) => {
+  const held = (s: string) => s === "newKey" || s === "offerKey";
+  if (held(before) && !held(now)) dropPending();
+});
+onBeforeUnmount(dropPending);
+function dropRecovery() { opened?.dataKey.fill(0); opened = null; rec.value = { key: "", password: "", confirm: "", code: "" }; totpNeeded.value = false; }
 // straight after sign-up: make it now, while the data key is still here
 async function makeFirstKey() {
   if (!pending) return;
@@ -121,7 +128,7 @@ async function checkKey() {
     dropRecovery(); // a key opened before (Back, then another try) is let go first
     opened = await openRecovery(f.value.username, typed);
     totpNeeded.value = opened.totpRequired;
-    rec.value = { key: "", password: "", code: "" };
+    rec.value = { key: "", password: "", confirm: "", code: "" };
     step.value = "recoveryPassword";
   } catch (e) { err.value = (e as Error).name === "SealError" ? "That recovery key is not right" : (e as Error).message; } finally { busy.value = ""; }
 }
@@ -130,6 +137,7 @@ async function setPasswordWithKey() {
   err.value = "";
   const problem = await passwordProblem(rec.value.password);
   if (problem) { err.value = problem; return; }
+  if (rec.value.password !== rec.value.confirm) { err.value = "The two passwords are not the same"; return; }
   busy.value = "unlock";
   try {
     const done = await finishRecovery(opened, rec.value.password, rec.value.code, device());
@@ -199,7 +207,7 @@ async function leaveReset() {
       <h1>Recovery key</h1>
       <p class="muted auth-lede">The 20-character key you saved when you made it. It opens your journal and lets you choose a new password.</p>
       <div class="fld"><label>Username</label><input v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
-      <div class="fld"><label>Recovery key</label><input v-model="rec.key" class="auth-mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required /></div>
+      <div class="fld"><label>Recovery key</label><input v-model="rec.key" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required /></div>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Checking..." : "Next" }}</button>
       <p class="center tiny auth-link"><a class="acc click" @click="step = 'forgot'; err = ''">Back</a></p>
@@ -210,6 +218,7 @@ async function leaveReset() {
       <p class="muted auth-lede">Your recovery key is right. The new password seals your journal from now on, and you get a new recovery key - the one you typed stops working.</p>
       <input class="auth-hidden" type="text" autocomplete="username" :value="f.username" readonly tabindex="-1" aria-hidden="true" />
       <div class="fld"><label>New password</label><input v-model="rec.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" autofocus /><p class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters.</p></div>
+      <div class="fld"><label>New password again</label><input v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
       <div v-if="totpNeeded" class="fld"><label>Code from your authenticator, or a backup code</label><input v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Setting your password..." : "Set password" }}</button>
@@ -228,7 +237,7 @@ async function leaveReset() {
       <Logo />
       <h1>Your recovery key</h1>
       <p class="muted auth-lede">Save it somewhere safe and private - a password manager, or printed. It is shown only now. Anyone with it and your username can open your journal.</p>
-      <code class="auth-key auth-mono">{{ newKey }}</code>
+      <code class="key-display">{{ newKey }}</code>
       <div class="auth-row"><button type="button" class="qb" @click="copyKey">Copy</button><button type="button" class="qb" @click="downloadRecoveryKey(f.username.trim().toLowerCase(), newKey)">Download as text</button></div>
       <label class="auth-check"><input v-model="saved" type="checkbox" /> I saved my recovery key</label>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
@@ -277,8 +286,6 @@ async function leaveReset() {
 .auth-link { margin-top: var(--cpy); }
 .auth-hint { margin-top: var(--hg); }
 .auth-choices { display: flex; flex-direction: column; gap: var(--hg); }
-.auth-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
-.auth-key { display: block; text-align: center; font-size: var(--fs-lg, 1.15em); padding: var(--cpy) var(--cpx); border-radius: var(--r-sm); background: var(--s1); word-break: break-all; user-select: all; }
 .auth-row { display: flex; justify-content: center; gap: var(--hg); flex-wrap: wrap; margin: var(--hg) 0; }
 .auth-check { display: flex; align-items: center; gap: var(--hg); margin-bottom: var(--cpy); font-size: var(--fs-sm); }
 .auth-hidden { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

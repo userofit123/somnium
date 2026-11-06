@@ -7,11 +7,15 @@
 // The recovery key (PLAN.md §4.4) opens the journal here too: after an admin reset (the sealed state: no password wraps
 // the data key) and when the password is forgotten. It re-wraps the data key under the password typed with it, makes a
 // new recovery key and signs the other devices out. Wrong keys are counted by the server, like sign-in tries.
+// When sealed, "Your password" is the one this session signed in with: the server checks it (as `current`) before it
+// re-wraps anything, so a typo is refused rather than becoming the new password. Otherwise it is a new password, typed
+// twice.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 import { FREE_WRONG_TRIES, PASSWORD_MIN, deviceFailureCounts, formatWait, passwordProblem } from "@somnium/shared";
 import { isLocalAccount, session, signOut, unsentChanges } from "../core/session";
 import { keyOpenedOnLockScreen, lock, markUnlocked, whileVerifying, wrongTry, wrongTryWait } from "../core/lock";
 import { keyring } from "../core/keyring";
+import { authKeyFor } from "../core/auth";
 import { downloadRecoveryKey, finishRecovery, openRecovery } from "../core/recovery";
 import { cachedBundle, rememberBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
@@ -22,7 +26,7 @@ const password = ref(""), err = ref(""), busy = ref(false);
 const bundle = ref<UnlockBundle | null>(cachedBundle());
 const canUseDevice = ref(false);
 const pwInput = ref<HTMLInputElement | null>(null);
-const rec = ref({ key: "", password: "", code: "" });
+const rec = ref({ key: "", password: "", confirm: "", code: "" });
 const totpNeeded = ref(false), newKey = ref(""), saved = ref(false);
 // the server's answer, when it comes, replaces the copy on this device; a try waits for it
 let loaded: Promise<void> = Promise.resolve();
@@ -100,7 +104,7 @@ async function setUp() {
 }
 function notNow() { declineDevice(); openJournal(); }
 
-function showRecovery() { step.value = "recovery"; err.value = ""; rec.value = { key: "", password: "", code: "" }; }
+function showRecovery() { step.value = "recovery"; err.value = ""; rec.value = { key: "", password: "", confirm: "", code: "" }; }
 // one step: the key is checked and opened, then the password re-wraps it. The key is the proof, so no wrong-try count
 // here: the server counts wrong keys for this account and makes them wait.
 async function useRecoveryKey() {
@@ -108,16 +112,21 @@ async function useRecoveryKey() {
   err.value = ""; busy.value = true;
   let dataKey: Uint8Array | null = null;
   try {
-    const problem = await passwordProblem(rec.value.password);
-    if (problem) { err.value = problem; return; }
+    const isSealed = sealed.value;
+    if (!isSealed) {
+      const problem = await passwordProblem(rec.value.password);
+      if (problem) { err.value = problem; return; }
+      if (rec.value.password !== rec.value.confirm) { err.value = "The two passwords are not the same"; return; }
+    }
     const opened = await openRecovery(session.user?.username ?? "", rec.value.key);
     dataKey = opened.dataKey;
     if (opened.totpRequired && !rec.value.code) { totpNeeded.value = true; err.value = "Type the code from your authenticator app, or a backup code."; return; }
-    const done = await finishRecovery(opened, rec.value.password, rec.value.code, {});
+    const current = isSealed ? { current: await authKeyFor(session.user?.username ?? "", rec.value.password) } : {};
+    const done = await finishRecovery(opened, rec.value.password, rec.value.code, current);
     rememberBundle({ salt: done.kdfSalt, wrappedByPassword: done.wrappedByPassword });
     bundle.value = { salt: done.kdfSalt, wrappedByPassword: done.wrappedByPassword };
     keyring.set(dataKey);
-    rec.value = { key: "", password: "", code: "" };
+    rec.value = { key: "", password: "", confirm: "", code: "" };
     newKey.value = done.recoveryKey; saved.value = false;
     step.value = "newKey";
   } catch (e) {
@@ -168,10 +177,11 @@ async function leave() {
     <form v-else-if="step === 'recovery'" class="card" @submit.prevent="useRecoveryKey">
       <Logo />
       <h1>Recovery key</h1>
-      <p class="muted auth-lede">{{ sealed ? "Your recovery key opens your journal again. Type the password you sign in with now: from here on it opens your journal too." : "Your recovery key opens your journal and sets a new password. Your other devices are signed out." }}</p>
+      <p class="muted auth-lede">{{ sealed ? "Your recovery key opens your journal again. Type the password you just signed in with: it is checked, and from here on it opens your journal too." : "Your recovery key opens your journal and sets a new password. Your other devices are signed out." }}</p>
       <input class="lock-user" type="text" autocomplete="username" :value="session.user?.username" readonly tabindex="-1" aria-hidden="true" />
-      <div class="fld"><label for="lock-rk">Recovery key</label><input id="lock-rk" v-model="rec.key" class="lock-mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus /></div>
-      <div class="fld"><label for="lock-np">{{ sealed ? "Your password" : "New password" }}</label><input id="lock-np" v-model="rec.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
+      <div class="fld"><label for="lock-rk">Recovery key</label><input id="lock-rk" v-model="rec.key" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus /></div>
+      <div class="fld"><label for="lock-np">{{ sealed ? "Your password" : "New password" }}</label><input id="lock-np" v-model="rec.password" type="password" :autocomplete="sealed ? 'current-password' : 'new-password'" required :minlength="sealed ? undefined : PASSWORD_MIN" /></div>
+      <div v-if="!sealed" class="fld"><label for="lock-np2">New password again</label><input id="lock-np2" v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
       <div v-if="totpNeeded" class="fld"><label for="lock-code">Code from your authenticator, or a backup code</label><input id="lock-code" v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="busy">{{ busy ? "Opening..." : "Open journal" }}</button>
@@ -182,7 +192,7 @@ async function leave() {
       <Logo />
       <h1>Your new recovery key</h1>
       <p class="muted auth-lede">The one you typed no longer works. Save this one somewhere safe and private - it is shown only now.</p>
-      <code class="lock-key lock-mono">{{ newKey }}</code>
+      <code class="key-display">{{ newKey }}</code>
       <div class="lock-row"><button type="button" class="qb" @click="copyKey">Copy</button><button type="button" class="qb" @click="downloadRecoveryKey(session.user?.username ?? '', newKey)">Download as text</button></div>
       <label class="lock-check"><input v-model="saved" type="checkbox" /> I saved my recovery key</label>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
@@ -242,8 +252,6 @@ async function leave() {
 .auth-link { margin-top: var(--cpy); }
 .lock-tries { margin-bottom: var(--hg); }
 .lock-link { padding: 0; border: 0; background: none; cursor: pointer; font-size: inherit; }
-.lock-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; }
-.lock-key { display: block; text-align: center; font-size: var(--fs-lg, 1.15em); padding: var(--cpy) var(--cpx); border-radius: var(--r-sm); background: var(--s1); word-break: break-all; user-select: all; }
 .lock-row { display: flex; justify-content: center; gap: var(--hg); flex-wrap: wrap; margin: var(--hg) 0; }
 .lock-check { display: flex; align-items: center; gap: var(--hg); margin-bottom: var(--cpy); font-size: var(--fs-sm); }
 .lock-user { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }

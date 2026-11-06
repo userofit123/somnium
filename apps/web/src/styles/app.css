@@ -20,6 +20,9 @@ button { font: inherit; color: inherit; }
 .ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hide { display: none !important; }
 .center { text-align: center; }
+/* keys and codes the person copies by hand (the recovery key, backup codes): one face everywhere they appear */
+.mono { font-family: var(--mono); letter-spacing: .04em; }
+.key-display { display: block; text-align: center; font-family: var(--mono); letter-spacing: .04em; font-size: var(--fs-lg); padding: var(--cpy) var(--cpx); border-radius: var(--r-sm); background: var(--s1); word-break: break-all; user-select: all; }
 .pos { color: var(--pos); }
 .neg { color: var(--neg); }
 .acc { color: var(--acc); }
@@ -276,6 +279,8 @@ html.phone { --tabh: 64px; }
 .pmain .ph .acts .btn.lg { min-height: 44px; padding: 10px 20px; font-size: 15px; }
 /* the bottom dock: the tab bar on one blurred background */
 .dock { position: fixed; left: 0; right: 0; bottom: 0; padding-inline: var(--sl) var(--sr); z-index: 50; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--ol); }
+/* the add button stands clear of the phone tabs */
+html.phone .fab { bottom: calc(var(--tabh) + var(--sb) + 16px); }
 .tabbar { display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; height: calc(var(--tabh) + var(--sb)); padding: 0 4px var(--sb); }
 .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--tx2); padding: 4px 0; min-width: 0; cursor: pointer; }
 .tabbar button .ic { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
