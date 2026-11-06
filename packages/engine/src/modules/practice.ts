@@ -3,7 +3,8 @@
 import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, bool, dateStr } from "../util";
-import { columns, sealed, timeOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
+import { columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
+import { notFound } from "../errors";
 
 const PRACTICE: Fields = {
   date: required(dateStr, "date"),
@@ -14,11 +15,11 @@ const PRACTICE: Fields = {
 };
 const LESSON: Fields = { state: enumOf(LESSON_STATES, "open"), done_at: timeOrNull, answers: sealed };
 const GOAL: Fields = {
-  kind: required(enumOf(GOAL_KINDS, ""), "kind"),
+  kind: required(enumOrNull(GOAL_KINDS), "kind"),
   target: required((v) => intOrNull(v, 1, 1000), "target"),
   period: enumOf(GOAL_PERIODS, "week"),
 };
-const REMINDER: Fields = { kind: required(enumOf(REMINDER_KINDS, ""), "kind"), schedule: json, enabled: (v) => bool(v, true) };
+const REMINDER: Fields = { kind: required(enumOrNull(REMINDER_KINDS), "kind"), schedule: json, enabled: (v) => bool(v, true) };
 
 export function practiceRoutes(r: Router) {
   r.get("/practice", async ({ q }, _p, _b, qs) => {
@@ -43,8 +44,9 @@ export function practiceRoutes(r: Router) {
       : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...columns(LESSON, b, true) });
   });
   r.del("/course/:lessonId", async (ctx, p) => {
-    const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [str(p.lessonId, 80)])).rows[0];
-    if (cur) await removeRow(ctx, "course_progress", "course", cur.id, "lesson");
+    const cur = (await ctx.q.query<{ id: string }>("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [str(p.lessonId, 80)])).rows[0];
+    if (!cur) throw notFound("Unknown lesson");
+    await removeRow(ctx, "course_progress", "course", cur.id, "lesson");
     return { ok: true };
   });
 

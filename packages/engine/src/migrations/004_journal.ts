@@ -33,6 +33,8 @@ CREATE TABLE nights (
   deleted_at timestamptz
 );
 CREATE INDEX nights_user_date ON nights (user_id, date DESC);
+-- one live night per date; a nap is its own row on the same date, so naps stay out of the rule
+CREATE UNIQUE INDEX nights_user_date_live ON nights (user_id, date) WHERE deleted_at IS NULL AND NOT nap;
 
 CREATE TABLE dreams (
   id uuid PRIMARY KEY,
@@ -98,11 +100,13 @@ CREATE INDEX dream_elements_element ON dream_elements (element_id);
 -- one live link per dream and element; a removed link can be made again
 CREATE UNIQUE INDEX dream_elements_live ON dream_elements (dream_id, element_id) WHERE deleted_at IS NULL;
 
--- uploaded files (001) become a dream's photos, sketches and recordings
+-- uploaded files (001) become a dream's photos, sketches, recordings and clips. 001 wrote 'image' and 'video';
+-- the kinds here are MEDIA_KINDS in shared types.ts, and every writer (the server's upload, the device) uses them
 UPDATE media SET kind = 'photo' WHERE kind = 'image';
+UPDATE media SET kind = 'photo' WHERE kind NOT IN ('photo','sketch','audio','video');
 ALTER TABLE media
   ALTER COLUMN kind SET DEFAULT 'photo',
-  ADD CONSTRAINT media_kind CHECK (kind IN ('photo','sketch','audio')),
+  ADD CONSTRAINT media_kind CHECK (kind IN ('photo','sketch','audio','video')),
   ADD COLUMN dream_id uuid REFERENCES dreams(id) ON DELETE SET NULL,
   ADD COLUMN ocr_text text,
   ADD COLUMN duration int CHECK (duration BETWEEN 0 AND 86400),

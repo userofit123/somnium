@@ -4,6 +4,7 @@ import { BECAME_LUCID_HOW, WAKE_METHODS, ELEMENT_KINDS, SIGN_CATEGORIES, ELEMENT
 import type { Router } from "../router";
 import { id, str, intOrNull, numOrNull, bool, dateStr, visible, camel, camels } from "../util";
 import { columns, sealed, timeOrNull, clockOrNull, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
+import { conflict, notFound } from "../errors";
 
 const NIGHT: Fields = {
   date: required(dateStr, "date"),
@@ -44,22 +45,33 @@ export function journalRoutes(r: Router) {
   // nights, newest first, with how many dreams (and lucid ones) each has: what the rates (shared rates.ts) need
   r.get("/nights", async ({ q }, _p, _b, qs) => {
     const { where, params } = range("n.date", qs);
-    const { rows } = await q.query(
+    const { rows } = await q.query<Record<string, unknown>>(
       `SELECT n.*, (SELECT count(*) FROM dreams d WHERE d.night_id = n.id AND d.deleted_at IS NULL)::int AS dream_count,
               (SELECT count(*) FROM dreams d WHERE d.night_id = n.id AND d.deleted_at IS NULL AND d.lucid)::int AS lucid_count
        FROM nights n WHERE n.deleted_at IS NULL${where ? ` AND ${where}` : ""} ORDER BY n.date DESC LIMIT 1000`, params);
-    return rows.map((x: any) => ({ ...camel(x), dreamCount: Number(x.dream_count), lucidCount: Number(x.lucid_count) }));
+    return rows.map((x) => ({ ...camel<Night>(x), dreamCount: Number(x.dream_count), lucidCount: Number(x.lucid_count) }));
   });
   r.get("/nights/:id", async ({ q }, p) => {
     const night = await getLive<Night>(q, "nights", id(p.id), "night");
     return { ...night, dreams: await listLive<Dream>(q, "dreams", "night_id = $1", [night.id], "position, created_at") };
   });
-  r.post("/nights", async (ctx, _p, b) => insertRow<Night>(ctx, "nights", "nights", columns(NIGHT, b, true)));
+  r.post("/nights", async (ctx, _p, b) => {
+    // one live night per date (index nights_user_date_live; a nap is its own row and may share the date)
+    try { return await insertRow<Night>(ctx, "nights", "nights", columns(NIGHT, b, true)); }
+    catch (e) { if (/nights_user_date_live/.test(String((e as Error).message))) throw conflict("There is already a night for that date"); throw e; }
+  });
   r.put("/nights/:id", async (ctx, p, b) => updateRow<Night>(ctx, "nights", "nights", id(p.id), columns(NIGHT, b, false), "night"));
+  // removing a night takes its dreams with it, and each dream its links and media (the same cascade as DELETE /dreams/:id)
   r.del("/nights/:id", async (ctx, p) => {
-    await removeRow(ctx, "nights", "nights", id(p.id), "night");
-    await removeWhere(ctx.q, "dreams", "night_id = $1", [p.id]);
-    ctx.changed("dreams");
+    const nightId = id(p.id);
+    await removeRow(ctx, "nights", "nights", nightId, "night");
+    const dreams = (await ctx.q.query<{ id: string }>("SELECT id FROM dreams WHERE night_id = $1 AND deleted_at IS NULL", [nightId])).rows.map((d) => d.id);
+    if (dreams.length) {
+      await removeWhere(ctx.q, "dream_elements", "dream_id = ANY($1::uuid[])", [dreams]);
+      await removeWhere(ctx.q, "media", "dream_id = ANY($1::uuid[])", [dreams]);
+      await removeWhere(ctx.q, "dreams", "night_id = $1", [nightId]);
+      ctx.changed("dreams", "elements");
+    }
     return { ok: true };
   });
 
@@ -128,7 +140,8 @@ export function journalRoutes(r: Router) {
     return out;
   });
   r.del("/dreams/:id/elements/:elementId", async (ctx, p) => {
-    await removeWhere(ctx.q, "dream_elements", "dream_id = $1 AND element_id = $2", [id(p.id, "dream"), id(p.elementId, "element")]);
+    const n = await removeWhere(ctx.q, "dream_elements", "dream_id = $1 AND element_id = $2", [id(p.id, "dream"), id(p.elementId, "element")]);
+    if (!n) throw notFound("Unknown link");
     ctx.changed("dreams", "elements");
     return { ok: true };
   });

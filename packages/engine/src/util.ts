@@ -49,8 +49,9 @@ export const tzOf = (qs: Record<string, string>) => (qs.tz != null && qs.tz !== 
 export const secondsBetween = (a: string, b: string | Date) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 1000));
 
 /** Refuses a reference to a row this person cannot see (row-level security hides other people's rows,
- *  but foreign keys are checked without it, so references are checked here). */
-export async function visible(q: { query: (t: string, p?: unknown[]) => Promise<{ rows: unknown[] }> }, table: string, rowId: string | null | undefined, what = "item") {
+ *  but foreign keys are checked without it, so references are checked here). A removed row (deleted_at set)
+ *  is out of sight too; soft = false for the few tables without deleted_at. */
+export async function visible(q: { query: (t: string, p?: unknown[]) => Promise<{ rows: unknown[] }> }, table: string, rowId: string | null | undefined, what = "item", soft = true) {
   if (rowId == null) return;
-  if (!(await q.query(`SELECT 1 FROM ${table} WHERE id = $1`, [rowId])).rows.length) throw bad(`Unknown ${what}`);
+  if (!(await q.query(`SELECT 1 FROM ${table} WHERE id = $1${soft ? " AND deleted_at IS NULL" : ""}`, [rowId])).rows.length) throw bad(`Unknown ${what}`);
 }

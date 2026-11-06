@@ -3,3 +3,4 @@ export class HttpError extends Error {
 }
 export const notFound = (what = "Not found") => new HttpError(404, what);
 export const bad = (why: string) => new HttpError(400, why);
+export const conflict = (why: string) => new HttpError(409, why);
