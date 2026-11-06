@@ -6,8 +6,14 @@ import { reactive } from "vue";
 import { ApiError, httpTransport, server, setTransport, type Transport } from "./client";
 import { invalidate, setRemoteHandler } from "./live";
 import { readStr, writeStr } from "../core/prefs";
+import { keyring } from "../core/keyring";
 
-export const sync = reactive({ on: false, online: true, syncing: false, waiting: 0, lastAt: 0, error: "" });
+// sealed: the journal key is open here, so sealed tables can leave (sealed) and arrive (opened). Without it nothing is
+// sent or fetched and the pill says Locked: the copy keeps working offline, plaintext never goes out, ciphertext never
+// comes in (packages/engine/src/sync/sealing.ts).
+export const sync = reactive({ on: false, online: true, syncing: false, waiting: 0, lastAt: 0, error: "", sealed: true });
+const LOCKED = "Locked: the journal key isn't open on this device";
+const locked = () => { sync.sealed = false; sync.error = LOCKED; };
 
 // what only the server can do: signing in, the admin pages, files, and sync itself
 const SERVER_ONLY = /^\/(auth|admin|media|upload|share|version|update-check|events|sync)(\/|\?|$)/;
@@ -22,7 +28,7 @@ let running = false, again = false, timer: ReturnType<typeof setTimeout> | null 
 // when the current run of failures began (0 = the last sync worked), and when the app was last brought back
 let failingSince = 0, shownAt = 0;
 // what signing out has to undo, so the next person signing in on this tab starts clean
-let releaseLock = () => {}, stopEvents: AbortController | null = null, tick: ReturnType<typeof setInterval> | null = null;
+let releaseLock = () => {}, stopEvents: AbortController | null = null, tick: ReturnType<typeof setInterval> | null = null, stopKeyring = () => {};
 
 // whether this device has changes the server hasn't got, kept outside the copy so it's known before the copy opens
 const UNSENT = () => "somniumUnsent:" + name;
@@ -92,10 +98,11 @@ export async function startReplica(user: { id: string }): Promise<boolean> {
     eng = await createEngine(db, { mode: "local", seed: false });
     userId = user.id;
     if (!(await R.replicaMeta(db)).ready) {
-      // the first copy needs the server once
+      // the first copy needs the server once, and the key to open it: without the key there is no copy to work on
+      if (!keyring.get()) { locked(); throw new Error(LOCKED); }
       // everything you have in one answer: on a big history and a slow connection this takes far longer than an
       // ordinary request is given
-      await R.loadSnapshot(db, await httpTransport.request("GET", "/sync/snapshot", undefined, { wait: 120_000 }));
+      await R.loadSnapshot(db, await httpTransport.request("GET", "/sync/snapshot", undefined, { wait: 120_000 }), keyring.get());
     }
   } catch {
     await db?.close().catch(() => {}); db = null; eng = null;
@@ -119,6 +126,8 @@ export async function startReplica(user: { id: string }): Promise<boolean> {
   // whatever failed while the app was in the background (the phone cuts its network) says nothing about now
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { failingSince = 0; shownAt = Date.now(); schedule(0); } }, { signal });
   tick = setInterval(() => schedule(0), PAGE_WAIT);
+  // the key arriving (sign-in finishing, the app unlocking) is what a locked sync was waiting for
+  stopKeyring = keyring.onChange((k) => { if (k) { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; schedule(0); } else locked(); });
   sync.waiting = await R.waitingCount(db);
   noteUnsent(sync.waiting);
   schedule(0);
@@ -134,6 +143,9 @@ export function schedule(ms = 400) {
 /** Send what changed here, then fetch what changed elsewhere. */
 async function run() {
   if (running) { again = true; return; }
+  // no key, no sync: sealed tables can neither be sealed for the server nor opened from it
+  const key = keyring.get();
+  if (!key) { locked(); return; }
   running = true; sync.syncing = true;
   // when the request now in flight began: the grace counts from there, not from the start of a long sync
   let tried = Date.now();
@@ -142,11 +154,11 @@ async function run() {
   try {
     const meta = await R.replicaMeta(db);
     for (;;) {
-      const out = await R.localChanges(db);
+      const out = await R.localChanges(db, 500, key); // sealed here, on the way out
       if (!out.changes.length) break;
       const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
       await R.markSent(db, out.upTo);
-      if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected); changed = true; }
+      if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected, undefined, key); changed = true; }
       // the server couldn't take some (they no longer fit its data): say so rather than lose them without a word
       if (res.failed?.length) { failed = res.failed.length; console.warn("Sync: the server refused", res.failed); }
     }
@@ -154,17 +166,18 @@ async function run() {
     for (;;) {
       const m = await R.replicaMeta(db);
       const p = await call("GET", `/sync/pull?since=${m.cursor}&device=${encodeURIComponent(m.device)}`);
-      const r = await R.applyRemote(db, userId, p.changes, p.cursor);
+      const r = await R.applyRemote(db, userId, p.changes, p.cursor, key); // opened here, on the way in
       if (p.changes.length) changed = true;
       retry.push(...r.failed.map((f: any) => f.change));
       if (!p.more) break;
     }
     // a row that arrived before the row it belongs to (they came in different pages)
-    if (retry.length) await R.applyRemote(db, userId, retry);
+    if (retry.length) await R.applyRemote(db, userId, retry, undefined, key);
     failingSince = 0;
     Object.assign(sync, { online: true, error: failed ? `${failed} change${failed === 1 ? "" : "s"} from this device didn't fit the server's data` : "", lastAt: Date.now() });
   } catch (e) {
     if (e instanceof ApiError && e.status === 0) unreachable(tried);
+    else if ((e as Error).name === "LockedError") locked();
     else {
       // the server answered (with an error), so it is reachable: a later network failure gets its own grace
       failingSince = 0;
@@ -202,8 +215,9 @@ export async function eraseReplica() {
   stopEvents?.abort(); stopEvents = null;
   if (tick) clearInterval(tick); tick = null;
   if (timer) clearTimeout(timer); timer = null;
+  stopKeyring(); stopKeyring = () => {};
   await db?.close().catch(() => {});
-  db = null; eng = null; userId = ""; failingSince = 0; Object.assign(sync, { waiting: 0, error: "", syncing: false });
+  db = null; eng = null; userId = ""; failingSince = 0; Object.assign(sync, { waiting: 0, error: "", syncing: false, sealed: true });
   releaseLock(); releaseLock = () => {};
   await dropDatabase(`/pglite/${name}`);
   writeStr(UNSENT(), "0");

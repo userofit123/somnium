@@ -3,7 +3,10 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { createEngine, replica, type Engine } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
+import { newDataKey, isSealed } from "@somnium/shared";
 
+// the account's data key: sealed tables leave the device sealed under it and come back opened (sealing.test.ts checks that)
+const KEY = newDataKey();
 let server: Engine, device: Engine, U: string, deviceId = "";
 const on = (e: Engine) => async (method: string, path: string, body?: unknown, query?: Record<string, string>) => {
   const r = await e.handle({ method, path, body, query, userId: U });
@@ -13,16 +16,16 @@ const on = (e: Engine) => async (method: string, path: string, body?: unknown, q
 const S = () => on(server), D = () => on(device);
 // one round of what the app does: send what changed here, then fetch what changed elsewhere
 async function sync() {
-  const out = await replica.localChanges(device.db);
+  const out = await replica.localChanges(device.db, 500, KEY);
   if (out.changes.length) {
     const res = await S()("POST", "/sync/push", { device: deviceId, changes: out.changes });
     await replica.markSent(device.db, out.upTo);
-    if (res.rejected.length) await replica.applyRemote(device.db, U, res.rejected);
+    if (res.rejected.length) await replica.applyRemote(device.db, U, res.rejected, undefined, KEY);
   }
   for (;;) {
     const m = await replica.replicaMeta(device.db);
     const p = await S()("GET", "/sync/pull", undefined, { since: String(m.cursor), device: deviceId });
-    await replica.applyRemote(device.db, U, p.changes, p.cursor);
+    await replica.applyRemote(device.db, U, p.changes, p.cursor, KEY);
     if (!p.more) break;
   }
 }
@@ -38,7 +41,7 @@ describe("sync", () => {
   it("gives a device a full copy", async () => {
     await S()("PUT", "/settings", { firstDay: 0 });
     const snap = await S()("GET", "/sync/snapshot");
-    const m = await replica.loadSnapshot(device.db, snap);
+    const m = await replica.loadSnapshot(device.db, snap, KEY);
     deviceId = m.device;
     expect(m.ready).toBe(true);
     expect((await D()("GET", "/me")).settings.firstDay).toBe(0);
@@ -73,7 +76,9 @@ describe("sync", () => {
     expect(await replica.waitingCount(device.db)).toBe(2);
     await sync();
     const onServer = await S()("GET", `/dreams/${dream.id}`);
-    expect(onServer.title).toBe("env:t");
+    // the server holds the sealed title; the device reads it plain
+    expect(isSealed(onServer.title)).toBe(true);
+    expect((await D()("GET", `/dreams/${dream.id}`)).title).toBe("env:t");
     expect(onServer.nightId).toBe(night.id);
     expect((await S()("GET", "/nights"))[0].dreamCount).toBe(1);
     // a removal is a marked row, so it travels like any change
