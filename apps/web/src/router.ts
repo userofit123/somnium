@@ -17,6 +17,8 @@ export const router = createRouter({
     { path: "/journal/dream/:id", name: "journal-dream", component: () => import("./pages/JournalPage.vue") },
     { path: "/journal/write/:id", name: "journal-write", component: () => import("./pages/JournalPage.vue") },
     { path: "/signs", name: "signs", component: () => import("./pages/SignsPage.vue") },
+    // an element's page: beside the list on a computer, a step of its own on the phone
+    { path: "/signs/:id", name: "signs-element", component: () => import("./pages/SignsPage.vue") },
     { path: "/train", name: "train", component: () => import("./pages/TrainPage.vue") },
     { path: "/insights", name: "insights", component: () => import("./pages/InsightsPage.vue") },
     { path: "/learn/:sub(.*)?", name: "learn", component: () => import("./pages/LearnPage.vue") },

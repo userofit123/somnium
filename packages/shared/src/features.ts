@@ -15,6 +15,12 @@ export const FEATURES: FeatureDef[] = [
   { id: "meditationTimer", group: "Train", name: "Meditation timer", desc: "A quiet timer for the practices that use one.", on: false, ready: false },
   { id: "dreamYoga", group: "Train", name: "Dream yoga practices", desc: "The contemplative practices, with their sources.", on: false, ready: false },
   { id: "goals", group: "Train", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", on: false, ready: false },
+  // Home (PLAN.md §6.1): extra cards under the day's own blocks
+  // top dream signs waits for the Signs ranking (PLAN.md §7.2, its own task): planned, not shown yet
+  { id: "homeSigns", group: "Home", name: "Top dream signs", desc: "Your most frequent dream signs on Home.", on: false, ready: false },
+  { id: "homeLesson", group: "Home", name: "Next lesson", desc: "The course lesson you are on, on Home.", on: false },
+  { id: "homeTip", group: "Home", name: "A tip from Learn", desc: "A short article summary from Learn on Home, a different one each day.", on: false },
+  { id: "homeLastLucid", group: "Home", name: "Last lucid dream", desc: "The title and date of your latest lucid dream on Home.", on: false },
   // Insights
   { id: "reports", group: "Insights", name: "Month report and year in review", desc: "A summary page for each month and year.", on: false, ready: false },
   { id: "typicalThemes", group: "Insights", name: "Typical-dream themes", desc: "How often the common dream themes show up for you, compared with published rates.", on: false, ready: false },

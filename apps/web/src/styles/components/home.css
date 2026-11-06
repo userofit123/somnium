@@ -1,0 +1,43 @@
+/* Home (PLAN.md §6.1): theme and density tokens only. The course's tick list and progress bar come from train.css. */
+.home .hgrid { align-items: start; }
+.home .hcol > section:first-child > .sh:first-child { margin-top: 0; }
+.home .t { font-weight: 600; }
+
+/* this morning */
+.hwrite { display: flex; flex-direction: column; align-items: flex-start; gap: var(--hg); }
+.hwrite .lnk { padding: 0; }
+html.phone .hwrite .btn { width: 100%; justify-content: center; }
+.hsum { display: flex; align-items: center; gap: 12px; color: var(--tx); }
+.hsum > svg { color: var(--acc); flex: none; }
+.hmark { font-size: var(--fs-xs); font-weight: 600; border-radius: var(--pill, 99px); padding: 2px 9px; border: 1px solid var(--ol); color: var(--tx2); white-space: nowrap; }
+.hmark.acc { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
+.htitles { display: flex; flex-direction: column; gap: 4px; margin-top: var(--hg); padding-inline-start: 30px; }
+.htitles a { color: var(--tx); text-decoration: none; }
+.htitles a:hover { color: var(--acc); }
+.hfoot { display: flex; gap: 16px; flex-wrap: wrap; margin-top: var(--hg); padding-inline-start: 30px; }
+.hfoot .lnk { padding: 0; }
+
+/* today and tonight */
+.hrow { display: flex; align-items: center; gap: 12px; }
+.hbar { margin-top: var(--hg); }
+.hsub { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: var(--hg) 0 6px; padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.home .lnk.inl.tiny { font-size: var(--fs-xs); }
+.hmore { display: inline-block; margin-top: 6px; }
+.hnote { margin-bottom: var(--hg); }
+.hplan { display: flex; flex-direction: column; }
+.hli { text-decoration: none; color: inherit; padding-inline: 0; }
+.hli > svg:first-child { color: var(--acc); flex: none; }
+.hli > svg:last-child { color: var(--tx2); flex: none; }
+.hint { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.hintx { overflow-wrap: anywhere; }
+.hedit { display: flex; flex-direction: column; gap: 8px; }
+.hedit input { width: 100%; }
+
+/* streaks and rates: three small numbers */
+.hnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); }
+.hnums .hv { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); margin: 2px 0; }
+
+/* optional cards */
+.hcard { display: block; text-decoration: none; color: inherit; }
+.hcard .tiny { margin-top: 2px; }
+.hclamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
