@@ -12,7 +12,7 @@ const NIGHT: Fields = {
   sleep_quality: (v) => intOrNull(v, 1, 5),
   wbtb_used: (v) => bool(v), wbtb_wake_at: timeOrNull, wbtb_minutes_awake: (v) => intOrNull(v, 0, 600),
   nap: (v) => bool(v), substances: sealed, caffeine_after: clockOrNull, alcohol: (v) => bool(v), notes: sealed,
-  techniques_planned: idList, techniques_done: idList, intention: sealed,
+  techniques_planned: idList, techniques_done: idList, intention: sealed, no_recall: (v) => bool(v),
 };
 const DREAM: Fields = {
   position: (v) => intOrNull(v, 0, 100) ?? 0,

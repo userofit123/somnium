@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recallRate, lucidRate, journalStreak, addDays } from "./rates";
+import { recallRate, lucidRate, journalStreak, addDays, isPlanOnly } from "./rates";
 
 describe("rates", () => {
   it("counts recall over logged nights, no-recall nights included", () => {
@@ -23,6 +23,25 @@ describe("rates", () => {
     expect(journalStreak(nights, "2026-11-06")).toBe(3); // today not logged yet
     expect(journalStreak(nights, "2026-11-07")).toBe(0); // a day missed
     expect(journalStreak([], "2026-11-07")).toBe(0);
+  });
+
+  it("leaves a night that is only a plan out of streaks and rates", () => {
+    // Train's "Use tonight" makes the night with techniques planned, nothing else
+    const plan = { id: "p", date: "2026-11-06", dreamCount: 0, noRecall: false, techniquesPlanned: ["mild"], techniquesDone: [] as string[], intention: "env:x" };
+    const logged = [{ id: "a", date: "2026-11-05", dreamCount: 1, noRecall: false }, { id: "b", date: "2026-11-04", dreamCount: 0, noRecall: true }];
+    expect(isPlanOnly(plan)).toBe(true);
+    expect(journalStreak([plan, ...logged], "2026-11-06")).toBe(2); // counted from yesterday: today isn't logged
+    expect(journalStreak([plan, ...logged], "2026-11-07")).toBe(0);
+    expect(recallRate([plan, ...logged])).toBe(0.5);
+    expect(lucidRate([plan, ...logged], [{ nightId: "a", lucid: true }])).toEqual({ perNight: 0.5, nightShare: 0.5 });
+    // anything written about the morning makes it logged
+    expect(isPlanOnly({ ...plan, noRecall: true })).toBe(false);
+    expect(isPlanOnly({ ...plan, dreamCount: 1 })).toBe(false);
+    expect(isPlanOnly({ ...plan, sleepQuality: 3 })).toBe(false);
+    expect(isPlanOnly({ ...plan, techniquesDone: ["mild"] })).toBe(false);
+    expect(journalStreak([{ ...plan, wakeTime: "2026-11-06T07:00:00Z" }, ...logged], "2026-11-06")).toBe(3);
+    // a row without the mark's field at all (an older shape) is taken as logged
+    expect(isPlanOnly({ dreamCount: 0 })).toBe(false);
   });
 
   it("steps dates across month and year ends", () => {

@@ -47,8 +47,8 @@ describe("course lessons", () => {
     }
   });
 
-  it("shows the safety note on the WBTB, SSILD/WILD and troubleshooting lessons", () => {
-    expect(list.filter((l) => l.safety).map((l) => l.id)).toEqual(["mild-wbtb", "ssild-wild", "troubleshooting"]);
+  it("shows the safety note on the WBTB, SSILD/WILD, nightmare and troubleshooting lessons", () => {
+    expect(list.filter((l) => l.safety).map((l) => l.id)).toEqual(["mild-wbtb", "ssild-wild", "dream-control", "troubleshooting"]);
   });
 
   it("refuses a lesson without a practice list", () => {
@@ -79,7 +79,9 @@ describe("techniques library", () => {
 
   it("keeps the RESEARCH.md Part B summary table's grades", () => {
     const grade = Object.fromEntries(techniques.map((t) => [t.id, t.evidence]));
-    expect(grade).toMatchObject({ mild: "strong", wbtb: "strong", "sound-cue": "strong", ssild: "some", "reality-testing": "some", "tholey-combined": "some", wild: "anecdotal", deild: "anecdotal", journaling: "some", meditation: "some" });
-    expect(techniques.filter((t) => t.safety).map((t) => t.id).sort()).toEqual(["ssild", "wbtb", "wild"]);
+    expect(grade).toMatchObject({ mild: "strong", wbtb: "some", "sound-cue": "strong", ssild: "some", "reality-testing": "weak", "tholey-combined": "some", wild: "anecdotal", deild: "anecdotal", journaling: "some", meditation: "weak" });
+    expect(techniques.find((t) => t.id === "reality-testing")?.basis).toMatch(/part of MILD, not alone/);
+    expect(safetyLines.join(" ")).toMatch(/grief or PTSD without clinical support \(nightmare work is best done with a therapist\)/);
+    expect(techniques.filter((t) => t.safety).map((t) => t.id).sort()).toEqual(["deild", "fild", "re-entry", "ssild", "wbtb", "wild"]);
   });
 });

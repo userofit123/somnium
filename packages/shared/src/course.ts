@@ -2,7 +2,7 @@
 // lesson. Each says how far along you are ("3 of 4 dreams this week") and why the rule is what it is. The rule never
 // blocks: moving on by choice is always allowed (the screen offers it), so these only tell you when it makes sense.
 // Dates are local YYYY-MM-DD; nothing here looks at the clock, `today` is passed in.
-import { addDays, journalStreak } from "./rates";
+import { addDays, isPlanOnly, journalStreak, type NightLog } from "./rates";
 
 export const COURSE_LESSONS = ["recall", "journal-habits", "reality-checks", "mild-wbtb", "stabilise", "ssild-wild", "dream-control", "troubleshooting"] as const;
 export type CourseLesson = (typeof COURSE_LESSONS)[number];
@@ -12,7 +12,7 @@ export interface CourseData {
   /** The day this lesson became the current one (its course_progress row). Missing: today. */
   since?: string;
   /** Logged nights (a night's date is the morning's) with their dream and lucid counts. */
-  nights: { date: string; dreamCount: number; lucidCount: number; techniquesPlanned?: string[]; techniquesDone?: string[] }[];
+  nights: ({ date: string; dreamCount: number; lucidCount: number; techniquesPlanned?: string[]; techniquesDone?: string[] } & NightLog)[];
   /** The local date of each reality check. */
   checkDays: string[];
   /** Practice ticks: item ids and the date they were ticked. */
@@ -82,7 +82,9 @@ export const moveOnRules: Record<CourseLesson, (d: CourseData) => MoveOn> = {
   "mild-wbtb": (d) => lucidOrWeeks(d, 1, 4, "Your first lucid dream shows the protocol works for you; after 4 weeks without one, adjust it rather than keep pushing."),
   stabilise: (d) => lucidOrWeeks(d, 2, 4, "A couple of lucid dreams give the first-seconds routine a real try."),
   "ssild-wild": (d) => {
-    const nights = sinceStart(d).filter((n) => [...(n.techniquesPlanned ?? []), ...(n.techniquesDone ?? [])].some((t) => t === "ssild" || t === "wild")).length;
+    // a night counts when the method was done, or planned and the morning was logged: a plan alone is not a try
+    const tried = (l?: string[]) => (l ?? []).some((t) => t === "ssild" || t === "wild");
+    const nights = sinceStart(d).filter((n) => tried(n.techniquesDone) || (tried(n.techniquesPlanned) && !isPlanOnly(n))).length;
     const day = daysBetween(d.since ?? d.today, d.today) + 1;
     return {
       ready: nights >= 4 || day > 28, share: Math.max(share(nights, 4), share(day - 1, 28)),

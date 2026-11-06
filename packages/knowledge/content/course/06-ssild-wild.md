@@ -18,7 +18,7 @@ On the way in you may feel unable to move, weight on the chest, buzzing or vibra
 
 ## Why
 
-SSILD is the only community technique with a controlled study: after WBTB it gave lucid dreams on 16.9 percent of nights, as many as MILD [B38]. With one study behind it, the reviews call it promising but unconfirmed [B35]. WILD is documented in the lab, but no controlled trial has tested it as a technique [B15]. In one lab, most lucid dreams after WBTB began from a dream anyway [D13]. Alternate them with MILD rather than replacing it [D12].
+SSILD has one large field study: after WBTB it gave lucid dreams on 16.9 percent of nights, as many as MILD [B38]. With one study behind it, the reviews call it promising but unconfirmed [B35]. WILD is documented in the lab, but no controlled trial has tested it as a technique [B15]. In one lab, most lucid dreams after WBTB began from a dream anyway [D13]. Alternate them with MILD rather than replacing it [D12].
 
 ## Today's practice
 

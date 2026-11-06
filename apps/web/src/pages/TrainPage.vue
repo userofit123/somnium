@@ -12,6 +12,7 @@ import { useJournal } from "../api/journal";
 import { useTrain, setLesson, tonightNight } from "../api/train";
 import { loaded } from "../api/queries";
 import { localYmd } from "../core/format";
+import { useToday } from "../core/today";
 import { toastError } from "../core/toast";
 import "../styles/components/learn.css";
 import "../styles/components/train.css";
@@ -27,7 +28,8 @@ const j = useJournal();
 const t = useTrain();
 await loaded(j.nights, t.course, t.practice);
 
-const today = localYmd(new Date());
+// reactive: the page can stay open across midnight
+const today = useToday();
 const technique = computed(() => findTechnique(String(route.query.technique ?? "")));
 const openLesson = computed(() => findLesson(String(route.query.lesson ?? "")));
 
@@ -40,8 +42,9 @@ const planned = computed(() => tonightNight(j.nights.data.value)?.techniquesPlan
 const rule = computed(() => {
   if (!lesson.value) return null;
   return moveOn(lesson.value.id, {
-    today,
-    since: row.value ? localYmd(new Date(row.value.updatedAt)) : today,
+    today: today.value,
+    // the lesson's fixed start (set once when it became active); a row from before it existed falls back to creation
+    since: row.value ? localYmd(new Date(row.value.startedAt ?? row.value.createdAt)) : today.value,
     nights: j.nights.data.value ?? [],
     checkDays: (t.checks.data.value ?? []).map((c) => localYmd(new Date(c.at))),
     practice: t.practice.data.value ?? [],

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, type DreamDraft } from "./journal";
+import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, type DreamDraft } from "./journal";
 
 const night = (id: string, date: string, nap = false) => ({ id, date, nap });
 const dream = (id: string, nightId: string, o: Partial<{ position: number; title: string; text: string; lucid: boolean; createdAt: string }> = {}) =>
@@ -78,6 +78,23 @@ describe("drafts", () => {
   it("applies a draft's links over the row's", () => {
     expect(mergeLinks(["e1", "e3"], draft)).toEqual(["e3", "e2"]);
     expect(mergeLinks(["e1"], null)).toEqual(["e1"]);
+  });
+});
+
+describe("the nights the Journal lists", () => {
+  const n = (id: string, date: string, o: object = {}) => ({ id, date, nap: false, dreamCount: 0, noRecall: false, techniquesPlanned: [] as string[], ...o });
+  it("leaves out a night that is only a plan until something is written", () => {
+    const plan = n("p", "2026-11-06", { techniquesPlanned: ["mild"] });
+    expect(journalNights([plan], "2026-11-06")).toEqual([]);
+    expect(journalNights([{ ...plan, noRecall: true }], "2026-11-06").map((x) => x.id)).toEqual(["p"]);
+    expect(journalNights([{ ...plan, dreamCount: 1 }], "2026-11-06").map((x) => x.id)).toEqual(["p"]);
+    expect(journalNights([{ ...plan, notes: "env:x" }], "2026-11-06").map((x) => x.id)).toEqual(["p"]);
+  });
+  it("hides a coming morning's night only while it has no dreams", () => {
+    const later = n("f", "2026-11-07", { noRecall: true, sleepQuality: 4 });
+    expect(journalNights([later], "2026-11-06")).toEqual([]);
+    expect(journalNights([{ ...later, dreamCount: 1 }], "2026-11-06").map((x) => x.id)).toEqual(["f"]);
+    expect(journalNights([later], "2026-11-07").map((x) => x.id)).toEqual(["f"]); // its morning came
   });
 });
 

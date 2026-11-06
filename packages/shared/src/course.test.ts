@@ -50,6 +50,16 @@ describe("other rules", () => {
     const r = moveOnRules["ssild-wild"](base({ since: "2026-11-01", nights: [night("2026-11-02", 0, 0, ["ssild"]), night("2026-11-03", 0, 0, ["mild"]), night("2026-11-05", 0, 0, ["wild", "wbtb"])] }));
     expect(r).toMatchObject({ ready: false, progress: "2 of 4 nights with SSILD or WILD" });
   });
+  it("SSILD and WILD doesn't count a night where either was only planned", () => {
+    const plan = (date: string, o: object = {}) => ({ ...night(date, 0, 0, ["ssild"]), noRecall: false, ...o });
+    const r = moveOnRules["ssild-wild"](base({ since: "2026-11-01", nights: [
+      plan("2026-11-01"), // planned, nothing logged: not a try
+      plan("2026-11-02", { dreamCount: 1 }), // planned and a dream written
+      plan("2026-11-03", { noRecall: true }), // planned and "No recall"
+      { ...night("2026-11-04"), noRecall: false, techniquesDone: ["wild"] }, // done, whatever else
+    ] }));
+    expect(r.progress).toBe("3 of 4 nights with SSILD or WILD");
+  });
   it("troubleshooting is done once each item has been ticked", () => {
     const items = ["lesson:troubleshooting:1", "lesson:troubleshooting:2"];
     expect(moveOnRules.troubleshooting(base({ items, practice: [{ date: "2026-11-05", item: items[0]!, done: true }] })).ready).toBe(false);

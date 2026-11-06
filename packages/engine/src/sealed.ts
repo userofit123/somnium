@@ -11,6 +11,7 @@
 // A night's merged_into is sync bookkeeping (which night it was merged into, LDJ-52) and stays plain: the server
 // checks and decides merges. Its absorbed (on a survivor, keyed fingerprints of the texts it took in from merged
 // nights; on a merged night, that it handed its plain values over) is sealed: only a device ever reads it.
+// merge_pending (a merge to try again here) is plain bookkeeping that never leaves the side that set it.
 export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   nights: ["substances", "notes", "intention", "absorbed"],
   dreams: ["title", "text", "lucid_trigger", "dismissed"],

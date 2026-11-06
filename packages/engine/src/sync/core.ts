@@ -221,7 +221,7 @@ const absorbedOf = (row: Row): Absorbed => { try { const v = JSON.parse(String(r
  * describes. Plain values and technique lists are handed over once, ever: the merged night records that it gave them
  * (given), so a technique the person removed later never comes back, whatever happens to the survivor's row.
  */
-export async function mergeNightFields(survivor: Row, loser: Row, fp: Fingerprint): Promise<{ survivor: Row; loser: Row }> {
+export async function mergeNightFields(survivor: Row, loser: Row, fp: Fingerprint, opts: { dreams?: boolean } = {}): Promise<{ survivor: Row; loser: Row }> {
   const rec = absorbedOf(survivor), mine = absorbedOf(loser), id = String(loser.id);
   const had = typeof rec[id] === "object" ? rec[id] as Record<string, string> : undefined;
   const entry: Record<string, string> = { ...(had ?? {}) };
@@ -246,6 +246,8 @@ export async function mergeNightFields(survivor: Row, loser: Row, fp: Fingerprin
       const l = loser[f], s = survivor[f];
       if (isSet(l) && (!isSet(s) || (newer && !same(l, s)))) patch[f] = l;
     }
+    // "no recall" holds if either night said so, unless the night now has dreams (opts.dreams): then it recalled some
+    if (opts.dreams) { if (survivor.no_recall === true) patch.no_recall = false; else delete patch.no_recall; }
     own.absorbed = JSON.stringify({ ...mine, given: true });
   }
   if (!had || !same(entry, had)) patch.absorbed = JSON.stringify({ ...rec, [id]: entry });
@@ -294,25 +296,36 @@ async function settleOne(q: Sql, loser: Row, fp: Fingerprint | null, device: boo
   for (const d of (await q.query("UPDATE dreams SET night_id = $2 WHERE night_id = $1 RETURNING id", [loser.id, to.id])).rows) { changed("dreams", d.id); did = true; }
   if (!fp) return did;
   const survivor = (await nightRow(q, to.id))!;
-  const m = await mergeNightFields(survivor, loser, fp);
+  const dreams = (await q.query("SELECT 1 FROM dreams WHERE night_id = $1 AND deleted_at IS NULL LIMIT 1", [to.id])).rows.length > 0;
+  const m = await mergeNightFields(survivor, loser, fp, { dreams });
   if (Object.keys(m.survivor).length) { await writeNight(q, to.id, m.survivor, loser.updated_at); changed("nights", to.id); did = true; }
-  if (Object.keys(m.loser).length) { await writeNight(q, loser.id, m.loser); changed("nights", loser.id); did = true; }
+  // the merged night's own record ("given") moves its updated_at on, so no older copy of the row can win over it
+  if (Object.keys(m.loser).length) { await writeNight(q, loser.id, m.loser, new Date().toISOString()); changed("nights", loser.id); did = true; }
   return did;
+}
+
+/** Sets or clears a night's merge_pending mark: this side's own bookkeeping, so it is never logged for sync. */
+async function markPending(q: Sql, id: string, on: boolean, device: boolean) {
+  if (!device) await q.query("SELECT set_config('somnium.sync_apply', '1', true)");
+  await q.query("UPDATE nights SET merge_pending = $2 WHERE id = $1 AND merge_pending <> $2", [id, on]);
+  if (!device) await q.query("SELECT set_config('somnium.sync_apply', '', true)");
 }
 
 /**
  * After a page of changes: the merged nights this page touched are settled (settleOne), each on its own savepoint, so
  * one that fails stays as it is while the rest go through. Touched: a night of the page, the night a dream of the page
- * hangs off, the nights merged into any of those (followed down a chain), and those the caller still has pending
- * (failed or waiting last time: the device keeps that list). The cost follows the page, not the history. A failure
- * is counted and logged by its error code only (never a row's content). A few rounds, since settling one night can
- * touch another (a night brought back that takes over another). Answers the rows changed (a device must send them:
- * it writes the server's rows without logging them) and the nights still pending.
+ * hangs off, the nights merged into any of those (followed down a chain), and those marked merge_pending (one that
+ * failed before: tried again on every push or pull until it settles, on the server as on a device). The cost follows
+ * the page, not the history. A night whose survivor isn't here yet isn't marked: when it arrives it is touched, and
+ * this finds the merged night through it. A failure is counted and logged by its error code only (never a row's
+ * content). A few rounds, since settling one night can touch another (a night brought back that takes over another).
+ * Answers the rows changed (a device must send them: it writes the server's rows without logging them).
  */
-async function settleMerged(q: Sql, touched: Set<string>, fp: Fingerprint | null, device: boolean): Promise<{ changed: Key[]; pending: string[]; failed: number }> {
+async function settleMerged(q: Sql, touched: Set<string>, fp: Fingerprint | null, device: boolean): Promise<{ changed: Key[]; failed: number }> {
   const out: Key[] = [];
-  const bad = new Set<string>(), waiting = new Set<string>(), codes = new Set<string>();
-  let ids = [...touched];
+  const bad = new Set<string>(), codes = new Set<string>();
+  const pending = new Set((await q.query("SELECT id FROM nights WHERE merge_pending")).rows.map((r: any) => String(r.id)));
+  let ids = [...new Set([...touched, ...pending])];
   for (let round = 0; round < 4 && ids.length; round++) {
     // the nights merged into these, and into those, down a chain
     const all = new Set(ids);
@@ -331,19 +344,62 @@ async function settleMerged(q: Sql, touched: Set<string>, fp: Fingerprint | null
       await q.query("SAVEPOINT somnium_merge");
       const mark = out.length;
       try {
-        const r = await settleOne(q, loser, fp, device, changed);
-        if (r === "waiting") waiting.add(id); else waiting.delete(id);
+        await settleOne(q, loser, fp, device, changed);
         await q.query("RELEASE SAVEPOINT somnium_merge");
+        if (pending.delete(id)) await markPending(q, id, false, device);
       } catch (e) {
         await q.query("ROLLBACK TO SAVEPOINT somnium_merge");
         out.length = mark;
         bad.add(id); codes.add(String((e as { code?: unknown }).code ?? "unknown"));
+        await markPending(q, id, true, device);
       }
     }
     ids = [...again];
   }
+  // a marked night with nothing left to do (no longer merged: brought back, or restored) is unmarked too
+  for (const id of pending) if (!bad.has(id)) await markPending(q, id, false, device);
   if (bad.size) console.warn(`sync: ${bad.size} merged night(s) could not be settled yet, tried again later (codes ${[...codes].join(", ")})`);
-  return { changed: out, pending: [...new Set([...bad, ...waiting])], failed: bad.size };
+  return { changed: out, failed: bad.size };
+}
+
+/**
+ * A dream must never be live and invisible. A live dream under a deleted night that was never merged (the person
+ * deleted the night on one device while the dream was written on another that hadn't heard) brings the night back
+ * (bringBack: if another live night has the date by now, the made-first rule settles the two). Which dreams count:
+ *   - changed after the night was deleted (its updated_at is later than the night's deleted_at): whoever deleted the
+ *     night can't have seen it. A night deleted with its dreams gives them the same time, so they never count;
+ *   - on the server, also a dream new here, sent by another device than the one that deleted the night: that device's
+ *     copy didn't have it, so its deletion didn't cover it (a dream written offline before the night was deleted).
+ * Not simply any live dream found under a deleted night: a night's deletion and its dreams' can arrive in different
+ * pages (of a pull, or of the deleting device's own push), and an older live copy of a dream the person deleted with
+ * the night must not undo that deletion. Looked at: the live dreams this page wrote, and on a device also its own live
+ * dreams under the nights this page deleted (written there after the deletion, not sent yet).
+ */
+async function reviveForDreams(q: Sql, dreams: Map<string, boolean>, nights: Set<string>, origin: string | undefined,
+  changed: (tbl: string, id: unknown) => void): Promise<number> {
+  if (origin == null && nights.size) {
+    for (const r of (await q.query(`SELECT d.id FROM dreams d JOIN nights n ON n.id = d.night_id
+      WHERE n.id = ANY($1::uuid[]) AND n.deleted_at IS NOT NULL AND n.merged_into IS NULL AND d.deleted_at IS NULL`, [[...nights]])).rows)
+      if (!dreams.has(String(r.id))) dreams.set(String(r.id), false);
+  }
+  let failed = 0;
+  for (const [id, newHere] of dreams) {
+    await q.query("SAVEPOINT somnium_revive");
+    try {
+      const d = (await q.query("SELECT to_jsonb(d) AS r FROM dreams d WHERE id = $1 AND deleted_at IS NULL", [id])).rows[0]?.r as Row | undefined;
+      const n = d && await nightRow(q, d.night_id);
+      if (d && n && n.deleted_at != null && n.merged_into == null) {
+        let unseen = time(d.updated_at) > time(n.deleted_at);
+        if (!unseen && newHere && origin != null) {
+          const by = (await q.query("SELECT origin FROM sync_log WHERE tbl = 'nights' AND pk = $1::jsonb ORDER BY seq DESC LIMIT 1", [JSON.stringify({ id: n.id })])).rows[0]?.origin;
+          unseen = by != null && by !== origin;
+        }
+        if (unseen) await bringBack(q, n, changed);
+      }
+      await q.query("RELEASE SAVEPOINT somnium_revive");
+    } catch { await q.query("ROLLBACK TO SAVEPOINT somnium_revive"); failed++; }
+  }
+  return failed;
 }
 
 /**
@@ -351,10 +407,10 @@ async function settleMerged(q: Sql, touched: Set<string>, fp: Fingerprint | null
  * Each row on its own savepoint, so one that no longer fits (its parent was deleted meanwhile) doesn't stop the rest.
  * origin: who made them (the server logs it, so that device isn't sent its own changes back); apply: a device writing
  * the server's rows (not logged at all). fingerprint: a device holding the data key (nightFingerprint), which merges
- * nights' fields; pending: merged nights still to settle from an earlier page (the device keeps them, ReplicaMeta).
+ * nights' fields.
  */
 export async function applyChanges(q: Sql, userId: string, changes: Change[],
-  opts: { origin?: string; apply?: boolean; fingerprint?: Fingerprint | null; pending?: string[] } = {}) {
+  opts: { origin?: string; apply?: boolean; fingerprint?: Fingerprint | null } = {}) {
   const ord = (c: Change) => SYNCED_BY_NAME.get(c.tbl)!.order;
   const list = [
     // a merged night after the live ones, so the night it was merged into is there when it is checked
@@ -369,7 +425,9 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
   // rows a device changed itself while settling (merges): it sends them, since its writes here aren't logged
   const touched: { tbl: string; pk: Record<string, unknown> }[] = [];
   // nights this page touched: settleMerged looks at these (and what was merged into them), never the whole history
-  const nights = new Set<string>(opts.pending ?? []);
+  const nights = new Set<string>();
+  // live dreams this page wrote, and whether each is new here (reviveForDreams)
+  const liveDreams = new Map<string, boolean>();
   for (const c of list) {
     const def = SYNCED_BY_NAME.get(c.tbl)!;
     await q.query("SAVEPOINT somnium_row");
@@ -379,6 +437,9 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
         const all = await columns(q, c.tbl);
         // a row always belongs to whoever is writing it, whatever the JSON says
         let row: Record<string, unknown> = { ...c.row, ...(all.includes("user_id") ? { user_id: userId } : {}) };
+        // each side keeps its own merge_pending (settleMerged): never taken from another
+        if (c.tbl === "nights") delete row.merge_pending;
+        const isNew = c.tbl === "dreams" && !(await q.query("SELECT 1 FROM dreams WHERE id = $1", [row.id])).rows.length;
         // what the merge rules write is logged for every device: the one that sent this row has to hear it too
         const aside = async () => { if (opts.origin != null) await q.query("SELECT set_config('somnium.sync_origin', '', true)"); };
         if (c.tbl === "nights") {
@@ -404,6 +465,7 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
           `INSERT INTO ${c.tbl} (${has.join(", ")}) SELECT ${has.join(", ")} FROM jsonb_populate_record(NULL::${c.tbl}, $1::jsonb)
            ON CONFLICT (${def.pk.join(", ")}) DO ${rest.length ? `UPDATE SET ${rest.map((x) => `${x} = EXCLUDED.${x}`).join(", ")}` : "NOTHING"}`, [JSON.stringify(row)]);
         if (lost && !opts.apply) kept.push(c);
+        if (c.tbl === "dreams" && row.deleted_at == null) liveDreams.set(String(row.id), isNew);
       } else if (def.pk.length === 1 && def.pk[0] === "id") {
         await q.query(`DELETE FROM ${c.tbl} WHERE id = $1`, [c.pk.id]);
       } else {
@@ -415,17 +477,15 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
       failed.push({ change: c, error: (e as Error).message });
     }
   }
-  let mergeFailed = 0, pending: string[] = [];
-  if (nights.size) {
-    if (opts.origin != null) await q.query("SELECT set_config('somnium.sync_origin', '', true)");
-    const m = await settleMerged(q, nights, opts.apply ? opts.fingerprint ?? null : null, !!opts.apply);
-    touched.push(...m.changed);
-    mergeFailed = m.failed; pending = m.pending;
-  }
+  if (opts.origin != null) await q.query("SELECT set_config('somnium.sync_origin', '', true)");
+  let mergeFailed = await reviveForDreams(q, liveDreams, nights, opts.apply ? undefined : opts.origin ?? "", (tbl, id) => { touched.push({ tbl, pk: { id } }); if (tbl === "nights") nights.add(String(id)); });
+  const m = await settleMerged(q, nights, opts.apply ? opts.fingerprint ?? null : null, !!opts.apply);
+  touched.push(...m.changed);
+  mergeFailed += m.failed;
   if (opts.apply) await q.query("SELECT set_config('somnium.sync_apply', '', true)");
   const seen = new Set<string>();
   const changed = opts.apply ? touched.filter((t) => !seen.has(keyOf(t.tbl, t.pk)) && !!seen.add(keyOf(t.tbl, t.pk))) : [];
-  return { applied: list.length - failed.length - kept.length, failed, kept, changed, mergeFailed, pending };
+  return { applied: list.length - failed.length - kept.length, failed, kept, changed, mergeFailed };
 }
 
 /** The latest change per row among log entries (oldest first, as they come from the log). */

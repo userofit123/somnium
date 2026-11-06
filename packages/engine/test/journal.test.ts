@@ -99,6 +99,13 @@ describe("journal", () => {
     const l = await call<CourseProgress>(A, "PUT", "/course/lesson-1", { state: "done", doneAt: "2026-11-05T07:00:00Z" });
     expect((await call<CourseProgress>(A, "PUT", "/course/lesson-1", { answers: "env:q" })).id).toBe(l.id);
     expect(await call<unknown[]>(A, "GET", "/course")).toHaveLength(1);
+    expect(l.startedAt).toBeNull();
+    // a lesson's start is set when it becomes active and never moves after, whatever is written later
+    const a = await call<CourseProgress>(A, "PUT", "/course/lesson-2", { state: "active", startedAt: "2026-11-01T08:00:00Z" });
+    expect(new Date(a.startedAt!).toISOString()).toBe("2026-11-01T08:00:00.000Z");
+    const later = await call<CourseProgress>(A, "PUT", "/course/lesson-2", { state: "active", startedAt: "2026-11-04T08:00:00Z", answers: "env:r" });
+    expect(new Date(later.startedAt!).toISOString()).toBe("2026-11-01T08:00:00.000Z");
+    expect((await call<CourseProgress>(A, "PUT", "/course/lesson-3", { state: "active" })).startedAt).not.toBeNull();
     const g = await call<Goal>(A, "POST", "/goals", { kind: "recall_per_week", target: 5 });
     expect(g.period).toBe("week");
     const rem = await call<Reminder>(A, "POST", "/reminders", { kind: "reality_check", schedule: { every: 90 } });

@@ -66,10 +66,13 @@ export async function ensureNight(date: string, nap: boolean, wantedId: string):
   }
 }
 
-/** "No recall" for a night: logs the night with no dreams. Already logged is fine. Offline on the direct path it waits in the outbox (a date carries nothing sealed). */
+/**
+ * "No recall" for a night: logs the night with no dreams, marked so (a night that holds only tonight's plan is not
+ * logged without it). Already logged is fine. Offline on the direct path it waits in the outbox (nothing sealed).
+ */
 export async function markNoRecall(date: string) {
-  try { await ensureNight(date, false, uuidv7()); }
-  catch (e) { if (!isWaitable(e) || onDevice()) throw e; await send("post", "/nights", { id: uuidv7(), date }); }
+  try { const id = await ensureNight(date, false, uuidv7()); await api.put(`/nights/${id}`, { noRecall: true }); }
+  catch (e) { if (!isWaitable(e) || onDevice()) throw e; await send("post", "/nights", { id: uuidv7(), date, noRecall: true }); }
   invalidate(["journal", "home"]);
 }
 

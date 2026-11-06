@@ -2,6 +2,7 @@
 // calendar, and how a draft kept on the device meets the row it belongs to. Nothing here reads the clock or storage.
 
 import type { ElementKind } from "./types";
+import { isPlanOnly, type NightLog } from "./rates";
 
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
 export interface NightRef { id: string; date: string; nap: boolean; dreamCount?: number }
@@ -20,6 +21,13 @@ export function groupByNight<N extends NightRef, D extends DreamRef>(nights: N[]
     .sort((a, b) => b.date.localeCompare(a.date) || Number(a.nap) - Number(b.nap) || a.id.localeCompare(b.id))
     .map((night) => ({ night, dreams: (by.get(night.id) ?? []).slice().sort(order) }));
 }
+
+/**
+ * The nights the Journal lists: a plan (Train's "Use tonight") is left out until something is written, and a night
+ * of a coming morning shows only once it has a dream (written ahead, or the clock is off); the rest wait for it.
+ */
+export const journalNights = <N extends NightRef & NightLog>(nights: N[], today: string): N[] =>
+  nights.filter((n) => !isPlanOnly(n) && (n.date <= today || (n.dreamCount ?? 0) > 0));
 
 /** The night of a date (not a nap): one per date is the rule (PLAN.md §5). */
 export const nightOfDate = <N extends NightRef>(nights: N[], date: string): N | undefined => nights.find((n) => n.date === date && !n.nap);

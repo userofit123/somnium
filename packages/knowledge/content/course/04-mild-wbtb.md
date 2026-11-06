@@ -18,7 +18,7 @@ This is the protocol from the Australian induction study [D11]. Plan it for two 
 
 ## Why
 
-MILD with WBTB is the best-supported technique there is [B35]. In the Australian study it raised lucid dreaming from 9.4 to 17.4 percent of nights in one week [B37]; in the international study the MILD groups reached 16.5 to 20 percent [B38]. Falling asleep quickly matters: attempts followed by sleep within five minutes succeeded about 46 percent of the time [B37], and within ten minutes was the predictor in the larger study [B38]. Do not rush it, though; the minutes are a correlate, not a target [D12]. LaBerge also teaches MILD at bedtime, and says to let go and just keep the intention if twenty minutes pass without sleep [D5].
+MILD with WBTB is the best-supported technique there is [B35]. In the Australian study it raised lucid dreaming from 9.4 to 17.4 percent of nights in one week [B37]; in the international study MILD reached 16.5 percent on average, 18.4 and 20.2 percent in the groups without reality testing and 10.8 to 13.4 percent in the groups with it [B38]. Falling asleep quickly matters: attempts followed by sleep within five minutes succeeded about 46 percent of the time [B37], and within ten minutes was the predictor in the larger study [B38]. Do not rush it, though; the minutes are a correlate, not a target [D12]. LaBerge also teaches MILD at bedtime, and says to let go and just keep the intention if twenty minutes pass without sleep [D5].
 
 ## Today's practice
 

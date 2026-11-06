@@ -19,9 +19,7 @@ import { SEALED_TABLES } from "../sealed";
 // written yet (their parent is set aside, or is still on a later page), kept the same way and tried again with them.
 // They stay as they came so that each try opens them exactly once: opening an already opened row would mistake a
 // text that merely looks like an envelope for a sealed value.
-export interface ReplicaMeta { cursor: number; pushed: number; device: string; ready: boolean; plainCursor?: number; unopened?: Change[]; heldBack?: Change[];
-  // merged nights still to settle (failed, or their survivor not here yet): looked at again on the next pull (core.ts settleMerged)
-  pendingMerges?: string[] }
+export interface ReplicaMeta { cursor: number; pushed: number; device: string; ready: boolean; plainCursor?: number; unopened?: Change[]; heldBack?: Change[] }
 
 export const replicaMeta = (db: Db) => metaOf(db.admin);
 async function metaOf(q: Sql): Promise<ReplicaMeta> {
@@ -149,8 +147,8 @@ export async function applyRemote(db: Db, userId: string, remote: Change[], curs
       if (o === false) keep.push(c);
       return o ?? (t == null || t.at <= new Date(c.at).getTime());
     });
-    // without the key nothing sealed arrives, and merged nights wait for it (their fields can't be merged without it)
-    const r = await applyChanges(q, userId, take, { apply: true, fingerprint, pending: dataKey ? before.pendingMerges : [] });
+    // without the key nothing sealed arrives, and nights' fields aren't merged (a merged night's dreams still move)
+    const r = await applyChanges(q, userId, take, { apply: true, fingerprint });
     // the server's version replaced an older change made here: that one need not be sent any more
     for (const c of take) await q.query("DELETE FROM sync_log WHERE seq > $1 AND tbl = $2 AND pk = $3::jsonb", [m.pushed, c.tbl, JSON.stringify(c.pk)]);
     // this copy's version stands against the server's: send it (again), so the server ends up the same
@@ -163,7 +161,6 @@ export async function applyRemote(db: Db, userId: string, remote: Change[], curs
   });
   // a row that couldn't be written is never dropped: the cursor moves past it, so this list is all that remembers it
   const heldBack = [...stillWaiting, ...res.failed.map((f) => cameAs.get(keyOf(f.change.tbl, f.change.pk))!)];
-  const pendingMerges = dataKey ? res.pending : [...new Set([...(before.pendingMerges ?? []), ...res.pending])];
-  await saveMeta(db, { ...(cursor != null ? { cursor } : {}), unopened: stillUnopened, heldBack, pendingMerges });
+  await saveMeta(db, { ...(cursor != null ? { cursor } : {}), unopened: stillUnopened, heldBack });
   return { ...res, unopened: stillUnopened.length, heldBack: heldBack.length };
 }

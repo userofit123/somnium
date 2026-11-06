@@ -55,7 +55,8 @@ async function pull(d: Device) {
 }
 const settled = async (d: Device) => {
   const m = await replica.replicaMeta(d.eng.db);
-  expect([m.heldBack ?? [], m.unopened ?? [], m.pendingMerges ?? []]).toEqual([[], [], []]);
+  expect([m.heldBack ?? [], m.unopened ?? []]).toEqual([[], []]);
+  expect((await d.eng.db.admin.query("SELECT id FROM nights WHERE merge_pending")).rows).toEqual([]);
   expect(await replica.waitingCount(d.eng.db)).toBe(0);
 };
 
@@ -201,6 +202,10 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     expect(healed.loser).toEqual({});
     // the merged night's text changed since (a newer version of it came back and was merged again): the new text is added
     expect((await mergeNightFields(merged, { ...given, notes: "theirs, and more" }, fp)).survivor).toMatchObject({ notes: "mine\n\ntheirs\n\ntheirs, and more" });
+    // "no recall" holds if either night said so, unless the night now has dreams
+    expect((await mergeNightFields({ ...s, no_recall: false }, { ...l, no_recall: true }, fp)).survivor.no_recall).toBe(true);
+    expect((await mergeNightFields({ ...s, no_recall: false }, { ...l, no_recall: true }, fp, { dreams: true })).survivor.no_recall).toBeUndefined();
+    expect((await mergeNightFields({ ...s, no_recall: true }, l, fp, { dreams: true })).survivor.no_recall).toBe(false);
     // keyed: the record holds no text, and the same text gives another fingerprint under another key
     const rec = JSON.parse(p.survivor.absorbed as string).l;
     expect(Object.values(rec)).not.toContain("theirs");
@@ -429,13 +434,85 @@ describe("what a device says about a merge is checked", () => {
     expect(first.mergeFailed).toBe(1);
     const nightOf = async (id: string) => (await d.eng.db.admin.query("SELECT night_id FROM dreams WHERE id = $1", [id])).rows[0].night_id;
     expect([await nightOf(dr1), await nightOf(dr2)]).toEqual([s1, l2]);
-    expect((await replica.replicaMeta(d.eng.db)).pendingMerges).toEqual([l2]);
+    const marked = async () => (await d.eng.db.admin.query("SELECT id FROM nights WHERE merge_pending")).rows.map((r: Rec) => r.id);
+    expect(await marked()).toEqual([l2]);
     await d.eng.db.admin.exec("DROP TRIGGER boom ON dreams; DROP FUNCTION boom();");
     // the next pull, even one with nothing new, settles it
     const next = await replica.applyRemote(d.eng.db, U, [], undefined, KEY);
     expect(next.mergeFailed).toBe(0);
     expect(await nightOf(dr2)).toBe(s2);
-    expect((await replica.replicaMeta(d.eng.db)).pendingMerges).toEqual([]);
+    expect(await marked()).toEqual([]);
+  });
+
+  it("tries a merge that failed on the server again on the next push, and settles it", async () => {
+    const date = nextDate();
+    const a = await newDevice(), b = await newDevice();
+    const na = await on(a.eng)("POST", "/nights", { date, notes: "notes from a" });
+    await later();
+    const nb = await on(b.eng)("POST", "/nights", { date, notes: "notes from b" });
+    const db = await on(b.eng)("POST", "/dreams", { nightId: nb.id, text: "b's dream" });
+    await push(b);
+    // moving b's dream fails on the server when a's night (made first) arrives
+    await server.db.admin.exec(`CREATE FUNCTION boom() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.id = '${db.id}' AND NEW.night_id IS DISTINCT FROM OLD.night_id THEN RAISE EXCEPTION 'no'; END IF; RETURN NEW; END $$;
+      CREATE TRIGGER boom BEFORE UPDATE ON dreams FOR EACH ROW EXECUTE FUNCTION boom();`);
+    const out = await replica.localChanges(a.eng.db, 500, KEY);
+    const res = await S()("POST", "/sync/push", { device: a.id, changes: out.changes });
+    await replica.markSent(a.eng.db, out.upTo);
+    expect([res.failed, res.mergeFailed]).toEqual([[], 1]);
+    expect(await serverRow("nights", nb.id)).toMatchObject({ merged_into: na.id, merge_pending: true });
+    expect((await serverRow("dreams", db.id)).night_id).toBe(nb.id);
+    await server.db.admin.exec("DROP TRIGGER boom ON dreams; DROP FUNCTION boom();");
+    // the next push, about anything at all, settles it on the server, and every device hears
+    await on(a.eng)("POST", "/goals", { kind: "recall_per_week", target: 3 });
+    await push(a);
+    expect(await serverRow("nights", nb.id)).toMatchObject({ merged_into: na.id, merge_pending: false });
+    expect((await serverRow("dreams", db.id)).night_id).toBe(na.id);
+    for (let i = 0; i < 2; i++) { await sync(a); await sync(b); }
+    for (const d of [a, b]) {
+      expect(((await on(d.eng)("GET", `/nights/${na.id}`)).dreams as Rec[]).map((v) => v.id)).toEqual([db.id]);
+      await settled(d);
+    }
+  });
+
+  it("brings a deleted night back when a dream written offline elsewhere arrives under it", async () => {
+    const date = nextDate();
+    const a = await newDevice();
+    const n = await on(a.eng)("POST", "/nights", { date, notes: "the night" });
+    const seen = await on(a.eng)("POST", "/dreams", { nightId: n.id, text: "seen, deleted with the night" });
+    await sync(a);
+    const b = await newDevice();
+    // b goes offline and writes under the night; then a deletes the night (and the dream it saw) and syncs
+    const unseen = await on(b.eng)("POST", "/dreams", { nightId: n.id, text: "written on b, offline" });
+    await later();
+    await on(a.eng)("DELETE", `/nights/${n.id}`);
+    await sync(a);
+    expect((await serverRow("nights", n.id)).deleted_at).not.toBeNull();
+    for (let i = 0; i < 2; i++) { await sync(b); await sync(a); }
+    // the night is back, holding only the dream a never saw; the one a deleted stays deleted
+    for (const d of [a, b]) {
+      expect((await nightsOn(d.eng, date)).map((v) => v.id)).toEqual([n.id]);
+      expect(((await on(d.eng)("GET", `/nights/${n.id}`)).dreams as Rec[]).map((v) => [v.id, v.text])).toEqual([[unseen.id, "written on b, offline"]]);
+      await settled(d);
+    }
+    expect((await serverRow("nights", n.id)).deleted_at).toBeNull();
+    expect((await serverRow("dreams", seen.id)).deleted_at).not.toBeNull();
+
+    // and a deletion that arrives in pieces is never undone: a's own push split between the night and its dreams
+    const date2 = nextDate();
+    const n2 = await on(a.eng)("POST", "/nights", { date: date2 });
+    const d2 = await on(a.eng)("POST", "/dreams", { nightId: n2.id, text: "deleted with its night" });
+    await on(a.eng)("DELETE", `/nights/${n2.id}`);
+    const all = await replica.localChanges(a.eng.db, 500, KEY);
+    const nightFirst = all.changes.filter((c) => c.tbl === "nights");
+    const dreamLive: Change = { ...all.changes.find((c) => c.tbl === "dreams")!, row: { ...all.changes.find((c) => c.tbl === "dreams")!.row, deleted_at: null } };
+    // first page: the night deleted and an older, live copy of its dream; second page: the dream's deletion
+    await S()("POST", "/sync/push", { device: a.id, changes: [...nightFirst, dreamLive] });
+    expect((await serverRow("nights", n2.id)).deleted_at).not.toBeNull();
+    await S()("POST", "/sync/push", { device: a.id, changes: all.changes.filter((c) => c.tbl === "dreams") });
+    await replica.markSent(a.eng.db, all.upTo);
+    expect((await serverRow("nights", n2.id)).deleted_at).not.toBeNull();
+    expect((await serverRow("dreams", d2.id)).deleted_at).not.toBeNull();
   });
 
   it("ends with both texts and a full record when two devices absorb different nights into one survivor", async () => {

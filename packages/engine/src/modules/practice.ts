@@ -13,7 +13,7 @@ const PRACTICE: Fields = {
   minutes: (v) => intOrNull(v, 0, 1440),
   note: sealed,
 };
-const LESSON: Fields = { state: enumOf(LESSON_STATES, "open"), done_at: timeOrNull, answers: sealed };
+const LESSON: Fields = { state: enumOf(LESSON_STATES, "open"), done_at: timeOrNull, started_at: timeOrNull, answers: sealed };
 const GOAL: Fields = {
   kind: required(enumOrNull(GOAL_KINDS), "kind"),
   target: required((v) => intOrNull(v, 1, 1000), "target"),
@@ -38,9 +38,12 @@ export function practiceRoutes(r: Router) {
   r.get("/course", async ({ q }) => listLive<CourseProgress>(q, "course_progress", "", [], "created_at", 1000));
   r.put("/course/:lessonId", async (ctx, p, b) => {
     const lessonId = str(p.lessonId, 80);
-    const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [lessonId])).rows[0];
+    const cur = (await ctx.q.query<{ id: string; started_at: unknown }>("SELECT id, started_at FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [lessonId])).rows[0];
     const cols = columns(LESSON, b, !cur);
     if (cur) refuseOtherRow(ctx, "course_progress", b, cols, cur.id);
+    // the start is set once, when the lesson first becomes active, and never moves: the move-on rules count from it
+    if (cur?.started_at != null) delete cols.started_at;
+    else if (cols.started_at == null) { if (cols.state === "active") cols.started_at = new Date().toISOString(); else delete cols.started_at; }
     return cur
       ? updateRow<CourseProgress>(ctx, "course_progress", "course", cur.id, cols, "lesson")
       : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...cols, ...clientId(b) });

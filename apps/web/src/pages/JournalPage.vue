@@ -5,11 +5,12 @@
 // search never goes to the server.
 import { computed, reactive, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { dayMarks, filterActive, groupByNight, nightOfDate, searchJournal, type JournalFilter } from "@somnium/shared";
+import { dayMarks, filterActive, groupByNight, isPlanOnly, journalNights, nightOfDate, searchJournal, type JournalFilter } from "@somnium/shared";
 import { loaded } from "../api/queries";
 import { DREAM_LIMIT, markNoRecall, onDevice, saveState, unsent, useJournal, uuidv7 } from "../api/journal";
 import { isPhone } from "../core/device";
-import { localYmd, useFmt } from "../core/format";
+import { useFmt } from "../core/format";
+import { useToday } from "../core/today";
 import { readStr, writeStr } from "../core/prefs";
 import { toastError } from "../core/toast";
 import Icon from "../components/Icon.vue";
@@ -25,14 +26,17 @@ const route = useRoute(), router = useRouter();
 const fmt = useFmt();
 const j = useJournal();
 await loaded(j.nights, j.dreams);
-const today = localYmd(new Date());
+// reactive: the page can stay open across midnight
+const today = useToday();
 
 // which view was last used is a convenience of this device, nothing personal
 const view = ref<"list" | "calendar">(readStr("somniumJournalView", "list") === "calendar" ? "calendar" : "list");
 const setView = (v: "list" | "calendar") => { view.value = v; writeStr("somniumJournalView", v); };
 
-// a night planned in Train for the coming morning is not a logged night yet: it shows once its morning has come
-const groups = computed(() => groupByNight((j.nights.data.value ?? []).filter((n) => n.date <= today), j.dreams.data.value ?? []));
+// a night that is only a plan (Train's "Use tonight") is not a logged morning: it shows once something is written
+const groups = computed(() => groupByNight(journalNights(j.nights.data.value ?? [], today.value), j.dreams.data.value ?? []));
+/** The logged night of a date: a plan alone doesn't hide "No recall". */
+const loggedOn = (d: string) => { const n = nightOfDate(j.nights.data.value ?? [], d); return n && !isPlanOnly(n) ? n : undefined; };
 const linksBy = computed(() => {
   const m = new Map<string, string[]>();
   for (const l of j.links.data.value ?? []) { const x = m.get(l.dreamId); if (x) x.push(l.elementId); else m.set(l.dreamId, [l.elementId]); }
@@ -60,10 +64,10 @@ const searchNote = computed(() => {
 
 const empty = computed(() => !groups.value.length);
 const fab = computed(() => isPhone.value && !mode.value && !empty.value);
-const todayLogged = computed(() => !!nightOfDate(j.nights.data.value ?? [], today));
+const todayLogged = computed(() => !!loggedOn(today.value));
 
 // the calendar
-const month = ref(today.slice(0, 7)), sel = ref(today);
+const month = ref(today.value.slice(0, 7)), sel = ref(today.value);
 const marks = computed(() => dayMarks(shown.value));
 const dayGroups = computed(() => shown.value.filter((g) => g.night.date === sel.value));
 const pick = (d: string) => { sel.value = d; if (d.slice(0, 7) !== month.value) month.value = d.slice(0, 7); };
@@ -84,7 +88,7 @@ const closeRead = () => (history.state?.back ? router.back() : router.replace("/
 
 async function noRecall(d: string) { try { await markNoRecall(d); } catch (e) { toastError(e); } }
 const menu = computed(() => [
-  { label: "No recall last night", icon: "moon", run: () => noRecall(today), hidden: todayLogged.value },
+  { label: "No recall last night", icon: "moon", run: () => noRecall(today.value), hidden: todayLogged.value },
   { label: "Write a dream", icon: "plus", run: () => write(), hidden: !mode.value || isPhone.value },
   { label: "Search filters", icon: "filter", run: () => (filterOpen.value = true), hidden: empty.value },
 ]);
@@ -130,7 +134,7 @@ const menu = computed(() => [
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
             <div class="sh"><h2>{{ fmt.date(sel, { weekday: "long", day: "numeric", month: "long" }) }}</h2>
-              <span v-if="sel <= today" class="row"><button v-if="!nightOfDate(j.nights.data.value ?? [], sel)" class="lnk" @click="noRecall(sel)">No recall</button><button class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button></span>
+              <span v-if="sel <= today" class="row"><button v-if="!loggedOn(sel)" class="lnk" @click="noRecall(sel)">No recall</button><button class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button></span>
             </div>
             <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
             <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" />

@@ -2,6 +2,7 @@
 title: Dream control and uses
 summary: What to do once you are lucid: start small, ask the dream, turn to face a nightmare, practise a skill.
 reviewed: 2026-11-06
+safety: true
 sources: [B31, B58, B61, B62, B64, B65, B67, B68, D1, D8, D10, D28, D30]
 ---
 

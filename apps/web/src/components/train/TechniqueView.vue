@@ -24,7 +24,8 @@ const open = ref<string[] | null>(null);
 const showSources = ref(false);
 const plan = useChange((add: boolean) => planTonight(props.technique.id, add), ["journal", "train"]);
 async function use(add: boolean) {
-  await plan.run(add);
+  // a failed save already shows its error (useChange's onError); the confirmation is only for a save that landed
+  try { await plan.run(add); } catch { return; }
   toast(add ? "Added to tonight's plan" : "Removed from tonight's plan");
 }
 </script>

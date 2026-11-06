@@ -30,9 +30,14 @@ export async function tickPractice(item: string, date: string, on: boolean, row?
   invalidate(["practice"]);
 }
 
-/** Sets a lesson's state. A lesson row is made on first touch; its own id is only sent then. */
+/**
+ * Sets a lesson's state. A lesson row is made on first touch; its own id is only sent then. Becoming active also
+ * sends the start, which the engine keeps only when none is stored yet: the move-on rules count from it.
+ */
 export async function setLesson(lessonId: string, state: "active" | "done", known?: CourseProgress) {
-  const body: Record<string, unknown> = { state, doneAt: state === "done" ? new Date().toISOString() : null };
+  const now = new Date().toISOString();
+  const body: Record<string, unknown> = { state, doneAt: state === "done" ? now : null };
+  if (state === "active" && !known?.startedAt) body.startedAt = now;
   if (!known) body.id = uuidv7();
   await send("put", `/course/${encodeURIComponent(lessonId)}`, body);
   invalidate(["course"]);

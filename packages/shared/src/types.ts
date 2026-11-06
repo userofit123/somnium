@@ -66,6 +66,8 @@ export interface Night extends Owned {
   techniquesPlanned: string[];
   techniquesDone: string[];
   intention: string | null; // sealed
+  /** "No recall" said in so many words: a night without dreams counts as logged only with this or its details. */
+  noRecall: boolean;
 }
 
 export interface Dream extends Owned {
@@ -141,6 +143,8 @@ export interface CourseProgress extends Owned {
   lessonId: string;
   state: LessonState;
   doneAt: string | null;
+  /** When the lesson became the current one; set once, never moved (the move-on rules count from it). */
+  startedAt: string | null;
   answers: string | null; // sealed
 }
 
