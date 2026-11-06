@@ -155,8 +155,7 @@ coming back from another app.
 - **How it unlocks:** the **device's own verification** when it has one (Android: fingerprint / face / screen
   lock through BiometricPrompt with DEVICE_CREDENTIAL, as Money Manager does; web, PWA and desktop: a WebAuthn
   platform authenticator registered at first unlock - Windows Hello, Touch ID, Android screen lock in Chrome -
-  with "Use password instead" always available), otherwise the **password**. Five wrong tries in a row sign the
-  device out (and on the apps clear the device-wrapped key).
+  with "Use password instead" always available), otherwise the **password**. After five wrong tries in a row each further try waits longer (1 min, 5 min, 15 min, then 1 hour each); the journal stays locked and nothing is ever deleted or signed out by wrong tries.
 - **Cryptographically, on the apps,** the data key is dropped from memory on lock and comes back from the
   Keystore / safeStorage after device verification. On the web the key is dropped from memory too and comes back
   from the password or from WebAuthn's PRF output; without PRF, the password (limits stated in docs/security.md).
