@@ -44,6 +44,11 @@ describe("markdown", () => {
     expect(safeHref("javascript:alert(1)")).toBeNull();
     expect(safeHref("data:text/html,x")).toBeNull();
     expect(safeHref("//evil.example")).toBeNull();
+    // browsers treat a backslash as "/" in a URL, so "/\host" is "//host": another site; tabs inside are dropped
+    expect(safeHref("/\\evil.example")).toBeNull();
+    expect(safeHref(" /\\evil.example/x")).toBeNull();
+    expect(safeHref("/\t/evil.example")).toBeNull();
+    expect(safeHref("/learn/mild")).toBe("/learn/mild");
     expect(safeHref("https://example.org")).toBe("https://example.org");
     const n = parseInline("[click](javascript:alert)");
     expect(n).toEqual([{ t: "text", text: "click" }]);

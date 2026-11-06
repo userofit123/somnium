@@ -31,6 +31,12 @@ const api = {
     setKeys: (keys: unknown) => accountCall("accounts:setKeys", keys),
     compact: () => accountCall("accounts:compact"),
   },
+  // what the screens keep for this account that must not reset with a restart or a new address (main.ts KEPT_PREFS):
+  // values as JSON text, null when there is none. Synchronous, as the lock reads its count while starting.
+  prefs: {
+    get: (k: string): string | null => ipcRenderer.sendSync("prefs:get", k),
+    set: (k: string, v: string | null): boolean => ipcRenderer.sendSync("prefs:set", k, v),
+  },
   privacy: {
     // Electron's content protection is a request to the system, and Linux has nothing to ask
     canAskSystem: process.platform !== "linux",

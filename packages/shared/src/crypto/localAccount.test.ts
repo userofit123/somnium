@@ -1,6 +1,6 @@
 // A local account's keys (LDJ-53): made on the device, opened by the password or the recovery key, nothing else.
 import { describe, it, expect } from "vitest";
-import { SealError, addLocalRecoveryKey, createLocalKeys, localKeysFrom, openLocalWithPassword, recoverLocal, rewrapLocalPassword, sealColumn, unsealColumn } from "./index";
+import { SealError, addLocalRecoveryKey, createLocalKeys, localKeysFrom, localRecoveryFrom, openLocalWithPassword, recoverLocal, rewrapLocalPassword, sealColumn, unsealColumn } from "./index";
 
 const PW = "a long passphrase 1", NEW_PW = "another long one 2";
 
@@ -54,5 +54,20 @@ describe("local account keys", () => {
     await expect(recoverLocal(made.keys, "ABCD-EFGH-JKMN-PQRS-TUVW", NEW_PW)).rejects.toThrow("not right");
     // nothing changed: the password still opens it
     expect(await openLocalWithPassword(made.keys, PW)).toEqual(dataKey);
+  });
+
+  it("recovers from a damaged record with its recovery key part, and has nothing to offer without one", async () => {
+    const { keys, dataKey } = await createLocalKeys(PW);
+    const made = await addLocalRecoveryKey(keys, dataKey);
+    const damaged = { ...made.keys, salt: 42, wrappedByPassword: undefined };
+    expect(localKeysFrom(damaged)).toBeNull();
+    const part = localRecoveryFrom(damaged)!;
+    expect(part).not.toBeNull();
+    const back = await recoverLocal(part, made.recoveryKey, NEW_PW);
+    expect(back.dataKey).toEqual(dataKey);
+    expect(localKeysFrom(back.keys)).not.toBeNull();
+    expect(await openLocalWithPassword(back.keys, NEW_PW)).toEqual(dataKey);
+    expect(localRecoveryFrom({ ...keys, salt: 42 })).toBeNull();
+    expect(localRecoveryFrom("nonsense")).toBeNull();
   });
 });

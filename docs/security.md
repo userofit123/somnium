@@ -44,7 +44,12 @@ reshuffle it. Envelopes are versioned (`v1.<iv>.<ciphertext+tag>`) and fit a tex
 locked) no row of a sealed table is sent or taken, and the sync pill says **Not syncing · locked**. Settings, goals
 and reminders hold nothing sealed and keep syncing. The copy keeps working offline; journal changes wait and go as
 soon as the key is open again. With no copy in use, journal requests are refused on the device with "Unlock to
-sync" instead of being sent. The key lives in memory only (`apps/web/src/core/keyring.ts`) and is never written to
+sync" instead of being sent. The copy refuses them the same way: it holds the journal opened, so while the key is
+closed it answers no journal route at all (`allowedWithoutKey` in `packages/engine/src/sync/sealedApi.ts`, checked by
+both transports). The lock and /check screens read nothing of the journal; the one journal request let through is a
+new reality check from /check with nothing sealed in it. Every screen is unmounted while locked, and this keeps code
+that still runs (the reminders) from reading the journal through the copy (`packages/engine/test/locked-reads.test.ts`
+asks every engine route). The key lives in memory only (`apps/web/src/core/keyring.ts`) and is never written to
 storage, logs, errors or exports by the app. Callers get a copy of it, which they zero when done, and a zeroed key
 refuses to seal or open anything.
 
@@ -61,7 +66,9 @@ Android and in Electron) is plaintext so the app can search and analyse offline.
 **Local accounts** (no server; LDJ-53) are sealed at rest. Making one asks for a password (10+ characters, not on
 the common-password list, typed twice), makes the data key on the device and offers the recovery key at once. The
 envelope (salt, data key wrapped by the password, recovery salt, data key wrapped by the recovery key, recovery
-verifier) is kept in the account's own record: `accounts.json` in the desktop app's user folder (file mode 600),
+verifier) is kept in the account's own record: `accounts.json` in the desktop app's user folder (readable by this user only: each change is written to a new file with
+mode 600 and renamed over the old one, then set to 600 again, and the file is set to 600 at every start, so one left by
+an older version is tightened too; on Windows the mode means nothing and the user folder's own permissions apply),
 the account list in the Android app's storage. Their database (files in the desktop app, PGlite in the Android
 WebView's IndexedDB) holds the sealed columns as ciphertext, exactly as a server does: the app seals on the way in
 and opens on the way out through the same code a server account uses without a device copy
@@ -171,13 +178,24 @@ and capture tools may ignore it. On Linux it does nothing, so the setting isn't 
 - A hidden tab's timers are slowed by the browser, so with a delay other than "immediately" the key can stay in memory up to
   about a minute longer than chosen. Coming back always checks the time. JavaScript can't guarantee that no copy of
   a key or of decrypted text is left in memory until it is overwritten.
+- With "Show my dream sign in reminders" on, the sign's name is read while the journal is unlocked (never while it is
+  locked) and put in the words of the day's reminders. Those stay planned after the app locks: in the page's timers, and
+  in the desktop app in the main process until they are shown or the plan is replaced, and the notification itself
+  shows the name over the lock. Leave the switch off to keep every reminder free of anything from the journal.
 - An operating system may keep a picture of the app for its task switcher, taken before the app learns it was hidden.
   The web can't prevent that. Android's `FLAG_SECURE` (LDJ-9) and the desktop's content protection can.
 - **A local account's lock** works like a server account's: the password opens the data key from the account's own
   record, a forgotten password is replaced with the recovery key (which is then replaced too), wrong passwords and wrong
   recovery keys wait 1, 5, 15 and 60 minutes after five, and nothing is ever deleted. The record and the wrong-try count
   are on the device, so someone with a copy of the app's storage can guess passwords offline, limited only by Argon2id,
-  or reset the count. Device verification is the password in the desktop and Android apps until LDJ-9 and LDJ-10:
+  or reset the count. In the desktop app the count and the lock's settings are kept in the account's record in
+  `accounts.json`, beside its keys, not in the browser storage of the account's address: that storage would start over
+  if the address changed. The address itself stays the same (`127.0.0.1` on a port kept in the record, as for a server
+  account), so the rest of what the screens keep there (an unsaved dream's words, the look) survives a restart too; only
+  if something else has taken that port does the account move to another one. A first password is offered only when the
+  account has no record at all: a record that can't be read or isn't in the expected shape is never replaced, because
+  it may hold the only wrapped copy of the data key. The lock screen says so and offers the recovery key, which opens
+  the journal from the record's recovery part and sets a new password. Device verification is the password in the desktop and Android apps until LDJ-9 and LDJ-10:
   WebAuthn refuses the desktop app's `http://127.0.0.1` address and the Android app has its own path.
 
 **When a session ends without signing out** (it expired, or was ended elsewhere), the tab leaves the device's copy at

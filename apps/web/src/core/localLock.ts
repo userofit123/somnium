@@ -6,15 +6,29 @@
 // The journal of a local account is sealed at rest: every sealed column is ciphertext in its database, sealed by the
 // transport on the way in and opened on the way out (api/client.ts sealingTransport), as for a server. An account made
 // before this had plaintext: the first time its password is set, what it holds is sealed in place (sealJournalInPlace).
-import { addLocalRecoveryKey, createLocalKeys, localKeysFrom, openLocalWithPassword, recoverLocal, rewrapLocalPassword, SealError, type LocalKeys } from "@somnium/shared";
+import { addLocalRecoveryKey, createLocalKeys, localKeysFrom, localRecoveryFrom, openLocalWithPassword, recoverLocal, rewrapLocalPassword, SealError, type LocalKeys } from "@somnium/shared";
 import { api } from "../api/client";
 import { keyring } from "./keyring";
 
 interface NativeAccounts { keys?: () => Promise<unknown>; setKeys?: (k: LocalKeys) => Promise<void>; compact?: () => Promise<void> }
 const native = (): NativeAccounts | undefined => (globalThis as { somniumNative?: { accounts?: NativeAccounts } }).somniumNative?.accounts;
 
-/** This local account's keys, or null when it has no password yet (made before passwords: the lock screen sets one). */
-export async function localKeys(): Promise<LocalKeys | null> { return localKeysFrom(await native()?.keys?.()); }
+// the record as the app keeps it: null only when there is none. Throws when the app can't be asked.
+const record = async (): Promise<unknown> => (await native()?.keys?.()) ?? null;
+/** This local account's keys, or null when it has none in the expected shape (see localKeyState). */
+export async function localKeys(): Promise<LocalKeys | null> { return localKeysFrom(await record()); }
+/**
+ * "none": no record, an account made before passwords (the lock screen sets one). "ready": the password opens it.
+ * "damaged": a record is there but isn't in the expected shape: it may still hold the only way to the journal's key,
+ * so no new password replaces it, only the recovery key (recoverLocalAccount). Throws when the record can't be read.
+ */
+export async function localKeyState(): Promise<"none" | "ready" | "damaged"> {
+  const r = await record();
+  return r === null ? "none" : localKeysFrom(r) ? "ready" : "damaged";
+}
+/** The keys the recovery key can work with: the whole record, or a damaged record's recovery part. */
+async function recoverableKeys(): Promise<LocalKeys | null> { const r = await record(); return localKeysFrom(r) ?? localRecoveryFrom(r); }
+export const canRecoverLocal = async () => hasLocalRecoveryKey(await recoverableKeys());
 async function store(k: LocalKeys) {
   const n = native();
   if (!n?.setKeys) throw new Error("This app can't keep a password for this account. Update it.");
@@ -30,7 +44,8 @@ function withKey<T>(step: (key: Uint8Array) => Promise<T>): Promise<T> {
 
 /** The first password: makes the data key and opens the journal with it. The caller has checked the password's rules. */
 export async function setUpLocalPassword(password: string): Promise<void> {
-  if (await localKeys()) throw new Error("This account already has a password");
+  // any record at all, readable or not, holds a wrapped key: replacing it would lose the journal for good
+  if ((await record()) !== null) throw new Error("This account already has a password. Use it, or your recovery key.");
   const { keys, dataKey } = await createLocalKeys(password);
   try { await store(keys); keyring.set(dataKey); } finally { dataKey.fill(0); }
 }
@@ -63,8 +78,8 @@ export async function changeLocalPassword(current: string, next: string): Promis
 
 /** Forgot the password: the recovery key opens the journal, sets the new password and is replaced by a new one, which is returned to show once. */
 export async function recoverLocalAccount(typedKey: string, newPassword: string): Promise<string> {
-  const keys = await localKeys();
-  if (!keys) throw new Error("This account has no password yet");
+  const keys = await recoverableKeys();
+  if (!keys) throw new Error("No recovery key was made for this account");
   const done = await recoverLocal(keys, typedKey, newPassword);
   try { await store(done.keys); keyring.set(done.dataKey); } finally { done.dataKey.fill(0); }
   return done.recoveryKey;

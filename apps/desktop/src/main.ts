@@ -13,16 +13,30 @@ import { execFile } from "node:child_process";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
  *  or the recovery key, kept with the account and gone with it. */
-interface Account { id: string; kind: "local" | "server"; name: string; url?: string; port?: number; keys?: unknown }
+/** prefs: what the screens keep for this account that must not depend on its address (KEPT_PREFS). */
+interface Account { id: string; kind: "local" | "server"; name: string; url?: string; port?: number; keys?: unknown; prefs?: Record<string, string> }
 // what the screens may see of an account: never another account's keys
-const shown = ({ keys, ...a }: Account) => a;
+const shown = ({ keys, prefs, ...a }: Account) => a;
 const USER = app.getPath("userData");
 const ACCOUNTS = path.join(USER, "accounts.json");
 const RES = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "../../..");
 const WEB = app.isPackaged ? path.join(RES, "web") : path.join(RES, "apps/web/dist");
 
 const readAccounts = (): { list: Account[]; active: string | null } => { try { return JSON.parse(fs.readFileSync(ACCOUNTS, "utf8")); } catch { return { list: [], active: null }; } };
-const writeAccounts = (a: { list: Account[]; active: string | null }) => { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(ACCOUNTS, JSON.stringify(a, null, 2), { mode: 0o600 }); };
+// The file holds the local accounts' key envelopes: readable by this user only. writeFileSync's mode applies only when
+// it creates the file, so a new file is written (any leftover one removed first) and renamed over the old one, which
+// also means a crash mid-write never leaves half a file; chmod then makes sure, whatever the umask or an older file was.
+const writeAccounts = (a: { list: Account[]; active: string | null }) => {
+  fs.mkdirSync(USER, { recursive: true });
+  const tmp = ACCOUNTS + ".tmp";
+  fs.rmSync(tmp, { force: true });
+  fs.writeFileSync(tmp, JSON.stringify(a, null, 2), { mode: 0o600 });
+  fs.chmodSync(tmp, 0o600);
+  fs.renameSync(tmp, ACCOUNTS);
+  fs.chmodSync(ACCOUNTS, 0o600);
+};
+// an accounts file written by an older version may be readable by others: tightened at start
+try { if (fs.existsSync(ACCOUNTS)) fs.chmodSync(ACCOUNTS, 0o600); } catch { /* rewritten with the right mode on the next change */ }
 
 let win: BrowserWindow | null = null;
 let running: { id: string; port: number; close: () => Promise<void>; compact?: () => Promise<void> } | null = null;
@@ -37,7 +51,11 @@ async function startLocal(acc: Account): Promise<{ port: number; close: () => Pr
   // sealed at rest like a server (LDJ-53): the screens seal every sealed column before it gets here, and the server's
   // rules refuse one in the clear
   const { app: srv, engine } = await buildApp({ db, dataDir: dir, webDir: WEB, logger: false, mode: "server" });
-  await srv.listen({ host: "127.0.0.1", port: 0 });
+  // the same address every time, as for a server account (startProxy): the screens keep things in the browser storage
+  // of that address (an unsaved dream's words, the look, the backup log). Only if that port is taken does it move.
+  // What must not reset with the address (the lock's wrong tries) is kept in the account's record (KEPT_PREFS).
+  try { await srv.listen({ host: "127.0.0.1", port: acc.port ?? 0 }); }
+  catch (e) { if (!acc.port) throw e; await srv.listen({ host: "127.0.0.1", port: 0 }); }
   const port = (srv.server.address() as any).port;
   const token = await localSession(db, acc.name);
   return { port, token, close: async () => { await srv.close(); await db.close(); }, compact: () => engine.compact() };
@@ -98,9 +116,9 @@ async function openAccount(id: string) {
   } else {
     const s = await startProxy(acc);
     port = s.port;
-    if (acc.port !== port) { acc.port = port; const i = all.list.findIndex((x) => x.id === acc.id); all.list[i] = acc; }
     running = { id, port, close: s.close };
   }
+  if (acc.port !== port) { acc.port = port; const i = all.list.findIndex((x) => x.id === acc.id); all.list[i] = acc; }
   writeAccounts({ ...all, active: id });
   const next = makeWindow(part);
   await next.loadURL(`http://127.0.0.1:${port}/`);
@@ -201,6 +219,34 @@ ipcMain.handle("accounts:setKeys", (_e, keys: unknown) => {
   writeAccounts(o.a);
 });
 ipcMain.handle("accounts:compact", () => running?.compact?.());
+
+// What the screens keep for the open account that must survive a restart and not depend on its address (a port taken
+// by something else moves the account to another one, and with it the browser storage): the lock's wrong-try count and
+// the lock's settings. Kept in the account's record, beside its keys. Synchronous (sendSync), as the screens read them
+// while starting. Only the open account's own window may ask: it is told apart by its browser partition.
+const KEPT_PREFS = new Set(["somniumLockTries", "somniumLock"]);
+const prefsAccount = (e: Electron.IpcMainEvent) => {
+  if (!running || e.sender.session !== eSession.fromPartition(`persist:acct-${running.id}`)) return null;
+  const a = readAccounts(); const acc = a.list.find((x) => x.id === running!.id);
+  return acc ? { a, acc } : null;
+};
+ipcMain.on("prefs:get", (e, k: unknown) => {
+  e.returnValue = null;
+  try { if (typeof k === "string" && KEPT_PREFS.has(k)) e.returnValue = prefsAccount(e)?.acc.prefs?.[k] ?? null; } catch { /* null: the screens use their own */ }
+});
+ipcMain.on("prefs:set", (e, k: unknown, v: unknown) => {
+  e.returnValue = false;
+  try {
+    if (typeof k !== "string" || !KEPT_PREFS.has(k) || (v !== null && (typeof v !== "string" || v.length > 2000))) return;
+    const o = prefsAccount(e);
+    if (!o) return;
+    const prefs = { ...o.acc.prefs };
+    if (v === null) delete prefs[k]; else prefs[k] = v;
+    o.acc.prefs = prefs;
+    writeAccounts(o.a);
+    e.returnValue = true;
+  } catch { /* not kept: the screens keep their own copy */ }
+});
 
 const backupDir = () => { const f = path.join(USER, "backup-folder.txt"); try { return fs.readFileSync(f, "utf8").trim(); } catch { return path.join(app.getPath("documents"), "Somnium Backups"); } };
 ipcMain.handle("backup:folder", () => backupDir());

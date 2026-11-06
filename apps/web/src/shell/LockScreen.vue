@@ -20,11 +20,11 @@ import { keyOpenedOnLockScreen, lock, markUnlocked, whileVerifying, wrongTry, wr
 import { keyring } from "../core/keyring";
 import { authKeyFor } from "../core/auth";
 import { downloadRecoveryKey, finishRecovery, openRecovery } from "../core/recovery";
-import { hasLocalRecoveryKey, localKeys, makeLocalRecoveryKey, recoverLocalAccount, sealJournalInPlace, setUpLocalPassword, unlockLocal } from "../core/localLock";
+import { canRecoverLocal, localKeyState, makeLocalRecoveryKey, recoverLocalAccount, sealJournalInPlace, setUpLocalPassword, unlockLocal } from "../core/localLock";
 import { cachedBundle, rememberBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
 
-type Step = "loading" | "password" | "device" | "offer" | "noPrf" | "recovery" | "newKey" | "signOut" | "localSetup" | "offerKey";
+type Step = "loading" | "password" | "device" | "offer" | "noPrf" | "recovery" | "newKey" | "signOut" | "localSetup" | "localDamaged" | "offerKey";
 const step = ref<Step>("loading");
 const password = ref(""), err = ref(""), busy = ref(false);
 const bundle = ref<UnlockBundle | null>(cachedBundle());
@@ -52,14 +52,25 @@ const showPassword = () => { step.value = "password"; err.value = ""; void nextT
 onMounted(async () => {
   if (await isLocalAccount()) {
     local.value = true;
-    try { if (await localKeys()) showPassword(); else step.value = "localSetup"; }
-    catch { step.value = "localSetup"; err.value = "This app couldn't read this account's keys. Try again."; }
+    await readLocalKeys();
     return;
   }
   loaded = freshBundle().then((b) => { bundle.value = b; });
   canUseDevice.value = deviceStatus().on && (await deviceVerifierExists());
   if (canUseDevice.value) step.value = "device"; else showPassword();
 });
+// A first password only where there is no record at all. A record that can't be read, or isn't in the expected shape,
+// may hold the only way to the journal's key: setting a password would replace it and lock the journal away for good,
+// so only the recovery key is offered (it sets a new password from a damaged record's recovery part).
+async function readLocalKeys() {
+  err.value = "";
+  try {
+    const s = await localKeyState();
+    if (s === "ready") showPassword();
+    else if (s === "none") step.value = "localSetup";
+    else { step.value = "localDamaged"; err.value = "This account's password record is damaged, so your password can't open it."; }
+  } catch { step.value = "localDamaged"; err.value = "This app couldn't read this account's password record."; }
+}
 // left the app while offering device verification: the key was dropped, so this starts over
 const stop = keyring.onChange((open) => { if (!open && (step.value === "offer" || step.value === "noPrf")) showPassword(); });
 onBeforeUnmount(() => { stop(); password.value = ""; });
@@ -166,8 +177,9 @@ async function useRecoveryKey() {
   let dataKey: Uint8Array | null = null;
   try {
     if (local.value) {
-      if (wrongTryWait() > 0) return;
-      if (!hasLocalRecoveryKey(await localKeys())) { err.value = "No recovery key was made for this account, so only its password can open it."; return; }
+      // the countdown shows in place of the error while the wait runs (template)
+      if (wrongTryWait() > 0) { err.value = ""; return; }
+      if (!(await canRecoverLocal())) { err.value = "No recovery key was made for this account, so only its password can open it."; return; }
       const problem = await passwordProblem(rec.value.password);
       if (problem) { err.value = problem; return; }
       if (rec.value.password !== rec.value.confirm) { err.value = "The two passwords are not the same"; return; }
@@ -176,7 +188,7 @@ async function useRecoveryKey() {
       catch (e) {
         if ((e as Error).name !== "SealError") throw e;
         // no server counts wrong keys here, so the lock's own count does
-        wrongTry(); err.value = waiting.value ? waitText.value : "That recovery key is not right"; return;
+        wrongTry(); err.value = waiting.value ? "" : "That recovery key is not right"; return;
       }
       rec.value = { key: "", password: "", confirm: "", code: "" };
       newKey.value = made; firstKey.value = false; saved.value = false;
@@ -237,6 +249,16 @@ async function leave() {
       <p class="center tiny auth-link"><button type="button" class="lock-link muted" @click="askSignOut">Other accounts</button></p>
     </form>
 
+    <div v-else-if="step === 'localDamaged'" class="card">
+      <Logo />
+      <h1>Can't open this account</h1>
+      <div class="err" role="alert">{{ err }}</div>
+      <p class="muted auth-lede">Your journal is still here, sealed. A new password can't be set over this record: that would lock your journal away for good. Your recovery key opens it and sets a new password.</p>
+      <button type="button" class="btn block lg" @click="showRecovery">Use recovery key</button>
+      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="readLocalKeys">Try again</button></p>
+      <p class="center tiny auth-link"><button type="button" class="lock-link muted" @click="askSignOut">Other accounts</button></p>
+    </div>
+
     <div v-else-if="step === 'offerKey'" class="card">
       <Logo />
       <h1>Make your recovery key</h1>
@@ -269,14 +291,14 @@ async function leave() {
       <h1>Recovery key</h1>
       <p class="muted auth-lede">{{ sealed ? "Your recovery key opens your journal again. Type the password you just signed in with: it is checked, and from here on it opens your journal too." : local ? "Your recovery key opens your journal and sets a new password." : "Your recovery key opens your journal and sets a new password. Your other devices are signed out." }}</p>
       <input class="lock-user" type="text" autocomplete="username" :value="local ? 'Somnium on this device' : session.user?.username" readonly tabindex="-1" aria-hidden="true" />
-      <div v-if="local && waiting" class="err" role="status">{{ waitText }}</div>
       <div class="fld"><label for="lock-rk">Recovery key</label><input id="lock-rk" v-model="rec.key" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required autofocus /></div>
       <div class="fld"><label for="lock-np">{{ sealed ? "Your password" : "New password" }}</label><input id="lock-np" v-model="rec.password" type="password" :autocomplete="sealed ? 'current-password' : 'new-password'" required :minlength="sealed ? undefined : PASSWORD_MIN" /></div>
       <div v-if="!sealed" class="fld"><label for="lock-np2">New password again</label><input id="lock-np2" v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
       <div v-if="totpNeeded" class="fld"><label for="lock-code">Code from your authenticator, or a backup code</label><input id="lock-code" v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
-      <div v-if="err" class="err" role="alert">{{ err }}</div>
-      <button class="btn block lg" :disabled="busy">{{ busy ? "Opening..." : "Open journal" }}</button>
-      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="sealed ? (step = 'password') : showPassword()">Back</button></p>
+      <div v-if="local && waiting" class="err" role="alert">{{ waitText }}</div>
+      <div v-else-if="err" class="err" role="alert">{{ err }}</div>
+      <button class="btn block lg" :disabled="busy || (local && waiting)">{{ busy ? "Opening..." : "Open journal" }}</button>
+      <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="local ? readLocalKeys() : sealed ? (step = 'password') : showPassword()">Back</button></p>
     </form>
 
     <div v-else-if="step === 'newKey'" class="card">

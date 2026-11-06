@@ -7,7 +7,7 @@ import { ApiError, httpTransport, server, setTransport, type Transport } from ".
 import { invalidate, setRemoteHandler } from "./live";
 import { readStr, writeStr } from "../core/prefs";
 import { keyring } from "../core/keyring";
-import { needsKey } from "@somnium/engine/sealed-api";
+import { LockedError, allowedWithoutKey, needsKey } from "@somnium/engine/sealed-api";
 import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, leftByOthers, leftWithNothingUnsent } from "@somnium/shared";
 import { forgetCachedMedia } from "./media";
 
@@ -88,6 +88,9 @@ const transport: Transport = {
       return r;
     }
     const [p, qs] = path.split("?");
+    // the copy holds the journal opened (plaintext), so it answers only while the key is open here, like the server's
+    // path does (sealingTransport in client.ts): every screen is gone while locked, but other code (reminders) still runs
+    if (!keyring.isOpen() && !allowedWithoutKey(method, p!, body)) throw new LockedError();
     const r = await eng.handle({ method, path: p, query: Object.fromEntries(new URLSearchParams(qs ?? "")), body, userId });
     if (r.status === 404 && r.body?.error === "Not found") return httpTransport.request(method, path, body); // not one of the engine's
     if (r.status !== 200) throw new ApiError(r.status, r.body?.error ?? "Something went wrong");

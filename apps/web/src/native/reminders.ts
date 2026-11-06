@@ -13,6 +13,7 @@ import { QueryObserver } from "@tanstack/vue-query";
 import { planDay, rcSchedule, reminderText, withDefaults, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { queryClient } from "../api/live";
+import { keyring } from "../core/keyring";
 import { readStr, writeStr } from "../core/prefs";
 import { isNativeApp } from "./notifications";
 
@@ -33,8 +34,11 @@ export async function checkCatalog() {
   return (checksCache ??= (await import("@somnium/knowledge/lexicons")).checks);
 }
 
-/** The most-linked confirmed dream sign's own name, or null. Sealed, so it reads only while the key is open here. */
+/** The most-linked confirmed dream sign's own name, or null. Sealed, so it is read only while the key is open here:
+ *  the transports refuse journal reads while locked as well (allowedWithoutKey), this just doesn't ask. A plan made
+ *  while locked goes without it, and a new one is made when the key opens (startReminders). */
 async function topSign(): Promise<string | null> {
+  if (!keyring.isOpen()) return null;
   try {
     const [els, links] = await Promise.all([api.get<any[]>("/elements", { signs: 1 }), api.get<any[]>("/dream-elements")]);
     const n = new Map<string, number>();
@@ -121,7 +125,9 @@ export function startReminders() {
     current = { row, settings };
     void replan();
   };
-  stops = [rows.subscribe(update), me.subscribe(update)];
+  // every start is locked, so the first plan has no dream sign; the key opening brings it in
+  const onKey = (open: boolean) => { if (open && current.row?.enabled && rcSchedule(current.row.schedule).showSign) void replan(); };
+  stops = [rows.subscribe(update), me.subscribe(update), keyring.onChange(onKey)];
   update();
   tick = setInterval(() => void fire(), 30_000);
   addEventListener("visibilitychange", onVisible);

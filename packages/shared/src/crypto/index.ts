@@ -13,5 +13,5 @@ export {
   type PasswordBundle, type AccountKeys, type RecoveryBundle, type RecoveryKeySet,
 } from "./envelope";
 export {
-  localKeysFrom, createLocalKeys, openLocalWithPassword, rewrapLocalPassword, addLocalRecoveryKey, recoverLocal, type LocalKeys,
+  localKeysFrom, localRecoveryFrom, createLocalKeys, openLocalWithPassword, rewrapLocalPassword, addLocalRecoveryKey, recoverLocal, type LocalKeys,
 } from "./localAccount";

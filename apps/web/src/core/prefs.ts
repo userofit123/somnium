@@ -1,10 +1,25 @@
 // Choices kept on this device (the look, remembered tabs and filters). Private windows may refuse storage: everything still works.
 const ls = () => { try { return globalThis.localStorage ?? null; } catch { return null; } };
+// In the desktop app, a few choices are kept by the app in the account's own record instead (apps/desktop/src/main.ts
+// KEPT_PREFS): browser storage belongs to the account's address, which can change (its port taken by something else),
+// and the lock's wrong-try count must not start over with it. Elsewhere the address doesn't change and these stay here.
+const ACCOUNT_KEPT = new Set(["somniumLockTries", "somniumLock"]);
+interface KeptPrefs { get(k: string): string | null; set(k: string, v: string | null): boolean }
+const kept = (k: string): KeptPrefs | undefined =>
+  ACCOUNT_KEPT.has(k) ? (globalThis as { somniumNative?: { prefs?: KeptPrefs } }).somniumNative?.prefs : undefined;
+
 export function readJson<T>(k: string, fallback: T): T {
-  try { const v = ls()?.getItem(k); return v == null ? fallback : (JSON.parse(v) ?? fallback); } catch { return fallback; }
+  try {
+    // the app's copy when it has one; before it has (the first start of this version), what this address kept
+    const app = kept(k)?.get(k);
+    const v = app ?? ls()?.getItem(k);
+    return v == null ? fallback : (JSON.parse(v) ?? fallback);
+  } catch { return fallback; }
 }
 export function writeJson(k: string, v: unknown) {
-  try { ls()?.setItem(k, JSON.stringify(v)); } catch { /* not remembered */ }
+  const text = JSON.stringify(v);
+  try { kept(k)?.set(k, text ?? null); } catch { /* the copy below still counts */ }
+  try { ls()?.setItem(k, text); } catch { /* not remembered */ }
 }
 export function storedKeys(): string[] {
   try { const s = ls(); return s ? Array.from({ length: s.length }, (_, i) => s.key(i) ?? "") : []; } catch { return []; }

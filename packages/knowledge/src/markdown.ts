@@ -21,10 +21,13 @@ export type Block =
 
 const CITE = /^\[([A-D]\d+[a-z]?(?:\s*,\s*[A-D]\d+[a-z]?)*)\]/;
 
-/** Only web, mail and in-app addresses become links; anything else (javascript:, data:) is shown as plain text. */
+/** Only web, mail and in-app addresses become links; anything else (javascript:, data:) is shown as plain text.
+ *  An in-app address may not start "//" or "/\": browsers read a backslash as a slash, so both lead to another host. They
+ *  also drop tabs and line breaks inside an address ("/<tab>/host" is "//host"), so an address with one is refused. */
 export function safeHref(href: string): string | null {
   const h = href.trim();
-  return /^(https?:\/\/|mailto:|\/(?!\/)|#)/i.test(h) ? h : null;
+  if (/[\t\n\r]/.test(h)) return null;
+  return /^(https?:\/\/|mailto:|\/(?![\/\\])|#)/i.test(h) ? h : null;
 }
 
 export function parseInline(src: string): Inline[] {

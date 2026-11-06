@@ -34,6 +34,21 @@ const camelOf = (col: string) => col.replace(/_([a-z0-9])/g, (_, c: string) => c
 /** Whether a request carries or returns sealed columns, and so needs the key. */
 export const isJournalRoute = (path: string): boolean => !!routeOf(path) || isBulk(path);
 
+/** The one journal write allowed without the key: a new reality check from /check, which opens over the lock screen
+ *  (LDJ-28). Its only sealed column, the note, must be absent; anything else still needs the key. */
+const CHECK_FIELDS = new Set(["id", "at", "kind", "outcome", "prompted"]);
+const isUnsealedCheck = (method: string, path: string, body: unknown) =>
+  method === "POST" && path === "/reality-checks" && !!body && typeof body === "object" && !Array.isArray(body) && Object.keys(body).every((k) => CHECK_FIELDS.has(k));
+
+/**
+ * Whether a request may be answered while the journal key is closed: anything that is not a journal route, and the
+ * unsealed check above. Every other journal request, reads above all, is refused while locked, whether it would go to
+ * the server (which answers ciphertext) or to the device's own copy (which answers plaintext): the lock and /check
+ * screens read nothing of the journal, and nothing else may (a reminder's dream sign, a stray query).
+ */
+export const allowedWithoutKey = (method: string, path: string, body?: unknown): boolean =>
+  !isJournalRoute(path) || isUnsealedCheck(method.toUpperCase(), path, body);
+
 /** The id a new row will have, or the row a write is aimed at. */
 async function rowIdFor(method: string, path: string, body: Row, lookup: Lookup): Promise<string | null> {
   const parts = clean(path).split("/").filter(Boolean);

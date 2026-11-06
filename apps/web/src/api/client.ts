@@ -2,7 +2,7 @@
 // Screens never know which: they call api.get/post/put/del.
 import { ref } from "vue";
 import { sealColumn } from "@somnium/shared";
-import { LockedError, isImportPreview, isJournalRoute, isMediaUpload, openResponse, previewImport, sealRequest, uuidv7 } from "@somnium/engine/sealed-api";
+import { LockedError, allowedWithoutKey, isImportPreview, isJournalRoute, isMediaUpload, openResponse, previewImport, sealRequest, uuidv7 } from "@somnium/engine/sealed-api";
 import { keyring } from "../core/keyring";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
@@ -78,12 +78,6 @@ async function withKeyCopy<T>(step: (key: Uint8Array) => Promise<T>): Promise<T>
   try { return await step(key); } finally { key.fill(0); }
 }
 
-/** The one journal write allowed without the key: a new reality check from /check, which opens over the lock screen
- *  (LDJ-28). Its only sealed column, the note, must be absent; anything else still needs the key. */
-const CHECK_FIELDS = new Set(["id", "at", "kind", "outcome", "prompted"]);
-const isUnsealedCheck = (method: string, path: string, body: unknown) =>
-  method === "POST" && path === "/reality-checks" && !!body && typeof body === "object" && !Array.isArray(body) && Object.keys(body).every((k) => CHECK_FIELDS.has(k));
-
 /**
  * Everything that goes to the journal's store goes through this, so no screen can send a sealed column in the clear:
  * a server, with or without the device's copy in use (packages/engine/src/sync/sealedApi.ts), and a local account's
@@ -102,7 +96,7 @@ export function sealingTransport(raw: Transport): Transport {
       const isUpload = method === "POST" && isMediaUpload(path);
       if (!isUpload && !isJournalRoute(path)) return raw.request(method, path, body, opts);
       if (!keyring.isOpen()) {
-        if (isUnsealedCheck(method, path, body)) return raw.request(method, path, body, opts);
+        if (allowedWithoutKey(method, path, body)) return raw.request(method, path, body, opts);
         throw new LockedError();
       }
       const opened = keyring.generation();

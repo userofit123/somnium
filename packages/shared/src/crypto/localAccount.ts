@@ -19,7 +19,8 @@ export interface LocalKeys {
 const text = (v: unknown, max = 400): v is string => typeof v === "string" && v.length > 0 && v.length <= max;
 const textOrNull = (v: unknown) => (v == null ? null : text(v) ? v : undefined);
 
-/** The record as stored, checked; null when it is missing or not in the expected shape (then a password is set up). */
+/** The record as stored, checked; null when it is missing or not in the expected shape. Only a missing one gets a
+ *  first password: one that is there but damaged keeps the journal's key, so only its recovery key may replace it. */
 export function localKeysFrom(v: unknown): LocalKeys | null {
   if (!v || typeof v !== "object") return null;
   const o = v as Record<string, unknown>;
@@ -30,6 +31,18 @@ export function localKeysFrom(v: unknown): LocalKeys | null {
   // a recovery key is all three or none
   if ([recoverySalt, wrappedByRecovery, recoveryVerifier].filter((x) => x).length % 3) return null;
   return { salt: o.salt, wrappedByPassword: o.wrappedByPassword, recoverySalt: recoverySalt!, wrappedByRecovery: wrappedByRecovery!, recoveryVerifier: recoveryVerifier!, recoveryMadeAt: recoveryMadeAt!, sealedAt: sealedAt! };
+}
+
+/**
+ * From a record that is there but not in the expected shape: its recovery key part alone, when that part is whole, so
+ * the recovery key can still open the journal and set a new password (recoverLocal writes the password part anew).
+ * Null otherwise. Such a record must never be replaced by a new password: that would lock the journal away for good.
+ */
+export function localRecoveryFrom(v: unknown): LocalKeys | null {
+  if (!v || typeof v !== "object") return null;
+  const o = v as Record<string, unknown>;
+  if (!text(o.recoverySalt) || !text(o.wrappedByRecovery) || !text(o.recoveryVerifier)) return null;
+  return { salt: "", wrappedByPassword: "", recoverySalt: o.recoverySalt, wrappedByRecovery: o.wrappedByRecovery, recoveryVerifier: o.recoveryVerifier, recoveryMadeAt: null, sealedAt: textOrNull(o.sealedAt) ?? null };
 }
 
 /** A new local account's keys. The caller puts dataKey in its keyring and zeroes it. */
