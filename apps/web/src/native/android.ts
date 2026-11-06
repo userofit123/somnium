@@ -4,6 +4,7 @@ import { accounts, addLocal, addServer, open, remove, rename, chooser } from "./
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 import { REPO, newer, fetchWithin } from "../core/releases";
 import { applyTheme } from "../core/theme";
+import { router } from "../router";
 import { notificationState, askNotificationPermission } from "./notifications";
 
 const cap = () => (globalThis as any).Capacitor;
@@ -74,6 +75,8 @@ export function installAndroidBridge() {
     },
   };
   // the hardware back button closes an open sheet, goes back in the app, and leaves it from the home page
+  // a tap on the update download's notification names a page (App & Versions): open it
+  P("SomniumUpdater")?.addListener?.("open", ({ path }: { path?: string }) => { if (typeof path === "string" && path.startsWith("/")) void router.push(path); });
   P("App")?.addListener?.("backButton", ({ canGoBack }: { canGoBack: boolean }) => { if (sheetIsOpen()) closeTopSheet(); else if (canGoBack && location.pathname !== "/") history.back(); else P("App").minimizeApp?.(); });
   // the page runs behind clear status and navigation bars (SomniumBarsPlugin), so its own background shows under the
   // clock and beside a side bar; it pads itself by the bars' sizes (--nst / --nsb / --nsl / --nsr, used by --st / --sb /

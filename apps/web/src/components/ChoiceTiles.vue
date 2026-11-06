@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Choosing from a handful of options inside a form, laid out as an even grid of tiles instead of a ragged row of pills,
-// so a form reads as labelled fields. With icons and hints for a few meaningful choices (what a goal is about); `compact`
-// for plain short labels (rest presets, weekdays); `multiple` for picking several (muscles, a gym's equipment).
+// so a form reads as labelled fields. With icons and hints for a few meaningful choices (what a reminder is for); `compact`
+// for plain short labels (weekdays, how often); `multiple` for picking several (several dream signs, tags).
 // Long single-choice lists belong in AppSelect, two to four short words in a .seg.
 import Icon from "./Icon.vue";
 

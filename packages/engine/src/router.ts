@@ -1,4 +1,4 @@
-// A small router: "GET /routines/:id" → handler(ctx, params, body, query).
+// A small router: "GET /dreams/:id" → handler(ctx, params, body, query).
 import type { Sql } from "./db";
 import type { Change } from "@somnium/shared";
 

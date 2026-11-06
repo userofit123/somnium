@@ -11,9 +11,9 @@ self.addEventListener("activate", (e) => e.waitUntil((async () => {
   await self.clients.claim();
 })()));
 
-// tapping a notification (the workout, a recording, the interval timer) opens the app on it; a button on it (Pause,
-// +30s…) is passed to the open app instead (workout/native.ts), which then shows the notification again as it now is.
-// With no window open, the app is opened with the button in its address, and does it once started (takeUrlAction).
+// tapping a notification (a reminder) opens the app on the page it names; a button on it (Snooze, say) is passed to the
+// open app instead, which then shows the notification again as it now is. With no window open, the app is opened with
+// the button in its address, and does it once started.
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   const url = e.notification.data?.url ?? "/";

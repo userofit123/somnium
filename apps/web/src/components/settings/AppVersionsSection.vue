@@ -74,7 +74,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
     </div>
     <div v-if="suggest === 'android'" class="card">
       <div class="li"><div class="grow"><div class="t">Get the Android app</div>
-        <div class="s">It can keep your data on the phone alone, without a server, and works without a connection. The rest timer rings and shows on the lock screen while the phone is locked, walks and runs are recorded with GPS and counted in steps with the screen off, and it updates itself.</div></div>
+        <div class="s">It can keep your data on the phone alone, without a server, and works without a connection. Reminders ring on time even with the app closed, the app opens with your fingerprint or screen lock, backups go to Documents/Somnium on the phone, and it updates itself.</div></div>
         <a v-if="mine" class="btn s" :href="mine.url" target="_blank" rel="noopener">{{ DOWNLOAD_LABEL.android }}</a>
         <a v-else class="btn s" :href="RELEASES_URL" target="_blank" rel="noopener">See releases</a></div>
     </div>

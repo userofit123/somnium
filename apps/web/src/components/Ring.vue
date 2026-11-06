@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// A progress ring (weekly goal, rest timer).
+// A progress ring (how far along something is: a streak, a download).
 const props = defineProps<{ pct: number; size?: number; stroke?: number; color?: string }>();
 const S = props.size ?? 44, W = props.stroke ?? 5, R = (S - W) / 2, C = 2 * Math.PI * R;
 </script>

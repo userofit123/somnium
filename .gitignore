@@ -40,6 +40,7 @@ Thumbs.db
 # personal task-queue runner and its logins (see CLAUDE.md "Task queue")
 /workflow/
 *.pem
+*.key
 *.apk
 *.aab
 release/

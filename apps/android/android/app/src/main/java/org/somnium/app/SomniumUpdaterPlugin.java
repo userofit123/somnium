@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 @CapacitorPlugin(name = "SomniumUpdater")
 public class SomniumUpdaterPlugin extends Plugin {
-    // its own channel, so updates can be silenced in the phone's settings without touching the workout ones; low
+    // its own channel, so updates can be silenced in the phone's settings without touching the reminders'; low
     // importance: a progress bar that changes every second must not sound or pop up
     private static final String CHANNEL = "updates";
     private static final int ID = 7005;
@@ -49,6 +49,8 @@ public class SomniumUpdaterPlugin extends Plugin {
     // each download has its own number; a thread whose number is no longer current has been superseded or closed and
     // must not touch the notification, the flag or the file of a newer download
     private static final AtomicLong GEN = new AtomicLong(0);
+    // the page a tap on the notification opens, handed to the web app as an "open" event (see openFrom)
+    static final String EXTRA_PATH = "somniumPath";
 
     // The app is closed (swiped away) mid-download: the download stops with it, so its ongoing notification would stay
     // forever with a bar that never moves. It goes, and the partial file is thrown away by the download itself.
@@ -59,6 +61,28 @@ public class SomniumUpdaterPlugin extends Plugin {
             NotificationManagerCompat.from(getContext().getApplicationContext()).cancel(ID);
         }
         super.handleOnDestroy();
+    }
+
+    // A tap on the download's notification: with the app open it arrives here; with the app started by the tap it is on
+    // the starting intent. Kept until the web app listens, since it may not have loaded yet.
+    @Override
+    public void load() {
+        if (getActivity() != null) openFrom(getActivity().getIntent());
+    }
+
+    @Override
+    protected void handleOnNewIntent(Intent intent) {
+        super.handleOnNewIntent(intent);
+        openFrom(intent);
+    }
+
+    private void openFrom(Intent intent) {
+        String path = intent == null ? null : intent.getStringExtra(EXTRA_PATH);
+        if (path == null) return;
+        intent.removeExtra(EXTRA_PATH); // once only, not again after a rotation
+        JSObject r = new JSObject();
+        r.put("path", path);
+        notifyListeners("open", r, true);
     }
 
     private SharedPreferences prefs() { return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE); }
@@ -132,7 +156,7 @@ public class SomniumUpdaterPlugin extends Plugin {
     private void notice(Context ctx, String title, String text, int pct, boolean busy) {
         Intent open = new Intent(ctx, MainActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        open.putExtra(SomniumWorkoutPlugin.EXTRA_PATH, "/settings/versions");
+        open.putExtra(EXTRA_PATH, "/settings/versions");
         // its own request code, so this intent's page never ends up on another notification's tap
         PendingIntent pi = PendingIntent.getActivity(ctx, 3, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL)

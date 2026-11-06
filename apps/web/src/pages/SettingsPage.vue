@@ -30,7 +30,7 @@ const GROUPS = computed<[string, Section[]][]>(() => [
   ["You", [["account", "Account", "user", "Name, password, devices, sync"],
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
     (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host]]],
-  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
+  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
   ["Your data", [["backup", "Backup & restore", "download", "A copy of everything"], ["data", "Export & import", "upload", "JSON"], ["log", "Activity log", "history", "Everything you changed"]]],
   ["About", [["versions", "App & Versions", "refresh", "Installed version, downloads"], ["changelog", "What's new", "sparkle", "Release notes"],
     ...(session.user?.role === "admin" ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About Somnium", "info", "Version, credits"]]],
@@ -66,9 +66,10 @@ await loaded(me);
         </template>
       </div>
       <Transition name="sw" mode="out-in"><div v-if="sec" :key="sec" class="stack">
-        <template v-if="sec === 'account'">
-          <AccountSection />
-          <div class="sh"><h2>Formats</h2></div>
+        <AccountSection v-if="sec === 'account'" />
+
+        <!-- how dates and times read everywhere (DatePicker, TimePicker) -->
+        <template v-else-if="sec === 'formats'">
           <div class="card">
             <div class="frow">
               <div class="fld"><label>First day of the week</label><AppSelect :model-value="s.firstDay" :options="[{ value: 0, label: 'Sunday' }, { value: 1, label: 'Monday' }]" title="First day of the week" @update:model-value="(v) => set({ firstDay: v })" /></div>

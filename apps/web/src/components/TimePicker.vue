@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The app's own time field, in place of <input type="time"> (whose clock is the browser's): 12- or 24-hour as set in
-// Settings → Units & formats. The value stays "HH:MM" ("" when empty), as the browser's field gave it.
+// Settings → Formats. The value stays "HH:MM" ("" when empty), as the browser's field gave it.
 // Keys while open: Up/Down move 5 minutes, Page Up/Down an hour, typing digits sets it ("1830", "730", "18"),
 // A/P picks morning or afternoon on a 12-hour clock, Enter or Esc closes.
 import { computed, nextTick, ref } from "vue";

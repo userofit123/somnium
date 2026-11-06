@@ -1,4 +1,4 @@
-// Short messages at the bottom: "Saved · Undo", records, goals reached. Only results, never chatter (PLAN.md §10.0).
+// Short messages at the bottom: "Saved · Undo", a backup done, a reminder set. Only results, never chatter (PLAN.md §10.0).
 import { reactive } from "vue";
 
 export interface Toast { id: number; text: string; kind: "ok" | "err" | "pr"; action?: { label: string; run: () => void } }

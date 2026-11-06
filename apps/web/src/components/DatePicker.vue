@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // The app's own date field, in place of <input type="date"> (whose calendar is the browser's): shows the date as set in
-// Settings → Units & formats and opens a month like the History calendar, starting on the week's first day from Settings.
+// Settings → Formats and opens a month like the Journal's calendar, starting on the week's first day from Settings.
 // The value stays "YYYY-MM-DD" ("" when empty), as the browser's field gave it.
 // Keys while open: arrows move a day or a week, Page Up/Down a month, Enter picks, Esc closes.
 import { computed, ref } from "vue";
@@ -25,7 +25,7 @@ const month = ref(new Date()), hi = ref("");
 const today = ref(localYmd(new Date()));
 const first = computed(() => fmt.value.s.firstDay);
 const DOW = computed(() => Array.from({ length: 7 }, (_, i) => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][(i + first.value) % 7]!));
-// the weeks this month touches, as on the History calendar
+// the weeks this month touches, as on the Journal's calendar
 const grid = computed(() => {
   const m = month.value, start = new Date(m);
   const lead = (m.getDay() - first.value + 7) % 7;

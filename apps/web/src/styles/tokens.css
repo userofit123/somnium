@@ -1,11 +1,9 @@
-/* The app's shared look: colors, spacing, corners, type and the theme's variables (the default "Indigo" colour set;
+/* The app's shared look: colors, spacing, corners, type and the theme's variables (the default "Dusk" colour set;
    core/theme.js changes them at run time). Components use these names only, never colors typed in by hand. */
 
 :root {
   color-scheme: light;
   --acc: #4355b9;
-  /* the walked route on maps: always red, the map tiles stay light in both looks */
-  --route: #d32f2f;
   --accc: #dee0ff;
   --onc: #0b1550;
   --bg: #fbf8fd;
@@ -26,10 +24,6 @@
   --c4: #7cb342;
   --c5: #8e24aa;
   --c6: #546e7a;
-  /* the body map's three strengths: main muscles, helpers, a little */
-  --heat1: #e5484d;
-  --heat2: #f2b33d;
-  --heat3: #4c8bf5;
   --font: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
   --r: 22px;
   --r-sm: 12px;

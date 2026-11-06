@@ -73,11 +73,11 @@ html[data-rad="sharp"] :is(.sheet,.pop,.bgrp,.toast,.jstats > div,.trstats > div
   border-radius: 4px;
 }
 
-html[data-rad="soft"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.sets .sk,.kp button,.tabbar button .ic,.tabbar .start,.fab) {
+html[data-rad="soft"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.tabbar button .ic,.fab) {
   border-radius: 10px;
 }
 
-html[data-rad="sharp"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.sets .sk,.kp button,.tabbar button .ic,.tabbar .start,.fab) {
+html[data-rad="sharp"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.tabbar button .ic,.fab) {
   border-radius: 3px;
 }
 

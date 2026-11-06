@@ -14,10 +14,10 @@ const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
 const TABS = [
   { name: "home", label: "Home", icon: "home", to: "/" },
-  { name: "journal", label: "Journal", icon: "note", to: "/journal" },
+  { name: "journal", label: "Journal", icon: "book", to: "/journal" },
   { name: "train", label: "Train", icon: "target", to: "/train" },
   { name: "insights", label: "Insights", icon: "stats", to: "/insights" },
-  { name: "learn", label: "Learn", icon: "info", to: "/learn" },
+  { name: "learn", label: "Learn", icon: "graduation", to: "/learn" },
   { name: "more", label: "More", icon: "moreH", to: "/more" },
 ];
 // the pages listed on the More tab
