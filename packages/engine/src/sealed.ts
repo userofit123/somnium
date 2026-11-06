@@ -9,8 +9,8 @@
 // media files themselves. Element names are sealed too, so even the person's taxonomy (which people and places
 // appear in their dreams) is unreadable on the server; the kind and colour of an element stay plain.
 // A night's merged_into is sync bookkeeping (which night it was merged into, LDJ-52) and stays plain: the server
-// checks and decides merges. Its absorbed (fingerprints of the texts it took in from merged nights) is sealed: only a
-// device ever reads it, and fingerprints of short texts could be guessed.
+// checks and decides merges. Its absorbed (on a survivor, keyed fingerprints of the texts it took in from merged
+// nights; on a merged night, that it handed its plain values over) is sealed: only a device ever reads it.
 export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   nights: ["substances", "notes", "intention", "absorbed"],
   dreams: ["title", "text", "lucid_trigger", "dismissed"],

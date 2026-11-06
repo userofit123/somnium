@@ -7,7 +7,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { newDataKey, isSealed, unsealColumn, SealError } from "@somnium/shared";
 import { createEngine, replica, type Engine, type Change } from "../src/index";
-import { mergeNightFields, joinText } from "../src/sync/core";
+import { mergeNightFields, joinText, nightFingerprint } from "../src/sync/core";
+import { migrate } from "../src/migrate";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
 import { SEALED_COLUMNS } from "../src/sealed";
@@ -54,7 +55,7 @@ async function pull(d: Device) {
 }
 const settled = async (d: Device) => {
   const m = await replica.replicaMeta(d.eng.db);
-  expect([m.heldBack ?? [], m.unopened ?? []]).toEqual([[], []]);
+  expect([m.heldBack ?? [], m.unopened ?? [], m.pendingMerges ?? []]).toEqual([[], [], []]);
   expect(await replica.waitingCount(d.eng.db)).toBe(0);
 };
 
@@ -135,6 +136,8 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     // b's night stays under its own id, its own words still sealed for it alone
     const loser = await serverRow("nights", nb.id);
     expect(loser.merged_into).toBe(na.id);
+    // and it says, sealed for its own id, that it handed its plain values over (once, ever)
+    expect(JSON.parse(await opens("nights", "absorbed", loser.absorbed, nb.id))).toEqual({ given: true });
     for (const [col, v] of [["notes", "notes from b"], ["intention", "look at my hands"], ["substances", "coffee"]] as const) {
       expect(isSealed(loser[col])).toBe(true);
       expect(await opens("nights", col, loser[col], nb.id)).toBe(v);
@@ -154,7 +157,7 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     for (const x of [r.a, r.b, r.c, r.d, r.a, r.b]) await sync(x);
     for (const x of [r.a, r.b, r.c, r.d]) await settled(x);
     const rows = (await r.a.eng.db.admin.query("SELECT to_jsonb(n) AS r FROM nights n WHERE id = ANY($1::uuid[])", [[r.na.id, r.nb.id]])).rows.map((x: any) => x.r);
-    expect(mergeNightFields(rows.find((n: Rec) => n.id === r.na.id), rows.find((n: Rec) => n.id === r.nb.id))).toEqual({});
+    expect(await mergeNightFields(rows.find((n: Rec) => n.id === r.na.id), rows.find((n: Rec) => n.id === r.nb.id), await nightFingerprint(KEY))).toEqual({ survivor: {}, loser: {} });
     await check(r);
     await on(r.c.eng)("PUT", `/nights/${r.na.id}`, { notes: "notes from a" });
     for (const x of [r.c, r.a, r.b, r.d, r.c, r.a, r.b, r.d]) await sync(x);
@@ -173,24 +176,36 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     await again(r);
   });
 
-  it("joins differing text, keeps the longer when one holds the other, and joins technique lists", () => {
+  it("joins differing text, keeps the longer when one holds the other, and hands plain values and lists over once", async () => {
     expect(joinText("a", "b")).toBe("a\n\nb");
     expect(joinText("tea and a walk", "tea")).toBe("tea and a walk");
     expect(joinText("tea", "tea and a walk")).toBe("tea and a walk");
+    const fp = await nightFingerprint(KEY);
     const s = { id: "s", updated_at: "2026-01-02T00:00:00Z", notes: "mine", substances: "tea", intention: null, sleep_quality: 3, techniques_done: ["mild"] };
     const l = { id: "l", updated_at: "2026-01-01T00:00:00Z", notes: "theirs", substances: "tea", intention: "fly", sleep_quality: 5, techniques_done: ["wild", "mild"] };
     // the loser is older: its rating loses, but none of its words do
-    const p = mergeNightFields(s, l);
-    expect(p).toMatchObject({ notes: "mine\n\ntheirs", intention: "fly", techniques_done: ["mild", "wild"] });
-    expect(Object.keys(p).sort()).toEqual(["absorbed", "intention", "notes", "techniques_done"]);
-    const merged = { ...s, ...p };
-    expect(mergeNightFields(merged, l)).toEqual({});
-    // the person removed the joined text: it isn't added back
-    expect(mergeNightFields({ ...merged, notes: "mine", intention: null }, l)).toEqual({});
-    // the joined version was lost (record and all): joined again
-    expect(mergeNightFields(s, l)).toEqual(p);
+    const p = await mergeNightFields(s, l, fp);
+    expect(p.survivor).toMatchObject({ notes: "mine\n\ntheirs", intention: "fly", techniques_done: ["mild", "wild"] });
+    expect(Object.keys(p.survivor).sort()).toEqual(["absorbed", "intention", "notes", "techniques_done"]);
+    expect(JSON.parse(p.loser.absorbed as string)).toEqual({ given: true });
+    const merged = { ...s, ...p.survivor }, given = { ...l, ...p.loser };
+    const none = { survivor: {}, loser: {} };
+    expect(await mergeNightFields(merged, given, fp)).toEqual(none);
+    // the person removed the joined text, or a technique that came over: neither is added back
+    expect(await mergeNightFields({ ...merged, notes: "mine", intention: null }, given, fp)).toEqual(none);
+    expect(await mergeNightFields({ ...merged, techniques_done: ["mild"] }, given, fp)).toEqual(none);
+    // the joined version was lost (record and all): the words are joined again, the lists and plain values aren't
+    const healed = await mergeNightFields(s, given, fp);
+    expect(healed.survivor).toMatchObject({ notes: "mine\n\ntheirs", intention: "fly" });
+    expect(Object.keys(healed.survivor).sort()).toEqual(["absorbed", "intention", "notes"]);
+    expect(healed.loser).toEqual({});
     // the merged night's text changed since (a newer version of it came back and was merged again): the new text is added
-    expect(mergeNightFields(merged, { ...l, notes: "theirs, and more" })).toMatchObject({ notes: "mine\n\ntheirs\n\ntheirs, and more" });
+    expect((await mergeNightFields(merged, { ...given, notes: "theirs, and more" }, fp)).survivor).toMatchObject({ notes: "mine\n\ntheirs\n\ntheirs, and more" });
+    // keyed: the record holds no text, and the same text gives another fingerprint under another key
+    const rec = JSON.parse(p.survivor.absorbed as string).l;
+    expect(Object.values(rec)).not.toContain("theirs");
+    expect(rec.notes).toBe(await fp("theirs"));
+    expect(await (await nightFingerprint(newDataKey()))("theirs")).not.toBe(rec.notes);
   });
 
   it("keeps a field only the survivor has, and both nights' notes when they differ", async () => {
@@ -368,24 +383,109 @@ describe("what a device says about a merge is checked", () => {
     expect(again.deleted_at).not.toBeNull();
   });
 
-  it("moves no dream onto another person's night, a missing one, or one that breaks the rule", async () => {
-    const date = nextDate(), U2 = uuidv7(), theirs = uuidv7();
+  it("brings back a night whose link fails (another person's night, a missing one, one made later), on the server and on a device", async () => {
+    const watcher = await newDevice();
+    const U2 = uuidv7(), theirs = uuidv7(), [d1, d2, d3] = [nextDate(), nextDate(), nextDate()];
     await server.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'u2','U2')", [U2]);
-    await server.db.admin.query("INSERT INTO nights (id, user_id, date, created_at) VALUES ($1, $2, $3, now() - interval '1 day')", [theirs, U2, date]);
+    await server.db.admin.query("INSERT INTO nights (id, user_id, date, created_at) VALUES ($1, $2, $3, now() - interval '1 day')", [theirs, U2, d1]);
     const gone = new Date().toISOString();
-    const intoTheirs = night({ date, deleted_at: gone, merged_into: theirs });
-    const intoNothing = night({ date, deleted_at: gone, merged_into: uuidv7() });
-    const later_ = night({ date, created_at: new Date(Date.now() + 60000).toISOString() });
-    const intoLater = night({ date, deleted_at: gone, merged_into: later_.pk.id });
-    const ds = [dream(intoTheirs.pk.id as string), dream(intoNothing.pk.id as string), dream(intoLater.pk.id as string)];
-    const res = await send([intoTheirs, intoNothing, later_, intoLater, ...ds]);
+    const intoTheirs = night({ date: d1, deleted_at: gone, merged_into: theirs });
+    const intoNothing = night({ date: d2, deleted_at: gone, merged_into: uuidv7() });
+    const madeLater = night({ date: d3, created_at: new Date(Date.now() + 60000).toISOString() });
+    const intoLater = night({ date: d3, deleted_at: gone, merged_into: madeLater.pk.id });
+    const cases = [intoTheirs, intoNothing, intoLater];
+    const ds = cases.map((n) => dream(n.pk.id as string));
+    const res = await send([intoTheirs, intoNothing, madeLater, intoLater, ...ds]);
     expect([res.failed, res.mergeFailed]).toEqual([[], 0]);
     expect((await server.db.admin.query("SELECT count(*) AS n FROM dreams WHERE night_id = $1", [theirs])).rows[0].n).toBe(0);
-    // waiting, not moved: the night isn't there (for this person)
-    expect((await serverRow("dreams", ds[0]!.pk.id as string)).night_id).toBe(intoTheirs.pk.id);
-    expect((await serverRow("dreams", ds[1]!.pk.id as string)).night_id).toBe(intoNothing.pk.id);
-    // a link to a night made later breaks the rule and is dropped
-    expect((await serverRow("nights", intoLater.pk.id as string)).merged_into).toBeNull();
+    // (the device also hands the merged night's fields to its survivor, which only a device can, and sends that)
+    await pull(watcher); await sync(watcher);
+    // each comes back as the live night of its date, its dream visible, the same on the server and on the device
+    for (const [i, n] of cases.entries()) {
+      for (const e of [server, watcher.eng]) {
+        const live = await nightsOn(e, [d1, d2, d3][i]!);
+        expect(live.map((v) => [v.id, v.mergedInto])).toEqual([[n.pk.id, null]]);
+        expect(((await on(e)("GET", `/nights/${n.pk.id}`)).dreams as Rec[]).map((d) => d.id)).toEqual([ds[i]!.pk.id]);
+      }
+    }
+    // the night made later is the one merged now, by the rule
+    expect((await serverRow("nights", madeLater.pk.id as string)).merged_into).toBe(intoLater.pk.id);
+    await settled(watcher);
+  });
+
+  it("settles the other merged nights when one fails, and the failed one on a later pass", async () => {
+    const d = await newDevice();
+    const t = Date.now(), iso = (ms: number) => new Date(ms).toISOString();
+    const row = (tbl: string, o: Rec): Change => ({ tbl, pk: { id: o.id }, op: "upsert", at: iso(t), row: { created_at: iso(t), updated_at: iso(t), ...o } });
+    const [s1, s2, l1, l2, dr1, dr2] = [uuidv7(), uuidv7(), uuidv7(), uuidv7(), uuidv7(), uuidv7()];
+    const [date1, date2] = [nextDate(), nextDate()];
+    // two nights and their dreams, here first; then the nights made before them, for the same dates
+    await replica.applyRemote(d.eng.db, U, [row("nights", { id: l1, date: date1, created_at: iso(t + 1000) }), row("nights", { id: l2, date: date2, created_at: iso(t + 1000) }),
+      row("dreams", { id: dr1, night_id: l1 }), row("dreams", { id: dr2, night_id: l2 })], undefined, KEY);
+    await d.eng.db.admin.exec(`CREATE FUNCTION boom() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.id = '${dr2}' AND NEW.night_id IS DISTINCT FROM OLD.night_id THEN RAISE EXCEPTION 'no'; END IF; RETURN NEW; END $$;
+      CREATE TRIGGER boom BEFORE UPDATE ON dreams FOR EACH ROW EXECUTE FUNCTION boom();`);
+    const first = await replica.applyRemote(d.eng.db, U, [row("nights", { id: s1, date: date1 }), row("nights", { id: s2, date: date2 })], undefined, KEY);
+    expect(first.mergeFailed).toBe(1);
+    const nightOf = async (id: string) => (await d.eng.db.admin.query("SELECT night_id FROM dreams WHERE id = $1", [id])).rows[0].night_id;
+    expect([await nightOf(dr1), await nightOf(dr2)]).toEqual([s1, l2]);
+    expect((await replica.replicaMeta(d.eng.db)).pendingMerges).toEqual([l2]);
+    await d.eng.db.admin.exec("DROP TRIGGER boom ON dreams; DROP FUNCTION boom();");
+    // the next pull, even one with nothing new, settles it
+    const next = await replica.applyRemote(d.eng.db, U, [], undefined, KEY);
+    expect(next.mergeFailed).toBe(0);
+    expect(await nightOf(dr2)).toBe(s2);
+    expect((await replica.replicaMeta(d.eng.db)).pendingMerges).toEqual([]);
+  });
+
+  it("ends with both texts and a full record when two devices absorb different nights into one survivor", async () => {
+    const date = nextDate();
+    const s = await newDevice(), x = await newDevice(), y = await newDevice();
+    const ns = await on(s.eng)("POST", "/nights", { date, notes: "from s" });
+    await later();
+    const l1 = await on(x.eng)("POST", "/nights", { date, notes: "from x" });
+    await later();
+    const l2 = await on(y.eng)("POST", "/nights", { date, notes: "from y" });
+    // each hears of the survivor before sending its own night: x merges l1 into it, y merges l2, neither knows the other's
+    await push(s); await pull(x); await pull(y);
+    await push(x); await push(y);
+    for (let i = 0; i < 3; i++) for (const d of [x, y, s]) await sync(d);
+    const fp = await nightFingerprint(KEY);
+    const want = await Promise.all(["from x", "from y"].map(fp));
+    let seen: string | undefined;
+    for (const d of [s, x, y]) {
+      const n = await nightsOn(d.eng, date);
+      expect(n.map((v) => v.id)).toEqual([ns.id]);
+      const notes = n[0]!.notes as string;
+      expect(notes.startsWith("from s\n\n")).toBe(true);
+      expect(notes.split("\n\n").sort()).toEqual(["from s", "from x", "from y"]);
+      seen ??= notes;
+      expect(notes).toBe(seen);
+      const rec = JSON.parse(n[0]!.absorbed);
+      expect(Object.keys(rec).sort()).toEqual([l1.id, l2.id].sort());
+      expect([rec[l1.id].notes, rec[l2.id].notes]).toEqual(want);
+      await settled(d);
+    }
+    expect(await opens("nights", "notes", (await serverRow("nights", ns.id)).notes, ns.id)).toBe(seen);
+  });
+});
+
+describe("009_merge_record", () => {
+  it("turns the old absorbed flag into the sealed record's column on rows that already exist, keeping the merge", async () => {
+    const eng = await createEngine(await pgliteDb("memory://"), { mode: "local", seed: false });
+    const q = (sql: string, args: unknown[] = []) => eng.db.admin.query(sql, args).then((r) => r.rows as Rec[]);
+    // a database as 008 left it
+    await eng.db.admin.exec(`DROP INDEX nights_merged_into; ALTER TABLE nights DROP COLUMN absorbed;
+      ALTER TABLE nights ADD COLUMN absorbed boolean NOT NULL DEFAULT false; DELETE FROM schema_migrations WHERE name = '009_merge_record';`);
+    const V = uuidv7(), keep = uuidv7(), merged = uuidv7();
+    await q("INSERT INTO users (id, username, display_name) VALUES ($1,'v','V')", [V]);
+    await q("INSERT INTO nights (id, user_id, date) VALUES ($1, $2, '2026-01-01')", [keep, V]);
+    await q("INSERT INTO nights (id, user_id, date, deleted_at, merged_into, absorbed) VALUES ($1, $2, '2026-01-01', now(), $3, true)", [merged, V, keep]);
+    expect(await migrate(eng.db)).toEqual(["009_merge_record"]);
+    const rows = await q("SELECT id, merged_into, absorbed, deleted_at IS NOT NULL AS gone FROM nights WHERE user_id = $1", [V]);
+    expect(rows.sort((a, b) => (a.id < b.id ? -1 : 1))).toEqual([{ id: keep, merged_into: null, absorbed: null, gone: false }, { id: merged, merged_into: keep, absorbed: null, gone: true }].sort((a, b) => (a.id < b.id ? -1 : 1)));
+    expect((await q("SELECT data_type FROM information_schema.columns WHERE table_name = 'nights' AND column_name = 'absorbed'"))[0]!.data_type).toBe("text");
+    expect(await q("SELECT indexname FROM pg_indexes WHERE tablename = 'nights' AND indexname = 'nights_merged_into'")).toHaveLength(1);
   });
 });
 
