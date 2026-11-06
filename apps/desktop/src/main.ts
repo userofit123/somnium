@@ -30,7 +30,7 @@ async function startLocal(acc: Account): Promise<{ port: number; close: () => Pr
   const { pgliteDb } = await import("@somnium/engine/pglite");
   const { buildApp, localSession } = await import("@somnium/server/src/app");
   const db = await pgliteDb(path.join(dir, "db"));
-  const { app: srv } = await buildApp({ db, dataDir: dir, webDir: WEB, logger: false });
+  const { app: srv } = await buildApp({ db, dataDir: dir, webDir: WEB, logger: false, mode: "local" });
   await srv.listen({ host: "127.0.0.1", port: 0 });
   const port = (srv.server.address() as any).port;
   const token = await localSession(db, acc.name);

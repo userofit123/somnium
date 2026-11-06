@@ -5,6 +5,7 @@ import type { Sql } from "../db";
 import { bad } from "../errors";
 import { str } from "../util";
 import { SYNCED_BY_NAME } from "../sync/tables";
+import { refusePlain } from "./rows";
 import { readRows, allRows, applyChanges, latestPerRow, keyOf, overrule, DELETES_WIN, type Change } from "../sync/core";
 
 const PAGE = 5000;
@@ -36,6 +37,8 @@ export function syncRoutes(r: Router) {
     if (!device) throw bad("Which device is this?");
     const list: Change[] = (Array.isArray(b.changes) ? b.changes : []).slice(0, 1000).filter((c: any) =>
       c && SYNCED_BY_NAME.has(c.tbl) && (c.op === "upsert" || c.op === "delete") && c.pk && typeof c.pk === "object" && !Number.isNaN(Date.parse(c.at)));
+    // before anything is written: a device seals everything it sends, so plaintext here is never a real change
+    if (ctx.mode === "server") for (const c of list) if (c.row) refusePlain(c.tbl, c.row);
     // last change wins: a newer change from somewhere else beats this one, and the device gets that one instead.
     // Except where overrule() decides first (deletions in DELETES_WIN tables are final).
     const accepted: Change[] = [], rejected: Change[] = [];

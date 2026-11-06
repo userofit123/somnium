@@ -19,6 +19,9 @@ export const isSealed = (value: unknown): value is string => typeof value === "s
 
 async function aesKey(key: Uint8Array): Promise<CryptoKey> {
   if (key.length !== 32) throw new SealError("A sealing key is 32 bytes");
+  // a key that has been zeroed (the keyring clears a key it no longer holds) must never seal anything: the result
+  // would look sealed and open for anyone
+  if (key.every((b) => b === 0)) throw new SealError("The sealing key has been cleared");
   return globalThis.crypto.subtle.importKey("raw", key, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 

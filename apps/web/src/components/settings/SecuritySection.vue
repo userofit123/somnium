@@ -31,7 +31,10 @@ const qr = computed(() => (start.value ? qrPath(start.value.url) : null));
 const codes = ref<string[] | null>(null);
 const busy = ref(false);
 
-async function tfaStart() { try { start.value = await api.post("/auth/2fa/start"); code.value = ""; } catch (e) { toastError(e); } }
+async function tfaStart() {
+  const password = await prompt("Set up two-factor sign-in", { text: "Type your password.", placeholder: "Password", ok: "Next", secret: true }); if (!password) return;
+  try { start.value = await api.post("/auth/2fa/start", { authKey: await authKeyFor(username.value, password) }); code.value = ""; } catch (e) { toastError(e); }
+}
 async function tfaEnable() {
   busy.value = true;
   try { const r = await api.post("/auth/2fa/enable", { code: code.value }); start.value = null; codes.value = r.backupCodes; sec.refetch(); toast("Two-factor sign-in is on"); }
@@ -72,6 +75,7 @@ function download() {
     <form v-if="start && qr" class="card sec-setup" @submit.prevent="tfaEnable">
       <p class="s">Scan this with your authenticator app, or type the key into it.</p>
       <div class="sec-qrrow">
+        <!-- Fixed white and black, not theme tokens: scanners need this contrast in every theme. -->
         <svg class="sec-qr" role="img" aria-label="QR code for the authenticator app" :viewBox="`-4 -4 ${qr.size + 8} ${qr.size + 8}`" shape-rendering="crispEdges"><rect x="-4" y="-4" :width="qr.size + 8" :height="qr.size + 8" fill="#fff" /><path :d="qr.d" fill="#000" /></svg>
         <div class="grow sec-key"><div class="tiny">Key</div><code class="sec-mono">{{ keyGroups(start.secret) }}</code>
           <div><button type="button" class="qb" @click="copy(start!.secret, 'Key')"><Icon name="copy" :size="15" />Copy key</button><a class="qb" :href="start.url">Open in app</a></div></div>
@@ -99,11 +103,11 @@ function download() {
 
 <style scoped>
 .sec-qrrow { display: flex; gap: var(--spg); align-items: flex-start; margin-bottom: var(--spg); }
-.sec-qr { width: 148px; height: 148px; flex: none; border-radius: var(--r-sm); }
-.sec-key { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.sec-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; letter-spacing: .04em; word-break: break-all; }
-.sec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px var(--spg); margin: var(--spg) 0; }
-.sec-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.sec-codes .s { margin-top: 4px; }
+.sec-qr { width: calc(var(--lmh) * 3); height: calc(var(--lmh) * 3); flex: none; border-radius: var(--r-sm); }
+.sec-key { min-width: 0; display: flex; flex-direction: column; gap: var(--hg); }
+.sec-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs); letter-spacing: .04em; word-break: break-all; }
+.sec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--hg) var(--spg); margin: var(--spg) 0; }
+.sec-actions { display: flex; align-items: center; gap: var(--hg); flex-wrap: wrap; }
+.sec-codes .s { margin-top: var(--hg); }
 @media (max-width: 480px) { .sec-qrrow { flex-direction: column; align-items: center; } }
 </style>

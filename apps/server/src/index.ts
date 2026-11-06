@@ -2,6 +2,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { buildApp } from "./app";
+import { ServerKeyError } from "./auth";
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? "0.0.0.0";
@@ -17,6 +18,10 @@ const { app } = await buildApp({
   dataDir: DATA_DIR,
   webDir: process.env.WEB_DIR,
   logger: process.env.LOG !== "0",
+}).catch((e) => {
+  if (!(e instanceof ServerKeyError)) throw e;
+  console.error(e.message); // a bad key at start: the message says it all
+  process.exit(1);
 });
 await app.listen({ host: HOST, port: PORT });
 

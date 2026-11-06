@@ -20,9 +20,13 @@ async function reset(u: any) {
   try {
     const r = await api.put(`/admin/users/${u.id}`, { resetPassword: true });
     await navigator.clipboard?.writeText(r.resetCode).catch(() => {});
-    await confirm(`Reset code for ${u.username}`, { text: `${r.resetCode}\n\nCopied. Valid for one day. They enter it on the sign-in screen under "Forgot password?".`, ok: "Done" });
+    await confirm(`Reset code for ${u.username}`, { text: `${r.resetCode}\n\nCopied. Valid for one day. On the sign-in screen they choose "Forgot password?", then "I have a reset code".`, ok: "Done" });
     users.refetch();
   } catch (e) { toastError(e); }
+}
+async function turnOff2fa(u: any) {
+  if (await confirm(`Turn off two-factor for ${u.username}?`, { text: "Their password alone will sign them in, and their backup codes stop working. Do this only when you know it is them asking.", ok: "Turn off", danger: true }))
+    run(() => api.put(`/admin/users/${u.id}`, { disable2fa: true }), "Two-factor sign-in is off for them");
 }
 async function remove(u: any) { if (await confirm(`Remove ${u.username}?`, { text: "Everything they have in Somnium is deleted.", ok: "Remove", danger: true })) run(() => api.del(`/admin/users/${u.id}`), "Removed"); }
 async function invite() {
@@ -40,7 +44,7 @@ const fmt = useFmt();
     <div class="card"><div v-for="u in users.data.value ?? []" :key="u.id" class="li">
       <div class="grow"><div class="t">{{ u.displayName || u.username }} <span class="tiny">@{{ u.username }}</span><span v-if="u.role === 'admin'" class="mchip" style="margin-inline-start:6px">admin</span><span v-if="u.disabled" class="mchip" style="margin-inline-start:6px">disabled</span><span v-if="u.totpEnabled" class="mchip" style="margin-inline-start:6px">2FA</span></div>
         <div class="s">Joined {{ fmt.date(u.createdAt) }}{{ u.lastSeenAt ? ` · last seen ${fmt.date(u.lastSeenAt)}` : "" }}</div></div>
-      <Menu v-if="u.id !== session.user?.id" :items="[{ label: 'Reset password', icon: 'key', run: () => reset(u) }, ...(u.totpEnabled ? [{ label: 'Turn off two-factor', icon: 'lock', run: () => run(() => api.put(`/admin/users/${u.id}`, { disable2fa: true }), 'Two-factor sign-in is off for them') }] : []), { label: u.role === 'admin' ? 'Remove admin' : 'Make admin', icon: 'user', run: () => run(() => api.put(`/admin/users/${u.id}`, { role: u.role === 'admin' ? 'user' : 'admin' }), u.role === 'admin' ? 'No longer an admin' : 'Made admin') },
+      <Menu v-if="u.id !== session.user?.id" :items="[{ label: 'Reset password', icon: 'key', run: () => reset(u) }, ...(u.totpEnabled ? [{ label: 'Turn off two-factor', icon: 'lock', run: () => turnOff2fa(u) }] : []), { label: u.role === 'admin' ? 'Remove admin' : 'Make admin', icon: 'user', run: () => run(() => api.put(`/admin/users/${u.id}`, { role: u.role === 'admin' ? 'user' : 'admin' }), u.role === 'admin' ? 'No longer an admin' : 'Made admin') },
         { label: u.disabled ? 'Enable' : 'Disable', icon: 'lock', run: () => run(() => api.put(`/admin/users/${u.id}`, { disabled: !u.disabled }), u.disabled ? 'Account enabled' : 'Account disabled') }, { label: 'Remove', icon: 'trash', danger: true, sep: true, run: () => remove(u) }]" />
     </div></div>
     <p class="tiny">Admins manage accounts but never see anyone's dreams or data.</p>

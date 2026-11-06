@@ -10,6 +10,8 @@ interface Item { method: "post" | "put" | "del"; path: string; body?: unknown; a
 const KEY = "somniumOutbox";
 export const waiting = ref<Item[]>(readJson(KEY, []));
 const save = () => writeJson(KEY, waiting.value);
+// no connection, or the journal key isn't open: nothing is wrong with the change, it just can't go yet
+const mustWait = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 let flushing = false;
 
 // rows deleted on this screen whose deletion may still be waiting here: the screens treat them as gone straight away,
@@ -24,7 +26,7 @@ export async function send<T = unknown>(method: Item["method"], path: string, bo
   try {
     return (await (api as any)[method](path, body)) as T;
   } catch (e) {
-    if (e instanceof ApiError && e.status === 0) { waiting.value.push({ method, path, body, at: Date.now() }); save(); return null; }
+    if (mustWait(e)) { waiting.value.push({ method, path, body, at: Date.now() }); save(); return null; }
     throw e;
   }
 }
@@ -36,7 +38,7 @@ export async function flush() {
       const it = waiting.value[0]!;
       try { await (api as any)[it.method](it.path, it.body); }
       catch (e) {
-        if (e instanceof ApiError && e.status === 0) break;
+        if (mustWait(e)) break;
         // refused: drop it rather than block the rest. A change to something deleted meanwhile is expected and quiet;
         // anything else is said, never lost silently
         if (!(e instanceof ApiError && e.status === 404)) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });

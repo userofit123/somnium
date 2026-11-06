@@ -3,18 +3,25 @@
 // here after unwrapping the envelope with the password; the apps' device wrapping (Keystore, safeStorage) is
 // LDJ-9/10 and also ends up here. Signing out and the app lock clear it. It is never written to storage, logs,
 // errors or exports by this module, and nothing here persists it.
-type Listener = (key: Uint8Array | null) => void;
+//
+// Nobody outside this module holds the live key: get() hands out a copy, which its caller zeroes when done, so
+// clearing the keyring can't be undone by a reference left behind, nor can a caller's zeroing break the keyring.
+type Listener = (open: boolean) => void;
 
 let current: Uint8Array | null = null;
 const listeners = new Set<Listener>();
-const tell = () => { for (const fn of listeners) { try { fn(current); } catch { /* a listener's problem is its own */ } } };
+const tell = () => { for (const fn of listeners) { try { fn(current !== null); } catch { /* a listener's problem is its own */ } } };
 
 export const keyring = {
-  /** The open data key, or null while the journal is locked on this device. */
-  get(): Uint8Array | null { return current; },
+  /** A copy of the open data key, or null while the journal is locked on this device. Zero it when done. */
+  get(): Uint8Array | null { return current ? new Uint8Array(current) : null; },
+  /** Whether the key is open, without making a copy of it. */
+  isOpen(): boolean { return current !== null; },
   set(k: Uint8Array): void {
     if (k.length !== 32) throw new Error("A data key is 32 bytes");
-    current = new Uint8Array(k); // our own copy: the caller may zero theirs
+    const next = new Uint8Array(k); // our own copy: the caller may zero theirs
+    current?.fill(0);
+    current = next;
     tell();
   },
   clear(): void {
@@ -22,7 +29,7 @@ export const keyring = {
     current = null;
     tell();
   },
-  /** Called with the key whenever it is set or cleared; returns an unsubscribe function. */
+  /** Called with whether the key is open whenever it is set or cleared; returns an unsubscribe function. */
   onChange(cb: Listener): () => void { listeners.add(cb); return () => listeners.delete(cb); },
 };
 

@@ -181,6 +181,12 @@ describe("sealing values", () => {
     await expect(unsealText("just a dream", key)).rejects.toBeInstanceOf(SealError);
     await expect(unsealText("", key)).rejects.toBeInstanceOf(SealError);
   });
+  it("refuses an all-zero key, which is what a cleared key looks like", async () => {
+    const zero = new Uint8Array(32);
+    await expect(sealText("secret", zero)).rejects.toBeInstanceOf(SealError);
+    await expect(sealBytes(new Uint8Array(4), zero)).rejects.toBeInstanceOf(SealError);
+    await expect(sealColumn("secret", zero, "dreams", "text", "id")).rejects.toBeInstanceOf(SealError);
+  });
   it("tells envelopes from other strings", async () => {
     expect(isSealed(await sealText("x", key))).toBe(true);
     expect(isSealed("v1.short.short")).toBe(false);

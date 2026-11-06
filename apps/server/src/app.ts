@@ -8,14 +8,17 @@ import cookie from "@fastify/cookie";
 import fstatic from "@fastify/static";
 import { createEngine, uuidv7, withUser, type Db, type Engine } from "@somnium/engine";
 import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handlers
+import { isSealed } from "@somnium/shared";
 import {
   hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, tooManyTries, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
   newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
-  COOKIE, SESSION_DAYS, type SessionUser,
+  useTotp, noteAccount, validDeviceId, ServerKeyError, RESET_MESSAGE, COOKIE, SESSION_DAYS, type SessionUser,
 } from "./auth";
 import { VERSION, API_LEVEL, checkForUpdate } from "./version";
 
-export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string }
+// mode "local": the desktop app's own server for a local account. Its data stays on the device as plaintext, so it
+// doesn't insist on envelopes the way a real server does.
+export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string; mode?: "server" | "local" }
 
 /** A local (on-device) account: one person, signed in automatically by the desktop app. Returns a session token for them. */
 export async function localSession(db: Db, name = "Me"): Promise<string> {
@@ -27,13 +30,14 @@ export async function localSession(db: Db, name = "Me"): Promise<string> {
 declare module "fastify" { interface FastifyRequest { user: SessionUser | null } }
 
 export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engine: Engine }> {
-  const engine = await createEngine(o.db, { mode: "server" });
+  const engine = await createEngine(o.db, { mode: o.mode ?? "server" });
   const db = o.db;
   const app = Fastify({ logger: o.logger ?? false, bodyLimit: 30 * 1024 * 1024, trustProxy: true });
   await app.register(cookie);
   app.decorateRequest("user", null);
   for (const t of ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif", "video/mp4", "application/octet-stream"])
     app.addContentTypeParser(t, { parseAs: "buffer", bodyLimit: 30 * 1024 * 1024 }, (_r, body, done) => done(null, body));
+  app.addContentTypeParser(/^audio\//, { parseAs: "buffer", bodyLimit: 30 * 1024 * 1024 }, (_r, body, done) => done(null, body));
 
   const meta = async (k: string, fallback: unknown) => (await db.admin.query("SELECT value FROM app_meta WHERE key = $1", [k])).rows[0]?.value ?? fallback;
   const setMeta = (k: string, v: unknown) => db.admin.query("INSERT INTO app_meta (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = $2", [k, JSON.stringify(v)]);
@@ -48,10 +52,12 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (req.method !== "GET" && req.method !== "HEAD" && req.cookies[COOKIE] && !req.headers.authorization && req.headers["x-somnium"] !== "1" && req.url.startsWith("/api/"))
       return reply.code(403).send({ error: "Missing X-Somnium header" });
   });
+  // a browser must take every answer as the type it says it is: an uploaded file can never be run as a page or script
+  app.addHook("onSend", async (_req, reply) => { reply.header("x-content-type-options", "nosniff"); });
   const need = (req: FastifyRequest, reply: FastifyReply) => { if (!req.user) { reply.code(401).send({ error: "Sign in first" }); return false; } return true; };
   const needAdmin = (req: FastifyRequest, reply: FastifyReply) => { if (!need(req, reply)) return false; if (req.user!.role !== "admin") { reply.code(403).send({ error: "Admins only" }); return false; } return true; };
   const setCookie = (req: FastifyRequest, reply: FastifyReply, token: string) =>
-    reply.setCookie(COOKIE, token, { httpOnly: true, sameSite: "lax", secure: req.protocol === "https", path: "/", maxAge: SESSION_DAYS * 86400 });
+    reply.setCookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: req.protocol === "https", path: "/", maxAge: SESSION_DAYS * 86400 });
 
   // ----- sign-in (PLAN.md §4.1-4.2): the device sends authKey, never the password -----
   const serverKey = loadServerKey(o.dataDir);
@@ -72,8 +78,9 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   });
   const signIn = async (req: FastifyRequest, reply: FastifyReply, id: string, b: any) => {
     const device = deviceLabel(b?.deviceName, req.headers["user-agent"]);
-    await noteNewDevice(db, id, device);
-    const token = await createSession(db, id, device, String(b?.platform ?? "web"));
+    const deviceId = validDeviceId(b?.deviceId) ? b.deviceId : null;
+    await noteNewDevice(db, id, device, deviceId);
+    const token = await createSession(db, id, device, String(b?.platform ?? "web"), deviceId);
     setCookie(req, reply, token);
     return b?.wantToken ? token : undefined;
   };
@@ -111,7 +118,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (u.totp_enabled) {
       const code = b?.code ?? b?.totp;
       if (code === undefined || code === null || code === "") return { ok: false, totpRequired: true };
-      const good = totpOk(decryptForServer(u.totp_secret, serverKey), code) || (await useBackupCode(db, u.id, code));
+      const good = (await useTotp(db, u.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, u.id, code));
       if (!good) { recordFail(keys); return reply.code(401).send({ error: "That code is not right" }); }
     }
     return { ok: true, totpRequired: false, kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password, token: await signIn(req, reply, u.id, b) };
@@ -158,6 +165,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = $4, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL WHERE id = $1",
       [req.user!.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2", [req.user!.id, req.user!.sessionId]);
+    await noteAccount(db, req.user!.id, "Password changed");
     return { ok: true };
   });
   // the way back in when the password is lost and the admin gave a reset code (PLAN.md §4.4): a new password, but
@@ -171,11 +179,12 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const u = (await db.admin.query("SELECT id, reset_code_hash FROM users WHERE username = $1 AND reset_expires_at > now()", [name])).rows[0];
     const ok = await checkSecret(plainCode(b?.code), u?.reset_code_hash ?? null);
     if (!u || !ok) { recordFail(keys); return reply.code(403).send({ error: "That reset code is not right or has run out" }); }
-    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL WHERE id = $1",
+    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1",
       [u.id, b.kdfSalt, await hashSecret(b.authKey)]);
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [u.id]);
     await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [u.id]);
-    return { ok: true };
+    await noteAccount(db, u.id, "Password set with a reset code. Two-factor sign-in is off.");
+    return { ok: true, sealed: true, message: RESET_MESSAGE };
   });
   app.delete("/api/auth/account", async (req, reply) => {
     if (!need(req, reply)) return;
@@ -196,19 +205,25 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const codes = Number((await db.admin.query("SELECT count(*) n FROM backup_codes WHERE user_id = $1 AND used_at IS NULL", [req.user!.id])).rows[0].n);
     return { totpEnabled: !!u.totp_enabled, backupCodesLeft: codes, recoveryMadeAt: u.recovery_made_at, passwordChangedAt: u.password_changed_at, sealed: !u.wrapped_by_password };
   });
-  // a fresh secret, shown once as a QR code and as text; sign-in does not ask for codes until /enable confirms one
+  // a fresh secret, shown once as a QR code and as text; sign-in does not ask for codes until /enable confirms one.
+  // It needs the password, and two-factor must be off: otherwise a device left signed in could swap the secret
+  // (the condition is in the one UPDATE, so nothing can turn it on in between).
   app.post("/api/auth/2fa/start", async (req, reply) => {
     if (!need(req, reply)) return;
+    if (!(await recheck(req, reply, (req.body as any)?.authKey))) return;
     const secret = newTotpSecret();
-    await db.admin.query("UPDATE users SET totp_secret = $2, totp_enabled = false WHERE id = $1", [req.user!.id, encryptForServer(secret, serverKey)]);
+    const started = await db.admin.query("UPDATE users SET totp_secret = $2, totp_last_step = NULL WHERE id = $1 AND NOT totp_enabled RETURNING id", [req.user!.id, encryptForServer(secret, serverKey)]);
+    if (!started.rows.length) return reply.code(409).send({ error: "Two-factor sign-in is already on. Turn it off first." });
     return { secret, url: otpauthUrl(req.user!.username, secret) };
   });
   app.post("/api/auth/2fa/enable", async (req, reply) => {
     if (!need(req, reply)) return;
     const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (!u.totp_secret || u.totp_enabled) return reply.code(400).send({ error: "Start by scanning a new code" });
-    if (!totpOk(decryptForServer(u.totp_secret, serverKey), (req.body as any)?.code)) return reply.code(403).send({ error: "That code is not right. Check the time on your phone and try the next one." });
-    await db.admin.query("UPDATE users SET totp_enabled = true WHERE id = $1", [req.user!.id]);
+    const step = totpOk(decryptForServer(u.totp_secret, serverKey), (req.body as any)?.code);
+    if (step === null) return reply.code(403).send({ error: "That code is not right. Check the time on your phone and try the next one." });
+    await db.admin.query("UPDATE users SET totp_enabled = true, totp_last_step = $2 WHERE id = $1", [req.user!.id, step]);
+    await noteAccount(db, req.user!.id, "Two-factor sign-in turned on");
     return { ok: true, backupCodes: await issueBackupCodes(db, req.user!.id) };
   });
   app.post("/api/auth/2fa/codes", async (req, reply) => {
@@ -221,9 +236,13 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const b = req.body as any;
     if (!(await recheck(req, reply, b?.authKey))) return;
     const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (u.totp_enabled && !totpOk(decryptForServer(u.totp_secret, serverKey), b?.code) && !(await useBackupCode(db, req.user!.id, b?.code))) return reply.code(403).send({ error: "That code is not right" });
-    await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL WHERE id = $1", [req.user!.id]);
+    if (u.totp_enabled && !(await useTotp(db, req.user!.id, decryptForServer(u.totp_secret, serverKey), b?.code)) && !(await useBackupCode(db, req.user!.id, b?.code))) {
+      recordFail([`ip:${req.ip}`, `u:${req.user!.username}`]); // the same count recheck looks at, so five wrong codes wait too
+      return reply.code(403).send({ error: "That code is not right" });
+    }
+    await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1", [req.user!.id]);
     await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [req.user!.id]);
+    await noteAccount(db, req.user!.id, "Two-factor sign-in turned off");
     return { ok: true };
   });
 
@@ -243,8 +262,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (id === req.user!.id && (b.role === "user" || b.disabled)) return reply.code(400).send({ error: "You can't remove your own admin access" });
     if (!(await db.admin.query("SELECT 1 FROM users WHERE id = $1", [id])).rows.length) return reply.code(404).send({ error: "No such account" });
     let resetCode: string | undefined;
-    if (b.resetPassword) { resetCode = await issueResetCode(db, id); await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); }
-    if (b.disable2fa) { await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL WHERE id = $1", [id]); await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [id]); }
+    if (b.resetPassword) { resetCode = await issueResetCode(db, id); await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); await noteAccount(db, id, "An admin made a password reset code"); }
+    if (b.disable2fa) { await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1", [id]); await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [id]); await noteAccount(db, id, "An admin turned two-factor sign-in off"); }
     if (b.role) await db.admin.query("UPDATE users SET role = $2 WHERE id = $1", [id, b.role === "admin" ? "admin" : "user"]);
     if (typeof b.disabled === "boolean") { await db.admin.query("UPDATE users SET disabled_at = CASE WHEN $2 THEN now() ELSE NULL END WHERE id = $1", [id, b.disabled]); if (b.disabled) await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [id]); }
     return { ok: true, resetCode };
@@ -295,20 +314,26 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     return reply;
   });
 
-  // ----- media: files people upload (journal photos and audio, sealed on the device before they get here) -----
+  // ----- media: files people upload (journal photos and audio). A server only ever holds them sealed: the device
+  // seals each one (apps/web/src/api/client.ts) and anything else is refused below. The kind, type and size stay plain. -----
   const mediaDir = path.join(o.dataDir, "media");
   fs.mkdirSync(mediaDir, { recursive: true });
-  // the file goes in the body; ?dreamId= hangs it on one of the person's live dreams. The row is written first and
+  // the sealed file goes in the body; ?id= is the id it was sealed for (made on the device, since the seal is bound to
+  // it); ?dreamId= hangs it on one of the person's live dreams. The row is written first and
   // the file only once that worked (a file without a row would be unreachable and never cleaned up).
   app.post("/api/media", async (req, reply) => {
     if (!need(req, reply)) return;
     const buf = req.body as Buffer;
     if (!Buffer.isBuffer(buf) || !buf.length) return reply.code(400).send({ error: "Send the file as the request body" });
+    const sealedOnly = (o.mode ?? "server") === "server";
+    if (sealedOnly && !isSealed(buf.toString("latin1"))) return reply.code(400).send({ error: "This file must be sealed by the app" });
     const mime = String(req.headers["content-type"]);
     const kind = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : "photo";
-    const dreamId = (req.query as Record<string, string | undefined>).dreamId || null;
+    const { dreamId: dreamParam, id: idParam } = req.query as Record<string, string | undefined>;
+    const dreamId = dreamParam || null;
     if (dreamId && !isUuid(dreamId)) return reply.code(400).send({ error: "Invalid dream" });
-    const id = uuidv7();
+    if (idParam ? !isUuid(idParam) : sealedOnly) return reply.code(400).send({ error: "Invalid file id" });
+    const id = idParam || uuidv7();
     try {
       await withUser(db, req.user!.id, async (q) => {
         await visible(q, "dreams", dreamId, "dream");
@@ -317,6 +342,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
       });
     } catch (e) {
       if (e instanceof HttpError) return reply.code(e.status).send({ error: e.message });
+      if (/duplicate key|violates unique/.test((e as Error).message)) return reply.code(400).send({ error: "Invalid file id" });
       throw e;
     }
     const dir = path.join(mediaDir, req.user!.id);
@@ -350,6 +376,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     app.setNotFoundHandler((req, reply) => (req.url.startsWith("/api/") ? reply.code(404).send({ error: "Not found" }) : reply.type("text/html").sendFile("index.html")));
   }
   app.setErrorHandler((err, req, reply) => {
+    if (err instanceof ServerKeyError) { req.log.error(err.message); return reply.code(500).send({ error: err.message }); }
     req.log.error(err);
     reply.code(err.statusCode && err.statusCode < 500 ? err.statusCode : 500).send({ error: err.statusCode && err.statusCode < 500 ? err.message : "Something went wrong on the server" });
   });

@@ -11,8 +11,12 @@
 // the person sets a new password with it, but the journal stays sealed until a recovery key or a signed-in
 // device re-wraps the data key (§4.4), because the data key only lives in the wrapped blobs.
 //
+// totp_last_step: the 30-second step of the last authenticator code accepted, so one code works only once.
+//
 // account_events: notes the server writes about the account itself ("Signed in on Firefox on Linux"), shown in the
 // activity log next to the changes from sync_log. Never sealed data; never the device's address.
+// device_id: a random id each install makes for itself. Sessions carry it, and the note keeps it too, because
+// sessions are deleted at sign-out and a device that signs out and back in is not a new device.
 const ME = "NULLIF(current_setting('app.user_id', true), '')::uuid";
 
 export default /* sql */ `
@@ -26,6 +30,7 @@ ALTER TABLE users
   ADD COLUMN recovery_verifier text,
   ADD COLUMN recovery_made_at timestamptz,
   ADD COLUMN totp_enabled boolean NOT NULL DEFAULT false,
+  ADD COLUMN totp_last_step bigint,
   ADD COLUMN password_changed_at timestamptz,
   ADD COLUMN reset_code_hash text,
   ADD COLUMN reset_expires_at timestamptz;
@@ -33,6 +38,8 @@ ALTER TABLE users
 -- a person reads their own row, but never the sign-in secrets: those columns are the server's alone
 REVOKE SELECT ON users FROM somnium_app;
 GRANT SELECT (id, username, email, role, display_name, totp_enabled, recovery_made_at, password_changed_at, disabled_at, created_at) ON users TO somnium_app;
+
+ALTER TABLE sessions ADD COLUMN device_id text;
 
 CREATE TABLE backup_codes (
   id uuid PRIMARY KEY,
@@ -51,6 +58,7 @@ CREATE TABLE account_events (
   id uuid PRIMARY KEY,
   user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   text text NOT NULL,
+  device_id text,
   at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX account_events_user ON account_events (user_id, at);

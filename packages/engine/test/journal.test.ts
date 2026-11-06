@@ -30,7 +30,8 @@ type Export = { tables: Record<string, Record<string, unknown>[]> };
 let night: Night, dream: Dream, element: Element;
 
 beforeAll(async () => {
-  eng = await createEngine(await pgliteDb("memory://"), { mode: "server" });
+  // the handlers themselves, on a device: what a server refuses (plaintext in sealed columns) is in sealing.test.ts
+  eng = await createEngine(await pgliteDb("memory://"), { mode: "local" });
   A = uuidv7(); B = uuidv7();
   await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'a','A'), ($2,'b','B')", [A, B]);
 }, 120000);

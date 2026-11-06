@@ -2,7 +2,7 @@
 import { CHECK_KINDS, CHECK_OUTCOMES, type RealityCheck } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, intOrNull, bool, isoTime } from "../util";
-import { columns, sealed, enumOf, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
+import { clientId, columns, sealed, enumOf, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
 
 const CHECK: Fields = {
   at: (v) => isoTime(v, new Date().toISOString()),
@@ -21,7 +21,7 @@ export function checkRoutes(r: Router) {
     return listLive<RealityCheck>(q, "reality_checks", w.join(" AND "), params, "at DESC", intOrNull(qs.limit, 1, 2000) ?? 200);
   });
   r.get("/reality-checks/:id", async ({ q }, p) => getLive<RealityCheck>(q, "reality_checks", id(p.id), "reality check"));
-  r.post("/reality-checks", async (ctx, _p, b) => insertRow<RealityCheck>(ctx, "reality_checks", "checks", columns(CHECK, b, true)));
+  r.post("/reality-checks", async (ctx, _p, b) => insertRow<RealityCheck>(ctx, "reality_checks", "checks", { ...columns(CHECK, b, true), ...clientId(b) }));
   r.put("/reality-checks/:id", async (ctx, p, b) => updateRow<RealityCheck>(ctx, "reality_checks", "checks", id(p.id), columns(CHECK, b, false), "reality check"));
   r.del("/reality-checks/:id", async (ctx, p) => { await removeRow(ctx, "reality_checks", "checks", id(p.id), "reality check"); return { ok: true }; });
 }

@@ -7,12 +7,13 @@ import { ApiError, httpTransport, server, setTransport, type Transport } from ".
 import { invalidate, setRemoteHandler } from "./live";
 import { readStr, writeStr } from "../core/prefs";
 import { keyring } from "../core/keyring";
+import { needsKey } from "@somnium/engine/sealed-api";
 
-// sealed: the journal key is open here, so sealed tables can leave (sealed) and arrive (opened). Without it nothing is
-// sent or fetched and the pill says Locked: the copy keeps working offline, plaintext never goes out, ciphertext never
-// comes in (packages/engine/src/sync/sealing.ts).
+// sealed: the journal key is open here, so sealed tables can leave (sealed) and arrive (opened). Without it the pill
+// says "Not syncing · locked": settings, goals and reminders still travel, the journal's rows wait, plaintext never
+// goes out and ciphertext never comes in (packages/engine/src/sync/sealing.ts).
 export const sync = reactive({ on: false, online: true, syncing: false, waiting: 0, lastAt: 0, error: "", sealed: true });
-const LOCKED = "Locked: the journal key isn't open on this device";
+const LOCKED = "Not syncing: the journal key isn't open on this device";
 const locked = () => { sync.sealed = false; sync.error = LOCKED; };
 
 // what only the server can do: signing in, the admin pages, files, and sync itself
@@ -99,10 +100,12 @@ export async function startReplica(user: { id: string }): Promise<boolean> {
     userId = user.id;
     if (!(await R.replicaMeta(db)).ready) {
       // the first copy needs the server once, and the key to open it: without the key there is no copy to work on
-      if (!keyring.get()) { locked(); throw new Error(LOCKED); }
+      const key = keyring.get();
+      if (!key) { locked(); throw new Error(LOCKED); }
       // everything you have in one answer: on a big history and a slow connection this takes far longer than an
       // ordinary request is given
-      await R.loadSnapshot(db, await httpTransport.request("GET", "/sync/snapshot", undefined, { wait: 120_000 }), keyring.get());
+      try { await R.loadSnapshot(db, await httpTransport.request("GET", "/sync/snapshot", undefined, { wait: 120_000 }), key); }
+      finally { key.fill(0); }
     }
   } catch {
     await db?.close().catch(() => {}); db = null; eng = null;
@@ -127,7 +130,7 @@ export async function startReplica(user: { id: string }): Promise<boolean> {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { failingSince = 0; shownAt = Date.now(); schedule(0); } }, { signal });
   tick = setInterval(() => schedule(0), PAGE_WAIT);
   // the key arriving (sign-in finishing, the app unlocking) is what a locked sync was waiting for
-  stopKeyring = keyring.onChange((k) => { if (k) { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; schedule(0); } else locked(); });
+  stopKeyring = keyring.onChange((open) => { if (open) { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; schedule(0); } else locked(); });
   sync.waiting = await R.waitingCount(db);
   noteUnsent(sync.waiting);
   schedule(0);
@@ -143,9 +146,10 @@ export function schedule(ms = 400) {
 /** Send what changed here, then fetch what changed elsewhere. */
 async function run() {
   if (running) { again = true; return; }
-  // no key, no sync: sealed tables can neither be sealed for the server nor opened from it
+  // this sync's own copy of the key, zeroed at the end: locking during a sync can't pull it out from under the sealing.
+  // No key: sealed tables can neither be sealed for the server nor opened from it, so only the plain ones travel.
   const key = keyring.get();
-  if (!key) { locked(); return; }
+  if (!key) locked();
   running = true; sync.syncing = true;
   // when the request now in flight began: the grace counts from there, not from the start of a long sync
   let tried = Date.now();
@@ -153,6 +157,25 @@ async function run() {
   let changed = false, failed = 0;
   try {
     const meta = await R.replicaMeta(db);
+    if (!key) {
+      for (;;) {
+        const out = await R.plainChanges(db);
+        if (!out.changes.length) break;
+        const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
+        await R.markPlainSent(db, out.upTo);
+        if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected.filter((c: any) => !needsKey(c.tbl))); changed = true; }
+        if (res.failed?.length) failed = res.failed.length;
+      }
+      for (;;) {
+        const p = await call("GET", `/sync/pull?since=${await R.plainSince(db)}&device=${encodeURIComponent(meta.device)}`);
+        await R.takePlain(db, userId, p.changes, p.cursor);
+        if (p.changes.some((c: any) => !needsKey(c.tbl))) changed = true;
+        if (!p.more) break;
+      }
+      failingSince = 0;
+      sync.online = true;
+      return;
+    }
     for (;;) {
       const out = await R.localChanges(db, 500, key); // sealed here, on the way out
       if (!out.changes.length) break;
@@ -160,7 +183,7 @@ async function run() {
       await R.markSent(db, out.upTo);
       if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected, undefined, key); changed = true; }
       // the server couldn't take some (they no longer fit its data): say so rather than lose them without a word
-      if (res.failed?.length) { failed = res.failed.length; console.warn("Sync: the server refused", res.failed); }
+      if (res.failed?.length) { failed = res.failed.length; console.warn(`Sync: the server refused ${failed} change${failed === 1 ? "" : "s"}`); }
     }
     const retry: any[] = [];
     for (;;) {
@@ -174,7 +197,12 @@ async function run() {
     // a row that arrived before the row it belongs to (they came in different pages)
     if (retry.length) await R.applyRemote(db, userId, retry, undefined, key);
     failingSince = 0;
-    Object.assign(sync, { online: true, error: failed ? `${failed} change${failed === 1 ? "" : "s"} from this device didn't fit the server's data` : "", lastAt: Date.now() });
+    const unopened = (await R.replicaMeta(db)).unopened?.length ?? 0;
+    const problems = [
+      failed ? `${failed} change${failed === 1 ? "" : "s"} from this device didn't fit the server's data` : "",
+      unopened ? `${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened` : "",
+    ].filter(Boolean).join(" · ");
+    Object.assign(sync, { online: true, error: problems, lastAt: Date.now() });
   } catch (e) {
     if (e instanceof ApiError && e.status === 0) unreachable(tried);
     else if ((e as Error).name === "LockedError") locked();
@@ -184,6 +212,7 @@ async function run() {
       sync.error = (e as Error).message;
     }
   } finally {
+    key?.fill(0);
     sync.waiting = await R.waitingCount(db).catch(() => sync.waiting);
     noteUnsent(sync.waiting);
     running = false; sync.syncing = false;

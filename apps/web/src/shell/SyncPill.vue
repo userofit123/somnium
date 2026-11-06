@@ -8,7 +8,7 @@ import Icon from "../components/Icon.vue";
 <template>
   <Transition name="sp">
     <div v-if="sync.on && (!sync.sealed || !sync.online)" class="syncpill" role="status">
-      <Icon name="refresh" :size="14" />{{ sync.sealed ? "Offline" : "Locked" }}<template v-if="sync.waiting"> · {{ sync.waiting }} change{{ sync.waiting === 1 ? "" : "s" }} saved here</template>
+      <Icon name="refresh" :size="14" />{{ sync.sealed ? "Offline" : "Not syncing · locked" }}<template v-if="sync.waiting"> · {{ sync.waiting }} change{{ sync.waiting === 1 ? "" : "s" }} saved here</template>
     </div>
   </Transition>
 </template>

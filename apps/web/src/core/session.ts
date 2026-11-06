@@ -1,6 +1,6 @@
 // Who is signed in, and how this app reaches its data.
 import { reactive } from "vue";
-import { api, setOnUnauthorized, ApiError, server, usingHttp } from "../api/client";
+import { api, setOnUnauthorized, setLocalDevice, ApiError, server, usingHttp } from "../api/client";
 import { queryClient, invalidate } from "../api/live";
 import { readJson, writeJson } from "./prefs";
 import { startReplica, eraseReplica, sync, copyHasUnsent, unreachable } from "../api/replica";
@@ -15,6 +15,7 @@ export const session = reactive<{ ready: boolean; setupNeeded: boolean; user: { 
 const KEY = () => "somniumSession:" + (server.value.base || location.origin);
 
 export async function loadSession() {
+  setLocalDevice(await isLocalAccount());
   let s: any = null, offline = false;
   // the app doesn't wait long on a server that doesn't answer: a few seconds, then it opens on this device's copy
   // (the copy syncs once the server answers again). With nothing saved on this device there is no copy to open on,

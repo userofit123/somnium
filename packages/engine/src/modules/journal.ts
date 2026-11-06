@@ -3,7 +3,7 @@
 import { BECAME_LUCID_HOW, WAKE_METHODS, ELEMENT_KINDS, SIGN_CATEGORIES, ELEMENT_SOURCES, type Night, type Dream, type Element, type DreamElement } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, numOrNull, bool, dateStr, visible, camel, camels } from "../util";
-import { columns, sealed, timeOrNull, clockOrNull, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
+import { clientId, refuseOtherRow, columns, sealed, timeOrNull, clockOrNull, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
 import { conflict, notFound } from "../errors";
 
 const NIGHT: Fields = {
@@ -57,7 +57,7 @@ export function journalRoutes(r: Router) {
   });
   r.post("/nights", async (ctx, _p, b) => {
     // one live night per date (index nights_user_date_live; a nap is its own row and may share the date)
-    try { return await insertRow<Night>(ctx, "nights", "nights", columns(NIGHT, b, true)); }
+    try { return await insertRow<Night>(ctx, "nights", "nights", { ...columns(NIGHT, b, true), ...clientId(b) }); }
     catch (e) { if (/nights_user_date_live/.test(String((e as Error).message))) throw conflict("There is already a night for that date"); throw e; }
   });
   r.put("/nights/:id", async (ctx, p, b) => updateRow<Night>(ctx, "nights", "nights", id(p.id), columns(NIGHT, b, false), "night"));
@@ -93,7 +93,7 @@ export function journalRoutes(r: Router) {
   r.post("/dreams", async (ctx, _p, b) => {
     const nightId = id(b.nightId, "night");
     await visible(ctx.q, "nights", nightId, "night");
-    return insertRow<Dream>(ctx, "dreams", "dreams", { night_id: nightId, ...columns(DREAM, b, true) });
+    return insertRow<Dream>(ctx, "dreams", "dreams", { night_id: nightId, ...columns(DREAM, b, true), ...clientId(b) });
   });
   r.put("/dreams/:id", async (ctx, p, b) => {
     const cols = columns(DREAM, b, false);
@@ -117,7 +117,7 @@ export function journalRoutes(r: Router) {
     const el = await getLive<Element>(q, "elements", id(p.id), "element");
     return { ...el, dreams: await listLive<DreamElement>(q, "dream_elements", "element_id = $1", [el.id], "created_at") };
   });
-  r.post("/elements", async (ctx, _p, b) => insertRow<Element>(ctx, "elements", "elements", columns(ELEMENT, b, true)));
+  r.post("/elements", async (ctx, _p, b) => insertRow<Element>(ctx, "elements", "elements", { ...columns(ELEMENT, b, true), ...clientId(b) }));
   r.put("/elements/:id", async (ctx, p, b) => updateRow<Element>(ctx, "elements", "elements", id(p.id), columns(ELEMENT, b, false), "element"));
   r.del("/elements/:id", async (ctx, p) => {
     await removeRow(ctx, "elements", "elements", id(p.id), "element");
@@ -133,9 +133,10 @@ export function journalRoutes(r: Router) {
     await visible(ctx.q, "elements", elementId, "element");
     const cols = columns(LINK, b, true);
     const cur = (await ctx.q.query("SELECT id FROM dream_elements WHERE dream_id = $1 AND element_id = $2 AND deleted_at IS NULL", [dreamId, elementId])).rows[0];
+    if (cur) refuseOtherRow(b, cur.id);
     const out = cur
       ? await updateRow<DreamElement>(ctx, "dream_elements", "dreams", cur.id, cols)
-      : await insertRow<DreamElement>(ctx, "dream_elements", "dreams", { dream_id: dreamId, element_id: elementId, ...cols });
+      : await insertRow<DreamElement>(ctx, "dream_elements", "dreams", { dream_id: dreamId, element_id: elementId, ...cols, ...clientId(b) });
     ctx.changed("elements");
     return out;
   });

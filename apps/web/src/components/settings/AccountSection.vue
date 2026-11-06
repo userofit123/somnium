@@ -59,7 +59,7 @@ async function changePassword() {
     const bundle = await rewrap(dataKey, next);
     await api.post("/auth/password", { current: cur.authKeyText, authKey: bundle.authKey, kdfSalt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword });
     sessions.refetch(); toast("Password changed. Other devices were signed out.");
-  } catch (e) { toastError(e); }
+  } catch (e) { toastError(e); } finally { dataKey.fill(0); }
 }
 // straight to the server, never queued: without a connection it fails and nothing is deleted.
 // A wrong password leaves you signed in; ask again.

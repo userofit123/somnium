@@ -7,6 +7,7 @@ import type { Router, Ctx } from "../router";
 import type { Sql } from "../db";
 import { bad } from "../errors";
 import { oneOf } from "../util";
+import { refusePlain } from "./rows";
 
 export const EXPORT_FORMAT = 1;
 const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders"] as const;
@@ -23,6 +24,8 @@ export async function importAll(ctx: Ctx, data: any, mode: "replace" | "merge") 
   if (!data || data.app !== "somnium" || !data.tables) throw bad("This is not a Somnium export");
   if (data.format > EXPORT_FORMAT) throw bad("This export is from a newer version of Somnium. Update the app first.");
   if (data.sealed && ctx.mode !== "server") throw bad("This export holds the journal sealed, as the server stores it. Export again from a signed-in device to restore it here.");
+  // before the replace below removes anything, and outside the merge's savepoints, which would swallow it
+  if (ctx.mode === "server") for (const t of TABLES) for (const row of Array.isArray(data.tables[t]) ? data.tables[t] : []) refusePlain(t, row);
   const q = ctx.q;
   if (mode === "replace") {
     // The one place that hard-deletes: a replace restore is the person's own, explicit choice to put their journal

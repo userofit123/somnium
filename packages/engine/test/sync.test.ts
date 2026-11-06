@@ -3,7 +3,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { createEngine, replica, type Engine } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
-import { newDataKey, isSealed } from "@somnium/shared";
+import { newDataKey, isSealed, sealColumn } from "@somnium/shared";
 
 // the account's data key: sealed tables leave the device sealed under it and come back opened (sealing.test.ts checks that)
 const KEY = newDataKey();
@@ -86,8 +86,9 @@ describe("sync", () => {
     await sync();
     expect((await server.handle({ method: "GET", path: `/dreams/${dream.id}`, userId: U })).status).toBe(404);
     // and a dream written on the server reaches the device
-    const back = await S()("POST", "/dreams", { nightId: night.id, text: "env:x" });
+    const backId = uuidv7();
+    const back = await S()("POST", "/dreams", { id: backId, nightId: night.id, text: await sealColumn("from elsewhere", KEY, "dreams", "text", backId) });
     await sync();
-    expect((await D()("GET", `/dreams/${back.id}`)).text).toBe("env:x");
+    expect((await D()("GET", `/dreams/${back.id}`)).text).toBe("from elsewhere");
   });
 });

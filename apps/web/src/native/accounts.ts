@@ -23,7 +23,7 @@ async function localTransport(acc: Account): Promise<Transport> {
   return {
     async request(method, path, body) {
       // photos added to a local account are kept as data inside it
-      if (path === "/media" && body instanceof Blob) {
+      if (path.split("?")[0] === "/media" && body instanceof Blob) {
         const url = await new Promise<string>((res) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.readAsDataURL(body); });
         return { id: url, url };
       }

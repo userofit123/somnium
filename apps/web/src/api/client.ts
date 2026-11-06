@@ -1,6 +1,9 @@
 // Talking to the data: over HTTPS to a server, or (for a local account in the Android app) to the engine inside the app.
 // Screens never know which: they call api.get/post/put/del.
 import { ref } from "vue";
+import { sealColumn } from "@somnium/shared";
+import { LockedError, isJournalRoute, openResponse, previewImport, sealRequest, uuidv7 } from "@somnium/engine/sealed-api";
+import { keyring } from "../core/keyring";
 
 export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
 
@@ -13,10 +16,18 @@ export const server = ref<{ base: string; token: string | null }>({ base: "", to
 
 const ANSWER_WAIT = 20_000;
 
-export const httpTransport: Transport = {
+const authHeaders = () => {
+  const headers: Record<string, string> = { "x-somnium": "1" };
+  if (server.value.token) headers.authorization = `Bearer ${server.value.token}`;
+  return headers;
+};
+
+/** A file from the server exactly as it is stored there (apps/web/src/api/media.ts opens it). */
+export const fetchFile = (path: string) => fetch(server.value.base + "/api" + path, { headers: authHeaders(), credentials: "include" });
+
+const rawTransport: Transport = {
   async request(method, path, body, opts) {
-    const headers: Record<string, string> = { "x-somnium": "1" };
-    if (server.value.token) headers.authorization = `Bearer ${server.value.token}`;
+    const headers = authHeaders();
     let payload: BodyInit | undefined;
     if (body instanceof Blob) { payload = body; headers["content-type"] = body.type || "application/octet-stream"; }
     else if (body !== undefined) { payload = JSON.stringify(body); headers["content-type"] = "application/json"; }
@@ -47,6 +58,46 @@ export const httpTransport: Transport = {
   },
 };
 
+// A local account in the desktop app talks to the server inside the app, over this same transport. Its data stays on
+// the device as plaintext (docs/security.md), so nothing is sealed. Off until it is known to be one: when in doubt, seal.
+let localDevice = false;
+export const setLocalDevice = (on: boolean) => { localDevice = on; };
+export const isLocalDevice = () => localDevice;
+
+/**
+ * Everything that goes to a server goes through here, so no screen can send a sealed column in the clear, with or
+ * without the device's copy in use (packages/engine/src/sync/sealedApi.ts). Without the key, journal requests are
+ * refused here rather than sent. Settings, sign-in, admin and version requests carry nothing sealed and pass as they are.
+ */
+export const httpTransport: Transport = {
+  async request(method, path, body, opts) {
+    if (localDevice) return rawTransport.request(method, path, body, opts);
+    const plainPath = path.split("?")[0];
+    if (method === "POST" && plainPath === "/import/preview") {
+      const preview = previewImport(body);
+      if (!preview) throw new ApiError(400, "This is not a Somnium export");
+      return preview;
+    }
+    const isUpload = method === "POST" && plainPath === "/media";
+    if (!isUpload && !isJournalRoute(path)) return rawTransport.request(method, path, body, opts);
+    const key = keyring.get();
+    if (!key) throw new LockedError();
+    try {
+      if (isUpload) {
+        // the file is bound to its row like any sealed value, so the id is made here and sent along
+        const file = body as Blob, id = uuidv7();
+        const sealed = await sealColumn(new Uint8Array(await file.arrayBuffer()), key, "media", "data", id);
+        return await rawTransport.request(method, `${path}${path.includes("?") ? "&" : "?"}id=${id}`, new Blob([sealed], { type: file.type || "application/octet-stream" }), opts);
+      }
+      const out = await sealRequest(method, path, body, key, (p) => rawTransport.request("GET", p));
+      const answer = await rawTransport.request(method, path, method === "GET" || method === "DELETE" ? body : out, opts);
+      const { data, unopened } = await openResponse(path, answer, key);
+      if (unopened) console.warn(`${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened`);
+      return data;
+    } finally { key.fill(0); }
+  },
+};
+
 let transport: Transport = httpTransport;
 export const usingHttp = () => transport === httpTransport;
 export const setTransport = (t: Transport) => { transport = t; };
@@ -64,12 +115,3 @@ export const api = {
   put: <T = any>(path: string, body?: unknown) => transport.request("PUT", path, body ?? {}) as Promise<T>,
   del: <T = any>(path: string, body?: unknown) => transport.request("DELETE", path, body) as Promise<T>,
 };
-
-/** Uploaded media → URL */
-export function mediaUrl(src: string | null | undefined): string {
-  if (!src) return "";
-  // a local account (Android) keeps files inside its database as data: URLs
-  if (src.startsWith("media:data:")) return src.slice(6);
-  if (src.startsWith("media:")) return `${server.value.base}/api/media/${src.slice(6)}`;
-  return src;
-}

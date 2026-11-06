@@ -12,3 +12,17 @@ export function readStr(k: string, fallback = ""): string {
 export function writeStr(k: string, v: string) {
   try { ls()?.setItem(k, v); } catch { /* not remembered */ }
 }
+
+// This install's own random id, sent with sign-in so the account's activity log can say when a new device signs in
+// (PLAN.md §4.2). It says nothing about the device. Where storage is refused it lasts until the page is closed.
+const DEVICE_ID = "somniumDeviceId";
+let installId = "";
+export function deviceId(): string {
+  if (installId) return installId;
+  installId = readStr(DEVICE_ID);
+  if (!installId) {
+    installId = Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) => b.toString(16).padStart(2, "0")).join("");
+    writeStr(DEVICE_ID, installId);
+  }
+  return installId;
+}

@@ -30,14 +30,15 @@ const sha = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 
 export const COOKIE = "somnium_session";
 export const SESSION_DAYS = Number(process.env.SESSION_DAYS ?? 60);
+const DEVICE_LABEL_MAX = 80;
 
 export interface SessionUser { id: string; username: string; role: "admin" | "user"; sessionId: string }
 
-export async function createSession(db: Db, userId: string, device: string, platform: string): Promise<string> {
+export async function createSession(db: Db, userId: string, device: string, platform: string, deviceId: string | null = null): Promise<string> {
   const token = crypto.randomBytes(32).toString("base64url");
   await db.admin.query(
-    "INSERT INTO sessions (id, user_id, token_hash, device_name, platform, expires_at) VALUES ($1,$2,$3,$4,$5, now() + ($6 || ' days')::interval)",
-    [uuidv7(), userId, sha(token), device.slice(0, 80), platform.slice(0, 20), String(SESSION_DAYS)]);
+    "INSERT INTO sessions (id, user_id, token_hash, device_name, platform, device_id, expires_at) VALUES ($1,$2,$3,$4,$5,$6, now() + ($7 || ' days')::interval)",
+    [uuidv7(), userId, sha(token), device.slice(0, DEVICE_LABEL_MAX), platform.slice(0, 20), deviceId, String(SESSION_DAYS)]);
   return token;
 }
 
@@ -55,10 +56,18 @@ export function deviceLabel(given: unknown, ua: string | undefined): string {
 }
 
 /** Every sign-in from a device this account has not seen before leaves a note in the activity log (PLAN.md §4.2).
- *  "Seen" is by label, which is what the person can recognise; the address is never written. */
-export async function noteNewDevice(db: Db, userId: string, device: string): Promise<void> {
-  const text = `Signed in on ${device}`;
-  if ((await db.admin.query("SELECT 1 FROM account_events WHERE user_id = $1 AND text = $2 LIMIT 1", [userId, text])).rows.length) return;
+ *  "Seen" is by the install's own random id, because two laptops can share a label. The notes are what remembers
+ *  it: sessions are deleted at sign-out. A client that sends no id is told apart by label. The address is never written. */
+export async function noteNewDevice(db: Db, userId: string, device: string, deviceId: string | null): Promise<void> {
+  const text = `Signed in on ${device.trim().slice(0, DEVICE_LABEL_MAX)}`;
+  const seen = deviceId
+    ? await db.admin.query("SELECT 1 FROM account_events WHERE user_id = $1 AND device_id = $2 LIMIT 1", [userId, deviceId])
+    : await db.admin.query("SELECT 1 FROM account_events WHERE user_id = $1 AND device_id IS NULL AND text = $2 LIMIT 1", [userId, text]);
+  if (seen.rows.length) return;
+  await db.admin.query("INSERT INTO account_events (id, user_id, text, device_id) VALUES ($1,$2,$3,$4)", [uuidv7(), userId, text, deviceId]);
+}
+/** A note in the account's own activity log about a change to its sign-in (never a secret, never an address). */
+export async function noteAccount(db: Db, userId: string, text: string): Promise<void> {
   await db.admin.query("INSERT INTO account_events (id, user_id, text) VALUES ($1,$2,$3)", [uuidv7(), userId, text]);
 }
 
@@ -78,17 +87,30 @@ export async function userForToken(db: Db, token: string | undefined): Promise<S
 }
 
 // failed sign-ins: after 5 in 15 minutes from one address (or for one name), wait
+const FAIL_WINDOW = 15 * 60000;
 const fails = new Map<string, number[]>();
+// A sign-in may send any username of any length, so a key is cut to size and every key is swept on every call, not
+// just the ones asked about: names tried once and never again must not stay in memory for good.
+const failKey = (k: string) => k.slice(0, 64);
+function pruneFails() {
+  const cutoff = Date.now() - FAIL_WINDOW;
+  for (const [k, times] of fails) {
+    const recent = times.filter((t) => t > cutoff);
+    if (recent.length) fails.set(k, recent); else fails.delete(k);
+  }
+}
 export function tooManyTries(keys: string[]): boolean {
-  const now = Date.now();
-  return keys.some((k) => (fails.get(k) ?? []).filter((t) => t > now - 15 * 60000).length >= 5);
+  pruneFails();
+  return keys.some((k) => (fails.get(failKey(k))?.length ?? 0) >= 5);
 }
 export function recordFail(keys: string[]) {
-  const now = Date.now();
-  for (const k of keys) fails.set(k, [...(fails.get(k) ?? []).filter((t) => t > now - 15 * 60000), now]);
+  pruneFails();
+  for (const k of keys.map(failKey)) fails.set(k, [...(fails.get(k) ?? []), Date.now()]);
 }
 /** Tests only: forget the failed tries, so one wait does not spill into the next test. */
 export const forgetFails = () => fails.clear();
+/** Tests only: how many keys are being remembered. */
+export const failKeyCount = () => fails.size;
 
 export const validUsername = (u: unknown): u is string => typeof u === "string" && /^[a-zA-Z0-9._-]{2,40}$/.test(u);
 /** The authKey is 32 bytes as base64url (43 characters); the password rules themselves are checked on the device. */
@@ -97,24 +119,37 @@ export const validAuthKey = (k: unknown): k is string => typeof k === "string" &
  *  server never opens it, the device finds out if it is wrong. */
 export const validSalt = (s: unknown): s is string => typeof s === "string" && /^[A-Za-z0-9_-]{22}$/.test(s);
 export const validWrapped = (w: unknown): w is string => typeof w === "string" && /^v1\.[A-Za-z0-9_-]{10,40}\.[A-Za-z0-9_-]{40,200}$/.test(w);
+/** The install's own random id: long enough not to collide, short and plain enough to store and compare. */
+export const validDeviceId = (d: unknown): d is string => typeof d === "string" && /^[A-Za-z0-9_-]{16,64}$/.test(d);
 export const newInviteCode = () => crypto.randomBytes(9).toString("base64url");
 
 // ---------- the server's own key: DATA_DIR/app.key (made on first start, mode 600) or APP_KEY (base64, 32 bytes) ----------
 // It encrypts TOTP secrets at rest and makes the stand-in salts below. It is not the journal's key (the server has none).
+/** The server's key cannot open what it encrypted, or is unusable. Said plainly: the message is all a person needs, and a stack trace adds nothing. */
+export class ServerKeyError extends Error { constructor(message = "Server key missing or changed") { super(message); } }
 let serverKey: Buffer | undefined;
+/** The key in DATA_DIR/app.key, made on first start. "wx" fails if the file exists, so two starts at once cannot overwrite each other's key. */
+export function keyFromFile(dataDir: string): Buffer {
+  const f = path.join(dataDir, "app.key");
+  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+  try {
+    fs.writeFileSync(f, crypto.randomBytes(32).toString("base64"), { flag: "wx", mode: 0o600 });
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
+    if (fs.statSync(f).mode & 0o044) console.warn(`${f} can be read by other users on this machine. Run: chmod 600 ${f}`);
+  }
+  const key = Buffer.from(fs.readFileSync(f, "utf8").trim(), "base64");
+  if (key.length !== 32) throw new ServerKeyError(`${f} is not a valid key file`);
+  return key;
+}
 export function loadServerKey(dataDir: string): Buffer {
   if (serverKey) return serverKey;
   if (process.env.APP_KEY) {
     serverKey = Buffer.from(process.env.APP_KEY, "base64");
-    if (serverKey.length !== 32) throw new Error("APP_KEY must be 32 bytes, base64 encoded");
+    if (serverKey.length !== 32) { serverKey = undefined; throw new ServerKeyError("APP_KEY must be 32 bytes, base64 encoded"); }
     return serverKey;
   }
-  const f = path.join(dataDir, "app.key");
-  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
-  if (!fs.existsSync(f)) fs.writeFileSync(f, crypto.randomBytes(32).toString("base64"), { mode: 0o600 });
-  serverKey = Buffer.from(fs.readFileSync(f, "utf8").trim(), "base64");
-  if (serverKey.length !== 32) throw new Error(`${f} is not a valid key file`);
-  return serverKey;
+  return (serverKey = keyFromFile(dataDir));
 }
 export function encryptForServer(plain: string, key: Buffer): string {
   const iv = crypto.randomBytes(12);
@@ -123,11 +158,14 @@ export function encryptForServer(plain: string, key: Buffer): string {
   return ["v1", iv.toString("base64"), c.getAuthTag().toString("base64"), ct.toString("base64")].join(":");
 }
 export function decryptForServer(blob: string, key: Buffer): string {
-  const [v, iv, tag, ct] = String(blob).split(":");
-  if (v !== "v1") throw new Error("unknown ciphertext version");
-  const d = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(iv!, "base64"));
-  d.setAuthTag(Buffer.from(tag!, "base64"));
-  return Buffer.concat([d.update(Buffer.from(ct!, "base64")), d.final()]).toString("utf8");
+  // the tag check fails when APP_KEY or app.key is not the one this was encrypted with
+  try {
+    const [v, iv, tag, ct] = String(blob).split(":");
+    if (v !== "v1") throw new Error("unknown ciphertext version");
+    const d = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(iv!, "base64"));
+    d.setAuthTag(Buffer.from(tag!, "base64"));
+    return Buffer.concat([d.update(Buffer.from(ct!, "base64")), d.final()]).toString("utf8");
+  } catch { throw new ServerKeyError(); }
 }
 /** The salt GET /auth/salt answers for a username that does not exist: the same every time for that name, and
  *  not tellable from a real one, so the endpoint cannot be used to list who has an account. */
@@ -145,11 +183,24 @@ export function totp(secretB32: string, t = Date.now(), step = 30, digits = 6): 
   const n = ((h[o]! & 0x7f) << 24) | (h[o + 1]! << 16) | (h[o + 2]! << 8) | h[o + 3]!;
   return String(n % 10 ** digits).padStart(digits, "0");
 }
-/** The code now, or the one just before or after (a clock a little off, a code typed late). */
-export function totpOk(secretB32: string, code: unknown, t = Date.now()): boolean {
+/** The code now, or the one just before or after (a clock a little off, a code typed late). Answers the step it
+ *  belongs to, or null. */
+export function totpOk(secretB32: string, code: unknown, t = Date.now()): number | null {
   const c = String(code ?? "").replace(/\s/g, "");
-  if (!/^\d{6}$/.test(c)) return false;
-  return [-1, 0, 1].some((d) => crypto.timingSafeEqual(Buffer.from(totp(secretB32, t + d * 30000)), Buffer.from(c)));
+  if (!/^\d{6}$/.test(c)) return null;
+  for (const d of [-1, 0, 1]) {
+    const at = t + d * 30000;
+    if (crypto.timingSafeEqual(Buffer.from(totp(secretB32, at)), Buffer.from(c))) return Math.floor(at / 1000 / 30);
+  }
+  return null;
+}
+/** Uses up an authenticator code: a code seen over someone's shoulder must not work a second time, so only a step
+ *  later than the last one accepted counts. One statement, so two requests at once cannot both win. */
+export async function useTotp(db: Db, userId: string, secretB32: string, code: unknown): Promise<boolean> {
+  const step = totpOk(secretB32, code);
+  if (step === null) return false;
+  const u = await db.admin.query("UPDATE users SET totp_last_step = $2 WHERE id = $1 AND (totp_last_step IS NULL OR totp_last_step < $2) RETURNING id", [userId, step]);
+  return u.rows.length > 0;
 }
 export const newTotpSecret = () => b32encode(crypto.randomBytes(20));
 export const otpauthUrl = (username: string, secret: string) => `otpauth://totp/Somnium:${encodeURIComponent(username)}?secret=${secret}&issuer=Somnium&digits=6&period=30`;
@@ -189,6 +240,7 @@ export async function useBackupCode(db: Db, userId: string, typed: unknown): Pro
 
 /** A one-time reset code for an account whose password is lost (PLAN.md §4.4, admin only): valid for a day. The
  *  journal stays sealed: the code only lets the person set a new password (new authKey, no wrapped data key). */
+export const RESET_MESSAGE = "Your password is set. Your journal stays sealed until you enter your recovery key or open the app on a device that is still signed in.";
 export async function issueResetCode(db: Db, userId: string): Promise<string> {
   const code = newCode();
   await db.admin.query("UPDATE users SET reset_code_hash = $2, reset_expires_at = now() + interval '1 day' WHERE id = $1", [userId, await hashSecret(code)]);

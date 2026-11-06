@@ -3,7 +3,7 @@
 import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, bool, dateStr } from "../util";
-import { columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
+import { clientId, refuseOtherRow, columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
 import { notFound } from "../errors";
 
 const PRACTICE: Fields = {
@@ -30,7 +30,7 @@ export function practiceRoutes(r: Router) {
     return listLive<PracticeLog>(q, "practice_log", w.join(" AND "), params, "date DESC, created_at DESC", 2000);
   });
   r.get("/practice/:id", async ({ q }, p) => getLive<PracticeLog>(q, "practice_log", id(p.id), "practice entry"));
-  r.post("/practice", async (ctx, _p, b) => insertRow<PracticeLog>(ctx, "practice_log", "practice", columns(PRACTICE, b, true)));
+  r.post("/practice", async (ctx, _p, b) => insertRow<PracticeLog>(ctx, "practice_log", "practice", { ...columns(PRACTICE, b, true), ...clientId(b) }));
   r.put("/practice/:id", async (ctx, p, b) => updateRow<PracticeLog>(ctx, "practice_log", "practice", id(p.id), columns(PRACTICE, b, false), "practice entry"));
   r.del("/practice/:id", async (ctx, p) => { await removeRow(ctx, "practice_log", "practice", id(p.id), "practice entry"); return { ok: true }; });
 
@@ -39,9 +39,10 @@ export function practiceRoutes(r: Router) {
   r.put("/course/:lessonId", async (ctx, p, b) => {
     const lessonId = str(p.lessonId, 80);
     const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [lessonId])).rows[0];
+    if (cur) refuseOtherRow(b, cur.id);
     return cur
       ? updateRow<CourseProgress>(ctx, "course_progress", "course", cur.id, columns(LESSON, b, false), "lesson")
-      : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...columns(LESSON, b, true) });
+      : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...columns(LESSON, b, true), ...clientId(b) });
   });
   r.del("/course/:lessonId", async (ctx, p) => {
     const cur = (await ctx.q.query<{ id: string }>("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [str(p.lessonId, 80)])).rows[0];

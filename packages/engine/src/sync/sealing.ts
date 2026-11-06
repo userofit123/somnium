@@ -1,7 +1,8 @@
 // Sealing at the device/server boundary (PLAN.md §4.1). Rows live in plaintext on a device (its replica, or a local
 // account's own database) and as ciphertext on the server. The only places a row crosses that line are sync's
-// push, pull and first snapshot (replica.ts), and those call sealRows on the way out and unsealRows on the way in,
-// so Electron, Android and the web app share one implementation and the server's code never sees a key.
+// push, pull and first snapshot (replica.ts), plus the direct API when no copy is in use (sealedApi.ts), and those
+// call sealRows on the way out and unsealRows on the way in, so Electron, Android and the web app share one
+// implementation and the server's code never sees a key.
 //
 // Local accounts (no server) hold plaintext in their own database: nothing of theirs ever leaves the device, and
 // the data is protected by the device (its storage, its screen lock) and by the app lock (PLAN.md §4.3). Their
@@ -20,7 +21,7 @@ export const BYTES_COLUMNS: Readonly<Record<string, readonly string[]>> = { medi
 
 /** Thrown when rows of a sealed table must cross the boundary and the device has no data key open. */
 export class LockedError extends SealError {
-  constructor() { super("The journal key isn't open on this device"); this.name = "LockedError"; }
+  constructor() { super("Unlock to sync: the journal key isn't open on this device"); this.name = "LockedError"; }
 }
 
 /** Whether rows of this table need the data key to be sent or received. */
@@ -31,7 +32,11 @@ const rowId = (table: string, row: Row): string => {
   return row.id;
 };
 
-/** The row with every sealed column encrypted. A value already in envelope form (a file sealed before upload) is kept. */
+/**
+ * The row with every sealed column encrypted, whatever the value looks like: a device's rows are plaintext by
+ * definition, so text that merely resembles an envelope must not slip through unsealed. The one thing sealed before
+ * this point is an uploaded file, and that never passes here: it goes to POST /api/media (apps/web/src/api/client.ts).
+ */
 export async function sealRow(table: string, row: Row, dataKey: Uint8Array): Promise<Row> {
   const cols = SEALED_COLUMNS[table];
   if (!cols?.length) return row;
@@ -39,7 +44,7 @@ export async function sealRow(table: string, row: Row, dataKey: Uint8Array): Pro
   const id = rowId(table, row);
   for (const c of cols) {
     const v = row[c];
-    if (v == null || isSealed(v)) continue;
+    if (v == null) continue;
     const plain = BYTES_COLUMNS[table]?.includes(c) ? fromBase64url(String(v)) : String(v);
     out[c] = await sealColumn(plain, dataKey, table, c, id);
   }
@@ -48,8 +53,9 @@ export async function sealRow(table: string, row: Row, dataKey: Uint8Array): Pro
 
 /**
  * The row with every sealed column decrypted. A value that is not an envelope is kept as it is: it was written
- * before sealing existed (or straight to the server by an old client) and is plain already; an envelope that
- * does not open (wrong key, a changed byte, a value moved from another row) throws a SealError.
+ * before sealing existed and is plain already. This is the accepted limit in docs/security.md: a hostile server
+ * could inject text this way, though it could not read anything. An envelope that does not open (wrong key, a
+ * changed byte, a value moved from another row) throws a SealError.
  */
 export async function unsealRow(table: string, row: Row, dataKey: Uint8Array): Promise<Row> {
   const cols = SEALED_COLUMNS[table];
@@ -85,8 +91,17 @@ export async function sealChanges(changes: Change[], dataKey: Uint8Array | null 
   return Promise.all(changes.map(async (c) => (c.row && needsKey(c.tbl) ? { ...c, row: await sealRow(c.tbl, c.row, dataKey!) } : c)));
 }
 
-/** Sync changes that just arrived from the server: their rows opened. */
-export async function unsealChanges(changes: Change[], dataKey: Uint8Array | null | undefined): Promise<Change[]> {
+/**
+ * Sync changes that just arrived from the server: their rows opened. A change that does not open is set aside
+ * rather than thrown, so one bad row never stalls the page it came in; the caller keeps and reports it.
+ */
+export async function unsealChanges(changes: Change[], dataKey: Uint8Array | null | undefined): Promise<{ opened: Change[]; unopened: Change[] }> {
   if (!dataKey && changes.some((c) => c.row && needsKey(c.tbl))) throw new LockedError();
-  return Promise.all(changes.map(async (c) => (c.row && needsKey(c.tbl) ? { ...c, row: await unsealRow(c.tbl, c.row, dataKey!) } : c)));
+  const opened: Change[] = [], unopened: Change[] = [];
+  for (const c of changes) {
+    if (!c.row || !needsKey(c.tbl)) { opened.push(c); continue; }
+    try { opened.push({ ...c, row: await unsealRow(c.tbl, c.row, dataKey!) }); }
+    catch (e) { if (!(e instanceof SealError)) throw e; unopened.push(c); }
+  }
+  return { opened, unopened };
 }

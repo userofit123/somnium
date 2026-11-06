@@ -4,13 +4,14 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
+import crypto from "node:crypto";
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
 import { pgliteDb } from "@somnium/engine/pglite";
-import type { Db } from "@somnium/engine";
-import { createAccountKeys, changePassword, openWithPassword, toBase64url, fromBase64url } from "@somnium/shared";
+import { uuidv7, type Db } from "@somnium/engine";
+import { createAccountKeys, changePassword, openWithPassword, toBase64url, fromBase64url, sealColumn } from "@somnium/shared";
 import { buildApp } from "../src/app";
-import { totp, forgetFails, decryptForServer, loadServerKey } from "../src/auth";
+import { totp, forgetFails, failKeyCount, recordFail, tooManyTries, keyFromFile, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
 
 let app: FastifyInstance, db: Db, dir: string;
 let ann: { authKey: string }; // the first account (the admin), used by the admin test
@@ -97,12 +98,27 @@ describe("sign-up and sign-in with the auth key", () => {
   });
 });
 
+const forgetLastStep = (username: string) => db.admin.query("UPDATE users SET totp_last_step = NULL WHERE username = $1", [username]);
+/** A new account with two-factor on. Its last step is forgotten, so a test can use the current code right away. */
+async function withTwoFactor(username: string) {
+  const { keys, h } = await signUp(username, "correct horse battery", { invite: await invite() });
+  const { secret } = (await post("/auth/2fa/start", { authKey: keys.authKey }, h)).json();
+  const codes: string[] = (await post("/auth/2fa/enable", { code: totp(secret) }, h)).json().backupCodes;
+  await forgetLastStep(username);
+  return { keys, h, secret, codes };
+}
+const notes = async (username: string): Promise<string[]> =>
+  (await db.admin.query("SELECT text FROM account_events WHERE user_id = (SELECT id FROM users WHERE username = $1) ORDER BY at, id", [username])).rows.map((x: any) => x.text);
+const asAdmin = async () => bearer((await signIn("ann", ann.authKey)).json().token);
+const idOf = async (username: string) => (await db.admin.query("SELECT id FROM users WHERE username = $1", [username])).rows[0].id;
+
 async function invite() { const code = "inv" + Math.random().toString(36).slice(2); await db.admin.query("INSERT INTO invites (code, expires_at) VALUES ($1, now() + interval '1 day')", [code]); return code; }
 
 describe("two-factor sign-in", () => {
   it("asks for a code once enabled, takes an authenticator code or a backup code once, and turns off with a code", async () => {
     const { keys, h } = await signUp("two", "correct horse battery", { invite: await invite() });
-    const start = (await post("/auth/2fa/start", {}, h)).json();
+    expect((await post("/auth/2fa/start", {}, h)).statusCode).toBe(403); // needs the password
+    const start = (await post("/auth/2fa/start", { authKey: keys.authKey }, h)).json();
     expect(start.url).toContain("otpauth://totp/Somnium:two?secret=" + start.secret);
     const stored = (await db.admin.query("SELECT totp_secret FROM users WHERE username = 'two'")).rows[0].totp_secret;
     expect(stored).not.toContain(start.secret); // encrypted with the server's key
@@ -116,6 +132,7 @@ describe("two-factor sign-in", () => {
 
     expect((await signIn("two", keys.authKey)).json()).toMatchObject({ ok: false, totpRequired: true });
     expect((await signIn("two", keys.authKey, { code: "123456" })).statusCode).toBe(401);
+    await forgetLastStep("two"); // a code works once, and the one above just turned two-factor on
     const withTotp = await signIn("two", keys.authKey, { totp: totp(start.secret) });
     expect(withTotp.statusCode).toBe(200);
     expect(withTotp.json().wrappedByPassword).toBe(keys.wrappedByPassword);
@@ -125,6 +142,7 @@ describe("two-factor sign-in", () => {
     expect((await app.inject({ method: "GET", url: "/api/auth/security", headers: h })).json()).toMatchObject({ totpEnabled: true, backupCodesLeft: 7 });
 
     expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code: "000000" }, h)).statusCode).toBe(403);
+    await forgetLastStep("two");
     expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code: totp(start.secret) }, h)).statusCode).toBe(200);
     expect((await signIn("two", keys.authKey)).json()).toMatchObject({ ok: true, totpRequired: false });
     expect((await app.inject({ method: "GET", url: "/api/auth/security", headers: h })).json()).toMatchObject({ totpEnabled: false, backupCodesLeft: 0 });
@@ -158,11 +176,172 @@ describe("changing the password", () => {
     expect(code).toMatch(/^[A-Z2-9]{5}-[A-Z2-9]{5}$/);
     const fresh = await createAccountKeys("a brand new password");
     expect((await post("/auth/reset", { username: "lost", code: "AAAAA-AAAAA", authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403);
-    expect((await post("/auth/reset", { username: "lost", code, authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(200);
+    const done = await post("/auth/reset", { username: "lost", code, authKey: fresh.authKey, kdfSalt: fresh.salt });
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ ok: true, sealed: true, message: "Your password is set. Your journal stays sealed until you enter your recovery key or open the app on a device that is still signed in." });
     expect((await post("/auth/reset", { username: "lost", code, authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403); // one-time
     expect((await signIn("lost", keys.authKey)).statusCode).toBe(401);
     const r = await signIn("lost", fresh.authKey);
     expect(r.statusCode).toBe(200);
     expect(r.json().wrappedByPassword).toBeNull();
+  });
+});
+
+describe("a code only counts once, and wrong codes wait", () => {
+  it("refuses /2fa/start while two-factor is on, and keeps the secret", async () => {
+    const { keys, h } = await withTwoFactor("starton");
+    const before = (await db.admin.query("SELECT totp_secret FROM users WHERE username = 'starton'")).rows[0].totp_secret;
+    expect((await post("/auth/2fa/start", { authKey: keys.authKey }, h)).statusCode).toBe(409);
+    expect((await post("/auth/2fa/start", {}, h)).statusCode).toBe(403);
+    const after = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE username = 'starton'")).rows[0];
+    expect(after).toMatchObject({ totp_secret: before, totp_enabled: true });
+  });
+
+  it("refuses the same authenticator code the second time, at sign-in and at /2fa/disable", async () => {
+    const { keys, h, secret } = await withTwoFactor("replay");
+    const code = totp(secret);
+    expect((await signIn("replay", keys.authKey, { code })).statusCode).toBe(200);
+    expect((await signIn("replay", keys.authKey, { code })).statusCode).toBe(401);
+    expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code }, h)).statusCode).toBe(403);
+    expect((await app.inject({ method: "GET", url: "/api/auth/security", headers: h })).json().totpEnabled).toBe(true);
+  });
+
+  it("refuses the code that turned two-factor on", async () => {
+    const { keys, h } = await signUp("enabled", "correct horse battery", { invite: await invite() });
+    const { secret } = (await post("/auth/2fa/start", { authKey: keys.authKey }, h)).json();
+    const code = totp(secret);
+    expect((await post("/auth/2fa/enable", { code }, h)).statusCode).toBe(200);
+    expect((await signIn("enabled", keys.authKey, { code })).statusCode).toBe(401);
+  });
+
+  it("waits after five wrong codes at sign-in, even for the right one", async () => {
+    const { keys, secret } = await withTwoFactor("lock2fa");
+    for (let i = 0; i < 5; i++) expect((await signIn("lock2fa", keys.authKey, { code: "000000" })).statusCode).toBe(401);
+    expect((await signIn("lock2fa", keys.authKey, { code: totp(secret) })).statusCode).toBe(429);
+  });
+
+  it("waits after five wrong codes at /2fa/disable, wrong backup codes included", async () => {
+    const { keys, h, secret } = await withTwoFactor("lockoff");
+    for (let i = 0; i < 5; i++) expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code: i % 2 ? "AAAAA-AAAAA" : "000000" }, h)).statusCode).toBe(403);
+    expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code: totp(secret) }, h)).statusCode).toBe(429);
+    expect((await app.inject({ method: "GET", url: "/api/auth/security", headers: h })).json().totpEnabled).toBe(true);
+  });
+
+  it("waits after five wrong reset codes", async () => {
+    const fresh = await createAccountKeys("a brand new password");
+    const b = { username: "ann", code: "AAAAA-AAAAA", authKey: fresh.authKey, kdfSalt: fresh.salt };
+    for (let i = 0; i < 5; i++) expect((await post("/auth/reset", b)).statusCode).toBe(403);
+    expect((await post("/auth/reset", b)).statusCode).toBe(429);
+  });
+
+  it("refuses an expired reset code", async () => {
+    await signUp("late", "correct horse battery", { invite: await invite() });
+    const id = await idOf("late");
+    const { resetCode } = (await app.inject({ method: "PUT", url: `/api/admin/users/${id}`, headers: await asAdmin(), payload: { resetPassword: true } })).json();
+    await db.admin.query("UPDATE users SET reset_expires_at = now() - interval '1 minute' WHERE id = $1", [id]);
+    const fresh = await createAccountKeys("a brand new password");
+    expect((await post("/auth/reset", { username: "late", code: resetCode, authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403);
+  });
+
+  it("forgets keys whose tries have run out, not only the ones asked about", () => {
+    recordFail(["u:someone", "u:" + "x".repeat(100000)]);
+    expect(failKeyCount()).toBe(2);
+    const later = Date.now() + 16 * 60000;
+    const clock = vi.spyOn(Date, "now").mockReturnValue(later);
+    try {
+      expect(tooManyTries(["u:someone-else"])).toBe(false);
+      expect(failKeyCount()).toBe(0);
+    } finally { clock.mockRestore(); }
+  });
+});
+
+describe("who may ask", () => {
+  it("refuses a cookie sign-in without the X-Somnium header, and sets the cookie SameSite=Strict", async () => {
+    const r = await signIn("ann", ann.authKey);
+    expect(String(r.headers["set-cookie"])).toContain("SameSite=Strict");
+    const cookies = { somnium_session: r.json().token };
+    expect((await app.inject({ method: "POST", url: "/api/auth/logout-others", cookies, payload: {} })).statusCode).toBe(403);
+    expect((await app.inject({ method: "POST", url: "/api/auth/logout-others", cookies, payload: {}, headers: { "x-somnium": "1" } })).statusCode).toBe(200);
+    expect((await post("/auth/logout-others", {}, bearer(r.json().token))).statusCode).toBe(200); // the apps' bearer token needs no header
+  });
+
+  it("refuses /api/admin/* to someone who is not an admin", async () => {
+    const { h } = await signUp("plain", "correct horse battery", { invite: await invite() });
+    const id = await idOf("ann");
+    for (const [method, url] of [["GET", "/admin/users"], ["GET", "/admin/settings"], ["PUT", "/admin/settings"], ["POST", "/admin/invites"], ["PUT", `/admin/users/${id}`], ["DELETE", `/admin/users/${id}`]] as const)
+      expect((await app.inject({ method, url: "/api" + url, headers: h, payload: {} })).statusCode, `${method} ${url}`).toBe(403);
+  });
+});
+
+describe("the activity log", () => {
+  const A = "a".repeat(32), B = "b".repeat(32);
+
+  it("notes a new device once per device id, even after signing out, and whatever its label says", async () => {
+    const { keys } = await signUp("ids", "correct horse battery", { invite: await invite(), deviceName: "Laptop", deviceId: A });
+    const again = await signIn("ids", keys.authKey, { deviceName: "Laptop", deviceId: A });
+    await post("/auth/logout", {}, bearer(again.json().token));
+    await signIn("ids", keys.authKey, { deviceName: "A new name", deviceId: A });
+    expect(await notes("ids")).toEqual(["Signed in on Laptop"]);
+    await signIn("ids", keys.authKey, { deviceName: "Laptop", deviceId: B }); // the same label, another device
+    expect(await notes("ids")).toEqual(["Signed in on Laptop", "Signed in on Laptop"]);
+    const { rows } = await db.admin.query("SELECT device_id FROM sessions WHERE user_id = $1", [await idOf("ids")]);
+    expect(rows.map((x: any) => x.device_id).sort()).toEqual([A, A, B]);
+  });
+
+  it("cuts a long label to 80 characters", async () => {
+    await signUp("longname", "correct horse battery", { invite: await invite(), deviceName: "x".repeat(500), deviceId: A });
+    expect(await notes("longname")).toEqual(["Signed in on " + "x".repeat(80)]);
+  });
+
+  it("notes changes to the sign-in: two-factor on and off, a new password, and what an admin did", async () => {
+    const { keys, h, secret } = await withTwoFactor("logged");
+    expect((await post("/auth/2fa/disable", { authKey: keys.authKey, code: totp(secret) }, h)).statusCode).toBe(200);
+    const next = await changePassword(keys.dataKey, "another fine password");
+    expect((await post("/auth/password", { current: keys.authKey, authKey: next.authKey, kdfSalt: next.salt, wrappedByPassword: next.wrappedByPassword }, h)).statusCode).toBe(200);
+    const id = await idOf("logged"), headers = await asAdmin();
+    await app.inject({ method: "PUT", url: `/api/admin/users/${id}`, headers, payload: { disable2fa: true } });
+    const { resetCode } = (await app.inject({ method: "PUT", url: `/api/admin/users/${id}`, headers, payload: { resetPassword: true } })).json();
+    const fresh = await createAccountKeys("a brand new password");
+    await post("/auth/reset", { username: "logged", code: resetCode, authKey: fresh.authKey, kdfSalt: fresh.salt });
+    expect(await notes("logged")).toEqual(expect.arrayContaining(["Two-factor sign-in turned on", "Two-factor sign-in turned off", "Password changed", "An admin turned two-factor sign-in off", "An admin made a password reset code", "Password set with a reset code. Two-factor sign-in is off."]));
+  });
+});
+
+describe("the server's key", () => {
+  it("makes the key file once, private, and warns about one others can read, without showing the key", () => {
+    const d = fs.mkdtempSync(path.join(os.tmpdir(), "somnium-key-test-"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const made = keyFromFile(d), f = path.join(d, "app.key");
+      expect(fs.statSync(f).mode & 0o777).toBe(0o600);
+      expect(keyFromFile(d).equals(made)).toBe(true); // the file was there: kept
+      expect(warn).not.toHaveBeenCalled();
+      fs.chmodSync(f, 0o644);
+      expect(keyFromFile(d).equals(made)).toBe(true);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]![0])).not.toContain(made.toString("base64"));
+    } finally { warn.mockRestore(); fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it("says so plainly when a secret was encrypted with another key", async () => {
+    const { keys, secret } = await withTwoFactor("rekeyed");
+    await db.admin.query("UPDATE users SET totp_secret = $1 WHERE username = 'rekeyed'", [encryptForServer(secret, crypto.randomBytes(32))]);
+    const r = await signIn("rekeyed", keys.authKey, { code: "123456" });
+    expect(r.statusCode).toBe(500);
+    expect(r.json()).toEqual({ error: "Server key missing or changed" });
+  });
+});
+
+describe("media", () => {
+  it("takes an audio upload, codec parameter included, and every answer says nosniff", async () => {
+    const { keys, h } = await signUp("voice", "correct horse battery", { invite: await invite() });
+    const id = uuidv7();
+    const payload = Buffer.from(await sealColumn(new TextEncoder().encode("a recording"), keys.dataKey, "media", "data", id)); // as the app sends it
+    const up = await app.inject({ method: "POST", url: `/api/media?id=${id}`, headers: { ...h, "content-type": "audio/webm;codecs=opus" }, payload });
+    expect(up.statusCode).toBe(200);
+    expect(up.headers["x-content-type-options"]).toBe("nosniff");
+    const down = await app.inject({ method: "GET", url: up.json().url, headers: h });
+    expect(down.statusCode).toBe(200);
+    expect(down.headers["x-content-type-options"]).toBe("nosniff");
   });
 });
