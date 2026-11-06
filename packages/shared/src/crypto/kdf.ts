@@ -22,7 +22,8 @@ let hashWasm: Promise<typeof import("hash-wasm")> | undefined;
 
 /** Argon2id with the app's parameters, 32 bytes out. Loads hash-wasm the first time it is called. */
 export async function argon2(secret: string | Uint8Array, salt: Uint8Array): Promise<Uint8Array> {
-  hashWasm ??= import("hash-wasm");
+  // a failed load (offline, chunk missing) must not stay cached as a rejected promise
+  hashWasm ??= import("hash-wasm").catch((e) => { hashWasm = undefined; throw e; });
   const { argon2id } = await hashWasm;
   return argon2id({
     password: typeof secret === "string" ? utf8(secret.normalize("NFC")) : secret,

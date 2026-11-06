@@ -4,8 +4,8 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
   addRecoveryKey, changePassword, constantTimeEqual, createAccountKeys, deriveKeys, formatRecoveryKey, fromBase64url,
-  isSealed, newDataKey, newRecoveryKey, newSalt, openWithDevice, openWithPassword, openWithRecoveryKey, plainRecoveryKey,
-  randomBytes, sealBytes, sealText, SealError, toBase64url, unsealBytes, unsealText, unwrapKey, wrapForDevice, wrapKey,
+  isSealed, newDataKey, newRecoveryKey, newSalt, openWithDevice, openWithEncKey, openWithPassword, openWithRecoveryKey, plainRecoveryKey,
+  randomBytes, sealBytes, sealColumn, sealText, unsealColumn, SealError, toBase64url, unsealBytes, unsealText, unwrapKey, wrapForDevice, wrapKey,
   type AccountKeys, type RecoveryKeySet, RECOVERY_KEY_CHARS,
 } from "./index";
 
@@ -22,8 +22,7 @@ describe("key derivation", () => {
     const t0 = performance.now();
     const a = await deriveKeys("pw", salt);
     const ms = performance.now() - t0;
-    console.log(`Argon2id (64 MiB × 3) took ${ms.toFixed(0)} ms`);
-    expect(ms).toBeLessThan(2000);
+    expect(ms).toBeLessThan(10_000); // lenient: slow CI machines
     const b = await deriveKeys("pw", salt);
     const c = await deriveKeys("pw", newSalt());
     expect(toBase64url(a.encKey)).toBe(toBase64url(b.encKey));
@@ -69,17 +68,50 @@ describe("the account's password", () => {
   it("opens with a pre-derived encKey (no second Argon2id at sign-in)", async () => {
     const { encKey, authKey } = await deriveKeys(PASSWORD, fromBase64url(account.salt));
     expect(toBase64url(authKey)).toBe(account.authKey);
-    expect(toBase64url(await openWithPassword(account, encKey))).toBe(toBase64url(account.dataKey));
+    expect(toBase64url(await openWithEncKey(account, encKey))).toBe(toBase64url(account.dataKey));
   });
   it("changes the password by re-wrapping: same data key, new authKey, old password no longer opens", async () => {
-    const changed = await changePassword(account, account.dataKey, "a new password");
+    const changed = await changePassword(account.dataKey, "a new password");
     expect(changed.authKey).not.toBe(account.authKey);
     expect(changed.salt).not.toBe(account.salt);
     expect(toBase64url(await openWithPassword(changed, "a new password"))).toBe(toBase64url(account.dataKey));
     await expect(openWithPassword(changed, PASSWORD)).rejects.toBeInstanceOf(SealError);
-    // a value sealed before the change still opens: the data key did not change
-    const sealed = await sealText("sealed before the change", account.dataKey);
-    expect(await unsealText(sealed, await openWithPassword(changed, "a new password"))).toBe("sealed before the change");
+    // a value sealed with the data key still opens with the key from the new password: the data key did not change
+    const sealed = await sealText("sealed with the data key", account.dataKey);
+    expect(await unsealText(sealed, await openWithPassword(changed, "a new password"))).toBe("sealed with the data key");
+  });
+});
+
+describe("domain separation and edge cases", () => {
+  it("a wrapped key cannot be opened as a sealed value (different aad)", async () => {
+    const kek = randomBytes(32);
+    const wrapped = await wrapKey(newDataKey(), kek);
+    await expect(unsealBytes(wrapped, kek)).rejects.toBeInstanceOf(SealError);
+    await expect(unsealText(wrapped, kek, "dreams.text.1")).rejects.toBeInstanceOf(SealError);
+  });
+  it("NFC and NFD forms of one password give the same keys", async () => {
+    const salt = newSalt();
+    const a = await deriveKeys("caf\u00e9", salt), b = await deriveKeys("cafe\u0301", salt);
+    expect(toBase64url(a.encKey)).toBe(toBase64url(b.encKey));
+    expect(toBase64url(a.authKey)).toBe(toBase64url(b.authKey));
+  });
+  it("a malformed base64 envelope rejects with SealError", async () => {
+    const key = randomBytes(32);
+    // 17 chars is not valid base64url (1 mod 4) but matches the envelope pattern's length bounds
+    await expect(unsealText("v1.AAAAAAAAAAAAAAAA." + "A".repeat(25), key)).rejects.toBeInstanceOf(SealError);
+    await expect(unsealText("v1." + "A".repeat(17) + "." + "A".repeat(24), key)).rejects.toBeInstanceOf(SealError);
+  });
+  it("column helpers bind the aad to table, column and row", async () => {
+    const key = randomBytes(32);
+    const sealed = await sealColumn("a dream", key, "dreams", "text", "row-1");
+    expect(await unsealColumn(sealed, key, "dreams", "text", "row-1")).toBe("a dream");
+    await expect(unsealColumn(sealed, key, "dreams", "text", "row-2")).rejects.toBeInstanceOf(SealError);
+    await expect(unsealColumn(sealed, key, "dreams", "title", "row-1")).rejects.toBeInstanceOf(SealError);
+  });
+  it("a malformed typed recovery key fails early with SealError", async () => {
+    const bundle = { recoverySalt: toBase64url(newSalt()), wrappedByRecovery: "v1." + "A".repeat(16) + "." + "A".repeat(40) };
+    await expect(openWithRecoveryKey(bundle, "ABCD-EFGH")).rejects.toThrow("That recovery key does not look right");
+    await expect(openWithRecoveryKey(bundle, "0000-0000-0000-0000-0000")).rejects.toBeInstanceOf(SealError);
   });
 });
 

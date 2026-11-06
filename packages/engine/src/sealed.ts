@@ -13,7 +13,7 @@ export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   dreams: ["title", "text", "lucid_trigger"],
   elements: ["name", "aliases", "note"],
   dream_elements: ["span"],
-  // ocr_text as text; the file (data) is sealed as bytes (sealBytes) before upload, same envelope
+  // ocr_text as text; the file (data) is sealed as bytes (sealBytes) before upload: a text envelope, so the column is text
   media: ["ocr_text", "data"],
   reality_checks: ["note"],
   practice_log: ["note"],

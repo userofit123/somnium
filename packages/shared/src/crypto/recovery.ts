@@ -6,7 +6,7 @@
 //   "somnium-recovery"       the kek that wraps the data key; only ever on the device
 //   "somnium-recovery-auth"  the verifier the server stores to check a typed key before handing out the
 //                            wrapped data key; it cannot unwrap anything (one-way, like authKey vs encKey)
-import { randomBytes } from "./bytes";
+import { SealError, randomBytes } from "./bytes";
 import { argon2, hkdf } from "./kdf";
 
 export const RECOVERY_KEY_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -34,7 +34,12 @@ export interface RecoveryKeys { kek: Uint8Array; verifier: Uint8Array }
 
 /** Both recovery-derived keys from one Argon2id run (the slow part), for making and for using a key. */
 export async function deriveRecoveryKeys(recoveryKey: string, salt: Uint8Array): Promise<RecoveryKeys> {
-  const master = await argon2(plainRecoveryKey(recoveryKey), salt);
+  const plain = plainRecoveryKey(recoveryKey);
+  // check length and alphabet before the slow Argon2id run
+  if (plain.length !== RECOVERY_KEY_LENGTH || [...plain].some((c) => !RECOVERY_KEY_CHARS.includes(c))) {
+    throw new SealError("That recovery key does not look right");
+  }
+  const master = await argon2(plain, salt);
   const [kek, verifier] = await Promise.all([hkdf(master, salt, "somnium-recovery"), hkdf(master, salt, "somnium-recovery-auth")]);
   master.fill(0);
   return { kek, verifier };

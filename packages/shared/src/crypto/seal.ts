@@ -32,9 +32,11 @@ export async function sealBytes(plain: Uint8Array, key: Uint8Array, aad?: string
 export async function unsealBytes(sealed: string, key: Uint8Array, aad?: string): Promise<Uint8Array> {
   if (!isSealed(sealed)) throw new SealError("Not a sealed value");
   const [, ivText, ctText] = sealed.split(".") as [string, string, string];
-  const iv = fromBase64url(ivText), ct = fromBase64url(ctText);
-  const params: AesGcmParams = { name: "AES-GCM", iv, tagLength: TAG_BITS, ...(aad !== undefined ? { additionalData: utf8(aad) } : {}) };
   try {
+    // decoding is inside the try: an envelope that matches the pattern but is not valid base64url (length 1 mod 4)
+    // must also surface as a SealError, never as a DOMException
+    const iv = fromBase64url(ivText), ct = fromBase64url(ctText);
+    const params: AesGcmParams = { name: "AES-GCM", iv, tagLength: TAG_BITS, ...(aad !== undefined ? { additionalData: utf8(aad) } : {}) };
     return new Uint8Array(await globalThis.crypto.subtle.decrypt(params, await aesKey(key), ct));
   } catch {
     // WebCrypto gives one opaque error for a wrong key, a changed byte and a mismatched aad; so do we
@@ -48,3 +50,16 @@ export async function unsealText(sealed: string, key: Uint8Array, aad?: string):
   const bytes = await unsealBytes(sealed, key, aad);
   try { return fromUtf8(bytes); } catch { throw new SealError("Sealed value is not text"); }
 }
+
+// Sealed database columns bind the value to its place: "<table>.<column>.<row id>". These helpers build that aad
+// so callers cannot forget it (or spell it differently on the way in and out).
+const columnAad = (table: string, column: string, rowId: string): string => `${table}.${column}.${rowId}`;
+
+export const sealColumn = (plain: string | Uint8Array, key: Uint8Array, table: string, column: string, rowId: string): Promise<string> =>
+  typeof plain === "string" ? sealText(plain, key, columnAad(table, column, rowId)) : sealBytes(plain, key, columnAad(table, column, rowId));
+
+export const unsealColumn = (sealed: string, key: Uint8Array, table: string, column: string, rowId: string): Promise<string> =>
+  unsealText(sealed, key, columnAad(table, column, rowId));
+
+export const unsealColumnBytes = (sealed: string, key: Uint8Array, table: string, column: string, rowId: string): Promise<Uint8Array> =>
+  unsealBytes(sealed, key, columnAad(table, column, rowId));

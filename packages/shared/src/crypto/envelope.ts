@@ -24,15 +24,20 @@ export async function createAccountKeys(password: string): Promise<AccountKeys> 
   return { ...(await wrapWithPassword(dataKey, password)), dataKey };
 }
 
-/** Sign-in: the data key from the bundle. A wrong password throws a SealError. Pass an already-derived encKey
- *  (from deriveKeys, whose authKey the sign-in request just sent) to avoid running Argon2id a second time. */
-export async function openWithPassword(bundle: PasswordBundle, password: string | Uint8Array): Promise<Uint8Array> {
-  const encKey = typeof password === "string" ? (await deriveKeys(password, fromBase64url(bundle.salt))).encKey : password;
-  return unwrapKey(bundle.wrappedByPassword, encKey);
+/** Sign-in: the data key from the bundle. A wrong password throws a SealError. */
+export async function openWithPassword(bundle: PasswordBundle, password: string): Promise<Uint8Array> {
+  const { encKey } = await deriveKeys(password, fromBase64url(bundle.salt));
+  return openWithEncKey(bundle, encKey);
 }
 
-/** A new password: a new salt, a new authKey and a re-wrap of the same data key. Nothing sealed changes. */
-export async function changePassword(_bundle: PasswordBundle, dataKey: Uint8Array, newPassword: string): Promise<Omit<AccountKeys, "dataKey">> {
+/** Like openWithPassword with an already-derived encKey (from deriveKeys, whose authKey the sign-in request just
+ *  sent), so Argon2id does not run a second time. */
+export const openWithEncKey = (bundle: PasswordBundle, encKey: Uint8Array): Promise<Uint8Array> => unwrapKey(bundle.wrappedByPassword, encKey);
+
+/** A new password: a new salt, a new authKey and a re-wrap of the same data key. Nothing sealed changes. It does
+ *  not check that dataKey belongs to the account (a wrong key would just wrap the wrong key). The old password
+ *  only stops working when the server replaces salt, wrappedByPassword and the authKey hash together. */
+export async function changePassword(dataKey: Uint8Array, newPassword: string): Promise<Omit<AccountKeys, "dataKey">> {
   return wrapWithPassword(dataKey, newPassword);
 }
 

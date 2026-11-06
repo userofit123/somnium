@@ -48,7 +48,7 @@ CREATE TABLE media (
   kind text NOT NULL DEFAULT 'image',
   mime text NOT NULL,
   size int NOT NULL,
-  data bytea,
+  data text,
   path text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
