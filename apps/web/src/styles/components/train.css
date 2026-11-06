@@ -1,0 +1,47 @@
+/* Train (PLAN.md §6.4): the course card, tonight's plan, the techniques library and a technique's page. Theme and
+   density tokens only. */
+.train .tcol > section:first-child > .sh:first-child { margin-top: 0; }
+.train .tgrid { align-items: start; }
+
+/* evidence badge: strong, some, anecdotal */
+.tev { display: inline-flex; align-items: center; border-radius: var(--pill, 99px); padding: 2px 9px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; border: 1px solid var(--ol); color: var(--tx2); }
+.tev.strong { background: var(--accc); color: var(--onc); border-color: transparent; }
+.tev.some { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
+
+.tlink { text-decoration: none; color: inherit; align-items: flex-start; }
+.tlink .tsum { margin-top: 2px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tside { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; }
+
+/* the course card */
+.tcourse .tlh .t { font-weight: 600; font-size: var(--fs-lg); }
+.tcourse .tlh .tiny { margin-top: 2px; }
+.tcourse .tlh .lnk { display: inline-block; margin-top: 6px; padding: 0; }
+.tcourse .tsub { margin: var(--hg) 0 6px; font-weight: 600; }
+.tcheck { display: flex; flex-direction: column; }
+.tck { font-size: var(--fs-sm); display: flex; align-items: flex-start; gap: 10px; padding: var(--lpy) 0; border: 0; border-bottom: 1px solid var(--ol); background: none; color: var(--tx); font-family: inherit; text-align: start; cursor: pointer; }
+.tck:last-child { border-bottom: 0; }
+.tck .box { flex: none; width: 20px; height: 20px; border-radius: var(--r-sm); border: 1.5px solid var(--ol); display: grid; place-items: center; margin-top: 1px; color: var(--on); }
+.tck.on .box { background: var(--acc); border-color: var(--acc); }
+.tck.on .txt { color: var(--tx2); }
+.tmove { margin-top: var(--hg); }
+.tbar { height: 6px; border-radius: 3px; background: var(--s2); overflow: hidden; }
+.tbar i { display: block; height: 100%; background: var(--acc); border-radius: 3px; transition: width .3s var(--ease, ease); }
+.tmrow { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.tprog { font-weight: 600; font-size: var(--fs-sm); }
+.tmove > .lnk { margin-top: 6px; padding: 0; }
+
+/* tonight's plan */
+.ttonight .tname { text-decoration: none; color: inherit; }
+
+/* a technique or lesson page */
+.tview .tuse { display: flex; align-items: center; gap: 12px; margin-bottom: var(--spg); flex-wrap: wrap; }
+.tview .tbasis { margin-top: 6px; }
+.tview .tplanned { display: flex; align-items: center; gap: 10px; }
+.tview .tplanned .tiny { display: inline-flex; align-items: center; gap: 4px; }
+.tsafe { border-inline-start: 2px solid var(--ol); padding: 2px 0 2px 12px; margin-bottom: var(--spg); }
+.tsafe ul { margin: 4px 0; padding-inline-start: 18px; }
+.tsafe li { margin: 2px 0; }
+.tview .tpr { margin: var(--spg) 0; }
+.tview .tpr ul { margin: 6px 0; padding-inline-start: 18px; }
+html.phone .tview .tuse .btn { width: 100%; }
+.train .lnk.inl.tiny { font-size: var(--fs-xs); }

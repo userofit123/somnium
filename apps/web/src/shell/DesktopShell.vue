@@ -4,20 +4,17 @@ import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from "vue"
 import { useRoute, useRouter } from "vue-router";
 import { NAV, section } from "./nav";
 import { appearanceOpen } from "../core/ui";
-import { session, signOut } from "../core/session";
-import { useMe } from "../api/queries";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
 import SyncPill from "./SyncPill.vue";
 import UpdateButton from "./UpdateButton.vue";
-import Menu from "../components/Menu.vue";
+import AccountSwitcher from "./AccountSwitcher.vue";
 import { useAutoUpdate } from "../core/updater";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
 useAutoUpdate();
 
 const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
-const me = useMe();
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
 // the highlight glides from the previous page to the open one, stretching on the way (Money Manager's AppNav)
@@ -45,10 +42,6 @@ onMounted(() => {
   document.fonts?.ready.then(onResize);
 });
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
-const acctMenu = computed(() => [
-  { label: me.data.value?.user.displayName || session.user?.username || "Account", icon: "user", run: () => router.push("/settings/account") },
-  { label: "Sign out", icon: "logout", run: async () => { await signOut(); } },
-]);
 // one key per page, so moving between pages animates; settings sections animate inside the page instead
 // the Journal's dream panel opens beside its list, so the list stays put
 const pageKey = (r: any) => (r.name === "settings" ? "settings" : String(r.name ?? "").startsWith("journal") ? "journal" : r.path);
@@ -66,7 +59,7 @@ const arrived = (el: Element) => el.classList?.add("in");
       </button>
       <div class="navb">
         <UpdateButton />
-        <Menu :items="acctMenu" icon="user" label="Account" />
+        <AccountSwitcher variant="rail" />
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>
       </div>
     </nav>

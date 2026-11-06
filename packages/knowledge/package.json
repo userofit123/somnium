@@ -8,7 +8,9 @@
     "./markdown": "./src/markdown.ts",
     "./search": "./src/search.ts",
     "./learn": "./src/learn.ts",
-    "./assessments": "./src/assessments.ts"
+    "./assessments": "./src/assessments.ts",
+    "./techniques": "./src/techniques.ts",
+    "./course": "./src/course.ts"
   },
   "scripts": {
     "test": "vitest run",

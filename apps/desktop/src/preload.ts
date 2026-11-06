@@ -23,8 +23,18 @@ const api = {
     addLocal: (name: string) => accountCall("accounts:addLocal", name),
     addServer: (url: string, name: string) => accountCall("accounts:addServer", url, name),
     open: (id: string) => accountCall("accounts:open", id),
+    addAccount: (serverId: string) => accountCall("accounts:addAccount", serverId),
     rename: (id: string, name: string) => accountCall("accounts:rename", id, name),
+    renameServer: (id: string, name: string) => accountCall("accounts:renameServer", id, name),
+    setServerAddress: (id: string, url: string) => accountCall("accounts:setServerAddress", id, url),
+    setStatus: (st: unknown) => accountCall("accounts:setStatus", st),
+    // the chooser page's remove asks in the app; Settings asks first and says so
     remove: (id: string) => accountCall("accounts:remove", id),
+    removeAccount: (id: string) => accountCall("accounts:remove", id, true),
+    removeServer: (id: string) => accountCall("accounts:removeServer", id),
+    device: "computer",
+    // plain http to this computer or a home network is allowed here (with a warning); Android blocks it
+    insecureAllowed: true,
     chooser: () => accountCall("accounts:chooser"),
     // a local account's keys (LDJ-53): the envelope only, never the data key
     keys: () => accountCall("accounts:keys"),

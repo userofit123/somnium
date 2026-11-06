@@ -48,6 +48,9 @@ importers:
       '@somnium/server':
         specifier: workspace:*
         version: link:../server
+      '@somnium/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       electron:
         specifier: 33.2.1
         version: 33.2.1

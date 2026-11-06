@@ -174,7 +174,7 @@ function bundled(): Record<string, string> {
   // guarded by a typeof check, or the transform does not fire. Under plain Node the call throws
   // (import.meta.glob is undefined there) and the bundle stays empty; use readAll() instead.
   try {
-    return import.meta.glob("../content/**/*.md", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+    return import.meta.glob(["../content/**/*.md", "!../content/course/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
   } catch {
     return {};
   }
@@ -206,7 +206,8 @@ export async function readAll(dir?: string): Promise<Knowledge> {
   async function walk(d: string) {
     for (const entry of await fs.readdir(d, { withFileTypes: true })) {
       const full = path.join(d, entry.name);
-      if (entry.isDirectory()) await walk(full);
+      // the course's lessons are Train's, not Learn articles (course.ts loads them)
+      if (entry.isDirectory()) { if (!(d === root && entry.name === "course")) await walk(full); }
       else if (entry.name.endsWith(".md")) files[path.relative(root, full).split(path.sep).join("/")] = await fs.readFile(full, "utf8");
     }
   }

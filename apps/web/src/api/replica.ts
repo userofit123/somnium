@@ -65,6 +65,11 @@ export async function eraseCopiesOf(base: string) {
     for (const d of (await (indexedDB as any).databases?.()) ?? []) if (d.name?.startsWith(start)) { await dropDatabase(d.name); writeStr("somniumUnsent:" + d.name.slice(8), "0"); }
   } catch { /* nothing kept */ }
 }
+/** Deletes one person's copy of a server's data (one of several accounts on that server removed from the app). */
+export async function eraseCopyOf(base: string, userId: string) {
+  const n = `somnium-r-${hash(base)}-${userId}`;
+  await dropDatabase(`/pglite/${n}`); writeStr("somniumUnsent:" + n, "0");
+}
 /** A request about this copy: it says whose copy it is, and the server refuses it under anyone else's session. */
 const http = <T = any>(owner: string, method: string, path: string, body?: unknown, wait?: number) =>
   httpTransport.request(method, path, body, { wait, headers: { [COPY_OWNER_HEADER]: owner } }) as Promise<T>;

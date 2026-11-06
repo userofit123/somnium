@@ -16,6 +16,7 @@ import LockScreen from "./shell/LockScreen.vue";
 import { lock, startLock } from "./core/lock";
 import { isAndroid, installAndroidBridge } from "./native/android";
 import { connect } from "./native/accounts";
+import { startStatusReports } from "./core/accounts";
 import { ref, defineAsyncComponent } from "vue";
 import { useRoute } from "vue-router";
 import { startReminders, stopReminders } from "./native/reminders";
@@ -26,6 +27,8 @@ startLock();
 onMounted(async () => {
   if (isAndroid()) { installAndroidBridge(); if (!(await connect())) { needAccount.value = true; return; } }
   await loadSession();
+  // the desktop and Android apps show each account's sync in their lists: the open one reports it as it changes
+  startStatusReports();
 });
 const signedIn = computed(() => session.ready && !!session.user);
 watch(signedIn, (v) => (v ? startLive() : stopLive()), { immediate: true });

@@ -1,6 +1,6 @@
 // Inside the Android app (Capacitor): accounts, backups to a folder on the phone, the in-app updater, the system bars'
 // colours, and the back button. Exposed as window.somniumNative, like the desktop app.
-import { accounts, addLocal, addServer, open, remove, rename, chooser, localKeys, setLocalKeys, compactLocal } from "./accounts";
+import { accounts, addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser, localKeys, setLocalKeys, compactLocal } from "./accounts";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 import { REPO, newer, fetchWithin } from "../core/releases";
 import { applyTheme } from "../core/theme";
@@ -28,9 +28,11 @@ export function installAndroidBridge() {
   (globalThis as any).somniumNative = {
     platform: "android",
     accounts: {
-      list: async () => ({ list: accounts.list.map(({ token, keys, ...a }) => a), active: accounts.active }),
-      current: async () => { const a = accounts.list.find((x) => x.id === accounts.active); if (!a) return null; const { keys, ...rest } = a; return rest; },
-      addLocal, addServer, open, remove, rename, chooser,
+      // what the screens may see: never a token or another account's keys
+      list: async () => ({ list: accounts.list.map(({ token, keys, ...a }) => a), active: accounts.active, servers: accounts.servers.map((s) => ({ ...s })) }),
+      current: async () => { const a = accounts.list.find((x) => x.id === accounts.active); if (!a) return null; const { keys, token, ...rest } = a; return rest; },
+      addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser,
+      device: "phone", insecureAllowed: false,
       keys: localKeys, setKeys: setLocalKeys, compact: compactLocal,
     },
     // backups go to Documents/Somnium on the phone (the Filesystem plugin), newest `keep` are kept

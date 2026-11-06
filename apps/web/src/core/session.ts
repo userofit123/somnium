@@ -6,7 +6,7 @@ import { readJson, writeJson } from "./prefs";
 import { startReplica, eraseReplica, detachReplica, eraseCopiesLeftByOthers, copyOpenFor, sync, copyHasUnsent, unreachable } from "../api/replica";
 import { copyDecision } from "@somnium/shared";
 import { confirm } from "./ask";
-import { setToken } from "../native/accounts";
+import { setToken, sessionScope } from "../native/accounts";
 import { keyring } from "./keyring";
 import { forgetUnlock, forgetUnlocksOfOthers } from "./unlock";
 import { forgetCachedMedia } from "../api/media";
@@ -17,7 +17,8 @@ export const session = reactive<{ ready: boolean; setupNeeded: boolean; user: { 
   { ready: false, setupNeeded: false, user: null, registration: "invite", version: "", apiLevel: 0 });
 
 // the last answer from the server, so the app can open without a connection
-const KEY = () => "somniumSession:" + (server.value.base || location.origin);
+// (per account in the Android app, where two accounts on one server share its address)
+const KEY = () => "somniumSession:" + (server.value.base || location.origin) + sessionScope();
 
 export async function loadSession() {
   setLocalDevice(await isLocalAccount());

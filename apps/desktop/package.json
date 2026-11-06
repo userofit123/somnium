@@ -22,7 +22,8 @@
     "electron-builder": "25.1.8",
     "esbuild": "0.24.2",
     "typescript": "5.7.2",
-    "@somnium/engine": "workspace:*"
+    "@somnium/engine": "workspace:*",
+    "@somnium/shared": "workspace:*"
   },
   "build": {
     "appId": "org.somnium.app",

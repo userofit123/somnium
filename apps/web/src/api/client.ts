@@ -24,6 +24,9 @@ export const newSessionEra = () => { sessionEra++; };
 const authHeaders = () => {
   const headers: Record<string, string> = { "x-somnium": "1" };
   if (server.value.token) headers.authorization = `Bearer ${server.value.token}`;
+  // an app account on a server that isn't signed in yet: a cookie another account on the same server left behind must
+  // not sign it in as that person (the server takes a Bearer header over the cookie, and "-" is nobody)
+  else if (server.value.base) headers.authorization = "Bearer -";
   return headers;
 };
 

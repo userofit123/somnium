@@ -10,11 +10,13 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
+import { checkServerAddress, cleanName, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
  *  or the recovery key, kept with the account and gone with it. */
 /** prefs: what the screens keep for this account that must not depend on its address (KEPT_PREFS). */
-interface Account { id: string; kind: "local" | "server"; name: string; url?: string; port?: number; keys?: unknown; prefs?: Record<string, string> }
+interface Account extends AccountEntry { port?: number; keys?: unknown; prefs?: Record<string, string> }
+type Store = AccountStore<Account>;
 // what the screens may see of an account: never another account's keys
 const shown = ({ keys, prefs, ...a }: Account) => a;
 const USER = app.getPath("userData");
@@ -22,11 +24,13 @@ const ACCOUNTS = path.join(USER, "accounts.json");
 const RES = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "../../..");
 const WEB = app.isPackaged ? path.join(RES, "web") : path.join(RES, "apps/web/dist");
 
-const readAccounts = (): { list: Account[]; active: string | null } => { try { return JSON.parse(fs.readFileSync(ACCOUNTS, "utf8")); } catch { return { list: [], active: null }; } };
+// servers: the saved servers with the names the person gave them (plain settings, not journal content; PLAN.md §6.7).
+// A file from before servers had names gets one per address, named as its account was.
+const readAccounts = (): Store => { let raw: unknown = null; try { raw = JSON.parse(fs.readFileSync(ACCOUNTS, "utf8")); } catch { /* none yet */ } return normaliseStore<Account>(raw, () => crypto.randomUUID()); };
 // The file holds the local accounts' key envelopes: readable by this user only. writeFileSync's mode applies only when
 // it creates the file, so a new file is written (any leftover one removed first) and renamed over the old one, which
 // also means a crash mid-write never leaves half a file; chmod then makes sure, whatever the umask or an older file was.
-const writeAccounts = (a: { list: Account[]; active: string | null }) => {
+const writeAccounts = (a: Store) => {
   fs.mkdirSync(USER, { recursive: true });
   const tmp = ACCOUNTS + ".tmp";
   fs.rmSync(tmp, { force: true });
@@ -164,46 +168,97 @@ ipcMain.handle("privacy:setScreenshots", (_e, allow: unknown) => {
   return allow === true;
 });
 ipcMain.handle("accounts:list", () => { const a = readAccounts(); return { ...a, list: a.list.map(shown) }; });
-ipcMain.handle("accounts:addLocal", async (_e, name: string) => { const a = readAccounts(); const acc: Account = { id: crypto.randomUUID(), kind: "local", name: name || "Me" }; a.list.push(acc); writeAccounts(a); await openAccount(acc.id); });
-/** "somnium.home", "192.168.1.5:8080" or "https://Somnium.Example.com/x/" → "https://somnium.home" (https unless told otherwise). Same rules as the Android app (apps/web/src/native/accounts.ts). */
-function serverAddress(input: string) {
-  const s = input.trim();
-  try { const u = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(s) ? s : `https://${s}`); if (/^https?:$/.test(u.protocol) && u.hostname) return u.origin; } catch { /* not an address */ }
-  throw new Error("That doesn't look like an address");
+ipcMain.handle("accounts:addLocal", async (_e, name: unknown) => { const a = readAccounts(); const acc: Account = { id: crypto.randomUUID(), kind: "local", name: cleanName(name) || "Me" }; a.list.push(acc); writeAccounts(a); await openAccount(acc.id); });
+/** Checks a Somnium server answers at an address (its /api/version names its API level). https, or http on this
+ *  computer or a private network (the screens warned about it first). It gets a few seconds: an address that never
+ *  answers would otherwise leave the screen waiting for minutes. */
+async function checkServer(input: unknown): Promise<string> {
+  const c = checkServerAddress(typeof input === "string" ? input : "");
+  if (!c.ok) throw new Error(c.error);
+  const res = await fetch(c.origin + "/api/version", { signal: AbortSignal.timeout(8000) }).catch((e) => {
+    if (e?.name === "TimeoutError") throw new Error("No answer from that address in 8 seconds. Check the address and that the server is running.");
+    const code = e?.cause?.code ?? "";
+    if (/CERT|SSL|TLS/i.test(code)) throw new Error("That server's certificate isn't trusted by this computer");
+    throw new Error("Couldn't reach that address. Check it, and that this computer is on a network that can reach the server.");
+  });
+  const j: { apiLevel?: unknown } | null = res.ok ? await res.json().catch(() => null) : null;
+  if (typeof j?.apiLevel !== "number") throw new Error("Something answered at that address, but it isn't a Somnium server");
+  return c.origin;
 }
 ipcMain.handle("accounts:addServer", async (_e, url: unknown, name: unknown) => {
-  if (typeof url !== "string") throw new Error("That doesn't look like an address");
-  const base = serverAddress(url);
-  // https only, like the Android app: sign-in and your data never travel unencrypted
-  if (base.startsWith("http://")) throw new Error("This app only connects over https. Use the https address of your server.");
-  // a Somnium server answers its sign-in status with its API level; anything else at that address isn't one.
-  // It gets a few seconds: an address that never answers would otherwise leave the screen waiting for minutes.
-  const res = await fetch(base + "/api/auth/status", { signal: AbortSignal.timeout(8000) }).catch((e) => { if (e?.name === "TimeoutError") throw new Error("No answer from that address"); return null; });
-  const j: { apiLevel?: unknown } | null = res?.ok ? await res.json().catch(() => null) : null;
-  if (typeof j?.apiLevel !== "number") throw new Error("No Somnium server answered at that address");
+  const base = await checkServer(url);
   const a = readAccounts();
-  if (a.list.some((x) => x.url === base)) throw new Error("That server is already in the list");
-  const label = typeof name === "string" ? name.trim().slice(0, 60) : "";
-  const acc: Account = { id: crypto.randomUUID(), kind: "server", name: label || new URL(base).host, url: base }; a.list.push(acc); writeAccounts(a); await openAccount(acc.id);
+  const had = a.servers.find((s) => s.url === base);
+  if (had) throw new Error(`That server is already saved as ${had.name}. To use another account on it, choose "Add an account" in its menu.`);
+  const s: ServerEntry = { id: crypto.randomUUID(), name: cleanName(name) || new URL(base).host, url: base };
+  const acc: Account = { id: crypto.randomUUID(), kind: "server", name: s.name, serverId: s.id, url: base };
+  a.servers.push(s); a.list.push(acc); writeAccounts(a); await openAccount(acc.id);
+});
+// another account on a saved server: its own partition and proxy, so its sign-in is its own; it opens on the sign-in screen
+ipcMain.handle("accounts:addAccount", async (_e, serverId: unknown) => {
+  const a = readAccounts(); const s = a.servers.find((x) => x.id === serverId);
+  if (!s) throw new Error("That server isn't saved here");
+  const acc: Account = { id: crypto.randomUUID(), kind: "server", name: s.name, serverId: s.id, url: s.url };
+  a.list.push(acc); writeAccounts(a); await openAccount(acc.id);
 });
 ipcMain.handle("accounts:open", (_e, id: string) => openAccount(id));
-ipcMain.handle("accounts:rename", (_e, id: string, name: string) => {
-  const a = readAccounts(); const acc = a.list.find((x) => x.id === id);
-  if (acc && String(name).trim()) { acc.name = String(name).trim().slice(0, 60); writeAccounts(a); }
+ipcMain.handle("accounts:rename", (_e, id: string, name: unknown) => {
+  const a = readAccounts(); const acc = a.list.find((x) => x.id === id), n = cleanName(name);
+  if (acc && n) { acc.name = n; writeAccounts(a); }
+});
+ipcMain.handle("accounts:renameServer", (_e, id: string, name: unknown) => {
+  const a = readAccounts(); const s = a.servers.find((x) => x.id === id), n = cleanName(name);
+  if (s && n) { s.name = n; writeAccounts(a); }
+});
+// a server that moved: its accounts follow it. Each keeps its partition and port, so its copy here stays its own.
+ipcMain.handle("accounts:setServerAddress", async (_e, id: string, url: unknown) => {
+  const base = await checkServer(url);
+  const a = readAccounts(); const s = a.servers.find((x) => x.id === id);
+  if (!s || s.url === base) return;
+  if (a.servers.some((x) => x.url === base && x.id !== id)) throw new Error("Another saved server has that address");
+  s.url = base;
+  for (const acc of a.list) if (acc.serverId === id) acc.url = base;
+  writeAccounts(a);
+  if (a.list.some((x) => x.serverId === id && x.id === running?.id)) await openAccount(running!.id);
+});
+// who is signed in on the open account and how its sync is going, from its own screens: shown while another is open
+ipcMain.handle("accounts:setStatus", (_e, st: { user?: { id: string; username: string } | null; sync?: SyncNote }) => {
+  const a = readAccounts(); const acc = a.list.find((x) => x.id === a.active && x.id === running?.id);
+  if (!acc || !st || typeof st !== "object") return;
+  if (st.user !== undefined && acc.kind === "server") acc.user = typeof st.user?.username === "string" ? st.user.username.slice(0, 60) : undefined;
+  const n = st.sync;
+  if (n && typeof n === "object" && typeof n.state === "string" && ["synced", "waiting", "offline", "locked", "local", "signedOut"].includes(n.state))
+    acc.sync = { state: n.state, pending: Math.max(0, Number(n.pending) | 0), at: Number(n.at) || Date.now() };
+  writeAccounts(a);
 });
 ipcMain.handle("accounts:chooser", () => showChooser());
-ipcMain.handle("accounts:remove", async (_e, id: string) => {
+// asked: the screens already asked, naming what is lost (removePlan in @somnium/shared); the chooser page asks here
+async function dropAccount(a: Store, acc: Account) {
+  if (running?.id === acc.id) { await running.close(); running = null; }
+  if (acc.kind === "local") fs.rmSync(path.join(USER, "accounts", acc.id), { recursive: true, force: true });
+  await eSession.fromPartition(`persist:acct-${acc.id}`).clearStorageData();
+  a.list = a.list.filter((x) => x.id !== acc.id);
+}
+ipcMain.handle("accounts:remove", async (_e, id: string, asked?: boolean) => {
   const a = readAccounts();
   const acc = a.list.find((x) => x.id === id);
   if (!acc) return;
-  const r = await dialog.showMessageBox(win!, { type: "warning", buttons: ["Cancel", "Remove"], defaultId: 0, message: `Remove ${acc.name} from this computer?`, detail: acc.kind === "local" ? "Its data on this computer is deleted. Make a backup first if you want to keep it." : "Your data stays on the server." });
-  if (r.response !== 1) return;
-  if (running?.id === id) { await running.close(); running = null; }
-  if (acc.kind === "local") fs.rmSync(path.join(USER, "accounts", id), { recursive: true, force: true });
-  await eSession.fromPartition(`persist:acct-${id}`).clearStorageData();
+  if (asked !== true) {
+    const r = await dialog.showMessageBox(win!, { type: "warning", buttons: ["Cancel", "Remove"], defaultId: 0, message: `Remove ${acc.user || acc.name} from this computer?`, detail: acc.kind === "local" ? "Its data on this computer is deleted. Make a backup first if you want to keep it." : "Your data stays on the server. Changes not sent to it yet are lost." });
+    if (r.response !== 1) return;
+  }
+  await dropAccount(a, acc);
   // removing another account from Settings keeps the open one open; only removing the open one goes back to the chooser
   const wasOpen = a.active === id;
-  writeAccounts({ list: a.list.filter((x) => x.id !== id), active: wasOpen ? null : a.active });
+  writeAccounts({ ...a, active: wasOpen ? null : a.active });
+  if (wasOpen) showChooser();
+});
+ipcMain.handle("accounts:removeServer", async (_e, id: string) => {
+  const a = readAccounts();
+  if (!a.servers.some((s) => s.id === id)) return;
+  const wasOpen = a.list.some((x) => x.serverId === id && x.id === a.active);
+  for (const acc of a.list.filter((x) => x.serverId === id)) await dropAccount(a, acc);
+  writeAccounts({ ...a, servers: a.servers.filter((s) => s.id !== id), active: wasOpen ? null : a.active });
   if (wasOpen) showChooser();
 });
 ipcMain.handle("accounts:current", () => { const a = readAccounts(); const acc = a.list.find((x) => x.id === a.active); return acc ? shown(acc) : null; });

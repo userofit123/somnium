@@ -31,7 +31,8 @@ const today = localYmd(new Date());
 const view = ref<"list" | "calendar">(readStr("somniumJournalView", "list") === "calendar" ? "calendar" : "list");
 const setView = (v: "list" | "calendar") => { view.value = v; writeStr("somniumJournalView", v); };
 
-const groups = computed(() => groupByNight(j.nights.data.value ?? [], j.dreams.data.value ?? []));
+// a night planned in Train for the coming morning is not a logged night yet: it shows once its morning has come
+const groups = computed(() => groupByNight((j.nights.data.value ?? []).filter((n) => n.date <= today), j.dreams.data.value ?? []));
 const linksBy = computed(() => {
   const m = new Map<string, string[]>();
   for (const l of j.links.data.value ?? []) { const x = m.get(l.dreamId); if (x) x.push(l.elementId); else m.set(l.dreamId, [l.elementId]); }
