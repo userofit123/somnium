@@ -12,6 +12,7 @@ import { api, server } from "../api/client";
 import { keyring } from "./keyring";
 import { readJson, storedKeys, writeJson } from "./prefs";
 import { session } from "./session";
+import { savedUserIds } from "../native/accounts";
 
 export interface UnlockBundle { salt: string; wrappedByPassword: string | null }
 interface DeviceCredential { credentialId: string; prfSalt: string; wrapped: string }
@@ -143,11 +144,12 @@ export async function unlockWithDevice(): Promise<void> {
 }
 
 /** Signing out leaves nothing that could open this person's journal here. */
-export function forgetUnlock(userId: string) {
-  writeJson(unlockRecordName(BUNDLE, place(), userId), null);
-  writeJson(unlockRecordName(DEVICE, place(), userId), null);
+export function forgetUnlock(userId: string, at = place()) {
+  writeJson(unlockRecordName(BUNDLE, at, userId), null);
+  writeJson(unlockRecordName(DEVICE, at, userId), null);
 }
-/** Someone is signed in: what another person's ended session left on this device goes, older records without an owner too. */
+/** Someone is signed in: what another person's ended session left on this device goes, older records without an owner too.
+ *  Not another account saved in this app: switching back to it has to unlock offline. */
 export function forgetUnlocksOfOthers(userId: string) {
-  for (const kind of [BUNDLE, DEVICE]) for (const n of unlockRecordsToForget(storedKeys(), kind, place(), userId)) writeJson(n, null);
+  for (const kind of [BUNDLE, DEVICE]) for (const n of unlockRecordsToForget(storedKeys(), kind, place(), userId, savedUserIds())) writeJson(n, null);
 }

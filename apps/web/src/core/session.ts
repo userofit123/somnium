@@ -46,7 +46,8 @@ export async function loadSession() {
   // a server account works on a copy on this device (offline use); local accounts already are one
   // Online, the screens show straight from the server while the copy opens (about a second) and take it over when
   // it's ready; offline, the copy is all there is, so wait for it.
-  if (session.user && usingHttp() && !(await isLocalAccount())) {
+  copyWanted = !!session.user && usingHttp() && !(await isLocalAccount());
+  if (session.user && copyWanted) {
     // a copy this page still holds can't be deleted until the page lets go of it. Once only: another tab may hold it too.
     if ((await eraseCopiesLeftByOthers(session.user)) && reloadOnce(session.user.id)) return;
     const opening = startReplica(session.user).then((ok) => { if (ok && !offline) invalidate(["*"]); });
@@ -56,6 +57,14 @@ export async function loadSession() {
   }
   session.ready = true;
 }
+// A first copy can't be made without the key (it opens the server's snapshot), and the app starts locked: that copy is
+// made as the journal unlocks. The same when it couldn't be opened for that reason later on.
+let copyWanted = false;
+keyring.onChange((open) => {
+  const user = session.user;
+  if (!open || !user || !copyWanted || copyOpenFor() !== null) return;
+  void startReplica(user).then((ok) => { if (ok && session.user?.id === user.id) invalidate(["*"]); });
+});
 /** A local account in the desktop or Android app: everything on this device, sealed with its own password (core/localLock.ts), no server to ask. */
 export async function isLocalAccount() {
   try { return (await (globalThis as any).somniumNative?.accounts?.current?.())?.kind === "local"; } catch { return false; }

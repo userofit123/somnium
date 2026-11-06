@@ -48,11 +48,12 @@ export async function mediaObjectUrl(src: string | null | undefined): Promise<st
 }
 
 /** Signing out: the service worker's copies of this person's files go too. They are sealed, but who has what is theirs. */
-export async function forgetCachedMedia() {
+/** origin: only one server's (an account removed from the app while another server's account stays). */
+export async function forgetCachedMedia(origin?: string) {
   try {
     for (const name of await caches.keys()) {
       const cache = await caches.open(name);
-      for (const r of await cache.keys()) if (new URL(r.url).pathname.startsWith("/api/media/")) await cache.delete(r);
+      for (const r of await cache.keys()) { const u = new URL(r.url); if (u.pathname.startsWith("/api/media/") && (!origin || u.origin === origin)) await cache.delete(r); }
     }
   } catch { /* no cache here */ }
 }

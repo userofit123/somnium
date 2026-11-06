@@ -17,8 +17,12 @@ const save = () => writeJson(KEY, accounts);
 // a store from before servers had names is brought up to date once (a browser, with nothing saved, writes nothing)
 if (accounts.list.length || accounts.servers.length) save();
 export const current = () => accounts.list.find((a) => a.id === accounts.active) ?? null;
-/** What the cached session and similar records are kept under: per account, as two accounts on one server share its address. */
-export const sessionScope = () => { const a = current(); return a?.kind === "server" && server.value.base ? "#" + a.id : ""; };
+/** What the cached session and similar records are kept under: per account, as two accounts on one server share its
+ *  address, and every local account shares the app's own. */
+export const sessionScope = () => { const a = current(); return a && (a.kind === "local" || server.value.base) ? "#" + a.id : ""; };
+/** The people with an account saved in this app. What they left here (their copy, queued changes, what unlocks their
+ *  journal) is not "left by someone else": switching back to them has to work offline. Empty in a browser. */
+export const savedUserIds = (): string[] => accounts.list.map((a) => a.userId ?? "").filter(Boolean);
 
 let engine: any = null, localDb: any = null;
 async function localTransport(acc: Account): Promise<Transport> {
@@ -140,11 +144,13 @@ export function setToken(token: string | null) {
   server.value = { base: acc.url!, token };
 }
 /** Who is signed in on the open account, and how its sync is going: shown in the list while another account is open. */
-export function setStatus(st: { user?: { id: string; username: string } | null; sync?: SyncNote }) {
+export function setStatus(st: { account?: string; user?: { id: string; username: string } | null; sync?: SyncNote }) {
   const acc = current();
-  if (!acc) return;
+  if (!acc || st.account !== acc.id) return;
   let changed = false;
   if (st.user !== undefined && acc.kind === "server" && (acc.user !== st.user?.username || acc.userId !== st.user?.id)) { acc.user = st.user?.username; acc.userId = st.user?.id; changed = true; }
+  // a local account's person, kept so removing it can find what it left in this app's storage (drafts, queued changes)
+  if (st.user && acc.kind === "local" && acc.userId !== st.user.id) { acc.userId = st.user.id; changed = true; }
   if (st.sync && JSON.stringify(acc.sync) !== JSON.stringify(st.sync)) { acc.sync = st.sync; changed = true; }
   if (changed) save();
 }
@@ -158,6 +164,14 @@ export async function open(id: string) { await closeOpen(); accounts.active = id
 /** Removes an account from this phone without asking (the screens asked, with what is lost: removePlan in @somnium/shared). */
 async function drop(acc: Account) {
   const { eraseCopiesOf, eraseCopyOf, eraseReplica, dropDatabase } = await import("../api/replica");
+  const [{ forgetStoredDrafts }, { forgetUnlock }, { forgetOutbox }, { forgetCachedMedia }, { session }] = await Promise.all([
+    import("../api/draftStore"), import("../core/unlock"), import("../api/outbox"), import("../api/media"), import("../core/session")]);
+  // where its records are kept: a server account's under the server's address, a local account's under the app's own
+  const place = acc.kind === "server" ? acc.url! : location.origin;
+  const userId = acc.userId ?? (accounts.active === acc.id ? session.user?.id : undefined);
+  // what it left in this app's storage: sealed drafts, queued changes, what unlocks its journal, its cached session
+  if (userId) { forgetStoredDrafts(place, userId); forgetOutbox(place, userId); forgetUnlock(userId, place); }
+  writeJson("somniumSession:" + place + "#" + acc.id, null);
   // the open account's database has to be closed first, or deleting it waits until the app is closed
   if (acc.kind === "local") { if (accounts.active === acc.id) await closeOpen(); await dropDatabase(`/pglite/somnium-${acc.id}`); }
   else {
@@ -165,17 +179,21 @@ async function drop(acc: Account) {
     if (acc.token) await fetch(acc.url + "/api/auth/logout", { method: "POST", headers: { "x-somnium": "1", authorization: `Bearer ${acc.token}`, "content-type": "application/json" }, body: "{}" }).catch(() => {});
     if (accounts.active === acc.id) await eraseReplica();
     // another account on the same server keeps its own copy
-    if (!accounts.list.some((a) => a.id !== acc.id && a.url === acc.url)) await eraseCopiesOf(acc.url!);
-    else if (acc.userId) await eraseCopyOf(acc.url!, acc.userId);
-    writeJson("somniumSession:" + acc.url + "#" + acc.id, null);
+    // its photos cached here go with the last account on that server: they can't be told apart by whose they are,
+    // and they are sealed, so another account's copy keeps them for its offline use
+    if (!accounts.list.some((a) => a.id !== acc.id && a.url === acc.url)) { await eraseCopiesOf(acc.url!); await forgetCachedMedia(acc.url!); }
+    else if (userId) await eraseCopyOf(acc.url!, userId);
     writeJson("somniumSession:" + acc.url, null);
   }
   accounts.list = accounts.list.filter((a) => a.id !== acc.id);
 }
+/** The open account leaves the way a switch does (locked, key dropped, copy closed) before anything of it is deleted. */
+async function closeIfOpen(open: boolean) { if (open) await (await import("../core/accounts")).closeCurrent(); }
 export async function removeAccount(id: string) {
   const acc = accounts.list.find((a) => a.id === id);
   if (!acc) return;
   const wasOpen = accounts.active === id;
+  await closeIfOpen(wasOpen);
   await drop(acc);
   if (wasOpen) accounts.active = null;
   save();
@@ -185,6 +203,7 @@ export async function removeServer(id: string) {
   const s = accounts.servers.find((x) => x.id === id);
   if (!s) return;
   const wasOpen = accounts.list.some((a) => a.serverId === id && a.id === accounts.active);
+  await closeIfOpen(wasOpen);
   for (const a of accounts.list.filter((x) => x.serverId === id)) await drop(a);
   accounts.servers = accounts.servers.filter((x) => x.id !== id);
   if (wasOpen) accounts.active = null;

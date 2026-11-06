@@ -4,6 +4,7 @@ import { ref } from "vue";
 import { api, ApiError } from "./client";
 import { readJson, storedKeys, writeJson } from "../core/prefs";
 import { leftByOthers } from "@somnium/shared";
+import { savedUserIds } from "../native/accounts";
 import { invalidate } from "./live";
 import { toast } from "../core/toast";
 
@@ -22,10 +23,16 @@ export function openOutbox(place: string, userId: string | null) {
   key = next;
   waiting.value = key ? readJson<Item[]>(key, []) : [];
   // someone else signed in here: what an earlier person's ended session left queued waits for them, under their name.
-  // Only empty lists go.
-  if (userId) for (const k of leftByOthers(storedKeys(), `${OLD_KEY}:${place}:`, userId)) if (!readJson<Item[]>(k, []).length) writeJson(k, null);
+  // Only empty lists go, and none of an account saved in this app (switching back to it works offline).
+  if (userId) for (const k of leftByOthers(storedKeys(), `${OLD_KEY}:${place}:`, userId, savedUserIds())) if (!readJson<Item[]>(k, []).length) writeJson(k, null);
   ended.clear();
   void flush();
+}
+/** An account removed from the app: its queued changes go with it (the person was told first). */
+export function forgetOutbox(place: string, userId: string) {
+  const k = `${OLD_KEY}:${place}:${userId}`;
+  if (k === key) waiting.value = [];
+  writeJson(k, null);
 }
 /** Signing out: what was queued is deleted with the rest of this device's copy, and the person was told first. */
 export function clearOutbox() { waiting.value = []; save(); ended.clear(); }

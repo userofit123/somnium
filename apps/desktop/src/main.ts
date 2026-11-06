@@ -222,9 +222,15 @@ ipcMain.handle("accounts:setServerAddress", async (_e, id: string, url: unknown)
   if (a.list.some((x) => x.serverId === id && x.id === running?.id)) await openAccount(running!.id);
 });
 // who is signed in on the open account and how its sync is going, from its own screens: shown while another is open
-ipcMain.handle("accounts:setStatus", (_e, st: { user?: { id: string; username: string } | null; sync?: SyncNote }) => {
+// Only from the running account's own window, about itself: the window left by a switch may still send a last
+// (delayed) report, which would otherwise land on the account opened next. Its window is the one in its own partition
+// (each account has one, holding only its window), which also covers the new window's first report sent while
+// openAccount is still waiting for it to load, before it becomes `win`.
+ipcMain.handle("accounts:setStatus", (e, st: { account?: string; user?: { id: string; username: string } | null; sync?: SyncNote }) => {
+  if (!running || e.sender.isDestroyed() || e.sender.session !== eSession.fromPartition(`persist:acct-${running.id}`)) return;
+  if (!st || typeof st !== "object" || st.account !== running.id) return;
   const a = readAccounts(); const acc = a.list.find((x) => x.id === a.active && x.id === running?.id);
-  if (!acc || !st || typeof st !== "object") return;
+  if (!acc) return;
   if (st.user !== undefined && acc.kind === "server") acc.user = typeof st.user?.username === "string" ? st.user.username.slice(0, 60) : undefined;
   const n = st.sync;
   if (n && typeof n === "object" && typeof n.state === "string" && ["synced", "waiting", "offline", "locked", "local", "signedOut"].includes(n.state))

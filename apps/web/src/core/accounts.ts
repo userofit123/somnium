@@ -22,7 +22,8 @@ export interface NativeAccounts {
   rename(id: string, name: string): Promise<void>;
   renameServer(id: string, name: string): Promise<void>;
   setServerAddress(id: string, url: string): Promise<void>;
-  setStatus(st: { user?: { id: string; username: string } | null; sync?: SyncNote }): Promise<void>;
+  /** account: whose status this is (the app ignores a late report from an account it has since left). */
+  setStatus(st: { account: string; user?: { id: string; username: string } | null; sync?: SyncNote }): Promise<void>;
   removeAccount(id: string): Promise<void>;
   removeServer(id: string): Promise<void>;
   device?: string; insecureAllowed?: boolean;
@@ -43,17 +44,21 @@ export function openSyncNote(): SyncNote {
   const local = saved.list.find((a) => a.id === saved.active)?.kind === "local";
   const pending = session.user ? unsentChanges() : 0;
   if (local) return { state: "local", pending: 0, at: Date.now() };
-  return { state: syncStateOf({ signedIn: !!session.user, copyOn: sync.on, online: sync.on ? sync.online : navigator.onLine, sealed: sync.sealed || keyring.isOpen(), pending }), pending, at: Date.now() };
+  return { state: syncStateOf({ signedIn: !!session.user, copyOn: sync.on, online: sync.on ? sync.online : navigator.onLine, sealed: sync.sealed, pending }), pending, at: Date.now() };
 }
 export const labelFor = (a: AccountEntry) => syncLabel(a.id === saved.active ? openSyncNote() : a.sync, a.kind);
 /** The open account's sync, in a browser too (where there is no saved list). */
 export const currentSyncLabel = () => syncLabel(openSyncNote(), saved.list.find((a) => a.id === saved.active)?.kind ?? "server");
 
 /** Reports who is signed in and the sync state to the app as they change (a count and a state: nothing personal). */
-export function startStatusReports() {
+export async function startStatusReports() {
   const n = nativeAccounts();
   if (!n) return;
   void refreshAccounts();
+  // the account these screens belong to, fixed for the page's life (switching opens another page)
+  let account = "";
+  try { account = (await Promise.resolve(n.current()))?.id ?? ""; } catch { /* no account: nothing to report on */ }
+  if (!account) return;
   let last = "", t: ReturnType<typeof setTimeout> | null = null;
   watch(() => [session.user?.id, session.user?.username, sync.on, sync.online, sync.sealed, sync.waiting, session.user ? unsentChanges() : 0], () => {
     if (t) clearTimeout(t);
@@ -62,7 +67,7 @@ export function startStatusReports() {
       if (key === last) return;
       last = key;
       // the Android bridge answers at once, the desktop one with a promise
-      void Promise.resolve().then(() => n.setStatus({ user: session.user ? { id: session.user.id, username: session.user.username } : null, sync: note })).catch(() => {});
+      void Promise.resolve().then(() => n.setStatus({ account, user: session.user ? { id: session.user.id, username: session.user.username } : null, sync: note })).catch(() => {});
     }, 600);
   }, { immediate: true });
 }

@@ -36,21 +36,27 @@ const items = computed<Item[]>(() => [
 
 <template>
   <Menu v-if="variant === 'rail'" :items="items" icon="user" label="Accounts" />
+  <!-- each row is a button: reached with Tab, run with Enter or Space, and read out as what it does -->
   <div v-else class="card flush acsw">
-    <div v-if="cur" class="li click" @click="router.push('/settings/account')">
+    <button v-if="cur" type="button" class="li click" @click="router.push('/settings/account')">
       <span class="bi sg"><Icon name="user" :size="17" /></span>
-      <div class="grow"><div class="t">{{ cur.name }}</div><div class="s">{{ cur.where }}</div></div>
+      <span class="grow"><span class="t">{{ cur.name }}</span><span class="s">{{ cur.where }}</span></span>
       <span class="tiny acc">In use</span>
-    </div>
-    <div v-for="r in others" :key="r.id" class="li click" @click="switchTo(r.id)">
+    </button>
+    <button v-for="r in others" :key="r.id" type="button" class="li click" :aria-label="`Switch to ${r.name}, ${r.where}`" @click="switchTo(r.id)">
       <span class="bi sg"><Icon name="swap" :size="17" /></span>
-      <div class="grow"><div class="t">{{ r.name }}</div><div class="s">{{ r.where }}</div></div>
-      <span class="qb">Switch</span>
-    </div>
-    <div class="li click" @click="manage">
+      <span class="grow"><span class="t">{{ r.name }}</span><span class="s">{{ r.where }}</span></span>
+      <span class="qb" aria-hidden="true">Switch</span>
+    </button>
+    <button type="button" class="li click" @click="manage">
       <span class="bi sg"><Icon name="server" :size="17" /></span>
-      <div class="grow"><div class="t">{{ nat ? "Manage servers & accounts" : "Manage server" }}</div></div>
+      <span class="grow"><span class="t">{{ nat ? "Manage servers & accounts" : "Manage server" }}</span></span>
       <Icon name="right" :size="16" class="muted" />
-    </div>
+    </button>
   </div>
 </template>
+
+<style scoped>
+.acsw .li { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: var(--tx); text-align: start; font: inherit; cursor: pointer; }
+.acsw .t, .acsw .s { display: block; }
+</style>

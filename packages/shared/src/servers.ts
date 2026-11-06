@@ -22,14 +22,16 @@ export type AddressCheck = { ok: true; origin: string; insecure: boolean; warnin
 /** 127.0.0.0/8, localhost, ::1, and the private LAN ranges (10/8, 172.16/12, 192.168/16, 169.254/16, fc00::/7). */
 export function isLocalHost(hostname: string): boolean {
   const h = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h === "localhost" || h.endsWith(".localhost") || h === "::1") return true;
+  // exactly "localhost": a name under .localhost is only this computer if the resolver says so, and not every one does
+  if (h === "localhost" || h === "::1") return true;
   const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(h);
   if (m) {
     const [a, b] = [Number(m[1]), Number(m[2])];
     if (m.slice(1).some((x) => Number(x) > 255)) return false;
     return a === 127 || a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
   }
-  return /^f[cd][0-9a-f]{0,2}:/.test(h);
+  // fc00::/7: a first group of four hex digits starting fc or fd ("fc::1" is 00fc, outside it)
+  return /^f[cd][0-9a-f]{2}:/.test(h);
 }
 
 /**

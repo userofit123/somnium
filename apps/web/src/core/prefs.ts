@@ -16,10 +16,11 @@ export function readJson<T>(k: string, fallback: T): T {
     return v == null ? fallback : (JSON.parse(v) ?? fallback);
   } catch { return fallback; }
 }
+/** null removes it: a record that is forgotten leaves no key behind (reading it gives the fallback either way). */
 export function writeJson(k: string, v: unknown) {
-  const text = JSON.stringify(v);
+  const text = v === null ? null : JSON.stringify(v);
   try { kept(k)?.set(k, text ?? null); } catch { /* the copy below still counts */ }
-  try { ls()?.setItem(k, text); } catch { /* not remembered */ }
+  try { if (text == null) ls()?.removeItem(k); else ls()?.setItem(k, text); } catch { /* not remembered */ }
 }
 export function storedKeys(): string[] {
   try { const s = ls(); return s ? Array.from({ length: s.length }, (_, i) => s.key(i) ?? "") : []; } catch { return []; }

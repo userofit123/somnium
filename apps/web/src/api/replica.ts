@@ -5,8 +5,9 @@
 import { reactive } from "vue";
 import { ApiError, httpTransport, server, setTransport, type Transport } from "./client";
 import { invalidate, setRemoteHandler } from "./live";
-import { readStr, writeStr } from "../core/prefs";
+import { readStr, writeJson, writeStr } from "../core/prefs";
 import { keyring } from "../core/keyring";
+import { savedUserIds } from "../native/accounts";
 import { LockedError, allowedWithoutKey, needsKey } from "@somnium/engine/sealed-api";
 import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, leftByOthers, leftWithNothingUnsent } from "@somnium/shared";
 import { forgetCachedMedia } from "./media";
@@ -53,22 +54,34 @@ export async function copyHasUnsent(user: { id: string }): Promise<boolean> {
 
 const hash = (s: string) => { let h = 5381; for (const c of s) h = ((h << 5) + h + c.charCodeAt(0)) >>> 0; return h.toString(36); };
 /** Deletes a database and waits until it's gone (or blocked by a tab that still has it open), so a reload after it doesn't find it again. */
-export function dropDatabase(dbName: string) {
-  return new Promise<void>((done) => {
-    try { const r = indexedDB.deleteDatabase(dbName); r.onsuccess = r.onerror = r.onblocked = () => done(); } catch { done(); }
+export function dropDatabase(dbName: string) { return deleteDb(dbName).then(() => {}); }
+// A deletion this page still holds open waits (blocked) until the page goes, and a second request for the same database
+// queues behind it and hears nothing at all: removing a server whose account is open asked twice (its copy, then all the
+// server's copies) and hung there. One request per database: asking again gets the answer of the one under way.
+const deleting = new Map<string, Promise<boolean>>();
+/** True: a page still holds it, and it goes once that page has gone. */
+function deleteDb(dbName: string): Promise<boolean> {
+  const under = deleting.get(dbName);
+  if (under) return under;
+  const asked = new Promise<boolean>((done) => {
+    const gone = () => { deleting.delete(dbName); done(false); };
+    try { const r = indexedDB.deleteDatabase(dbName); r.onsuccess = r.onerror = gone; r.onblocked = () => done(true); } catch { gone(); }
   });
+  deleting.set(dbName, asked);
+  return asked;
 }
 /** Deletes every copy this device keeps of a server's data (a server account removed from the app). */
 export async function eraseCopiesOf(base: string) {
   const start = `/pglite/somnium-r-${hash(base)}-`;
   try {
-    for (const d of (await (indexedDB as any).databases?.()) ?? []) if (d.name?.startsWith(start)) { await dropDatabase(d.name); writeStr("somniumUnsent:" + d.name.slice(8), "0"); }
+    // no copy, so nothing unsent: the note goes with it
+    for (const d of (await (indexedDB as any).databases?.()) ?? []) if (d.name?.startsWith(start)) { await dropDatabase(d.name); writeJson("somniumUnsent:" + d.name.slice(8), null); }
   } catch { /* nothing kept */ }
 }
 /** Deletes one person's copy of a server's data (one of several accounts on that server removed from the app). */
 export async function eraseCopyOf(base: string, userId: string) {
   const n = `somnium-r-${hash(base)}-${userId}`;
-  await dropDatabase(`/pglite/${n}`); writeStr("somniumUnsent:" + n, "0");
+  await dropDatabase(`/pglite/${n}`); writeJson("somniumUnsent:" + n, null);
 }
 /** A request about this copy: it says whose copy it is, and the server refuses it under anyone else's session. */
 const http = <T = any>(owner: string, method: string, path: string, body?: unknown, wait?: number) =>
@@ -154,13 +167,16 @@ async function openCopy(user: { id: string }, mineEra: number): Promise<boolean>
   }
   // a change here is unsent until a sync says otherwise: noted at once, in case the app is closed before that
   eng.onChange((_u: string, topics: string[]) => { noteUnsent(1); invalidate(topics); schedule(); });
+  // the key arriving (sign-in finishing, the app unlocking) is what a locked sync was waiting for. Listened for before
+  // the first sync: an unlock while it runs would otherwise be missed, and the pill would stay on "locked".
+  stopKeyring = keyring.onChange((open) => { if (open) { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; schedule(0); } else locked(); });
   // catch up with the server before the screens switch to the copy: otherwise they briefly show what the copy had
   // when the app was last open (a dream written on another device since, say) and then change again.
   // Bounded, so a slow connection still gets the copy within a few seconds; the sync carries on behind it.
   // Not when the server has just failed to answer (the app is opening offline): the sync below tries again anyway.
   if (mineEra === era && navigator.onLine && sync.online) await Promise.race([run(mineEra), new Promise((ok) => setTimeout(ok, 4000))]);
   // given up while opening (the session ended): this must not become the transport of whoever signs in next
-  if (mineEra !== era) { await closeCopy(); return false; }
+  if (mineEra !== era) { stopKeyring(); stopKeyring = () => {}; await closeCopy(); return false; }
   setTransport(transport);
   setRemoteHandler(() => schedule(0));
   sync.on = true;
@@ -171,8 +187,6 @@ async function openCopy(user: { id: string }, mineEra: number): Promise<boolean>
   // whatever failed while the app was in the background (the phone cuts its network) says nothing about now
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { failingSince = 0; shownAt = Date.now(); schedule(0); } }, { signal });
   tick = setInterval(() => schedule(0), PAGE_WAIT);
-  // the key arriving (sign-in finishing, the app unlocking) is what a locked sync was waiting for
-  stopKeyring = keyring.onChange((open) => { if (open) { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; schedule(0); } else locked(); });
   sync.waiting = await R.waitingCount(db);
   noteUnsent(sync.waiting);
   schedule(0);
@@ -190,7 +204,9 @@ async function run(mineEra: number) {
   if (running) { again = true; return; }
   // No key: sealed tables can neither be sealed for the server nor opened from it, so only the plain ones travel.
   const keyed = keyring.isOpen(), opened = keyring.generation(), owner = userId;
+  // the state follows the key as this sync starts: a lock noted earlier is over once the key is open
   if (!keyed) locked();
+  else { sync.sealed = true; if (sync.error === LOCKED) sync.error = ""; }
   running = true; sync.syncing = true;
   // Before every step: this copy may have been given up (the session ended, someone else signed in), and a lock or
   // another sign-in moves the key on. A step already running ends first, but nothing new starts.
@@ -260,7 +276,8 @@ async function run(mineEra: number) {
     if (e instanceof Stopped) { if (!keyring.isOpen() && mineEra === era) locked(); }
     else if (refusedAsNotOwner(e)) sessionMovedOn(mineEra);
     else if (e instanceof ApiError && e.status === 0) unreachable(tried);
-    else if ((e as Error).name === "LockedError") locked();
+    // locked only if the key is still gone: it may have come back while this step ran (that sync is scheduled already)
+    else if ((e as Error).name === "LockedError") { if (!keyring.isOpen()) locked(); }
     else {
       // the server answered (with an error), so it is reachable: a later network failure gets its own grace
       failingSince = 0;
@@ -330,11 +347,13 @@ export function eraseCopiesLeftByOthers(user: { id: string }): Promise<boolean> 
     const prefix = `/pglite/somnium-r-${hash(server.value.base || location.origin)}-`;
     let names: string[] = [];
     try { names = ((await (indexedDB as any).databases?.()) ?? []).map((d: any) => String(d.name)); } catch { /* nothing to list */ }
-    const left = leftByOthers(names, prefix, user.id);
+    // another account saved in this app keeps its copy: switching back to it has to work offline
+    const left = leftByOthers(names, prefix, user.id, savedUserIds());
     const erase = leftWithNothingUnsent(left, (n) => readStr("somniumUnsent:" + n.slice(8), ""));
     for (const n of erase) { if (await dropCopy(n)) stillHeld = true; else writeStr("somniumUnsent:" + n.slice(8), "0"); }
-    // a kept copy's photos stay too: they are sealed, and that person may come back offline
-    if (erase.length && erase.length === left.length) await forgetCachedMedia();
+    // a kept copy's photos stay too: they are sealed, and that person may come back offline (also a saved account's)
+    const keptOthers = names.some((n) => n.startsWith(prefix) && n !== prefix + user.id && !erase.includes(n));
+    if (erase.length && !keptOthers) await forgetCachedMedia();
     return stillHeld;
   });
 }
@@ -353,8 +372,4 @@ export function eraseReplica(user?: { id: string }): Promise<boolean> {
 }
 // PGlite's close() leaves its IndexedDB connection open for as long as the page lives, so deleting a copy this page has
 // used waits until the page is gone, and meanwhile opening that same copy would wait behind the deletion. True: it waits.
-function dropCopy(dbName: string) {
-  return new Promise<boolean>((done) => {
-    try { const r = indexedDB.deleteDatabase(dbName); r.onsuccess = r.onerror = () => done(false); r.onblocked = () => done(true); } catch { done(false); }
-  });
-}
+function dropCopy(dbName: string) { return deleteDb(dbName); }

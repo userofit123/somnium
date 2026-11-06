@@ -7,12 +7,12 @@ describe("checkServerAddress", () => {
     expect(checkServerAddress(" https://somnium.home:8443/a?b ")).toMatchObject({ ok: true, origin: "https://somnium.home:8443" });
   });
   it("allows http only on this computer and private networks, with a warning", () => {
-    for (const a of ["http://localhost:3000", "http://127.0.0.1", "http://192.168.1.5:8080", "http://10.0.0.2", "http://172.20.1.1", "http://[::1]:80", "http://nas.localhost"]) {
+    for (const a of ["http://localhost:3000", "http://127.0.0.1", "http://192.168.1.5:8080", "http://10.0.0.2", "http://172.20.1.1", "http://[::1]:80", "http://LOCALHOST", "http://[fc00::1]", "http://[fdab:1::2]"]) {
       const r = checkServerAddress(a);
       expect(r.ok, a).toBe(true);
       if (r.ok) { expect(r.insecure).toBe(true); expect(r.warning).toMatch(/http/); }
     }
-    for (const a of ["http://example.com", "http://172.32.0.1", "http://8.8.8.8", "http://192.169.0.1", "http://300.1.1.1"]) expect(checkServerAddress(a).ok, a).toBe(false);
+    for (const a of ["http://example.com", "http://172.32.0.1", "http://8.8.8.8", "http://192.169.0.1", "http://300.1.1.1", "http://nas.localhost", "http://localhost.example.com", "http://[fc::1]", "http://[fe80::1]", "http://[2001:db8::1]"]) expect(checkServerAddress(a).ok, a).toBe(false);
   });
   it("refuses what isn't a web address", () => {
     expect(checkServerAddress("")).toMatchObject({ ok: false });
@@ -25,6 +25,15 @@ describe("checkServerAddress", () => {
     expect(isLocalHost("172.31.255.255")).toBe(true);
     expect(isLocalHost("fd12::1")).toBe(true);
     expect(isLocalHost("somnium.local")).toBe(false);
+  });
+  it("takes plain localhost only, and fc00::/7 by its whole first group", () => {
+    expect(isLocalHost("localhost")).toBe(true);
+    expect(isLocalHost("a.localhost")).toBe(false);
+    expect(isLocalHost("fc00::1")).toBe(true);
+    expect(isLocalHost("[FDFF:1::1]")).toBe(true);
+    expect(isLocalHost("fc::1")).toBe(false); // 00fc
+    expect(isLocalHost("fd1::1")).toBe(false); // 0fd1
+    expect(isLocalHost("fe00::1")).toBe(false);
   });
 });
 

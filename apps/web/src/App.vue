@@ -28,7 +28,7 @@ onMounted(async () => {
   if (isAndroid()) { installAndroidBridge(); if (!(await connect())) { needAccount.value = true; return; } }
   await loadSession();
   // the desktop and Android apps show each account's sync in their lists: the open one reports it as it changes
-  startStatusReports();
+  void startStatusReports();
 });
 const signedIn = computed(() => session.ready && !!session.user);
 watch(signedIn, (v) => (v ? startLive() : stopLive()), { immediate: true });

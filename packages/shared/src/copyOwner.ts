@@ -17,9 +17,11 @@ export function copyDecision(openFor: string | null, signedIn: string | null): C
  * What another person left behind on this device, among stored names of the form prefix + user id. When someone's
  * session ends without signing out (it expired, or was ended elsewhere) their copy waits for them to come back; once
  * someone else signs in here, it goes unless it holds unsent changes (leftWithNothingUnsent).
+ * keep: people with an account saved in this app (Android: several accounts on one server). Theirs isn't left behind,
+ * it waits for a switch back, which has to work offline.
  */
-export const leftByOthers = (names: readonly string[], prefix: string, userId: string): string[] =>
-  names.filter((n) => n.startsWith(prefix) && n !== prefix + userId);
+export const leftByOthers = (names: readonly string[], prefix: string, userId: string, keep: readonly string[] = []): string[] =>
+  names.filter((n) => n.startsWith(prefix) && n !== prefix + userId && !keep.some((k) => k && n === prefix + k));
 
 /**
  * Sent with every request to /sync/*: whose copy this request comes from. The server compares it with who the session
@@ -41,8 +43,9 @@ export const ownRecord = <T extends { owner?: string }>(record: T | null | undef
   record && userId && record.owner === userId ? record : null;
 
 /** Among stored names: this server's records of this kind that aren't this person's, older ones without an owner included. */
-export const unlockRecordsToForget = (names: readonly string[], kind: string, place: string, userId: string): string[] =>
-  names.filter((n) => n === `${kind}:${place}` || (n.startsWith(`${kind}:${place}#`) && n !== unlockRecordName(kind, place, userId)));
+export const unlockRecordsToForget = (names: readonly string[], kind: string, place: string, userId: string, keep: readonly string[] = []): string[] =>
+  names.filter((n) => n === `${kind}:${place}` || (n.startsWith(`${kind}:${place}#`) && n !== unlockRecordName(kind, place, userId)
+    && !keep.some((k) => k && n === unlockRecordName(kind, place, k))));
 
 /**
  * Among copies other people left here, those that may go. A copy holding changes the server hasn't got waits for its

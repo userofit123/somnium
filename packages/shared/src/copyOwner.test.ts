@@ -22,6 +22,11 @@ describe("whose copy a tab may work on", () => {
     expect(leftByOthers(names, "/pglite/somnium-r-x-", "ann")).toEqual(["/pglite/somnium-r-x-bob"]);
     expect(leftByOthers(["/pglite/somnium-r-x-ann"], "/pglite/somnium-r-x-", "ann")).toEqual([]);
   });
+  it("leaves what belongs to another account saved in this app", () => {
+    const names = ["/pglite/somnium-r-x-ann", "/pglite/somnium-r-x-bob", "/pglite/somnium-r-x-cat"];
+    expect(leftByOthers(names, "/pglite/somnium-r-x-", "bob", ["ann", ""])).toEqual(["/pglite/somnium-r-x-cat"]);
+    expect(leftByOthers(names, "/pglite/somnium-r-x-", "bob", ["an"])).toEqual(["/pglite/somnium-r-x-ann", "/pglite/somnium-r-x-cat"]);
+  });
 });
 
 describe("what opens a journal on this device", () => {
@@ -44,6 +49,8 @@ describe("what opens a journal on this device", () => {
   it("forgets what others left on this server, older unowned records too, and nothing else", () => {
     const stored = [name("ann"), name("bob"), "somniumDeviceUnlock:" + PLACE, name("cid", other), "somniumUnlock:" + PLACE + "#bob", "somniumTheme"];
     expect(unlockRecordsToForget(stored, "somniumDeviceUnlock", PLACE, "ann")).toEqual([name("bob"), "somniumDeviceUnlock:" + PLACE]);
+    // bob has an account saved in this app: his record stays for the switch back; the one with no owner still goes
+    expect(unlockRecordsToForget(stored, "somniumDeviceUnlock", PLACE, "ann", ["bob"])).toEqual(["somniumDeviceUnlock:" + PLACE]);
   });
 });
 
