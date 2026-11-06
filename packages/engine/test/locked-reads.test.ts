@@ -55,11 +55,11 @@ describe("while the journal is locked", () => {
       expect(JSON.stringify(r.body) ?? "", `${method} ${route}`).not.toContain(SECRET);
     }
     // what a runner can reach is settings, goals, reminders, the activity log and an import's preview: nothing sealed
-    expect(reached.some((x) => /\/(dreams|nights|elements|dream-elements|reality-checks|practice|course|export)\b/.test(x.split(" ")[1]!) && x.startsWith("GET"))).toBe(false);
+    expect(reached.some((x) => /\/(dreams|nights|elements|dream-elements|dream-facts|reality-checks|practice|course|export)\b/.test(x.split(" ")[1]!) && x.startsWith("GET"))).toBe(false);
   });
 
   it("refuses every read of a journal table, however the path is written", () => {
-    for (const p of ["/dreams", `/dreams/${ids.dreams}`, "/nights", "/elements", "/elements?signs=1", "/dream-elements", "/reality-checks",
+    for (const p of ["/dreams", `/dreams/${ids.dreams}`, "/nights", "/elements", "/elements?signs=1", "/dream-elements", "/dream-facts", "/reality-checks",
       "/practice", "/course", "/export", "/dreams/", "//dreams", "/./dreams", "/x/../dreams", "/elements/", `/dreams/${ids.dreams}/elements`]) {
       expect(allowedWithoutKey("GET", p), p).toBe(false);
     }

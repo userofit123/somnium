@@ -64,7 +64,8 @@ export function finishMerges(elements: readonly Element[]): Promise<number> {
     let n = 0;
     try {
       for (const e of marked) {
-        const into = elements.find((x) => x.id === mergingInto(e.note));
+        // a mark pointing at the element itself would delete it: treat it like a missing target
+        const into = elements.find((x) => x.id === mergingInto(e.note) && x.id !== e.id);
         if (into) await mergeSteps(e, into); else await api.put(`/elements/${e.id}`, { note: withoutMergeMark(e.note) });
         n++;
       }
