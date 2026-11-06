@@ -315,7 +315,7 @@ the course's move-on rules and the recommendations.
 ### 7.4 Scales used
 - Lucidity 0-5: 0 not lucid · 1 brief flash, lost at once · 2 knew but little clarity or control · 3 lucid, some
   control · 4 lucid, clear, controlled · 5 fully lucid, long, stable (adapted from the DLQ and Waggoner; sources in
-  RESEARCH.md). Control, vividness and recall clarity 1-5 with one-line anchors. Sleep quality 1-5.
+  RESEARCH.md). Control 0-5 (0 = none), vividness and recall clarity 1-5, with one-line anchors. Sleep quality 1-5.
 - Self-assessment questionnaires in Learn → "Where am I": the Lucid Dreaming Frequency Scale item, dream recall
   frequency item (MADRE wording), optionally the DLQ for the last lucid dream.
 
