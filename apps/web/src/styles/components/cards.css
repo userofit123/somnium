@@ -1,0 +1,113 @@
+/* Cards: .card (hero, warn, clickable), the small title line .lbl, big values .val. */
+
+.card {
+  background: var(--s1);
+  border: 1px solid var(--ol);
+  border-radius: var(--r);
+  padding: var(--cpy) var(--cpx);
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+  position: relative;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.card.click {
+  cursor: pointer;
+}
+
+.card.click:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--acc) 50%, var(--ol));
+  box-shadow: 0 14px 34px -16px var(--acc);
+}
+
+.card.hero {
+  background: linear-gradient(140deg, var(--accc), color-mix(in srgb, var(--accc) 55%, var(--s1)));
+  border-color: color-mix(in srgb, var(--onc) 14%, transparent);
+  color: var(--onc);
+}
+
+/* the colour stops at the edge: under the see-through edge it would show the gradient's light start on one side and
+   its dark end on the other, so the two sides would look different (:root wins over every look's background) */
+:root .card.hero {
+  background-clip: padding-box;
+}
+
+.card.hero .lbl,
+.card.hero .sm {
+  color: color-mix(in srgb, var(--onc) 75%, transparent);
+}
+
+.card.warn {
+  border-color: color-mix(in srgb, var(--neg) 45%, var(--ol));
+}
+
+.card.hero .bi {
+  background: color-mix(in srgb, var(--onc) 18%, transparent);
+  color: var(--onc);
+}
+
+.card.hero .hq:hover {
+  color: var(--onc);
+  background: color-mix(in srgb, var(--onc) 18%, transparent);
+}
+
+.lbl > .hq {
+  margin-inline-start: -6px;
+}
+
+.lbl {
+  font-size: 13px;
+  color: var(--tx2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+}
+
+.val {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 8px 0 2px;
+  letter-spacing: -1px;
+}
+
+.val small {
+  font-size: .55em;
+  font-weight: 500;
+  opacity: .6;
+  margin-inline-end: 2px;
+}
+
+.flow {
+  padding: 22px 24px;
+}
+
+.flow > .sm {
+  margin-bottom: 18px;
+}
+
+.acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 6px;
+}
+
+.card.acc .lbl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lbl .tinfo {
+  margin-inline-start: .2em;
+  vertical-align: middle;
+}
+
+html.he .val,
+html.he .big {
+  text-align: right; /* fixed side */
+}
+
+/* KPI tiles: sparkline sits under the text, never over it */

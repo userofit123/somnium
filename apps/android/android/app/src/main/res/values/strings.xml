@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Somnium</string>
+    <string name="title_activity_main">Somnium</string>
+    <string name="package_name">org.somnium.app</string>
+    <string name="custom_url_scheme">org.somnium.app</string>
+</resources>

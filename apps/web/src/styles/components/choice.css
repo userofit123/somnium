@@ -1,0 +1,4 @@
+/* Choices inside forms (components/ChoiceTiles.vue holds the tiles' own look). A segmented control under a field label
+   sits right under it, as an input does, instead of keeping the gaps it has as a tab row. */
+.fld > .seg { margin: 0; }
+.fld > .seg + .seg, .fld > .fpick + .seg { margin-top: 8px; }

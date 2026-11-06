@@ -1,0 +1,46 @@
+# dependencies and secrets
+node_modules/
+.env
+.env.*
+!.env.example
+secrets/
+/data/
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+apps/android/android/app/build/
+apps/android/android/.gradle/
+apps/android/android/local.properties
+*.keystore
+*.jks
+
+# backups and exports never belong in the repo
+*.somniumbackup
+
+# logs, test and tool output
+*.log
+coverage/
+playwright-report/
+test-results/
+
+# editors, the operating system, Claude Code's personal files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.claude/worktrees/
+.claude/settings.local.json
+
+# package store used by the dev containers
+.pnpm-store/
+
+
+# personal task-queue runner and its logins (see CLAUDE.md "Task queue")
+/workflow/
+*.pem
+*.apk
+*.aab
+release/
+apps/android/android/app/src/main/assets/public/

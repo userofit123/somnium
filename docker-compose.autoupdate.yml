@@ -1,0 +1,9 @@
+# Optional: update Somnium by itself when a new version is published.
+#   docker compose -f docker-compose.yml -f docker-compose.autoupdate.yml up -d
+services:
+  watchtower:
+    image: nickfedor/watchtower:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --label-enable --cleanup --schedule "0 0 4 * * *"

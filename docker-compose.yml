@@ -1,0 +1,47 @@
+# Somnium on your own server.
+#   cp .env.example .env   (set a database password)
+#   docker compose up -d
+# The app listens on 127.0.0.1:8800; put a reverse proxy with HTTPS in front (see docs/self-hosting.md).
+name: somnium-prod
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: somnium
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      POSTGRES_DB: somnium
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U somnium -d somnium"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [backend]
+
+  app:
+    image: ghcr.io/userofit123/somnium:${SOMNIUM_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://somnium:${DB_PASSWORD}@db:5432/somnium
+      LOG: "1"
+    volumes:
+      - appdata:/data
+    ports:
+      - "127.0.0.1:${SOMNIUM_PORT:-8800}:8080"
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [backend, web]
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+
+volumes:
+  db: {}
+  appdata: {}
+
+networks:
+  backend:
+    internal: true # the database is never reachable from outside
+  web: {}

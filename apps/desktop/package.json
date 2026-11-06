@@ -1,0 +1,73 @@
+{
+  "name": "somnium-desktop",
+  "productName": "Somnium",
+  "version": "0.0.0",
+  "description": "Somnium fitness tracker",
+  "author": "Somnium",
+  "homepage": "https://github.com/userofit123/somnium",
+  "private": true,
+  "main": "dist/main.cjs",
+  "scripts": {
+    "build": "node build.mjs",
+    "start": "node build.mjs && electron .",
+    "dist": "node build.mjs && electron-builder --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9",
+    "@electric-sql/pglite": "0.2.15"
+  },
+  "devDependencies": {
+    "@somnium/server": "workspace:*",
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8",
+    "esbuild": "0.24.2",
+    "typescript": "5.7.2",
+    "@somnium/engine": "workspace:*"
+  },
+  "build": {
+    "appId": "org.somnium.app",
+    "productName": "Somnium",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../web/dist",
+        "to": "web"
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "userofit123",
+      "repo": "somnium",
+      "releaseType": "release"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Utility",
+      "maintainer": "Somnium",
+      "icon": "assets/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.healthcare-fitness"
+    }
+  }
+}

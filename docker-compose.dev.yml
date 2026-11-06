@@ -1,0 +1,93 @@
+# Development environment: watch the app at https://somnium.local while it is being built.
+#   docker compose -f docker-compose.dev.yml up -d
+# The shared Caddy proxy (another project) serves https://somnium.local and forwards to the "somnium-web"
+# container on the external "proxy" network. Nothing here publishes ports 80/443, so other sites are untouched.
+# Dev-only database password: the database sits on an internal network with no published port.
+name: somnium
+
+x-node: &node
+  image: node:22-alpine
+  user: "1000:1000"
+  working_dir: /repo
+  volumes:
+    - ./:/repo
+  environment: &node-env
+    COREPACK_ENABLE_DOWNLOAD_PROMPT: "0"
+    npm_config_store_dir: /repo/.pnpm-store
+    CHOKIDAR_USEPOLLING: "1"   # notice every change in the shared folder, however the file was saved
+    WATCH_POLL: "1"
+
+services:
+  install:   # installs packages once per "up", then exits
+    <<: *node
+    command: corepack pnpm install
+    networks: [dev]
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: somnium
+      POSTGRES_PASSWORD: somnium-dev
+      POSTGRES_DB: somnium
+    volumes:
+      - db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U somnium -d somnium"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [backend]
+
+  server:
+    <<: *node
+    restart: unless-stopped
+    command: corepack pnpm --filter @somnium/server dev
+    environment:
+      <<: *node-env
+      DATABASE_URL: postgres://somnium:somnium-dev@db:5432/somnium
+      PORT: "8080"
+      WEB_DIR: /repo/apps/web/dist   # the built app (the "phone" service below keeps it up to date)
+    ports:
+      - "127.0.0.1:8801:8080"   # the built app with this database: what the phone opens over Tailscale
+    depends_on:
+      install: { condition: service_completed_successfully }
+      db: { condition: service_healthy }
+    networks: [backend, dev]
+
+  web:
+    <<: *node
+    container_name: somnium-web   # the name Caddy forwards to
+    restart: unless-stopped
+    command: corepack pnpm --filter @somnium/web dev
+    environment:
+      <<: *node-env
+      API_URL: http://server:8080
+      VITE_HMR_HOST: somnium.local
+    ports:
+      - "127.0.0.1:8800:5173"   # direct access without the proxy: http://127.0.0.1:8800
+    depends_on:
+      install: { condition: service_completed_successfully }
+      server: { condition: service_started }
+    networks: [dev, proxy]
+
+  # The phone gets the built app (a few bundled files, like a real install) instead of the development server's
+  # hundreds of separate files: rebuilt here on every change, served by the server above on port 8801.
+  phone:
+    <<: *node
+    restart: unless-stopped
+    command: corepack pnpm --filter @somnium/web exec vite build --watch
+    depends_on:
+      install: { condition: service_completed_successfully }
+    networks: [dev]
+
+volumes:
+  db: {}
+
+networks:
+  backend:
+    internal: true   # the database is never reachable from outside
+  dev: {}            # not internal: package installs need the internet
+  proxy:
+    external: true
+    name: proxy

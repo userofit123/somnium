@@ -1,0 +1,627 @@
+/* Somnium's own components and layouts. Only the theme's tokens are used: colours, radii, spacing and type follow the Appearance panel.
+   Calm by design (PLAN.md §10.0): one filled button per screen, quiet everything else. */
+
+body { background: transparent; }
+#app { display: contents; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; }
+.ico { flex: none; display: block; }
+.grow { flex: 1; min-width: 0; }
+.row { display: flex; align-items: center; gap: 10px; }
+/* Money Manager's .row is a padded list row; ours is a plain flex row (a card that is also a row keeps its card padding) */
+.row:not(.card) { padding: 0; border: 0; }
+.col { display: flex; flex-direction: column; gap: 6px; }
+.wrap { flex-wrap: wrap; }
+.end { justify-content: flex-end; }
+.between { justify-content: space-between; }
+.muted { color: var(--tx2); }
+.tiny { font-size: var(--fs-xs); color: var(--tx2); }
+.num { font-variant-numeric: tabular-nums; }
+.ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hide { display: none !important; }
+.center { text-align: center; }
+.pos { color: var(--pos); }
+.neg { color: var(--neg); }
+.acc { color: var(--acc); }
+hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
+/* spacing between blocks: blocks stacked in a column (cards, banners, sections' parts) are --spg apart, so the Spacing
+   setting in Appearance moves them all; a heading, a filter row or a toolbar sits --hg above what it belongs to */
+.stack { display: flex; flex-direction: column; gap: var(--spg); }
+.spt { margin-top: var(--spg); }
+.spb { margin-bottom: var(--spg); }
+.hgap { margin-bottom: var(--hg); }
+
+/* ---------- page frame ---------- */
+/* dvh: the height actually visible; plain vh on a phone browser counts the hidden address bar too, so a short page
+   would still scroll by that much */
+/* the sides leave room for a side navigation bar in the Android app's landscape; the page's background fills it */
+.shell, .pshell { padding-inline: var(--sl) var(--sr); }
+.shell { display: flex; width: 100%; min-height: 100vh; min-height: 100dvh; }
+.page { width: 100%; max-width: 1100px; margin: 0 auto; }
+.ph { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: calc(var(--spg) + 6px); }
+.ph h1 { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.6px; line-height: 1.15; }
+.ph .sub { color: var(--tx2); font-size: 13px; margin-top: 4px; }
+.ph .acts { display: flex; gap: 8px; align-items: center; flex: none; }
+/* a page's Back: a small pill, the chevron on its own tinted dot; same height as the old text link */
+.back { display: inline-flex; align-items: center; gap: 6px; color: var(--tx2); font-size: 13px; line-height: 20px; font-weight: 500; margin: 0 0 8px -4px; cursor: pointer; background: none; border: 0; padding: 3px 10px 3px 3px; border-radius: var(--pill); transition: background .2s, color .2s; }
+.back svg { display: block; flex: none; width: 20px; height: 20px; padding: 3px; box-sizing: border-box; border-radius: 50%; background: var(--s2); color: var(--tx); transition: background .2s, color .2s; }
+/* most fonts sit their letters a little above the middle of the line: bring the label down to the chevron's centre */
+.back > span { translate: 0 1px; }
+.back:hover { color: var(--tx); background: var(--s2); }
+.back:hover svg { background: var(--accc); color: var(--onc); }
+.back:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+
+/* section heading: small capitals with an "All →" link, like the screenshot */
+.sh { display: flex; align-items: center; justify-content: space-between; margin: calc(var(--spg) * 1.75) 0 var(--hg); }
+.sh h2 { margin: 0; }
+/* a link inside a sentence */
+.lnk.inl { display: inline; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; }
+.sh .lnk { font-size: 12.5px; font-weight: 600; color: var(--acc); cursor: pointer; background: none; border: 0; display: inline-flex; align-items: center; gap: 2px; }
+.sh.first { margin-top: 0; }
+/* the first heading under a page title, its tabs or its search: the bar above already leaves the gap (the same as above any
+   first card, e.g. Programs' empty block), so the heading adds none; grids are left out, their side-by-side headings must line up.
+   A window's first heading likewise starts at its top padding */
+.sh_b > .sh:first-child,
+:is(.ph, .tabs, .search) + .sh,
+:is(.ph, .tabs, .search) + :not(.grid) > .sh:first-child,
+:is(.ph, .tabs, .search) + :not(.grid) > :first-child:not(.grid) > .sh:first-child { margin-top: 0; }
+/* a heading's description sits close under it; the block it introduces follows at the usual --hg */
+.sh + p.tiny { margin-top: calc(var(--hg) * -.5); }
+/* sections side by side in a grid: the heading's own top margin already parts the rows, so the grid adds no row gap */
+.grid:has(> section > .sh:first-child) { row-gap: 0; }
+/* a heading among a .stack's blocks: with the stack's gap, the same section gap above and --hg below as anywhere else */
+.stack > .sh { margin: calc(var(--spg) * .75) 0 calc(var(--hg) - var(--spg)); }
+.stack > .sh:first-child { margin-top: 0; }
+/* the same for a description or filter row among a .stack's blocks: --hg to what it belongs to, not the stack's gap plus --hg */
+.stack > .hgap { margin-bottom: calc(var(--hg) - var(--spg)); }
+
+.grid { display: grid; gap: var(--spg); }
+.g2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.g3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.g4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.gauto { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+@media (max-width: 1100px) { .g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .g3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.card { position: relative; }
+.card.flat { background: none; }
+.card.tight { padding: calc(var(--cpy) - 3px) calc(var(--cpx) - 2px); }
+.card .ch { display: flex; align-items: center; gap: 8px; margin-bottom: var(--hg); }
+.card .ch .t { font-weight: 600; font-size: 14px; }
+.click { cursor: pointer; }
+
+/* ---------- stat card (sparkline at the bottom right, like the screenshot) ---------- */
+.stat { overflow: hidden; min-height: 118px; display: flex; flex-direction: column; }
+.stat .lbl { display: flex; align-items: center; gap: 8px; }
+.stat .bi { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+.bi.sg { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+.stat.hero .bi { background: color-mix(in srgb, var(--onc) 14%, transparent); color: var(--onc); }
+.stat .val { margin-top: 8px; }
+.stat .val small { font-size: 15px; font-weight: 500; margin-inline-start: 4px; color: var(--tx2); letter-spacing: 0; }
+.stat.hero .val small { color: color-mix(in srgb, var(--onc) 70%, transparent); }
+.stat .sub { font-size: 12.5px; color: var(--tx2); margin-top: 2px; position: relative; z-index: 1; }
+.stat.hero .sub { color: color-mix(in srgb, var(--onc) 75%, transparent); }
+.stat .spark { position: absolute; right: 0; bottom: 0; width: 55%; height: 46px; opacity: .9; pointer-events: none; }
+.ring { flex: none; }
+
+/* ---------- lists ---------- */
+.list { display: flex; flex-direction: column; }
+.li { display: flex; align-items: center; gap: 12px; padding: var(--lpy) 4px; border-bottom: 1px solid var(--ol); min-height: var(--lmh); }
+.li:last-child { border-bottom: 0; }
+/* a row lights up edge to edge: across the whole card, and on the first and last row up to the card's own edge; the
+   card's rounded corners clip it. Rows outside a card light up across their own width */
+.li.click:hover, .li.click:active { background: color-mix(in srgb, var(--tx) 3%, transparent); }
+:is(.card > .li.click, .card > .list > .li.click) { position: relative; isolation: isolate; }
+:is(.card > .li.click, .card > .list > .li.click):is(:hover, :active) { background: none; }
+:is(.card > .li.click, .card > .list > .li.click)::before { content: ""; position: absolute; inset-block: 0; inset-inline: calc(-1 * var(--cpx)); z-index: -1; pointer-events: none; }
+:is(.card > .li.click, .card > .list > .li.click):is(:hover, :active)::before { background: color-mix(in srgb, var(--tx) 3%, transparent); }
+:is(.card > .li.click:first-child, .card > .list:first-child > .li.click:first-child)::before { inset-block-start: calc(-1 * var(--cpy)); }
+:is(.card > .li.click:last-child, .card > .list:last-child > .li.click:last-child)::before { inset-block-end: calc(-1 * var(--cpy)); }
+/* a card that is only a menu of rows: rows reach its edges, the dividers between them stay inset */
+.card.flush { padding: 0; overflow: hidden; }
+.card.flush .li { padding-inline: var(--cpx); border-bottom: 0; position: relative; }
+.card.flush .li:not(:last-child)::after { content: ""; position: absolute; inset-inline: var(--cpx); bottom: 0; height: 1px; background: var(--ol); }
+/* a flush card has no padding, so its first and last row are its top and bottom space: they take the card's --cpy
+   there in place of their own --lpy, the same as the --cpx they already have at the sides (least height grows by the
+   same amount). With only --lpy the rows sat closer to the card's top and bottom than to its sides */
+.card.flush > .li:first-child, .card.flush > .list:first-child > .li:first-child { padding-top: var(--cpy); min-height: calc(var(--lmh) - var(--lpy) + var(--cpy)); }
+.card.flush > .li:last-child, .card.flush > .list:last-child > .li:last-child { padding-bottom: var(--cpy); min-height: calc(var(--lmh) - var(--lpy) + var(--cpy)); }
+.card.flush > .li:only-child, .card.flush > .list:only-child > .li:only-child { min-height: calc(var(--lmh) - 2 * var(--lpy) + 2 * var(--cpy)); }
+/* rows inside a padded card: the card's padding is the space at its top and bottom, so the first and last row drop
+   their own --lpy there (down to the 4px they keep at the sides, which keeps the inset equal all round) and their
+   least height shrinks by the same amount. Without this the card's padding and the row's padding added up, and blocks
+   looked taller at the top and bottom than at the sides. Flush cards are handled above */
+.card:not(.flush, .aw-list) > :is(.li, .tgl):first-child,
+.card:not(.flush, .aw-list) > .list:first-child > .li:first-child { padding-top: 4px; min-height: calc(var(--lmh) - var(--lpy) + 4px); }
+.card:not(.flush, .aw-list) > :is(.li, .tgl):last-child,
+.card:not(.flush, .aw-list) > .list:last-child > .li:last-child { padding-bottom: 4px; min-height: calc(var(--lmh) - var(--lpy) + 4px); }
+.card:not(.flush, .aw-list) > :is(.li, .tgl):only-child,
+.card:not(.flush, .aw-list) > .list:only-child > .li:only-child { min-height: calc(var(--lmh) - 2 * var(--lpy) + 8px); }
+/* the same at a card's end for fields and headings: their own outer margin would add to the card's padding */
+.card > :is(.fld, .frow):last-child, .card > .frow:last-child > .fld, .sh_b > :is(.fld, .frow):last-child, .sh_b > .frow:last-child > .fld { margin-bottom: 0; }
+.card > h2:first-child { margin-top: 0; }
+/* an empty state inside a card: the card already gives the side space, so it adds only height */
+.card > .empty { padding-inline: 0; }
+.card > .empty.sm { padding: 0; }
+.li .t { font-weight: 500; font-size: 15px; }
+.li .s:not(.btn) { font-size: 12.5px; color: var(--tx2); margin-top: 1px; }
+.li .r { text-align: end; flex: none; }
+.thumb { width: 44px; height: 44px; border-radius: 12px; background: var(--s2) center/cover no-repeat; flex: none; display: grid; place-items: center; color: var(--tx2); overflow: hidden; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.thumb.sm { width: 36px; height: 36px; border-radius: 10px; }
+.thumb.lg { width: 64px; height: 64px; border-radius: 16px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex: none; background: var(--acc); }
+/* an empty state: roomy on its own, .sm inside a card or next to a short one; both follow the density */
+.empty { text-align: center; padding: calc(var(--cpy) * 2.5) var(--cpx); color: var(--tx2); font-size: 13.5px; line-height: 1.5; }
+.empty .ico { margin: 0 auto 10px; opacity: .6; }
+.empty b { display: block; color: var(--tx); font-size: 15px; margin-bottom: 4px; font-weight: 600; }
+.empty .btn { margin-top: 14px; }
+.empty.sm { padding: var(--cpy) var(--cpx); }
+
+/* chips used as quiet filters */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.fchip { border: 1px solid var(--ol); background: none; color: var(--tx2); border-radius: var(--pill); padding: 6px 12px; font-size: 12.5px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+.fchip.on { background: var(--accc); color: var(--onc); border-color: transparent; font-weight: 600; }
+.mchip { font-size: 11.5px; padding: 2px 8px; border-radius: var(--pill); background: var(--s2); color: var(--tx2); white-space: nowrap; }
+.pr { font-size: 10.5px; font-weight: 700; letter-spacing: .4px; padding: 2px 7px; border-radius: var(--pill); background: color-mix(in srgb, #f5c242 22%, transparent); color: #e9b52f; white-space: nowrap; }
+html[data-mode="light"] .pr { color: #9a6d00; }
+
+/* quiet buttons */
+.qb { border: 0; background: none; color: var(--tx2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-sm); font-size: 13.5px; font-weight: 500; }
+.qb:hover { background: var(--s2); color: var(--tx); }
+.qb.acc { color: var(--acc); }
+.qb.danger { color: var(--neg); }
+.ib.sm { width: 36px; height: 36px; }
+.ib.sm svg { width: 18px; height: 18px; }
+.ib.plain { border: 0; background: none; }
+.ib.plain:hover { background: var(--s2); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn.block { width: 100%; }
+.btn.lg { min-height: 52px; font-size: 15px; padding: 12px 26px; }
+.btn.tonal { background: var(--accc); color: var(--onc); }
+
+/* the + button: a rounded square with the accent gradient (Money Manager's FAB) */
+.fab { display: grid; place-items: center; }
+.fab svg { width: 26px; height: 26px; }
+
+/* ---------- menus (⋮) ---------- */
+.mnu { position: fixed; z-index: 300; min-width: 200px; background: var(--bg); border: 1px solid var(--ol); border-radius: var(--r-md); box-shadow: var(--shadow-pop); padding: 6px; animation: fi .12s; }
+.mnu button { display: flex; width: 100%; align-items: center; gap: 10px; padding: 10px 12px; border: 0; background: none; border-radius: 10px; cursor: pointer; text-align: start; font-size: 14px; }
+.mnu button:hover { background: var(--s2); }
+.mnu button.danger { color: var(--neg); }
+.mnu .ml { flex: 1; }
+.mnu .mh { flex: 1; }
+.mnu button.on { color: var(--acc); font-weight: 600; }
+.mnu .mck { margin-inline-start: auto; flex: none; }
+/* menus whose items explain themselves: wider, each icon on a soft tile, the explanation under the label */
+.mnu:has(.mh) { width: min(320px, calc(100vw - 16px)); padding: 6px; }
+.mnu:has(.mh) button { align-items: flex-start; gap: 12px; padding: 9px 10px; }
+.mnu:has(.mh) button > svg { box-sizing: content-box; padding: 7px; border-radius: 10px; background: var(--s2); color: var(--tx2); flex: none; }
+.mnu:has(.mh) button:hover > svg { background: var(--accc); color: var(--onc); }
+.mnu:has(.mh) button.danger > svg { background: color-mix(in srgb, var(--neg) 12%, transparent); color: var(--neg); }
+.mnu:has(.mh) button:not(:has(.mh)) { align-items: center; }
+/* the tick on the chosen option is a plain mark, not one of the icon tiles */
+.mnu:has(.mh) button > svg.mck, .mnu:has(.mh) button:hover > svg.mck { padding: 0; background: none; color: var(--acc); align-self: center; }
+.mnu .mh { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 1px; }
+.mnu .mh > span { font-weight: 500; }
+.mnu .mh small { font-size: 12px; color: var(--tx2); line-height: 1.4; }
+.mnu hr { border: 0; border-top: 1px solid var(--ol); margin: 4px 0; }
+@keyframes fi { from { opacity: 0; transform: translateY(4px); } }
+
+/* ---------- sheets: bottom sheet on the phone, centred window on a computer ---------- */
+.scr { position: fixed; inset: 0; overscroll-behavior: contain; z-index: 200; background: var(--scrim); display: flex; align-items: center; justify-content: center; padding: calc(24px + var(--st)) calc(24px + var(--sr)) calc(24px + var(--sb)) calc(24px + var(--sl)); animation: fo .15s; }
+@keyframes fo { from { opacity: 0; } }
+.sht { background: var(--bg); border: 1px solid var(--ol); border-radius: var(--r-sheet); width: min(560px, 100%); max-height: calc(100vh - 48px - var(--st) - var(--sb)); display: flex; flex-direction: column; box-shadow: var(--shadow-sheet); animation: su .22s var(--ease); overflow: hidden; }
+.sht.wide { width: min(860px, 100%); }
+.sht.full { width: min(1100px, 100%); height: calc(100vh - 48px - var(--st) - var(--sb)); }
+/* a sheet's sides follow the density like a card's (a little wider on a computer), so its content lines up with cards in it */
+.sht .sh_h { display: flex; align-items: center; gap: 10px; padding: 16px calc(var(--cpx) + 2px) 12px calc(var(--cpx) + 6px); flex: none; }
+.sht .sh_h b { font-size: 17px; font-weight: 600; flex: 1; letter-spacing: -.2px; }
+.sht .sh_b { padding: 4px calc(var(--cpx) + 6px) calc(var(--cpy) + 3px); overflow: auto; overscroll-behavior: contain; flex: 1; min-height: 0; }
+.sht .sh_f { padding: 12px calc(var(--cpx) + 6px) calc(16px + var(--sb)); border-top: 1px solid var(--ol); display: flex; gap: 10px; justify-content: flex-end; flex: none; }
+@keyframes su { from { transform: translateY(16px); opacity: 0; } }
+html.phone .scr { padding: 0 var(--sr) 0 var(--sl); align-items: flex-end; }
+/* never higher than just below the clock (the Android app's status bar, landscape or a tall cutout) */
+html.phone .sht { width: 100%; max-height: min(92vh, calc(100vh - var(--st) - 8px)); border-radius: var(--r-sheet) var(--r-sheet) 0 0; border-bottom: 0; animation: up .26s var(--ease); }
+html.phone .sht.full { height: min(92vh, calc(100vh - var(--st) - 8px)); }
+html.phone .sht .sh_h::before { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 4px; background: var(--ol); transform: translateX(-50%); }
+html.phone .sht .sh_h { position: relative; padding-top: 22px; }
+html.phone .sht .sh_b { padding: 4px var(--cpx) calc(var(--cpy) + 3px); }
+html.phone .sht .sh_f { padding: 12px var(--cpx) calc(12px + var(--sb)); }
+/* the sheet runs to the screen's bottom edge, its background under the navigation bar; when it has no footer to lift,
+   its body ends that far up instead, so its last row stays clear of the bar (--sb: env() or the Android app's bar size) */
+html.phone .sht .sh_b:last-child { padding-bottom: calc(var(--cpy) + 3px + var(--sb)); }
+@keyframes up { from { transform: translateY(100%); } }
+
+/* ---------- forms ---------- */
+.fld { margin-bottom: 14px; }
+.fld > label, .flbl { display: block; font-size: 12.5px; font-weight: 600; color: var(--tx2); margin-bottom: 6px; }
+.fld input, .fld select, .fld textarea, input.in, select.in, textarea.in { width: 100%; }
+.frow { display: flex; gap: 10px; }
+.frow > * { flex: 1; min-width: 0; }
+.seg.block { display: flex; width: 100%; }
+.seg.block button { flex: 1; }
+.tgl { display: flex; align-items: center; gap: 12px; padding: var(--lpy) 0; min-height: var(--lmh); border-bottom: 1px solid var(--ol); cursor: pointer; }
+.tgl:last-child { border-bottom: 0; }
+.tgl .t { font-weight: 500; font-size: 15px; }
+.tgl .s:not(.btn) { font-size: 12.5px; color: var(--tx2); margin-top: 2px; }
+/* fields revealed by a switch sit one row-gap under the switch's separator line instead of touching it */
+.tgl + .fld, .tgl + .frow { margin-top: var(--lpy); }
+.search { position: relative; }
+.search .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tx2); }
+.search input { padding-inline-start: 38px; width: 100%; }
+
+/* ---------- toasts ---------- */
+.tst { position: fixed; left: 50%; bottom: calc(24px + var(--sb)); transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+html.phone .tst { bottom: calc(var(--tabh) + 76px + var(--sb)); }
+.tst > div { pointer-events: auto; background: var(--tx); color: var(--bg); border-radius: 14px; padding: 11px 16px; font-size: 13.5px; font-weight: 500; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); max-width: min(520px, calc(100vw - 32px)); }
+.tst > div.err { background: var(--neg); color: #fff; }
+.tst > div.pr { background: linear-gradient(135deg, #f5c242, #f08a5d); color: #2a1600; }
+.tst button { border: 0; background: none; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+/* ---------- desktop rail extras ---------- */
+nav .navb .acct { width: 40px; height: 40px; border-radius: 50%; background: var(--s2); display: grid; place-items: center; font-weight: 700; font-size: 14px; cursor: pointer; border: 0; color: var(--tx); }
+nav .navb .upd { color: var(--acc); }
+.logo svg { width: 26px; height: 26px; }
+main { position: relative; }
+.fab.pos2 { bottom: 22px; }
+
+/* what's running (the workout, a recording), shown on every other page; one bar each, stacked */
+.minibars { display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+.minibars > * { pointer-events: auto; }
+.minibar { display: flex; align-items: center; gap: 12px; padding: 10px 14px 10px 10px; border-radius: 18px; background: var(--accc); color: var(--onc); box-shadow: var(--shadow-pop); cursor: pointer; }
+.minibar .k { font-size: 11.5px; font-weight: 600; opacity: .75; }
+.minibar .t { font-weight: 600; font-size: 14.5px; }
+/* the icon tile with a live dot: this is running now */
+.mb-live { position: relative; width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; background: color-mix(in srgb, var(--onc) 14%, transparent); flex: none; }
+.mb-live::after { content: ""; position: absolute; top: -2px; inset-inline-end: -2px; width: 10px; height: 10px; border-radius: 50%; background: var(--pos); box-shadow: 0 0 0 2px var(--accc); }
+.mb-live.paused::after { background: var(--tx2); }
+@media (prefers-reduced-motion: no-preference) { .mb-live:not(.paused)::after { animation: mbpulse 1.6s ease-in-out infinite; } }
+@keyframes mbpulse { 50% { opacity: .35; } }
+.mb-clock { display: flex; flex-direction: column; align-items: flex-end; flex: none; }
+.mb-clock b { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -.3px; line-height: 1.1; }
+.mb-clock span { font-size: 11px; opacity: .75; }
+html:not(.phone) .minibars:not(.strip-host) { position: fixed; z-index: 45; left: calc(88px + 50%); transform: translateX(-50%); bottom: calc(22px + var(--sb)); min-width: 360px; }
+html:not(.phone)[data-nav="mini"] .minibars { left: calc(68px + 50%); }
+html.phone .minibar { margin: 8px 10px 0; box-shadow: none; }
+html.phone .minibars { gap: 0; }
+/* two bars on a phone: each a little smaller, the same padding rule (equal left, top and bottom) */
+html.phone .minibars.two .minibar { padding: 7px 12px 7px 7px; gap: 10px; }
+html.phone .minibars.two .mb-live { width: 30px; height: 30px; border-radius: 9px; }
+html.phone .minibars.two .k { font-size: 11px; }
+html.phone .minibars.two .t { font-size: 13.5px; }
+html.phone .minibars.two .mb-clock b { font-size: 16px; }
+/* the recording as a slim line on the workout page, where the workout's own bar takes the bottom */
+.mb-strip { gap: 10px; padding: 6px 12px 6px 6px; border-radius: 14px; box-shadow: none; font-size: 13px; }
+.mb-strip .mb-live { width: 26px; height: 26px; border-radius: 8px; }
+.mb-strip .mb-num { font-variant-numeric: tabular-nums; }
+html.phone .mb-strip { margin: calc(8px + var(--st)) 16px 0; }
+html.phone .mb-strip + .mb-strip { margin-top: 6px; }
+html.phone .pshell.withstrip .pmain { padding-top: 10px; }
+html:not(.phone) .minibars.strip-host { max-width: 560px; margin: 0 auto 12px; }
+
+/* ---------- phone frame ---------- */
+html.phone { --tabh: 64px; }
+.pshell { width: 100%; min-height: 100vh; min-height: 100dvh; padding-bottom: calc(var(--tabh) + 16px + var(--sb)); }
+/* room for the running-workout bar above the tabs, so the end of a page is never hidden behind it */
+.pshell.withbar { padding-bottom: calc(var(--tabh) + 80px + var(--sb)); }
+.pshell.withbar2 { padding-bottom: calc(var(--tabh) + 132px + var(--sb)); }
+.pshell.withbar3 { padding-bottom: calc(var(--tabh) + 184px + var(--sb)); }
+.pmain { padding: calc(14px + var(--st)) 16px 24px; overflow-x: clip; }
+.pmain .ph { margin-bottom: var(--spg); align-items: center; }
+.pmain .ph h1 { font-size: 26px; }
+.pmain .ph .acts { gap: 4px; }
+.pmain .ph .acts .btn { min-height: 38px; padding: 8px 16px; }
+.pmain .ph .acts .btn.lg { min-height: 44px; padding: 10px 20px; font-size: 15px; }
+/* the bottom dock: the running workout (when there is one) above the tabs, on one blurred background */
+.dock { position: fixed; left: 0; right: 0; bottom: 0; padding-inline: var(--sl) var(--sr); z-index: 50; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--ol); }
+.tabbar { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; height: calc(var(--tabh) + var(--sb)); padding: 0 4px var(--sb); }
+.tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--tx2); padding: 4px 0; min-width: 0; cursor: pointer; }
+.tabbar button .ic { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
+.tabbar button.on { color: var(--tx); font-weight: 600; }
+.tabbar button.on .ic { background: var(--accc); color: var(--onc); }
+/* Start: a filled button that sits inside the bar, the same height as the tab icons and labels together */
+.tabbar .start { width: 46px; height: 46px; border-radius: 15px; margin: 0 auto; background: linear-gradient(135deg, var(--acc), var(--acc2)); color: var(--on); display: grid; place-items: center; box-shadow: 0 6px 16px -8px var(--acc); }
+.tabbar .start svg { width: 24px; height: 24px; }
+
+/* ---------- start sheet ---------- */
+.opt-list { display: flex; flex-direction: column; gap: 8px; }
+.optb { display: flex; align-items: center; gap: 14px; padding: calc(var(--cpy) - 1px) calc(var(--cpx) - 2px); border-radius: var(--r-md); border: 1px solid var(--ol); background: var(--s1); cursor: pointer; text-align: start; width: 100%; }
+.optb:hover { border-color: color-mix(in srgb, var(--acc) 45%, var(--ol)); }
+.optb .oi { width: 40px; height: 40px; border-radius: 12px; background: var(--accc); color: var(--onc); display: grid; place-items: center; flex: none; }
+.optb .t { font-weight: 600; }
+.optb .s:not(.btn) { font-size: 12.5px; color: var(--tx2); margin-top: 2px; }
+
+/* ---------- sets table (pre-start, workout, detail) ---------- */
+/* rows apart from each other, each a rounded strip (the tint of a done or current set goes on its cells) */
+.sets { width: 100%; border-collapse: separate; border-spacing: 0 5px; margin-block: -5px; font-variant-numeric: tabular-nums; }
+.sets th { font-size: 11px; font-weight: 600; color: var(--tx2); text-transform: uppercase; letter-spacing: .6px; text-align: center; padding: 4px 4px 8px; }
+.sets th:first-child, .sets td:first-child { text-align: start; width: 34px; padding-inline-start: 8px; }
+.sets td { padding: var(--tdy) 4px; text-align: center; }
+.sets td:last-child, .sets th:last-child { padding-inline-end: 6px; }
+.sets tr.done td { color: var(--tx); background: color-mix(in srgb, var(--pos) 9%, transparent); }
+.sets tr td:first-child { border-start-start-radius: 10px; border-end-start-radius: 10px; }
+.sets tr td:last-child { border-start-end-radius: 10px; border-end-end-radius: 10px; }
+.sets .prev { color: var(--tx2); font-size: 13px; cursor: pointer; white-space: nowrap; }
+.sets .sk { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 8px; background: var(--s2); font-size: 12.5px; font-weight: 600; cursor: pointer; border: 0; }
+.sets .sk.w { color: var(--c2); }
+.sets .sk.d { color: var(--c1); }
+/* a drop hangs off the set above it */
+.sets tr.drop .sk { translate: 8px 0; }
+.sets .sk.f { color: var(--neg); }
+.vin { width: 100%; max-width: 92px; text-align: center; font-variant-numeric: tabular-nums; font-size: 16px; font-weight: 600; padding: 8px 4px; border-radius: 10px; border: 1px solid transparent; background: var(--s2); color: var(--tx); }
+.vin:focus { border-color: var(--acc); outline: 0; background: var(--bg); }
+.vin.pre { color: var(--tx2); font-weight: 500; }
+.vin.adj { color: var(--acc); }
+/* the set to do now in a running workout: tinted, its number filled with the accent */
+.sets tr.now td { background: color-mix(in srgb, var(--acc) 11%, transparent); }
+.sets tr.now .sk { background: var(--acc); color: var(--on); }
+.sets tr.now .tick { border-color: var(--acc); color: var(--acc); }
+.tick { width: 40px; height: 36px; border-radius: 10px; border: 1px solid var(--ol); background: var(--s1); cursor: pointer; display: grid; place-items: center; color: var(--tx2); margin: 0 auto; }
+.tick:disabled { opacity: .35; cursor: not-allowed; }
+.tick.on { background: var(--pos); border-color: transparent; color: var(--bg); }
+.tick.on svg { stroke-width: 2.6; }
+
+/* ---------- active workout ---------- */
+.aw-top { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.aw-ex .exh { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
+.aw-ex .exh h3 { font-size: 19px; font-weight: 600; letter-spacing: -.3px; line-height: 1.2; cursor: pointer; }
+/* a banner is a block: --spg below it on a page, --hg inside a card or a sheet, none in a stack (its gap does it);
+   inside, a smaller version of a card's padding so the density moves it too */
+.banner { display: flex; gap: 10px; align-items: flex-start; padding: calc(var(--cpy) - 4px) calc(var(--cpx) - 3px); border-radius: var(--r-sm); background: color-mix(in srgb, var(--acc) 13%, transparent); margin-bottom: var(--spg); font-size: 13.5px; color: var(--tx); text-align: start; }
+.banner .ico { color: var(--acc); margin-top: 1px; }
+.banner.note { background: var(--s2); }
+.banner.note .ico { color: var(--tx2); }
+.card .banner, .sh_b .banner { margin-bottom: var(--hg); }
+:is(.stack, .col, .grid) > .banner { margin-bottom: 0; }
+.aw-desk { display: grid; grid-template-columns: 280px minmax(0, 1fr) 300px; gap: var(--spg); align-items: start; }
+.aw-desk .side { position: sticky; top: calc(24px + var(--st)); }
+.aw-list .li { cursor: pointer; padding: var(--lpy); border-radius: var(--r-sm); border: 0; }
+.aw-list .li.cur { background: var(--accc); color: var(--onc); }
+.aw-list .li.cur .s:not(.btn) { color: color-mix(in srgb, var(--onc) 75%, transparent); }
+.aw-list .li.skip .t { text-decoration: line-through; opacity: .6; }
+.stt { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--ol); flex: none; display: grid; place-items: center; }
+.stt.done { background: var(--pos); border-color: transparent; color: var(--bg); }
+.stt.part { border-color: var(--pos); }
+
+
+/* ---------- exercise view ---------- */
+.media { position: relative; border-radius: var(--r); overflow: hidden; background: var(--s2); aspect-ratio: 4 / 3; }
+.media img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity .6s; }
+.media img.b { animation: xf 3.2s infinite; }
+@keyframes xf { 0%, 40% { opacity: 0; } 50%, 90% { opacity: 1; } 100% { opacity: 0; } }
+.steps { padding-inline-start: 20px; display: flex; flex-direction: column; gap: 8px; line-height: 1.55; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; font-size: 13.5px; }
+.kv dt { color: var(--tx2); }
+.kv dd { margin: 0; text-transform: capitalize; }
+.tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--ol); margin-bottom: var(--spg); overflow-x: auto; scrollbar-width: none; }
+.tabs button { border: 0; background: none; padding: 10px 14px; font-size: 14px; color: var(--tx2); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; font-weight: 500; }
+.tabs button.on { color: var(--tx); border-bottom-color: var(--acc); font-weight: 600; }
+
+/* ---------- calendar ---------- */
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cal .dh { font-size: 11px; font-weight: 600; color: var(--tx2); text-transform: uppercase; letter-spacing: .6px; padding: 0 6px 4px; }
+.cal .d { min-height: 104px; border-radius: var(--r-sm); background: var(--s1); border: 1px solid var(--ol); padding: 6px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; min-width: 0; }
+.cal .d:hover { border-color: color-mix(in srgb, var(--acc) 40%, var(--ol)); }
+.cal .d.out { opacity: .4; }
+.cal .d.today .n { background: var(--acc); color: var(--on); }
+.cal .d .n { font-size: 12px; font-weight: 600; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; }
+.cal .ent { font-size: 11.5px; border-radius: 6px; padding: 3px 6px; background: color-mix(in srgb, var(--ec, var(--acc)) 20%, transparent); color: var(--tx); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; gap: 4px; align-items: center; }
+.cal .ent.plan { background: none; border: 1px dashed color-mix(in srgb, var(--ec, var(--acc)) 60%, transparent); color: var(--tx2); }
+.cal .ent.missed { opacity: .5; text-decoration: line-through; }
+.cal .ent .ico { width: 12px; height: 12px; }
+html.phone .cal { gap: 2px; }
+html.phone .cal .d { min-height: 46px; padding: 4px 2px; align-items: center; background: none; border-color: transparent; }
+html.phone .cal .d.sel { background: var(--s2); }
+html.phone .cal .dots { display: flex; gap: 3px; justify-content: center; flex-wrap: wrap; }
+html.phone .cal .dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--ec, var(--acc)); }
+html.phone .cal .dots i.plan { background: none; border: 1px solid var(--ec, var(--acc)); }
+
+/* ---------- charts ---------- */
+.chart { width: 100%; display: block; overflow: visible; }
+.chart .gl { stroke: var(--ol); stroke-width: 1; }
+.chart .ax { fill: var(--tx2); font-size: 10.5px; }
+.chart .ln { fill: none; stroke: var(--acc); stroke-width: 2.2; vector-effect: non-scaling-stroke; stroke-linejoin: round; stroke-linecap: round; }
+.chart .ar { fill: url(#cg-acc); opacity: .5; }
+.chart .pt { fill: var(--bg); stroke: var(--acc); stroke-width: 2; cursor: pointer; }
+.chart .cbar { fill: var(--acc); }
+.chart .cbar[data-dim] { fill: color-mix(in srgb, var(--acc) 75%, transparent); }
+.chart .goal { stroke: var(--tx2); stroke-width: 1; stroke-dasharray: 4 4; opacity: .7; }
+.ctip { position: absolute; pointer-events: none; background: var(--tx); color: var(--bg); padding: 6px 9px; border-radius: 9px; font-size: 12px; white-space: nowrap; transform: translate(-50%, calc(-100% - 10px)); z-index: 5; }
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 11px); gap: 3px; overflow-x: auto; padding-bottom: 4px; }
+.heat i { width: 11px; height: 11px; border-radius: 3px; background: var(--s2); }
+
+/* body map: muscles in three strengths (main, helped, a little) over a quiet figure */
+.bodymap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.bodymap .figs { display: flex; gap: 4px; justify-content: center; height: var(--bmh); }
+.bodymap svg { height: 100%; width: auto; display: block; }
+.bodymap .sil { fill: color-mix(in srgb, var(--tx) 9%, transparent); }
+.bodymap .m { fill: color-mix(in srgb, var(--tx) 15%, transparent); transition: fill .3s; }
+.bodymap [data-t="1"] .m { fill: var(--heat1); }
+.bodymap [data-t="2"] .m { fill: var(--heat2); }
+.bodymap [data-t="3"] .m { fill: var(--heat3); }
+/* the little body on the left of a card, info on the right, as on the Routines list's routine cards (CLAUDE.md rule).
+   The row never hangs on :has() (where it is missing the whole rule drops and the figure stacks above the info),
+   and two classes so it outranks the card's own column (.rcard) whatever order the rules come in.
+   The body runs the card's full height, whatever the text beside it needs, never smaller than readable. */
+.card.wbody, .optb.wbody { display: flex; flex-direction: row; align-items: stretch; gap: var(--cpx); }
+.bodymap.rbody { flex: none; align-self: stretch; position: relative; width: 92px; min-height: 112px; }
+.bodymap.rbody .figs { position: absolute; inset: 0; height: auto; gap: 0; }
+.bodymap.rbody svg { width: 50%; height: 100%; }
+/* the same body, same place, sized for a list row (exercise rows, program days, Up next) */
+.bodymap.rbody.sm { width: 46px; min-height: 52px; }
+.bmlegend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; font-size: var(--fs-xs); color: var(--tx2); }
+.bmlegend span { display: inline-flex; align-items: center; gap: 5px; }
+.bmlegend i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.bmlegend i.t1 { background: var(--heat1); }
+.bmlegend i.t2 { background: var(--heat2); }
+.bmlegend i.t3 { background: var(--heat3); }
+
+/* progress bars */
+.pbar { height: 8px; border-radius: 8px; background: var(--s2); overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width .5s var(--ease); }
+.pbar.ok i { background: var(--pos); }
+
+/* login */
+.auth { min-height: 100vh; width: 100%; display: grid; place-items: center; padding: 24px 16px; }
+.auth .card { width: min(400px, 100%); padding: calc(var(--cpy) + 13px) calc(var(--cpx) + 12px); }
+.auth h1 { font-size: 26px; font-weight: 600; letter-spacing: -.5px; margin: 14px 0 4px; }
+.auth .logo { margin: 0; }
+.err { color: var(--neg); font-size: 13px; margin: 6px 0 10px; }
+
+/* keypad sheet (phone number entry) */
+.kp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.kp button { height: 54px; border-radius: 14px; border: 0; background: var(--s2); font-size: 22px; font-weight: 500; cursor: pointer; font-variant-numeric: tabular-nums; }
+.kp button.k2 { background: var(--s1); font-size: 15px; }
+.kpv { font-size: 40px; font-weight: 600; text-align: center; padding: 6px 0 12px; font-variant-numeric: tabular-nums; letter-spacing: -1px; }
+.step { display: flex; align-items: center; gap: 8px; }
+.step .vin { max-width: none; }
+
+.map { height: 320px; border-radius: var(--r); overflow: hidden; background: var(--s2); }
+html.phone .map { height: 240px; }
+.mapw { position: relative; }
+.mapbig { position: absolute; top: 10px; right: 10px; z-index: 500; background: var(--s1); }
+/* enlarged: edge to edge - on the computer from the rail to the window's edge (RouteMap measures --mbl/--mbr, since the page is capped and centred), 16px past the phone's padding, about a screen tall, square corners; it stays in the page flow so everything below moves down */
+.mapw.big { margin-inline: var(--mbl, -32px) var(--mbr, -32px); }
+html.phone .mapw.big { margin-inline: -16px; }
+.mapw.big .map, html.phone .mapw.big .map { height: calc(100dvh - var(--st) - var(--sb) - var(--tabh, 0px) - 72px); border-radius: 0; }
+/* the map keeps its own layers (z-index 400-1000) inside itself, so sheets, menus and the + popup stay above it */
+.leaflet-container { background: var(--s2) !important; font: inherit !important; isolation: isolate; z-index: 0; }
+
+@media (max-width: 860px) { .ph .acts .btn:not(.keep) { display: none; } }
+/* on the phone the Appearance panel is a bottom sheet, over the tab bar like the other sheets */
+html.phone #pop { left: 0; right: 0; bottom: 0; width: auto; height: min(640px, 88vh); max-height: 88vh; z-index: 201; border-radius: var(--r-sheet) var(--r-sheet) 0 0; border-bottom: 0; padding-bottom: var(--sb); padding-inline: var(--sl) var(--sr); box-shadow: var(--shadow-sheet); }
+html.phone #pop.on { animation: up .26s var(--ease); }
+html.phone #pop.out { animation: down .2s var(--ease) forwards; }
+@keyframes down { to { transform: translateY(100%); } }
+html.phone .apscr { z-index: 200; }
+/* the switch inside a .tgl row: Money Manager's .tg switch without its row border */
+.tgl .tg, .li .tg { border: 0; padding: 0; flex: none; }
+/* on the phone, two- and three-column sections stack (stat cards stay two across) */
+html.phone .grid.g2:not(.keep), html.phone .grid.g3:not(.keep) { grid-template-columns: minmax(0, 1fr); }
+html.phone .grid.g4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.calnav { display: flex; align-items: center; gap: 6px; margin-bottom: var(--hg); }
+.calnav b { font-size: 15px; font-weight: 600; text-align: center; }
+.calnav b { flex: none; min-width: 132px; }
+html:not(.phone) .calnav b { min-width: 170px; }
+.fchip.acc { color: var(--acc); border-color: var(--acc); }
+.pvx.off { opacity: .45; }
+.pvx .thumb { align-self: flex-start; margin-top: 2px; }
+.exspark { width: 120px; height: 34px; position: relative; flex: none; }
+html.phone .exspark { width: 64px; }
+/* big numbers in two-across stat cards shrink a little on narrow phones instead of wrapping */
+html.phone .grid.g4 .stat .val { font-size: clamp(24px, 7.4vw, var(--fs-val)); white-space: nowrap; }
+/* a single row of chips that scrolls sideways instead of wrapping onto many lines */
+.chips.hscroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
+html:not(.phone) .chips.hscroll { margin-inline: 0; padding-inline: 0; flex-wrap: wrap; }
+.chips.hscroll::-webkit-scrollbar { display: none; }
+.leaflet-control-attribution { font-size: 10px !important; }
+/* form rows wrap on narrow screens instead of squeezing dates and times */
+.frow { flex-wrap: wrap; }
+.frow > * { flex: 1 1 140px; }
+/* a setting row with a control: the label keeps at least ~half the row, the control gives way */
+.li > .grow { min-width: 42%; }
+.li > select, .li > .fpick, .li > input:not([type=checkbox]) { flex: 0 1 auto; min-width: 0; max-width: 56%; }
+main.withbar { padding-bottom: calc(120px + var(--sb)); }
+main.withbar2 { padding-bottom: calc(190px + var(--sb)); }
+main.withbar3 { padding-bottom: calc(260px + var(--sb)); }
+/* inside a card, toggles line up with list rows */
+.card .tgl { padding-inline: 4px; }
+.rcard { display: flex; flex-direction: column; }
+html.phone .tabs button { padding: 10px 11px; }
+/* hides the hairline seams between map tiles at fractional zoom */
+.leaflet-tile-container img { width: 256.5px !important; height: 256.5px !important; }
+.grid.g3.keep { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid.g2.keep { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+/* offline: a small note at the top while the server can't be reached (shell/SyncPill.vue) */
+.syncpill { position: fixed; bottom: calc(24px + var(--sb)); left: calc(112px + var(--sl)); z-index: 150; display: flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-radius: 999px; background: var(--s2); border: 1px solid var(--ol); color: var(--tx2); font-size: 12.5px; box-shadow: var(--shadow-sheet); pointer-events: none; }
+html[data-nav="mini"]:not(.phone) .syncpill { left: calc(92px + var(--sl)); }
+html.phone .syncpill { left: 50%; translate: -50% 0; bottom: calc(var(--tabh) + var(--sb) + 12px); white-space: nowrap; }
+html.phone .pshell.withbar .syncpill { bottom: calc(var(--tabh) + var(--sb) + 80px); }
+html.phone .pshell.withbar2 .syncpill { bottom: calc(var(--tabh) + var(--sb) + 132px); }
+html.phone .pshell.withbar3 .syncpill { bottom: calc(var(--tabh) + var(--sb) + 184px); }
+html.phone:has(.pshell.withbar2) .tst { bottom: calc(var(--tabh) + 132px + var(--sb)); }
+.sp-enter-active, .sp-leave-active { transition: opacity .25s, transform .25s var(--ease); }
+.sp-enter-from, .sp-leave-to { opacity: 0; transform: translateY(8px); }
+
+/* ---------- motion: pages, tabs, sections, sheets and controls move instead of jumping ---------- */
+:root { --t-in: .22s; --t-out: .12s; }
+/* pages and in-page tab switches: the old one fades out quickly, the new one rises in */
+.page-enter-active, .sw-enter-active { transition: opacity var(--t-in) var(--ease), transform var(--t-in) var(--ease); }
+.page-leave-active, .sw-leave-active { transition: opacity var(--t-out) ease-in, transform var(--t-out) ease-in; }
+.page-enter-from { opacity: 0; transform: translateY(10px); }
+.page-leave-to { opacity: 0; transform: translateY(-4px); }
+.sw-enter-from { opacity: 0; transform: translateY(6px); }
+.sw-leave-to { opacity: 0; }
+/* next / previous (exercises in a workout, calendar months): slide in from the side you're going to */
+.nx-enter-active, .pv-enter-active { transition: opacity .2s var(--ease), transform .24s var(--ease); }
+.nx-leave-active, .pv-leave-active { transition: opacity .12s ease-in, transform .12s ease-in; }
+.nx-enter-from { opacity: 0; transform: translateX(28px); }
+.nx-leave-to { opacity: 0; transform: translateX(-20px); }
+.pv-enter-from { opacity: 0; transform: translateX(-28px); }
+.pv-leave-to { opacity: 0; transform: translateX(20px); }
+/* moving between the phone's tabs: the page slides towards the tab you chose */
+.tnx-enter-active, .tpv-enter-active { transition: opacity .2s var(--ease), transform .26s var(--ease); }
+.tnx-leave-active, .tpv-leave-active { transition: opacity .12s ease-in, transform .12s ease-in; }
+.tnx-enter-from { opacity: 0; transform: translateX(40px); }
+.tnx-leave-to { opacity: 0; transform: translateX(-30px); }
+.tpv-enter-from { opacity: 0; transform: translateX(-40px); }
+.tpv-leave-to { opacity: 0; transform: translateX(30px); }
+/* reordering a list: rows glide to their new place */
+.mv-move { transition: transform .28s var(--ease); }
+.mv-enter-active { transition: opacity .2s, transform .2s var(--ease); }
+.mv-enter-from { opacity: 0; transform: translateY(-6px); }
+.mv-leave-active { display: none; }
+/* a move arrow with nowhere to go stays clickable (a click on it must not reach the row's switch) but looks spent */
+.ib.end { opacity: .35; cursor: default; }
+.ib.end:hover { background: none; }
+/* the running-workout bar and the rest timer come and go smoothly */
+.mb-enter-active, .rs-enter-active { transition: opacity .25s var(--ease), transform .3s var(--ease); }
+.mb-leave-active, .rs-leave-active { transition: opacity .16s ease-in, transform .16s ease-in; }
+.mb-enter-from, .mb-leave-to { opacity: 0; transform: translateY(14px); }
+.rs-enter-from, .rs-leave-to { opacity: 0; transform: translateY(24px); }
+/* a sheet that was closed plays its way out (a copy of it, see Sheet.vue) */
+.scr.leaving { animation: fo .2s ease-in reverse forwards; }
+.scr.leaving .sht { animation: su .2s ease-in reverse forwards; }
+html.phone .scr.leaving .sht { animation: up .22s ease-in reverse forwards; }
+/* anything that appears later on a page (a section switched on, a row added, an empty state) rises in. Only once
+   the page has arrived (.in, set by the shells) and not inside something already moving in as a whole (a page, a
+   tab, a month): there everything rises together with its container instead of each piece on its own. */
+@media (prefers-reduced-motion: no-preference) {
+  .li, .banner, .fld, .tgl, .empty, .sh, .chips > *, .mchip { transition: opacity .25s var(--ease), translate .25s var(--ease), background .2s, color .2s, border-color .2s; }
+  .card { transition: transform .2s, border-color .2s, box-shadow .2s, opacity .28s var(--ease), translate .28s var(--ease); }
+  @starting-style {
+    .page.in :is(.card, .li, .banner, .fld, .tgl, .empty, .sh, .chips > *, .mchip):not(:is(.sw-enter-active, .nx-enter-active, .pv-enter-active) *) { opacity: 0; translate: 0 6px; }
+  }
+}
+/* controls */
+.fchip, .tick, .cal .d, .stt, .qb, .ib, .tabs button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
+.tick:active, .fchip:active, .btn:active, .ib:active, .qb:active { transform: scale(.96); }
+@media (prefers-reduced-motion: no-preference) { .tick.on svg { animation: pop .28s var(--ease); } }
+@keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+.pbar i, .bodymap .m { transition: width .5s var(--ease), fill .4s; }
+/* the page tabs' underline glides to the chosen tab (core/segSlide.ts) */
+.tabs { position: relative; }
+.tabs.tsl button.on { border-bottom-color: transparent; }
+.tabi { position: absolute; left: 0; bottom: 0; height: 2px; border-radius: 2px; background: var(--acc); pointer-events: none; transition: transform .3s var(--ease), width .3s var(--ease); }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter-active, .page-leave-active, .tnx-enter-active, .tnx-leave-active, .tpv-enter-active, .tpv-leave-active, .sw-enter-active, .sw-leave-active, .nx-enter-active, .nx-leave-active, .pv-enter-active, .pv-leave-active,
+  .mb-enter-active, .mb-leave-active, .rs-enter-active, .rs-leave-active, .mv-move { transition: none; }
+  .tabi { transition: none; }
+}
+
+/* dragging to reorder (core/drag.ts): the list shows its drop area, the item lifts, a dashed slot marks where it lands */
+.dragging { position: relative; outline: 2px dashed color-mix(in srgb, var(--acc) 40%, transparent); outline-offset: 6px; border-radius: var(--r-md); user-select: none; }
+.drag-slot { position: absolute; top: 0; left: 0; right: 0; border: 2px dashed var(--acc); border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 7%, transparent); pointer-events: none; z-index: 0; transition: transform .18s; }
+/* no transition on the lifted item: it must stay under the finger (cards otherwise ease their transform) */
+.lifted { position: relative; z-index: 5; box-shadow: var(--shadow-pop); scale: 1.02; cursor: grabbing; background: var(--s1); border-radius: var(--r-md); transition: none !important; }
+.dragh { touch-action: none; cursor: grab; }
+
+/* a dot between items (name · count): its own element with the same space on both sides. In a flex row the row's gap
+   does it (no margin here, so it isn't doubled); in running text write " · " with one space each side instead */
+.sep { color: var(--tx2); flex: none; }
+
+/* the Appearance sheet's grab handle, as on the other sheets */
+html.phone #pop .aph { position: relative; padding-top: 22px; }
+html.phone #pop .aph::before { content: ""; position: absolute; left: 50%; top: 7px; width: 36px; height: 4px; border-radius: 4px; background: var(--ol); transform: translateX(-50%); }

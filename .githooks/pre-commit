@@ -1,0 +1,14 @@
+#!/bin/sh
+# Nothing personal goes into a commit: author and committer must be the GitHub user name with a no-reply address,
+# and files that may hold data or secrets (.env, keystores, signing keys) are refused.
+for who in author committer; do
+  ident="$(git var GIT_$(echo $who | tr a-z A-Z)_IDENT)"
+  case "$ident" in
+    "userofit123 <"*"@users.noreply.github.com>"*) ;;
+    *) echo "pre-commit: $who must be userofit123 with a GitHub no-reply address (got: ${ident%%>*}>)"; exit 1 ;;
+  esac
+done
+bad="$(git diff --cached --name-only --diff-filter=AM | grep -E '(^|/)\.env($|\.)|\.jks$|\.keystore$|\.p12$|\.pem$|(^|/)secrets/|^workflow/' | grep -v '\.env\.example$')"
+if [ -n "$bad" ]; then
+  echo "pre-commit: these files may hold data or secrets and cannot be committed:"; echo "$bad"; exit 1
+fi

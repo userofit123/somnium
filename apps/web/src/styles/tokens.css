@@ -1,0 +1,124 @@
+/* The app's shared look: colors, spacing, corners, type and the theme's variables (the default "Indigo" colour set;
+   core/theme.js changes them at run time). Components use these names only, never colors typed in by hand. */
+
+:root {
+  color-scheme: light;
+  --acc: #4355b9;
+  /* the walked route on maps: always red, the map tiles stay light in both looks */
+  --route: #d32f2f;
+  --accc: #dee0ff;
+  --onc: #0b1550;
+  --bg: #fbf8fd;
+  --acc2: #7b4fb8;
+  --on: #ffffff;
+  --tx: #1b1b22;
+  --tx2: #5a5865;
+  --pos: #1b7f4b;
+  --neg: #c0392b;
+  --warn: #e68a00;
+  --s1: color-mix(in srgb, var(--tx) 3%, var(--bg));
+  --s2: color-mix(in srgb, var(--tx) 7%, var(--bg));
+  --ol: color-mix(in srgb, var(--tx) 11%, transparent);
+  --c0: #4355b9;
+  --c1: #c2185b;
+  --c2: #e68a00;
+  --c3: #00897b;
+  --c4: #7cb342;
+  --c5: #8e24aa;
+  --c6: #546e7a;
+  /* the body map's three strengths: main muscles, helpers, a little */
+  --heat1: #e5484d;
+  --heat2: #f2b33d;
+  --heat3: #4c8bf5;
+  --font: Inter, "Segoe UI", Roboto, system-ui, sans-serif;
+  --r: 22px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-sheet: 26px;
+  --pill: 99px;
+  --fs-xs: 11px;
+  --fs-sm: 12.5px;
+  --fs: 14px;
+  --fs-lg: 16px;
+  --fs-h1: 30px;
+  --fs-val: 32px;
+  --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);
+  --shadow-sheet: 0 30px 80px -20px #000a;
+  --scrim: #0007;
+  --ease: cubic-bezier(.2, .8, .2, 1);
+  --t-slide: .25s;
+  /* the Android app hands the bars' sizes over as --nst / --nsb / --nsl / --nsr (older WebViews report no safe area);
+     the sides are a navigation bar or a camera cutout in landscape */
+  --sb: max(env(safe-area-inset-bottom, 0px), var(--nsb, 0px));
+  --st: max(env(safe-area-inset-top, 0px), var(--nst, 0px));
+  --sl: max(env(safe-area-inset-left, 0px), var(--nsl, 0px));
+  --sr: max(env(safe-area-inset-right, 0px), var(--nsr, 0px));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --acc: #b9c3ff;
+    --accc: #2d3f9e;
+    --onc: #dee0ff;
+    --bg: #111218;
+    --acc2: #c7a6ff;
+    --on: #0b1550;
+    --tx: #e6e4ea;
+    --tx2: #a9a7b3;
+    --pos: #6fd69b;
+    --neg: #ff9c8f;
+    --s1: color-mix(in srgb, var(--tx) 5%, var(--bg));
+    --s2: color-mix(in srgb, var(--tx) 10%, var(--bg));
+    --ol: color-mix(in srgb, var(--tx) 13%, transparent);
+    --c0: #9fb0ff;
+    --c1: #f48fb1;
+    --c2: #ffcc80;
+    --c3: #80cbc4;
+    --c4: #c5e1a5;
+    --c5: #ce93d8;
+    --c6: #b0bec5;
+  }
+}
+
+:root {
+  --gi: 1;
+  --bg-glow: radial-gradient(70% 58% at 8% -8%,color-mix(in srgb,var(--acc) calc(20% * var(--gi)),transparent),transparent),radial-gradient(58% 58% at 100% 0,color-mix(in srgb,var(--acc2) calc(16% * var(--gi)),transparent),transparent),var(--bg);
+  --bg-mesh: radial-gradient(69% 67% at 0 0,color-mix(in srgb,var(--acc) calc(26% * var(--gi)),transparent),transparent 60%),radial-gradient(62% 67% at 100% 0,color-mix(in srgb,var(--acc2) calc(22% * var(--gi)),transparent),transparent 60%),radial-gradient(69% 78% at 100% 100%,color-mix(in srgb,var(--acc) calc(18% * var(--gi)),transparent),transparent 60%),radial-gradient(62% 67% at 0 100%,color-mix(in srgb,var(--acc2) calc(16% * var(--gi)),transparent),transparent 60%),var(--bg);
+  --bg-diagonal: linear-gradient(155deg,color-mix(in srgb,var(--acc) calc(22% * var(--gi)),var(--bg)) 0%,var(--bg) 42%,color-mix(in srgb,var(--acc2) calc(18% * var(--gi)),var(--bg)) 100%);
+  --bg-spot: radial-gradient(85% 72% at 50% -8%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent),transparent 70%),var(--bg);
+  --bg-flat: var(--bg);
+  --bg-aurora: radial-gradient(80% 38% at 18% 22%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent),transparent 70%),radial-gradient(70% 34% at 82% 46%,color-mix(in srgb,var(--acc2) calc(26% * var(--gi)),transparent),transparent 70%),radial-gradient(90% 40% at 30% 88%,color-mix(in srgb,var(--acc) calc(22% * var(--gi)),transparent),transparent 70%),var(--bg);
+  --bg-horizon: radial-gradient(120% 62% at 50% 118%,color-mix(in srgb,var(--acc) calc(34% * var(--gi)),transparent),transparent 70%),radial-gradient(90% 40% at 50% 110%,color-mix(in srgb,var(--acc2) calc(26% * var(--gi)),transparent),transparent 70%),var(--bg);
+  --bg-duo: linear-gradient(180deg,color-mix(in srgb,var(--acc) calc(20% * var(--gi)),var(--bg)) 0%,var(--bg) 50%,color-mix(in srgb,var(--acc2) calc(20% * var(--gi)),var(--bg)) 100%);
+  --bg-corners: radial-gradient(55% 55% at 0 0,color-mix(in srgb,var(--acc) calc(32% * var(--gi)),transparent),transparent 70%),radial-gradient(55% 55% at 100% 100%,color-mix(in srgb,var(--acc2) calc(30% * var(--gi)),transparent),transparent 70%),var(--bg);
+  --bg-sweep: conic-gradient(from 200deg at 50% -10%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent),transparent 22%,color-mix(in srgb,var(--acc2) calc(26% * var(--gi)),transparent) 50%,transparent 78%,color-mix(in srgb,var(--acc) calc(30% * var(--gi)),transparent)),var(--bg);
+}
+
+/* spacing: the gap between blocks and sections (density above is the space inside them) */
+
+html {
+  --spg: 16px;
+  --hg: 10px;
+  /* density (Cozy): inside a card, a list row (and its least height, kept a comfortable tap), a sets-table cell.
+     theme.css sets Compact and Roomy */
+  --cpy: 15px;
+  --cpx: 16px;
+  --lpy: 10px;
+  --lmh: 48px;
+  --tdy: 6px;
+}
+
+:root {
+  --inc: var(--acc);
+  --exp: color-mix(in srgb,var(--c1) 80%,var(--acc2));
+}
+
+/* ===== background textures: a layer of its own, with its own density ===== */
+
+:root {
+  --tsc: 1;
+  --toa: 1;
+  --noiseT: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.4 0 0 0 -.2 1.4 0 0 0 -.2 1.4 0 0 0 -.2 0 0 0 0 .26'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='1.4 0 0 0 -.2 1.4 0 0 0 -.2 1.4 0 0 0 -.2 0 0 0 0 .2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}

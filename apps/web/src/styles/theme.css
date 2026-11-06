@@ -1,0 +1,363 @@
+/* The looks from Appearance: background, texture, surfaces (outline, raised, glass), corners, density, spacing, font and menu style.
+   core/theme.js sets them as data-* attributes on <html> and classes on <body>. */
+
+[data-mode=dark] .am2 {
+  color: #ffcc80;
+}
+
+/* ===== appearance: backgrounds, surfaces, corners, density, fonts, navigation ===== */
+
+html[data-bg="mesh"]::before {
+  background: var(--bg-mesh);
+}
+
+html[data-bg="diagonal"]::before {
+  background: var(--bg-diagonal);
+}
+
+html[data-bg="spot"]::before {
+  background: var(--bg-spot);
+}
+
+html[data-bg="aurora"]::before {
+  background: var(--bg-aurora);
+}
+
+html[data-bg="horizon"]::before {
+  background: var(--bg-horizon);
+}
+
+html[data-bg="duo"]::before {
+  background: var(--bg-duo);
+}
+
+html[data-bg="corners"]::before {
+  background: var(--bg-corners);
+}
+
+html[data-bg="sweep"]::before {
+  background: var(--bg-sweep);
+}
+
+html[data-bg="flat"]::before {
+  background: var(--bg-flat);
+}
+
+body.outline .card:not(.hero),
+body.outline table:not(.sets),
+body.outline .bgrp {
+  background: transparent;
+  border-width: 1.5px;
+}
+
+/* every radius token follows the corners choice, so Somnium's own sheets, menus, rows and tiles (which use them) change too */
+html[data-rad="soft"] {
+  --r: 14px;
+  --r-sm: 9px;
+  --r-md: 11px;
+  --r-sheet: 16px;
+}
+
+html[data-rad="sharp"] {
+  --r: 5px;
+  --r-sm: 3px;
+  --r-md: 4px;
+  --r-sheet: 6px;
+}
+
+html[data-rad="soft"] :is(.sheet,.pop,.bgrp,.toast,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
+  border-radius: 12px;
+}
+
+html[data-rad="sharp"] :is(.sheet,.pop,.bgrp,.toast,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
+  border-radius: 4px;
+}
+
+html[data-rad="soft"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.sets .sk,.kp button,.tabbar button .ic,.tabbar .start,.fab) {
+  border-radius: 10px;
+}
+
+html[data-rad="sharp"] :is(input,select,textarea,.fpick,.btn,.seg,.seg button,.chip,.tag,.kchips button,.sw button,.sw .swp,.ib,.logo,.nb .ic,.fchip,.mchip,.thumb,.tick,.sets .sk,.kp button,.tabbar button .ic,.tabbar .start,.fab) {
+  border-radius: 3px;
+}
+
+html[data-nsp="tight"] {
+  --nvg: 0px;
+  --nvp: 0px;
+}
+
+html[data-nsp="roomy"] {
+  --nvg: 12px;
+  --nvp: 5px;
+}
+
+/* density: the space inside blocks (cards), list rows and fields. Cozy is the default in tokens.css; the blocks read these
+   variables, so a block's own padding (a menu card with no padding, a tight card) still wins over the density */
+html[data-den="compact"] {
+  --cpy: 10px;
+  --cpx: 12px;
+  --lpy: 7px;
+  --lmh: 42px;
+  --tdy: 4px;
+}
+
+html[data-den="roomy"] {
+  --cpy: 22px;
+  --cpx: 24px;
+  --lpy: 14px;
+  --lmh: 56px;
+  --tdy: 9px;
+}
+
+html[data-den="compact"] .val {
+  font-size: 26px;
+}
+
+html[data-den="compact"] .fld {
+  margin-bottom: 8px;
+}
+
+html[data-den="roomy"] .fld {
+  margin-bottom: 18px;
+}
+
+html[data-spc="tight"] {
+  --spg: 8px;
+}
+
+html[data-spc="loose"] {
+  --spg: 26px;
+}
+
+html[data-spc="wide"] {
+  --spg: 38px;
+}
+
+html[data-nav="mini"]:not(.phone) nav {
+  width: 68px;
+}
+
+html[data-nav="mini"]:not(.phone) .nb {
+  font-size: 0;
+  gap: 0;
+}
+
+html[data-nav="mini"]:not(.phone) .nb .ic {
+  width: 46px;
+}
+
+html[data-nav="mini"]:not(.phone) .syncb #sync {
+  display: none;
+}
+
+html[data-nav="mini"]:not(.phone) .pop {
+  left: calc(80px + var(--sl)); /* fixed side */
+}
+
+html[data-nav="mini"]:not(.phone) .badge {
+  right: 10px; /* fixed side */
+}
+
+html[data-tex="dots"] {
+  --texi: radial-gradient(color-mix(in srgb,var(--tx) calc(20% * var(--toa)),transparent) 1.3px,transparent 1.9px);
+  --texs: calc(22px / var(--tsc)) calc(22px / var(--tsc));
+}
+
+html[data-tex="stripes"] {
+  --texi: repeating-linear-gradient(135deg,color-mix(in srgb,var(--tx) calc(7% * var(--toa)),transparent) 0 2px,transparent 2px calc(16px / var(--tsc)));
+  --texs: auto;
+}
+
+html[data-tex="grid"] {
+  --texi: linear-gradient(color-mix(in srgb,var(--tx) calc(8% * var(--toa)),transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--tx) calc(8% * var(--toa)),transparent) 1px,transparent 1px);
+  --texs: calc(28px / var(--tsc)) calc(28px / var(--tsc)),calc(28px / var(--tsc)) calc(28px / var(--tsc));
+}
+
+html[data-tex="static"] {
+  --texi: var(--noiseT);
+  --texs: calc(160px / var(--tsc)) calc(160px / var(--tsc));
+}
+
+html:is([data-tex="dots"],[data-tex="stripes"],[data-tex="grid"],[data-tex="static"]) body::before {
+  display: block;
+  background-image: var(--texi);
+  background-size: var(--texs);
+  background-position: 0 0;
+}
+
+/* the static texture is one picture, so its strength is the layer's opacity (the picture holds twice the old alpha, so 100% looks as before) */
+html[data-tex="static"] body::before {
+  opacity: min(1, calc(var(--toa) * .5));
+}
+
+/* ===== surfaces ===== */
+
+body.outline :is(.card,table:not(.sets),.bgrp):not(.hero) {
+  background: transparent;
+  border-width: 1.5px;
+}
+
+/* raised: a soft edge light on top, a darker edge below, and a shadow that falls behind whatever is underneath */
+
+body.raised :is(.card,table:not(.sets),.bgrp,.jhero,.seg:not(.apseg),.ftools input,.ftools select) {
+  position: relative;
+}
+
+body.raised :is(.card,table:not(.sets),.bgrp):not(.hero) {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 7%, var(--s1)), var(--s1) 60%);
+  border-color: color-mix(in srgb, var(--tx) 9%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--tx) 17%, transparent);
+  box-shadow: 0 1px 1px color-mix(in srgb, #000 9%, transparent), 0 10px 20px -12px color-mix(in srgb, #000 40%, transparent);
+}
+
+/* a table keeps one edge colour all round: its rows reach the corners, so a different colour below shows as a straight line that stops where the corner curves */
+:root body.raised table:not(.hero,.sets) {
+  border-bottom-color: color-mix(in srgb, var(--tx) 9%, transparent);
+}
+
+body.raised .card.hero,
+body.raised .jhero {
+  border-bottom-color: color-mix(in srgb, var(--tx) 20%, transparent);
+  box-shadow: 0 1px 1px color-mix(in srgb, #000 10%, transparent), 0 12px 22px -12px color-mix(in srgb, var(--acc) 60%, #000);
+}
+
+body.raised .seg:not(.apseg),
+body.raised .ftools :is(input,select) {
+  box-shadow: 0 1px 1px color-mix(in srgb, #000 9%, transparent), 0 4px 10px -6px color-mix(in srgb, #000 35%, transparent);
+}
+
+html[data-mode=dark] body.raised :is(.card,table:not(.sets),.bgrp):not(.hero) {
+  background: linear-gradient(180deg, color-mix(in srgb, #fff 5%, var(--s1)), var(--s1) 60%);
+  box-shadow: 0 1px 1px #0006, 0 12px 22px -12px #000c;
+}
+
+/* glass: the blocks keep their colour, made see-through by Opacity (100% = solid, 0% = clear), and the backdrop behind them
+   is blurred and made more vivid (Blur, Vibrance). Only the blocks change: the page backdrop and its texture stay as they are.
+   core/theme.js sets --gbl (blur), --gsat (vibrance) and --gop (opacity). */
+
+body.glass {
+  --gop100: calc(var(--gop) * 100%);
+  --gs1: color-mix(in srgb, var(--tx) 3%, var(--bg));
+  --gs2: color-mix(in srgb, var(--tx) 7%, var(--bg));
+  --gfx: blur(var(--gbl)) saturate(var(--gsat));
+  /* the surface colours every block and element uses, see-through; the second step stays a light tint even when clear */
+  --s1: color-mix(in srgb, var(--gs1) var(--gop100), transparent);
+  --s2: color-mix(in srgb, var(--gs2) var(--gop100), color-mix(in srgb, var(--tx) 7%, transparent));
+  --gbg: color-mix(in srgb, var(--bg) var(--gop100), transparent);
+  /* windows, menus and tips stay frosted but nearly solid (95% when Opacity is 0, solid at 100%), with a strong blur,
+     so the text behind them never shows through */
+  --gpop100: calc((.95 + var(--gop) * .05) * 100%);
+  --gpfx: blur(calc(var(--gbl) + 14px)) saturate(var(--gsat));
+  --gpbg: color-mix(in srgb, var(--bg) var(--gpop100), transparent);
+  --gp1: color-mix(in srgb, var(--gs1) var(--gpop100), transparent);
+}
+
+html[data-mode=dark] body.glass {
+  --gs1: color-mix(in srgb, var(--tx) 5%, var(--bg));
+  --gs2: color-mix(in srgb, var(--tx) 10%, var(--bg));
+  --s2: color-mix(in srgb, var(--gs2) var(--gop100), color-mix(in srgb, var(--tx) 10%, transparent));
+}
+
+/* blocks in the page: the blurred backdrop sits just behind the block's own colour (a layer, so windows and menus inside still open
+   where they should) */
+body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.rkeq) {
+  position: relative;
+}
+
+body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  -webkit-backdrop-filter: var(--gfx);
+  backdrop-filter: var(--gfx);
+}
+
+/* windows, menus and pop-ups: nearly solid, with their colour on the box itself so it stays behind every line when they
+   scroll. The small menus and lists blur what is behind them; windows do not (a blur would trap the menus that open inside them) */
+body.glass :is(.sheet,.sht,.pop,.askb,.help,.rcal,.dvbox) {
+  background: var(--gpbg);
+}
+
+body.glass :is(.tsug,.ddm,.cmenu,.mnu,.toast,.sugb) {
+  background: var(--gp1);
+  -webkit-backdrop-filter: var(--gpfx);
+  backdrop-filter: var(--gpfx);
+}
+
+/* buttons, chips and pills are not surfaces: they stay solid on a see-through block */
+body.glass :is(.btn,.ib,.chip,.dchip,.tag,.tchip,.tpick,.jpill,.mpill,.tpill,.kchips button,.qa button,.seg:not(.apseg),.rkch,.rkpi) {
+  --s1: var(--gs1);
+  --s2: var(--gs2);
+}
+
+/* the Recap day tip and the chart tips float like the other tips: frosted, nearly solid */
+body.glass :is(.rktip,.trtip) {
+  --s1: var(--gp1);
+  --s2: var(--gp1);
+  -webkit-backdrop-filter: var(--gpfx);
+  backdrop-filter: var(--gpfx);
+}
+
+/* filled parts that stand on the page by themselves (tab rows, round buttons, fields) blur what is behind them directly;
+   inside a block they need not,
+   the block already does */
+body.glass :is(.rkbr,.inf,.exo,.exbox,.exd,.exsamp,.txs-c,.jstat3,.stl,.phs > div,.trstats > div,.jstats > div,.exst > div,.cstn > div,.jfs > div,.wct,.bq,.sinfo,.trex,.trtog,.trleg .lgi,.tcs,.hdemo,.jt,.jct,.kvc,.atile,.phb,.phl,.txs2,.rule,.wnc,input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,.fpick,.ftools select):not(:is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq,.sheet,.pop,.askb,.help,.rcal,.dvbox,.tsug,.ddm,.cmenu,.toast,.sugb) *) {
+  -webkit-backdrop-filter: var(--gfx);
+  backdrop-filter: var(--gfx);
+}
+
+/* the bar that shows a running job */
+body.glass #jobBar {
+  background: var(--gbg);
+  -webkit-backdrop-filter: var(--gfx);
+  backdrop-filter: var(--gfx);
+}
+
+/* coloured blocks keep their tint, see-through like the rest */
+body.glass .card.hero {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--accc) var(--gop100), transparent), color-mix(in srgb, color-mix(in srgb, var(--accc) 55%, var(--gs1)) var(--gop100), transparent));
+}
+
+body.glass .jhero {
+  background: linear-gradient(135deg, color-mix(in srgb, color-mix(in srgb, var(--acc) 16%, var(--gs1)) var(--gop100), transparent), color-mix(in srgb, color-mix(in srgb, var(--acc2) 10%, var(--gs1)) var(--gop100), transparent));
+}
+
+/* the edge is the same quiet line the other surfaces have (no white rim) */
+body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
+  border-color: var(--ol);
+  box-shadow: 0 1px 1px color-mix(in srgb, #000 6%, transparent), 0 10px 24px -14px color-mix(in srgb, #000 35%, transparent);
+}
+
+html[data-mode=dark] body.glass :is(.card,table:not(.sets),.bgrp,.jhero,.fcard,.setnav,.rkeq):not(.hero) {
+  border-color: var(--ol);
+  box-shadow: 0 1px 1px #0005, 0 12px 26px -14px #000b;
+}
+
+/* the Recap graph's "Today" label floats on its own (its pointer is .rkpa), so it blurs directly */
+body.glass .rkpt {
+  -webkit-backdrop-filter: var(--gfx);
+  backdrop-filter: var(--gfx);
+}
+
+/* the pointer keeps only the half that sticks out above the label, so the two see-through fills do not add up */
+body.glass .rkpa {
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+  -webkit-backdrop-filter: var(--gfx);
+  backdrop-filter: var(--gfx);
+}
+
+/* the fade under a window's buttons, and the small counts on its sections, use the window's see-through colour */
+body.glass .txfoot {
+  background: linear-gradient(to top, var(--gpbg) 78%, transparent);
+}
+
+body.glass .exfoot {
+  background: linear-gradient(to top, var(--gpbg) 82%, transparent);
+}
+
+body.glass :is(.txs2 > summary:hover em,.kvd > summary em) {
+  background: var(--s2);
+}

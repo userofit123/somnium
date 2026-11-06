@@ -1,0 +1,11 @@
+{
+  "name": "somnium",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev:server": "pnpm --filter @somnium/server dev",
+    "dev:web": "pnpm --filter @somnium/web dev",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "version": "0.0.0"
+}

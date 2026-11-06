@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Somnium</title>
+<!-- The first screen of the desktop app: use Somnium on this computer, or connect an account to a server. Same look as the app (Ember, dark). -->
+<style>
+  :root { --acc:#f8b396; --accc:#6f3820; --onc:#fedccd; --bg:#17100d; --acc2:#f47b99; --on:#441704; --tx:#e6e4ea; --tx2:#a9a7b3; --neg:#ff9c8f;
+    --s1:color-mix(in srgb,var(--tx) 5%,var(--bg)); --s2:color-mix(in srgb,var(--tx) 10%,var(--bg)); --ol:color-mix(in srgb,var(--tx) 13%,transparent); color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; }
+  html { background: radial-gradient(70% 58% at 8% -8%, color-mix(in srgb, var(--acc) 20%, transparent), transparent), radial-gradient(58% 58% at 100% 0, color-mix(in srgb, var(--acc2) 16%, transparent), transparent), var(--bg); min-height: 100%; }
+  body { font: 14px/1.5 Inter, "Segoe UI", Roboto, system-ui, sans-serif; color: var(--tx); min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+  .card { width: min(440px, 100%); background: var(--s1); border: 1px solid var(--ol); border-radius: 22px; padding: 28px; }
+  .logo { width: 48px; height: 48px; border-radius: 16px; background: linear-gradient(135deg, var(--acc), var(--acc2)); display: grid; place-items: center; color: var(--on); }
+  h1 { font-size: 26px; font-weight: 600; letter-spacing: -.5px; margin: 14px 0 4px; }
+  p { color: var(--tx2); margin-bottom: 18px; }
+  .opt { display: flex; gap: 14px; align-items: center; width: 100%; padding: 14px; border-radius: 16px; border: 1px solid var(--ol); background: var(--s1); color: var(--tx); text-align: left; cursor: pointer; margin-bottom: 8px; font: inherit; }
+  .opt:hover { border-color: color-mix(in srgb, var(--acc) 45%, var(--ol)); }
+  .opt b { display: block; } .opt span { color: var(--tx2); font-size: 12.5px; }
+  .oi { width: 40px; height: 40px; border-radius: 12px; background: var(--accc); color: var(--onc); display: grid; place-items: center; flex: none; font-weight: 700; }
+  input { width: 100%; font: inherit; color: var(--tx); background: var(--s2); border: 1px solid transparent; border-radius: 12px; padding: 11px 13px; margin-bottom: 10px; }
+  input:focus { outline: 0; border-color: var(--acc); }
+  .btn { font: inherit; font-weight: 600; border: 0; border-radius: 99px; padding: 11px 22px; background: var(--acc); color: var(--on); cursor: pointer; width: 100%; }
+  .q { background: none; border: 0; color: var(--tx2); cursor: pointer; font: inherit; margin-top: 10px; }
+  .err { color: var(--neg); font-size: 13px; margin-bottom: 8px; min-height: 1em; }
+  .acct { display: flex; align-items: center; gap: 10px; }
+  .x { margin-left: auto; background: none; border: 0; color: var(--tx2); cursor: pointer; font-size: 18px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 16.5 8.5 11.5l4 3.5 6-6.5" /><circle cx="18.5" cy="8.5" r="2.4" fill="currentColor" stroke="none" /></svg></div>
+    <div id="home">
+      <h1>Somnium</h1>
+      <p id="sub">Choose how to use Somnium. You can add the other kind later.</p>
+      <div id="list"></div>
+      <button class="opt" id="local"><span class="oi">⌂</span><div><b>Use Somnium on this computer</b><span>Everything stays here. Nothing to set up.</span></div></button>
+      <button class="opt" id="server"><span class="oi">⇄</span><div><b>Connect to a server</b><span>Your data on your own Somnium server, the same on every device.</span></div></button>
+    </div>
+    <div id="localForm" hidden>
+      <h1>On this computer</h1><p>What should Somnium call you?</p>
+      <input id="lname" placeholder="Your name" value="Me" />
+      <div class="err" id="lerr"></div>
+      <button class="btn" id="lgo">Start</button><button class="q" data-back>Back</button>
+    </div>
+    <div id="serverForm" hidden>
+      <h1>Your server</h1><p>The address of your Somnium server, e.g. somnium.example.com</p>
+      <input id="url" placeholder="https://" autofocus />
+      <input id="sname" placeholder="Name for this account (optional)" />
+      <div class="err" id="serr"></div>
+      <button class="btn" id="sgo">Connect</button><button class="q" data-back>Back</button>
+    </div>
+  </div>
+<script>
+  const N = window.somniumNative.accounts, $ = (id) => document.getElementById(id);
+  const show = (id) => ["home", "localForm", "serverForm"].forEach((x) => ($(x).hidden = x !== id));
+  $("local").onclick = () => show("localForm");
+  $("server").onclick = () => show("serverForm");
+  document.querySelectorAll("[data-back]").forEach((b) => (b.onclick = () => show("home")));
+  $("lgo").onclick = async () => { $("lerr").textContent = ""; try { await N.addLocal($("lname").value.trim()); } catch (e) { $("lerr").textContent = e.message; } };
+  $("sgo").onclick = async () => { $("serr").textContent = "Connecting…"; try { await N.addServer($("url").value.trim(), $("sname").value.trim()); } catch (e) { $("serr").textContent = String(e.message).replace(/^Error invoking remote method[^:]*: (Error: )?/, ""); } };
+  N.list().then(({ list }) => {
+    if (!list.length) return;
+    $("sub").textContent = "Open an account, or add another.";
+    $("list").innerHTML = list.map((a) => `<div class="acct"><button class="opt" data-id="${a.id}"><span class="oi">${a.name.slice(0, 1).toUpperCase()}</span><div><b>${a.name.replace(/</g, "&lt;")}</b><span>${a.kind === "local" ? "On this computer" : a.url}</span></div></button><button class="x" title="Remove" data-rm="${a.id}">×</button></div>`).join("");
+    document.querySelectorAll("[data-id]").forEach((b) => (b.onclick = () => N.open(b.dataset.id)));
+    document.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = () => N.remove(b.dataset.rm)));
+  });
+</script>
+</body>
+</html>

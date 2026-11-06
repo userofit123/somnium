@@ -1,0 +1,231 @@
+/* The app frame from Money Manager: the rail, its gliding highlight, main, the + button. */
+/* --st / --sb / --sl / --sr: room for the Android app's bars (0 on the web and the desktop app) */
+nav {
+  width: 88px;
+  padding: calc(18px + var(--st)) 0 calc(12px + var(--sb));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--nvg, 6px);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  border-inline-end: 1px solid var(--ol);
+  overflow-y: auto;
+  scrollbar-width: none;
+  flex: none;
+}
+
+nav::-webkit-scrollbar {
+  display: none;
+}
+
+nav .logo {
+  transform-origin: 50% 60%;
+}
+
+nav .logo:hover {
+  animation: lwob 1.6s ease-in-out infinite;
+}
+
+.logo.shake {
+  animation: lshake .5s cubic-bezier(.36, .07, .19, .97) !important;
+}
+
+@keyframes lwob {
+  0%, 100% {
+    transform: rotate(0);
+  }
+  15% {
+    transform: rotate(-9deg) scale(1.04);
+  }
+  35% {
+    transform: rotate(7deg) scale(1.04);
+  }
+  55% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(3deg);
+  }
+}
+
+@keyframes lshake {
+  10%, 90% {
+    transform: translateX(-2px) rotate(-3deg);
+  }
+  20%, 80% {
+    transform: translateX(3px) rotate(4deg);
+  }
+  30%, 50%, 70% {
+    transform: translateX(-5px) rotate(-7deg);
+  }
+  40%, 60% {
+    transform: translateX(5px) rotate(7deg);
+  }
+}
+
+html.vt-r::view-transition-old(root),
+html.vt-r::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.vt-r::view-transition-old(root) {
+  z-index: 1;
+}
+
+html.vt-r::view-transition-new(root) {
+  z-index: 2;
+  -webkit-mask-image: radial-gradient(circle at var(--vt-x) var(--vt-y), #000 calc(var(--vt-r) - var(--vt-f)), transparent var(--vt-r));
+  mask-image: radial-gradient(circle at var(--vt-x) var(--vt-y), #000 calc(var(--vt-r) - var(--vt-f)), transparent var(--vt-r));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  nav .logo:hover,
+  .logo.shake {
+    animation: none !important;
+  }
+}
+
+.logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  color: var(--on);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 8px;
+  box-shadow: 0 6px 20px -6px var(--acc);
+  flex: none;
+}
+
+.nb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--tx2);
+  cursor: pointer;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  padding: var(--nvp, 2px) 0;
+  width: 100%;
+  position: relative;
+  flex: none;
+}
+
+.nb svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nb .ic {
+  width: 54px;
+  height: 30px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  transition: .25s;
+}
+
+.nb:hover .ic {
+  background: var(--s2);
+}
+
+.nb.on {
+  color: var(--tx);
+  font-weight: 600;
+}
+
+.nb.on .ic {
+  background: var(--accc);
+  color: var(--onc);
+}
+
+.nbi {
+  position: absolute;
+  left: 0; /* fixed side */
+  top: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--accc);
+  will-change: transform;
+}
+
+.navb {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding-top: 10px;
+  flex: none;
+}
+
+.syncb {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--tx2);
+  text-align: center;
+  line-height: 1.25;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  font-family: inherit;
+}
+
+main {
+  flex: 1 1 0;
+  width: 100%;
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: calc(24px + var(--st)) 32px calc(90px + var(--sb));
+  min-width: 0;
+}
+
+header {
+  margin-bottom: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.fab {
+  position: fixed;
+  right: calc(22px + var(--sr)); /* fixed side */
+  bottom: calc(22px + var(--sb));
+  z-index: 40;
+  width: 58px;
+  height: 58px;
+  border-radius: 20px;
+  border: 0;
+  background: linear-gradient(135deg, var(--acc), var(--acc2));
+  color: var(--on);
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 12px 30px -8px var(--acc);
+  display: grid;
+  place-items: center;
+}
+
+html.nt *,
+html.nt *::before,
+html.nt *::after {
+  transition: none !important;
+}

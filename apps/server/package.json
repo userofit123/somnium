@@ -1,0 +1,27 @@
+{
+  "name": "@somnium/server",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon --legacy-watch --watch src --watch ../../packages/engine/src --watch ../../packages/shared/src --ext ts,json --exec tsx src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "fastify": "5.2.0",
+    "pg": "8.13.1",
+    "@fastify/cookie": "11.0.1",
+    "@fastify/static": "8.0.3",
+    "@somnium/engine": "workspace:*",
+    "@somnium/shared": "workspace:*",
+    "tsx": "4.19.2",
+    "@electric-sql/pglite": "0.2.15"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "@types/pg": "8.11.10",
+    "nodemon": "3.1.9",
+    "typescript": "5.7.2",
+    "vitest": "2.1.8"
+  }
+}
