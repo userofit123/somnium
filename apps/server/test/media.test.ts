@@ -102,6 +102,34 @@ describe("media", () => {
     expect(new TextDecoder().decode(await unsealColumnBytes(stored, KEY, "media", "data", id))).toContain(MARKER);
   });
 
+  it("never takes a file's place on disk from the row: a pushed path can't reach outside the media folder", async () => {
+    const secret = "SECRET-outside-the-media-folder-5521";
+    fs.writeFileSync(path.join(dir, "outside.txt"), secret);
+    const evil = ["../../etc/passwd", "../outside.txt", "/etc/passwd"];
+    const at = () => new Date().toISOString();
+    const r = await upload(ann);
+    const { id: realId } = r.json();
+    const row = (await db.admin.query("SELECT to_jsonb(m) AS r FROM media m WHERE id = $1", [realId])).rows[0].r;
+    for (const p of evil) {
+      // a new row that names nothing but a path: there is no file, whatever it says
+      const fresh = uuidv7();
+      const made = await app.inject({ method: "POST", url: "/api/sync/push", headers: ann, payload: { device: "d", changes: [{ tbl: "media", pk: { id: fresh }, op: "upsert", at: at(), row: { ...row, id: fresh, path: p } }] } });
+      expect(made.statusCode).toBe(200);
+      expect((await db.admin.query("SELECT path FROM media WHERE id = $1", [fresh])).rows[0].path).toBe(p); // the push did store it
+      const got = await get(ann, fresh);
+      expect(got.statusCode).toBe(404);
+      expect(got.body).not.toContain("root:");
+      expect(got.body).not.toContain(secret);
+      // a real row pointed elsewhere still serves only its own file
+      const moved = await app.inject({ method: "POST", url: "/api/sync/push", headers: ann, payload: { device: "d", changes: [{ tbl: "media", pk: { id: realId }, op: "upsert", at: at(), row: { ...row, path: p } }] } });
+      expect(moved.statusCode).toBe(200);
+      const own = await get(ann, realId);
+      expect(own.statusCode).toBe(200);
+      expect(isSealed(own.rawPayload.toString())).toBe(true);
+      expect(own.body).not.toContain(secret);
+    }
+  });
+
   it("hangs a file on one of the person's live dreams, and on nothing else", async () => {
     const night = (await app.inject({ method: "POST", url: "/api/nights", headers: ann, payload: { date: "2026-11-05" } })).json();
     const dream = (await app.inject({ method: "POST", url: "/api/dreams", headers: ann, payload: { nightId: night.id } })).json();

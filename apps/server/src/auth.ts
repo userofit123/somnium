@@ -107,6 +107,27 @@ export function recordFail(keys: string[]) {
   pruneFails();
   for (const k of keys.map(failKey)) fails.set(k, [...(fails.get(k) ?? []), Date.now()]);
 }
+/**
+ * Counts this try before the slow hash, so a burst sent at once can't all pass the check and only then be recorded.
+ * Answers null when there have been too many, otherwise a function to take the try back: call it when the
+ * secret was right. Not calling it leaves the try counted as a failure.
+ */
+export function reserveTry(keys: string[]): (() => void) | null {
+  if (tooManyTries(keys)) return null;
+  const at = Date.now(), held = keys.map(failKey);
+  for (const k of held) fails.set(k, [...(fails.get(k) ?? []), at]);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    for (const k of held) {
+      const left = [...(fails.get(k) ?? [])];
+      const i = left.lastIndexOf(at);
+      if (i >= 0) left.splice(i, 1);
+      if (left.length) fails.set(k, left); else fails.delete(k);
+    }
+  };
+}
 /** Tests only: forget the failed tries, so one wait does not spill into the next test. */
 export const forgetFails = () => fails.clear();
 /** Tests only: how many keys are being remembered. */
@@ -128,16 +149,27 @@ export const newInviteCode = () => crypto.randomBytes(9).toString("base64url");
 /** The server's key cannot open what it encrypted, or is unusable. Said plainly: the message is all a person needs, and a stack trace adds nothing. */
 export class ServerKeyError extends Error { constructor(message = "Server key missing or changed") { super(message); } }
 let serverKey: Buffer | undefined;
-/** The key in DATA_DIR/app.key, made on first start. "wx" fails if the file exists, so two starts at once cannot overwrite each other's key. */
-export function keyFromFile(dataDir: string): Buffer {
-  const f = path.join(dataDir, "app.key");
-  fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 });
+/** Makes DATA_DIR private when it is new. The mode only applies to what is created: an existing folder (a mounted volume, say) keeps the mode it was given. */
+export const makeDataDir = (dataDir: string) => { fs.mkdirSync(dataDir, { recursive: true, mode: 0o700 }); };
+/** Writes the key to a temp file first and links it into place: a crash leaves no key file or a whole one, never an empty one. Linking fails if the name exists, so two starts at once cannot overwrite each other's key. */
+function writeKeyFile(f: string) {
+  const tmp = `${f}.${crypto.randomBytes(6).toString("hex")}.tmp`;
   try {
-    fs.writeFileSync(f, crypto.randomBytes(32).toString("base64"), { flag: "wx", mode: 0o600 });
+    const fd = fs.openSync(tmp, "wx", 0o600);
+    try { fs.writeSync(fd, crypto.randomBytes(32).toString("base64")); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+    fs.linkSync(tmp, f);
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
-    if (fs.statSync(f).mode & 0o044) console.warn(`${f} can be read by other users on this machine. Run: chmod 600 ${f}`);
-  }
+    return false;
+  } finally { fs.rmSync(tmp, { force: true }); }
+  return true;
+}
+/** The key in DATA_DIR/app.key, made on first start. */
+export function keyFromFile(dataDir: string): Buffer {
+  const f = path.join(dataDir, "app.key");
+  makeDataDir(dataDir);
+  const made = !fs.existsSync(f) && writeKeyFile(f);
+  if (!made && fs.statSync(f).mode & 0o044) console.warn(`${f} can be read by other users on this machine. Run: chmod 600 ${f}`);
   const key = Buffer.from(fs.readFileSync(f, "utf8").trim(), "base64");
   if (key.length !== 32) throw new ServerKeyError(`${f} is not a valid key file`);
   return key;

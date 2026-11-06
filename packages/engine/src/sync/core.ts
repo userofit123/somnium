@@ -64,6 +64,35 @@ export function overrule(c: Change, here: { row: Record<string, unknown> | null;
 }
 
 /**
+ * Tables with one live row per natural key, whose rows two devices can make separately while offline. Nothing points
+ * at these rows, so the loser can simply be marked removed. (nights also has a unique index, but dreams hang off a
+ * night: two nights can't be settled without moving those dreams, so they are not here.)
+ */
+export const NATURAL_KEYS: Readonly<Record<string, readonly string[]>> = {
+  course_progress: ["user_id", "lesson_id"],
+  dream_elements: ["dream_id", "element_id"],
+};
+
+/**
+ * Two live rows for one natural key: the newest row stays live and the other is marked removed. The rows decide (their
+ * updated_at, then their id), not the order they arrive in, so the server and every device reach the same answer.
+ * Each row keeps its own id: a sealed value is bound to its row's id, so it is never moved to the other row, and
+ * no device has to seal anything again. Answers the row to write, and whether that row lost.
+ */
+async function settleDuplicate(q: Sql, c: Change, row: Record<string, unknown>): Promise<{ row: Record<string, unknown>; lost: boolean }> {
+  const natural = NATURAL_KEYS[c.tbl];
+  if (!natural || row.deleted_at != null) return { row, lost: false };
+  const where = natural.map((k, i) => `${k} = $${i + 2}`).join(" AND ");
+  const other = (await q.query(`SELECT id, to_jsonb(x)->>'updated_at' AS at FROM ${c.tbl} x WHERE id <> $1 AND deleted_at IS NULL AND ${where}`, [row.id, ...natural.map((k) => row[k])])).rows[0];
+  if (!other) return { row, lost: false };
+  const mine = String(row.updated_at ?? c.at);
+  const mineAt = Date.parse(mine), otherAt = Date.parse(other.at);
+  const wins = mineAt !== otherAt ? mineAt > otherAt : String(row.id) > String(other.id);
+  if (wins) { await q.query(`UPDATE ${c.tbl} SET deleted_at = $2 WHERE id = $1`, [other.id, mine]); return { row, lost: false }; }
+  return { row: { ...row, deleted_at: other.at }, lost: true };
+}
+
+/**
  * Writes changes made elsewhere: upserts parents first, then deletes children first.
  * Each row on its own savepoint, so one that no longer fits (its parent was deleted meanwhile) doesn't stop the rest.
  * origin: who made them (the server logs it, so that device isn't sent its own changes back); apply: a device writing
@@ -77,7 +106,8 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[], op
   ];
   if (opts.apply) await q.query("SELECT set_config('somnium.sync_apply', '1', true)");
   const failed: { change: Change; error: string }[] = [];
-  // upserts that a table's own guard refused (none yet; kept so the callers' handling stays in place)
+  // upserts sent to the server that lost to another row (settleDuplicate): the device that sent them gets them back,
+  // because the log won't send a device its own changes
   const kept: Change[] = [];
   for (const c of list) {
     const def = SYNCED_BY_NAME.get(c.tbl)!;
@@ -87,16 +117,15 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[], op
       if (c.op === "upsert") {
         const all = await columns(q, c.tbl);
         // a row always belongs to whoever is writing it, whatever the JSON says
-        const row = { ...c.row, ...(all.includes("user_id") ? { user_id: userId } : {}) };
+        const { row, lost } = await settleDuplicate(q, c, { ...c.row, ...(all.includes("user_id") ? { user_id: userId } : {}) });
         // only the columns the JSON has: a device on an older app doesn't know newer columns, so a new row takes their
         // default and an existing row keeps its value, instead of both becoming NULL
         const has = all.filter((x) => x in row);
         const rest = has.filter((x) => !def.pk.includes(x));
-        const guard = "";
-        const r = await q.query(
+        await q.query(
           `INSERT INTO ${c.tbl} (${has.join(", ")}) SELECT ${has.join(", ")} FROM jsonb_populate_record(NULL::${c.tbl}, $1::jsonb)
-           ON CONFLICT (${def.pk.join(", ")}) DO ${rest.length ? `UPDATE SET ${rest.map((x) => `${x} = EXCLUDED.${x}`).join(", ")}` : "NOTHING"}${guard}`, [JSON.stringify(row)]);
-        if (guard && !r.rows.length) kept.push(c);
+           ON CONFLICT (${def.pk.join(", ")}) DO ${rest.length ? `UPDATE SET ${rest.map((x) => `${x} = EXCLUDED.${x}`).join(", ")}` : "NOTHING"}`, [JSON.stringify(row)]);
+        if (lost && !opts.apply) kept.push(c);
       } else if (def.pk.length === 1 && def.pk[0] === "id") {
         await q.query(`DELETE FROM ${c.tbl} WHERE id = $1`, [c.pk.id]);
       } else {

@@ -8,6 +8,7 @@ import { invalidate, setRemoteHandler } from "./live";
 import { readStr, writeStr } from "../core/prefs";
 import { keyring } from "../core/keyring";
 import { needsKey } from "@somnium/engine/sealed-api";
+import { leftByOthers } from "@somnium/shared";
 
 // sealed: the journal key is open here, so sealed tables can leave (sealed) and arrive (opened). Without it the pill
 // says "Not syncing · locked": settings, goals and reminders still travel, the journal's rows wait, plaintext never
@@ -82,8 +83,20 @@ const transport: Transport = {
   },
 };
 
+// Opening and closing a copy take a while and share the variables above, so they happen strictly one after the other.
+// `era` moves on the moment a copy is given up: an opening still under way then knows it is no longer wanted.
+let era = 0, lifecycle: Promise<unknown> = Promise.resolve();
+const inTurn = <T>(step: () => Promise<T>): Promise<T> => { const p = lifecycle.then(step); lifecycle = p.catch(() => {}); return p; };
+
+/** Whose copy this tab is working on, if any. */
+export const copyOpenFor = (): string | null => (sync.on && userId ? userId : null);
+
 /** One database per server and person. False when this browser can't (or another tab already has it open). */
-export async function startReplica(user: { id: string }): Promise<boolean> {
+export function startReplica(user: { id: string }): Promise<boolean> {
+  const mine = era;
+  return inTurn(() => (mine === era ? openCopy(user, mine) : Promise.resolve(false)));
+}
+async function openCopy(user: { id: string }, mineEra: number): Promise<boolean> {
   if (sync.on) { if (user.id === userId) return true; location.reload(); return false; } // signed in again (or as someone else)
   if (!globalThis.indexedDB || !globalThis.WebAssembly || !navigator.locks) return false;
   name = copyName(user.id);
@@ -119,6 +132,8 @@ export async function startReplica(user: { id: string }): Promise<boolean> {
   // Bounded, so a slow connection still gets the copy within a few seconds; the sync carries on behind it.
   // Not when the server has just failed to answer (the app is opening offline): the sync below tries again anyway.
   if (navigator.onLine && sync.online) await Promise.race([run(), new Promise((ok) => setTimeout(ok, 4000))]);
+  // given up while opening (the session ended): this must not become the transport of whoever signs in next
+  if (mineEra !== era) { await closeCopy(); return false; }
   setTransport(transport);
   setRemoteHandler(() => schedule(0));
   sync.on = true;
@@ -185,22 +200,22 @@ async function run() {
       // the server couldn't take some (they no longer fit its data): say so rather than lose them without a word
       if (res.failed?.length) { failed = res.failed.length; console.warn(`Sync: the server refused ${failed} change${failed === 1 ? "" : "s"}`); }
     }
-    const retry: any[] = [];
     for (;;) {
       const m = await R.replicaMeta(db);
       const p = await call("GET", `/sync/pull?since=${m.cursor}&device=${encodeURIComponent(m.device)}`);
-      const r = await R.applyRemote(db, userId, p.changes, p.cursor, key); // opened here, on the way in
+      // opened here, on the way in. A row that arrived before the row it belongs to is held back and tried again by
+      // the engine on every pull, so nothing here has to retry it
+      await R.applyRemote(db, userId, p.changes, p.cursor, key);
       if (p.changes.length) changed = true;
-      retry.push(...r.failed.map((f: any) => f.change));
       if (!p.more) break;
     }
-    // a row that arrived before the row it belongs to (they came in different pages)
-    if (retry.length) await R.applyRemote(db, userId, retry, undefined, key);
     failingSince = 0;
-    const unopened = (await R.replicaMeta(db)).unopened?.length ?? 0;
+    const after = await R.replicaMeta(db);
+    const unopened = after.unopened?.length ?? 0, heldBack = after.heldBack?.length ?? 0;
     const problems = [
       failed ? `${failed} change${failed === 1 ? "" : "s"} from this device didn't fit the server's data` : "",
       unopened ? `${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened` : "",
+      heldBack ? `${heldBack} row${heldBack === 1 ? "" : "s"} from the server couldn't be saved yet` : "",
     ].filter(Boolean).join(" · ");
     Object.assign(sync, { online: true, error: problems, lastAt: Date.now() });
   } catch (e) {
@@ -233,21 +248,64 @@ export function unreachable(since = Date.now()) {
   else schedule(RETRY_WAIT);
 }
 
-/** Signing out: the copy on this device goes too (another person may use it next). */
-export async function eraseReplica() {
-  if (!sync.on) return;
+// A sync under way holds a copy of the key and writes to this database. It has to end before the database closes and
+// before anyone else can open theirs. It can't go on for long: without a session each of its requests fails.
+async function closeCopy() {
+  while (running) await new Promise((ok) => setTimeout(ok, 50));
+  again = false;
+  await db?.close().catch(() => {});
+  db = null; eng = null; userId = ""; failingSince = 0; Object.assign(sync, { waiting: 0, error: "", syncing: false, sealed: true });
+  releaseLock(); releaseLock = () => {};
+}
+
+/** Leaves the copy at once: from here on every request goes to the server. What remains is closing it, in turn. */
+function leaveCopy(): boolean {
+  era++;
+  const wasOn = sync.on;
   sync.on = false;
   // back to the server for everything: left pointing at the closed copy, the next account to sign in on this tab
-  // would get "PGlite is closed" on every screen
+  // would get "PGlite is closed" on every screen, or worse, read this person's journal
   setTransport(httpTransport);
   setRemoteHandler(invalidate);
   stopEvents?.abort(); stopEvents = null;
   if (tick) clearInterval(tick); tick = null;
   if (timer) clearTimeout(timer); timer = null;
   stopKeyring(); stopKeyring = () => {};
-  await db?.close().catch(() => {});
-  db = null; eng = null; userId = ""; failingSince = 0; Object.assign(sync, { waiting: 0, error: "", syncing: false, sealed: true });
-  releaseLock(); releaseLock = () => {};
-  await dropDatabase(`/pglite/${name}`);
-  writeStr(UNSENT(), "0");
+  return wasOn;
+}
+
+/** The session ended without signing out (a 401): the copy stays on the device, closed, for the same person's return. */
+export function detachReplica(): Promise<void> {
+  const wasOn = leaveCopy();
+  return inTurn(async () => { if (wasOn) await closeCopy(); });
+}
+
+/** Someone signed in: copies another person's ended session left on this device go, unsent changes included. */
+export function eraseCopiesLeftByOthers(user: { id: string }): Promise<void> {
+  return inTurn(async () => {
+    const prefix = `/pglite/somnium-r-${hash(server.value.base || location.origin)}-`;
+    let names: string[] = [];
+    try { names = ((await (indexedDB as any).databases?.()) ?? []).map((d: any) => String(d.name)); } catch { /* nothing to list */ }
+    for (const n of leftByOthers(names, prefix, user.id)) { await dropDatabase(n); writeStr("somniumUnsent:" + n.slice(8), "0"); }
+  });
+}
+
+/** Signing out: this person's copy on this device goes too (another person may use it next), whether or not this tab
+ *  had got as far as opening it. True when a page still holds it: the deletion goes through once that page reloads. */
+export function eraseReplica(user?: { id: string }): Promise<boolean> {
+  const wasOn = leaveCopy();
+  const gone = user ? copyName(user.id) : name;
+  return inTurn(async () => {
+    if (wasOn) await closeCopy();
+    const stillHeld = await dropCopy(`/pglite/${gone}`);
+    writeStr("somniumUnsent:" + gone, "0");
+    return stillHeld;
+  });
+}
+// PGlite's close() leaves its IndexedDB connection open for as long as the page lives, so deleting a copy this page has
+// used waits until the page is gone, and meanwhile opening that same copy would wait behind the deletion. True: it waits.
+function dropCopy(dbName: string) {
+  return new Promise<boolean>((done) => {
+    try { const r = indexedDB.deleteDatabase(dbName); r.onsuccess = r.onerror = () => done(false); r.onblocked = () => done(true); } catch { done(false); }
+  });
 }

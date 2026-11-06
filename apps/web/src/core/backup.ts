@@ -4,6 +4,7 @@
 // (Chrome, Edge) Somnium writes into a folder you pick once; elsewhere it offers the file to download when one is due.
 import { api } from "../api/client";
 import { readJson, writeJson } from "./prefs";
+import { toast } from "./toast";
 
 const MAGIC = [0x4d, 0x4f, 0x54, 0x42]; // MOTB
 const enc = new TextEncoder(), dec = new TextDecoder();
@@ -21,8 +22,15 @@ async function key(password: string, salt: Uint8Array) {
   return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
 }
 
+/** A direct export leaves out rows that didn't open (sealedApi.ts): only the number is said, nothing of what they hold. */
+export function tellLeftOut(data: any) {
+  const n = Number(data?.unopened) || 0;
+  if (n) toast(`${n} row${n === 1 ? "" : "s"} couldn't be opened and ${n === 1 ? "was" : "were"} left out`);
+}
+
 export async function makeBackup(password?: string): Promise<Blob> {
   const data = await api.get("/export");
+  tellLeftOut(data);
   const body = await gzip(enc.encode(JSON.stringify(data)));
   if (!password) return new Blob([new Uint8Array([...MAGIC, 1, 0]), body], { type: "application/octet-stream" });
   const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));

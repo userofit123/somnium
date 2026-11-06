@@ -2,14 +2,32 @@
 // connection is back (PLAN.md §2.2). Each one is replayed exactly once; the screen already shows it.
 import { ref } from "vue";
 import { api, ApiError } from "./client";
-import { readJson, writeJson } from "../core/prefs";
+import { readJson, storedKeys, writeJson } from "../core/prefs";
+import { leftByOthers } from "@somnium/shared";
 import { invalidate } from "./live";
 import { toast } from "../core/toast";
 
 interface Item { method: "post" | "put" | "del"; path: string; body?: unknown; at: number }
-const KEY = "somniumOutbox";
-export const waiting = ref<Item[]>(readJson(KEY, []));
-const save = () => writeJson(KEY, waiting.value);
+// Kept per account, so what one account queued can never be replayed into the next one signed in on this device.
+// The list made before it was per account can't be told apart, so it isn't kept.
+const OLD_KEY = "somniumOutbox";
+if (readJson(OLD_KEY, null)) writeJson(OLD_KEY, null);
+let key: string | null = null;
+export const waiting = ref<Item[]>([]);
+const save = () => { if (key) writeJson(key, waiting.value); };
+/** Whose list this is from now on (null while nobody is signed in): the other account's list stays out of memory. */
+export function openOutbox(place: string, userId: string | null) {
+  const next = userId ? `${OLD_KEY}:${place}:${userId}` : null;
+  if (next === key) return;
+  key = next;
+  waiting.value = key ? readJson<Item[]>(key, []) : [];
+  // someone else signed in here: what an earlier person's ended session left queued goes, like their copy
+  if (userId) for (const k of leftByOthers(storedKeys(), `${OLD_KEY}:${place}:`, userId)) writeJson(k, null);
+  ended.clear();
+  void flush();
+}
+/** Signing out: what was queued is deleted with the rest of this device's copy, and the person was told first. */
+export function clearOutbox() { waiting.value = []; save(); ended.clear(); }
 // no connection, or the journal key isn't open: nothing is wrong with the change, it just can't go yet
 const mustWait = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 let flushing = false;
@@ -43,6 +61,8 @@ export async function flush() {
         // anything else is said, never lost silently
         if (!(e instanceof ApiError && e.status === 404)) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });
       }
+      // the list may have been cleared or changed hands while this was on its way
+      if (waiting.value[0] !== it) break;
       waiting.value.shift(); save();
     }
     if (!waiting.value.length) { ended.clear(); invalidate(["*"]); }

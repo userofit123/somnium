@@ -39,10 +39,11 @@ export function practiceRoutes(r: Router) {
   r.put("/course/:lessonId", async (ctx, p, b) => {
     const lessonId = str(p.lessonId, 80);
     const cur = (await ctx.q.query("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [lessonId])).rows[0];
-    if (cur) refuseOtherRow(b, cur.id);
+    const cols = columns(LESSON, b, !cur);
+    if (cur) refuseOtherRow(ctx, "course_progress", b, cols, cur.id);
     return cur
-      ? updateRow<CourseProgress>(ctx, "course_progress", "course", cur.id, columns(LESSON, b, false), "lesson")
-      : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...columns(LESSON, b, true), ...clientId(b) });
+      ? updateRow<CourseProgress>(ctx, "course_progress", "course", cur.id, cols, "lesson")
+      : insertRow<CourseProgress>(ctx, "course_progress", "course", { lesson_id: lessonId, ...cols, ...clientId(b) });
   });
   r.del("/course/:lessonId", async (ctx, p) => {
     const cur = (await ctx.q.query<{ id: string }>("SELECT id FROM course_progress WHERE lesson_id = $1 AND deleted_at IS NULL", [str(p.lessonId, 80)])).rows[0];

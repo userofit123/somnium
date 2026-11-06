@@ -27,6 +27,10 @@ const api = {
     remove: (id: string) => accountCall("accounts:remove", id),
     chooser: () => accountCall("accounts:chooser"),
   },
+  privacy: {
+    screenshotsAllowed: () => ipcRenderer.invoke("privacy:screenshots"),
+    setScreenshotsAllowed: (allow: boolean) => ipcRenderer.invoke("privacy:setScreenshots", allow),
+  },
   saveBackup: (name: string, bytes: Uint8Array, keep: number) => ipcRenderer.invoke("backup:save", name, bytes, keep),
   backupFolder: () => ipcRenderer.invoke("backup:folder"),
   chooseBackupFolder: () => ipcRenderer.invoke("backup:choose"),

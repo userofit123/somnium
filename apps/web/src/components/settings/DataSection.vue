@@ -2,11 +2,11 @@
 // Export & import (PLAN.md §12): everything as JSON, and importing a Somnium export (merge or replace).
 import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
-import { download } from "../../core/backup";
+import { download, tellLeftOut } from "../../core/backup";
 import { toast, toastError } from "../../core/toast";
 import { choose } from "../../core/ask";
 
-async function exportJson() { const d = await api.get("/export"); download(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }), `somnium-export-${new Date().toISOString().slice(0, 10)}.json`); }
+async function exportJson() { const d = await api.get("/export"); download(new Blob([JSON.stringify(d, null, 2)], { type: "application/json" }), `somnium-export-${new Date().toISOString().slice(0, 10)}.json`); tellLeftOut(d); }
 async function importJson(ev: Event) {
   const f = (ev.target as HTMLInputElement).files?.[0]; (ev.target as HTMLInputElement).value = ""; if (!f) return;
   try {

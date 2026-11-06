@@ -3,10 +3,13 @@ import { reactive } from "vue";
 import { api, setOnUnauthorized, setLocalDevice, ApiError, server, usingHttp } from "../api/client";
 import { queryClient, invalidate } from "../api/live";
 import { readJson, writeJson } from "./prefs";
-import { startReplica, eraseReplica, sync, copyHasUnsent, unreachable } from "../api/replica";
+import { startReplica, eraseReplica, detachReplica, eraseCopiesLeftByOthers, copyOpenFor, sync, copyHasUnsent, unreachable } from "../api/replica";
+import { copyDecision } from "@somnium/shared";
 import { confirm } from "./ask";
 import { setToken } from "../native/accounts";
 import { keyring } from "./keyring";
+import { forgetUnlock } from "./unlock";
+import { clearOutbox, openOutbox, waiting as outboxWaiting } from "../api/outbox";
 
 export const session = reactive<{ ready: boolean; setupNeeded: boolean; user: { id: string; username: string; role: string } | null; registration: string; version: string; apiLevel: number }>(
   { ready: false, setupNeeded: false, user: null, registration: "invite", version: "", apiLevel: 0 });
@@ -27,10 +30,14 @@ export async function loadSession() {
   catch (e) { if (e instanceof ApiError && e.status === 0) { s = saved; offline = true; if (navigator.onLine) unreachable(); else sync.online = false; } }
   if (s) Object.assign(session, { setupNeeded: s.setupNeeded, user: s.user, registration: s.registration, version: s.version, apiLevel: s.apiLevel });
   else session.user = null;
+  // this tab may be on someone else's copy: leave it before anything of this session can touch it
+  if (copyDecision(copyOpenFor(), session.user?.id ?? null).stop) await detachReplica();
+  openOutbox(server.value.base || location.origin, session.user?.id ?? null);
   // a server account works on a copy on this device (offline use); local accounts already are one
   // Online, the screens show straight from the server while the copy opens (about a second) and take it over when
   // it's ready; offline, the copy is all there is, so wait for it.
   if (session.user && usingHttp() && !(await isLocalAccount())) {
+    void eraseCopiesLeftByOthers(session.user);
     const opening = startReplica(session.user).then((ok) => { if (ok && !offline) invalidate(["*"]); });
     // with changes on this device the server hasn't got (a dream written just before the app was closed), the
     // server's view is out of date: wait for the copy, which sends them first (a few seconds at most)
@@ -43,16 +50,35 @@ export async function isLocalAccount() {
   try { return (await (globalThis as any).somniumNative?.accounts?.current?.())?.kind === "local"; } catch { return false; }
 }
 
-export async function signOut() {
-  if (sync.on && sync.waiting && !(await confirm(`${sync.waiting} change${sync.waiting === 1 ? " hasn't" : "s haven't"} reached the server yet`,
+/** What signing out would lose: changes on this device the server hasn't got. */
+export const unsentChanges = () => (sync.on ? sync.waiting : 0) + outboxWaiting.value.length;
+/** force: without asking first (the lock's five wrong tries, or the lock screen, which asks in its own way). */
+export async function signOut(o: { force?: boolean } = {}) {
+  const unsent = unsentChanges();
+  if (!o.force && unsent && !(await confirm(`${unsent} change${unsent === 1 ? " hasn't" : "s haven't"} reached the server yet`,
     { text: "Signing out removes them from this device. Stay signed in and they're sent when the server can be reached.", ok: "Sign out anyway", danger: true }))) return;
+  clearOutbox(); // first: nothing queued may go out between here and the session ending
   try { await api.post("/auth/logout"); } catch { /* signed out anyway */ }
   setToken(null);
   keyring.clear(); // the data key leaves with the session (PLAN.md §4.1)
-  await eraseReplica();
+  forgetUnlock();
+  const stillHeld = session.user ? await eraseReplica(session.user) : false;
   writeJson(KEY(), null);
   session.user = null;
+  openOutbox(server.value.base || location.origin, null);
   queryClient.clear();
+  // the plaintext copy only leaves the disk when this page lets go of it, and a reload also leaves nothing of it in memory
+  if (stillHeld) location.reload();
 }
 // the server no longer accepts the saved token (signed out elsewhere, or expired): forget it too
-setOnUnauthorized(() => { setToken(null); if (session.user) { session.user = null; keyring.clear(); writeJson(KEY(), null); queryClient.clear(); } });
+// The queued changes stay under that account's name: signing in as the same person picks them up again.
+// The copy closes too, at once: another person may sign in on this tab without a reload (PLAN.md §4.1).
+setOnUnauthorized(() => { setToken(null); void detachReplica(); if (session.user) { session.user = null; keyring.clear(); forgetUnlock(); openOutbox(server.value.base || location.origin, null); writeJson(KEY(), null); queryClient.clear(); } });
+// Another tab's session is this tab's too (they share the cookie). When that tab ends up signed out or as someone else,
+// this tab's copy and key belong to the wrong session: start over.
+addEventListener("storage", (e) => {
+  if (e.key !== KEY() || !session.user) return;
+  let next: string | undefined;
+  try { next = JSON.parse(e.newValue ?? "null")?.user?.id; } catch { /* treated as signed out */ }
+  if (next !== session.user.id) location.reload();
+});

@@ -131,9 +131,10 @@ export function journalRoutes(r: Router) {
     const dreamId = id(p.id, "dream"), elementId = id(b.elementId, "element");
     await visible(ctx.q, "dreams", dreamId, "dream");
     await visible(ctx.q, "elements", elementId, "element");
-    const cols = columns(LINK, b, true);
     const cur = (await ctx.q.query("SELECT id FROM dream_elements WHERE dream_id = $1 AND element_id = $2 AND deleted_at IS NULL", [dreamId, elementId])).rows[0];
-    if (cur) refuseOtherRow(b, cur.id);
+    // linking again changes only what it names: a link made again without a span keeps the span it has
+    const cols = columns(LINK, b, !cur);
+    if (cur) refuseOtherRow(ctx, "dream_elements", b, cols, cur.id);
     const out = cur
       ? await updateRow<DreamElement>(ctx, "dream_elements", "dreams", cur.id, cols)
       : await insertRow<DreamElement>(ctx, "dream_elements", "dreams", { dream_id: dreamId, element_id: elementId, ...cols, ...clientId(b) });

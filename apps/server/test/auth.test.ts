@@ -11,7 +11,7 @@ import { pgliteDb } from "@somnium/engine/pglite";
 import { uuidv7, type Db } from "@somnium/engine";
 import { createAccountKeys, changePassword, openWithPassword, toBase64url, fromBase64url, sealColumn } from "@somnium/shared";
 import { buildApp } from "../src/app";
-import { totp, forgetFails, failKeyCount, recordFail, tooManyTries, keyFromFile, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
+import { totp, forgetFails, failKeyCount, recordFail, tooManyTries, reserveTry, keyFromFile, makeDataDir, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
 
 let app: FastifyInstance, db: Db, dir: string;
 let ann: { authKey: string }; // the first account (the admin), used by the admin test
@@ -54,6 +54,15 @@ describe("sign-up and sign-in with the auth key", () => {
     const other = await createAccountKeys("correct horse battery"); // a different salt: a different authKey
     expect((await signIn("ann", other.authKey)).statusCode).toBe(401);
     expect((await signIn("ann", "not-a-key")).statusCode).toBe(401);
+  });
+
+  it("hands the signed-in account its bundle for the lock screen, and nobody else", async () => {
+    expect((await app.inject({ method: "GET", url: "/api/auth/bundle" })).statusCode).toBe(401);
+    const answer = (await signIn("ann", ann.authKey)).json();
+    const r = await app.inject({ method: "GET", url: "/api/auth/bundle", headers: bearer(answer.token) });
+    expect(r.statusCode).toBe(200);
+    expect(r.json()).toEqual({ kdfSalt: answer.kdfSalt, wrappedByPassword: answer.wrappedByPassword });
+    expect(answer.wrappedByPassword).toBeTruthy();
   });
 
   it("writes an activity-log note for a new device, once", async () => {
@@ -343,5 +352,108 @@ describe("media", () => {
     const down = await app.inject({ method: "GET", url: up.json().url, headers: h });
     expect(down.statusCode).toBe(200);
     expect(down.headers["x-content-type-options"]).toBe("nosniff");
+  });
+});
+
+describe("requests sent at the same moment", () => {
+  it("a parallel burst of wrong passwords stops at five", async () => {
+    const { keys } = await signUp("burst", "correct horse battery", { invite: await invite() });
+    forgetFails();
+    const wrong = await createAccountKeys("not the password at all");
+    const codes = (await Promise.all(Array.from({ length: 9 }, () => signIn("burst", wrong.authKey)))).map((r) => r.statusCode).sort();
+    expect(codes).toEqual([401, 401, 401, 401, 401, 429, 429, 429, 429]);
+    expect((await signIn("burst", keys.authKey)).statusCode).toBe(429);
+  });
+
+  it("a right password takes its try back, however often it is used", async () => {
+    const { keys, h } = await signUp("right", "correct horse battery", { invite: await invite() });
+    forgetFails();
+    for (let i = 0; i < 7; i++) expect((await signIn("right", keys.authKey)).statusCode).toBe(200);
+    expect((await post("/auth/2fa/codes", { authKey: keys.authKey }, h)).statusCode).toBe(200);
+    expect(failKeyCount()).toBe(0);
+    const release = reserveTry(["u:x"])!;
+    for (let i = 0; i < 4; i++) expect(reserveTry(["u:x"])).not.toBeNull();
+    expect(reserveTry(["u:x"])).toBeNull();
+    release(); release(); // twice counts once
+    expect(reserveTry(["u:x"])).not.toBeNull();
+    expect(reserveTry(["u:x"])).toBeNull();
+  });
+
+  it("one reset code works once, even for two uses at the same moment", async () => {
+    const { keys } = await signUp("resetrace", "correct horse battery", { invite: await invite() });
+    const id = await idOf("resetrace");
+    const { resetCode } = (await app.inject({ method: "PUT", url: `/api/admin/users/${id}`, headers: await asAdmin(), payload: { resetPassword: true } })).json();
+    const one = await createAccountKeys("the first new password"), two = await createAccountKeys("the second new password");
+    const answers = await Promise.all([one, two].map((k) => post("/auth/reset", { username: "resetrace", code: resetCode, authKey: k.authKey, kdfSalt: k.salt })));
+    expect(answers.map((r) => r.statusCode).sort()).toEqual([200, 403]);
+    forgetFails();
+    const winner = answers[0]!.statusCode === 200 ? one : two, loser = winner === one ? two : one;
+    expect((await signIn("resetrace", winner.authKey)).statusCode).toBe(200);
+    expect((await signIn("resetrace", loser.authKey)).statusCode).toBe(401);
+    expect((await signIn("resetrace", keys.authKey)).statusCode).toBe(401);
+  });
+
+  it("enabling two-factor can't turn on a secret that a new start put there after the check", async () => {
+    const { keys, h } = await signUp("enablerace", "correct horse battery", { invite: await invite() });
+    const { secret } = (await post("/auth/2fa/start", { authKey: keys.authKey }, h)).json();
+    // a /start landing right between enable's read and its write
+    const admin = db.admin as unknown as { query: (sql: string, params?: unknown[]) => Promise<any> };
+    const real = admin.query.bind(admin);
+    const spy = vi.spyOn(admin, "query").mockImplementation(async (sql: string, params?: unknown[]) => {
+      const out = await real(sql, params);
+      if (sql.startsWith("SELECT totp_secret, totp_enabled")) await real("UPDATE users SET totp_secret = 'v1:swapped' WHERE id = $1", params);
+      return out;
+    });
+    try { expect((await post("/auth/2fa/enable", { code: totp(secret) }, h)).statusCode).toBe(409); }
+    finally { spy.mockRestore(); }
+    const u = (await db.admin.query("SELECT totp_enabled, totp_secret FROM users WHERE username = 'enablerace'")).rows[0];
+    expect(u).toEqual({ totp_enabled: false, totp_secret: "v1:swapped" });
+  });
+});
+
+describe("the data folder and the key file", () => {
+  const scratch = () => fs.mkdtempSync(path.join(os.tmpdir(), "somnium-dir-test-"));
+
+  it("a new folder is private; an existing one keeps its mode", () => {
+    const d = scratch();
+    try {
+      makeDataDir(path.join(d, "new"));
+      expect(fs.statSync(path.join(d, "new")).mode & 0o777).toBe(0o700);
+      keyFromFile(path.join(d, "new2"));
+      expect(fs.statSync(path.join(d, "new2")).mode & 0o777).toBe(0o700);
+      fs.mkdirSync(path.join(d, "there"));
+      fs.chmodSync(path.join(d, "there"), 0o755);
+      makeDataDir(path.join(d, "there"));
+      keyFromFile(path.join(d, "there"));
+      expect(fs.statSync(path.join(d, "there")).mode & 0o777).toBe(0o755);
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it("a crash before the key is in place leaves no key file, and no temp file stays behind", () => {
+    const d = scratch();
+    const link = vi.spyOn(fs, "linkSync").mockImplementationOnce(() => { throw Object.assign(new Error("crash"), { code: "EIO" }); });
+    try {
+      expect(() => keyFromFile(d)).toThrow("crash");
+      expect(fs.readdirSync(d)).toEqual([]);
+      link.mockRestore();
+      const key = keyFromFile(d);
+      expect(key).toHaveLength(32);
+      expect(fs.readdirSync(d)).toEqual(["app.key"]);
+      expect(fs.statSync(path.join(d, "app.key")).mode & 0o777).toBe(0o600);
+    } finally { link.mockRestore(); fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it("another start that gets there first keeps its key", () => {
+    const d = scratch();
+    const theirs = crypto.randomBytes(32);
+    const real = fs.linkSync;
+    const link = vi.spyOn(fs, "linkSync").mockImplementationOnce((from, to) => {
+      fs.writeFileSync(to, theirs.toString("base64"), { mode: 0o600 });
+      real(from, to);
+    });
+    try {
+      expect(keyFromFile(d).equals(theirs)).toBe(true);
+      expect(fs.readdirSync(d)).toEqual(["app.key"]);
+    } finally { link.mockRestore(); fs.rmSync(d, { recursive: true, force: true }); }
   });
 });

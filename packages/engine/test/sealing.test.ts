@@ -319,6 +319,14 @@ describe("the server holds no plaintext", () => {
     expect(nightIds).not.toContain(badNight);
     expect((await snapDevice.db.admin.query("SELECT id FROM dreams WHERE id = $1", [child])).rows).toHaveLength(0);
     expect((await snapDevice.db.admin.query("SELECT id FROM dreams WHERE id = $1", [dreamId])).rows).toHaveLength(1);
+    // the child isn't lost: it is held with its parent, counted, and comes back when the parent opens
+    expect(meta.heldBack!.map((c) => c.pk.id)).toEqual([child]);
+    const stillOut = await replica.applyRemote(snapDevice.db, U, [], undefined, KEY);
+    expect([stillOut.unopened, stillOut.heldBack]).toEqual([1, 1]);
+    const opened = await replica.applyRemote(snapDevice.db, U, [], undefined, OTHER_KEY);
+    expect([opened.unopened, opened.heldBack]).toEqual([0, 0]);
+    expect((await snapDevice.db.admin.query("SELECT notes FROM nights WHERE id = $1", [badNight])).rows[0].notes).toBe("doesn't open");
+    expect((await snapDevice.db.admin.query("SELECT night_id FROM dreams WHERE id = $1", [child])).rows[0].night_id).toBe(badNight);
     expect((await unsealColumn((bad.row as Rec).notes, OTHER_KEY, "nights", "notes", badId))).toBe("doesn't open");
   });
 

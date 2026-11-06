@@ -15,8 +15,11 @@ import { SEALED_TABLES } from "../sealed";
 
 // plainCursor: how far a locked device has read for plain tables; cursor stays put so sealed rows still arrive after
 // unlocking. unopened: rows from the server that did not open, still as they came (ciphertext), tried again on
-// every later pull so that a key problem that gets fixed loses nothing.
-export interface ReplicaMeta { cursor: number; pushed: number; device: string; ready: boolean; plainCursor?: number; unopened?: Change[] }
+// every later pull so that a key problem that gets fixed loses nothing. heldBack: rows that opened but couldn't be
+// written yet (their parent is set aside, or is still on a later page), kept the same way and tried again with them.
+// They stay as they came so that each try opens them exactly once: opening an already opened row would mistake a
+// text that merely looks like an envelope for a sealed value.
+export interface ReplicaMeta { cursor: number; pushed: number; device: string; ready: boolean; plainCursor?: number; unopened?: Change[]; heldBack?: Change[] }
 
 export const replicaMeta = (db: Db) => metaOf(db.admin);
 async function metaOf(q: Sql): Promise<ReplicaMeta> {
@@ -34,11 +37,14 @@ export async function loadSnapshot(db: Db, snap: { cursor: number; user: any; ta
   // opened before the transaction: a locked device then leaves the copy untouched. A row that doesn't open is set
   // aside like one from a pull, so one bad row can't stop the first copy for good.
   const tables: Record<string, Record<string, unknown>[]> = {};
-  const unopened: Change[] = [];
+  const unopened: Change[] = [], heldBack: Change[] = [];
+  const asCame = new Map<string, Change>();
+  const pkOf = (t: { pk: string[] }, row: Record<string, unknown>) => Object.fromEntries(t.pk.map((c) => [c, row[c]]));
   for (const t of SYNCED) {
-    const pkOf = (row: Record<string, unknown>) => Object.fromEntries(t.pk.map((c) => [c, row[c]]));
     const at = new Date().toISOString();
-    const res = await unsealChanges((snap.tables[t.name] ?? []).map((row): Change => ({ tbl: t.name, pk: pkOf(row), op: "upsert", at, row })), dataKey);
+    const list = (snap.tables[t.name] ?? []).map((row): Change => ({ tbl: t.name, pk: pkOf(t, row), op: "upsert", at, row }));
+    for (const c of list) asCame.set(keyOf(c.tbl, c.pk), c);
+    const res = await unsealChanges(list, dataKey);
     tables[t.name] = res.opened.map((c) => c.row!);
     unopened.push(...res.unopened);
   }
@@ -51,16 +57,17 @@ export async function loadSnapshot(db: Db, snap: { cursor: number; user: any; ta
       const rows = tables[t.name]!;
       const insert = (part: unknown[]) => q.query(`INSERT INTO ${t.name} SELECT * FROM jsonb_populate_recordset(NULL::${t.name}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(part)]);
       if (!unopened.length) { for (let i = 0; i < rows.length; i += 200) await insert(rows.slice(i, i + 200)); continue; }
-      // a row set aside leaves its children pointing at nothing: one at a time, so only those children stay out
+      // a row set aside leaves its children pointing at nothing: one at a time, so only those children stay out,
+      // and they are held back to return when their parent opens (applyRemote tries them on every pull)
       for (const row of rows) {
         await q.query("SAVEPOINT snap_row");
         try { await insert([row]); await q.query("RELEASE SAVEPOINT snap_row"); }
-        catch { await q.query("ROLLBACK TO SAVEPOINT snap_row"); }
+        catch { await q.query("ROLLBACK TO SAVEPOINT snap_row"); heldBack.push(asCame.get(keyOf(t.name, pkOf(t, row)))!); }
       }
     }
   });
   const pushed = Number((await db.admin.query("SELECT coalesce(max(seq), 0) AS s FROM sync_log")).rows[0].s);
-  return saveMeta(db, { cursor: snap.cursor, pushed, device: (await replicaMeta(db)).device || uuidv7(), ready: true, unopened });
+  return saveMeta(db, { cursor: snap.cursor, pushed, device: (await replicaMeta(db)).device || uuidv7(), ready: true, unopened, heldBack });
 }
 
 /** What changed here since the last send (the latest change per row, sealed for the server), and up to where in the log that goes. */
@@ -113,13 +120,17 @@ export async function waitingCount(db: Db) {
  * (a deletion in a DELETES_WIN table is final on both sides, whatever was changed meanwhile).
  */
 export async function applyRemote(db: Db, userId: string, remote: Change[], cursor?: number, dataKey: Uint8Array | null = null) {
-  // rows set aside earlier go round again, unless a newer version of the same row has just arrived. Without a key
-  // they just stay set aside: they are ciphertext, and only a sealed table's rows ever are.
-  const before = (await replicaMeta(db)).unopened ?? [];
+  // rows set aside or held back earlier go round again, unless a newer version of the same row has just arrived.
+  // Without a key the sealed ones just stay where they are: they are ciphertext.
+  const before = await replicaMeta(db);
   const incoming = new Set(remote.map((c) => keyOf(c.tbl, c.pk)));
-  const held = before.filter((c) => !incoming.has(keyOf(c.tbl, c.pk)));
-  const { opened: changes, unopened } = await unsealChanges(dataKey ? [...held, ...remote] : remote, dataKey);
-  const stillHeld = dataKey ? unopened : [...held, ...unopened];
+  const notReplaced = (c: Change) => !incoming.has(keyOf(c.tbl, c.pk));
+  const setAside = (before.unopened ?? []).filter(notReplaced), waiting = (before.heldBack ?? []).filter(notReplaced);
+  const asCame = [...(dataKey ? [...setAside, ...waiting] : waiting.filter((c) => !needsKey(c.tbl))), ...remote];
+  const { opened: changes, unopened } = await unsealChanges(asCame, dataKey);
+  const cameAs = new Map(asCame.map((c) => [keyOf(c.tbl, c.pk), c]));
+  const stillUnopened = dataKey ? unopened : [...setAside, ...unopened];
+  const stillWaiting = dataKey ? [] : waiting.filter((c) => needsKey(c.tbl));
   const res = await db.tx(async (q) => {
     // read inside the same transaction as the writes: a change made here in between (finishing, say) is then either
     // seen here, or made after these writes; never overwritten by an older version of the row
@@ -145,6 +156,8 @@ export async function applyRemote(db: Db, userId: string, remote: Change[], curs
     }
     return r;
   });
-  await saveMeta(db, { ...(cursor != null ? { cursor } : {}), unopened: stillHeld });
-  return { ...res, unopened: stillHeld.length };
+  // a row that couldn't be written is never dropped: the cursor moves past it, so this list is all that remembers it
+  const heldBack = [...stillWaiting, ...res.failed.map((f) => cameAs.get(keyOf(f.change.tbl, f.change.pk))!)];
+  await saveMeta(db, { ...(cursor != null ? { cursor } : {}), unopened: stillUnopened, heldBack });
+  return { ...res, unopened: stillUnopened.length, heldBack: heldBack.length };
 }

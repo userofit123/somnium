@@ -2,7 +2,7 @@
 // tab, no IndexedDB or WebAssembly, a failed first copy) the app talks to the journal routes itself, so sealing has
 // to happen here as well: request bodies are sealed before they leave and responses are opened when they arrive.
 // Kept apart from the engine's index so the web app's main bundle can load it without the handlers and migrations.
-import { SealError } from "@somnium/shared";
+import { SealError, isSealed } from "@somnium/shared";
 import { SEALED_COLUMNS } from "../sealed";
 import { uuidv7 } from "../ids";
 import { LockedError, needsKey, sealRow, sealRows, unsealRow, unsealRows, type Row } from "./sealing";
@@ -23,7 +23,9 @@ const ROUTES: Route[] = [
   { re: /^\/practice(\/[^/]+)?$/, table: "practice_log" },
   { re: /^\/course(\/[^/]+)?$/, table: "course_progress" },
 ];
-const clean = (path: string) => path.split("?")[0]!;
+// The path as the server's router will see it: what the browser's fetch resolves (".", "..", a query, a fragment),
+// then no empty segments. Otherwise "/dreams/" would reach the dreams route here unrecognised: no key check, no sealing.
+const clean = (path: string) => "/" + new URL("http://x/" + path).pathname.split("/").filter(Boolean).join("/");
 const routeOf = (path: string) => ROUTES.find((r) => r.re.test(clean(path)));
 const isBulk = (path: string) => /^\/(import|export)$/.test(clean(path));
 const camelOf = (col: string) => col.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase());
@@ -49,12 +51,27 @@ async function rowIdFor(method: string, path: string, body: Row, lookup: Lookup)
   return parts[1] ?? null;
 }
 
+/** A file that says it is sealed is checked, not believed: anything else in its sealed columns would go out in the clear. */
+function refuseUnsealedFile(tables: Record<string, unknown>) {
+  const refuse = () => new SealError("This file says it is sealed, but part of it is not. Nothing was sent.");
+  for (const [t, rows] of Object.entries(tables)) {
+    const cols = SEALED_COLUMNS[t] ?? [];
+    if (!cols.length) continue;
+    if (!Array.isArray(rows)) throw refuse();
+    for (const row of rows) {
+      if (!row || typeof row !== "object") throw refuse();
+      for (const c of cols) { const v = (row as Row)[c]; if (v != null && !isSealed(v)) throw refuse(); }
+    }
+  }
+}
+
 /** The body as it may leave the device: a journal row's sealed columns sealed, an import's rows sealed table by table. */
 export async function sealRequest(method: string, path: string, body: unknown, key: Uint8Array, lookup: Lookup): Promise<unknown> {
   if (clean(path) === "/import") {
     const b = body as { data?: any };
-    // a server export restored as it is: already ciphertext, and the server refuses it if the label lies
-    if (!b?.data?.tables || b.data.sealed) return body;
+    if (!b?.data?.tables) return body;
+    // a server export restored as it is: already ciphertext
+    if (b.data.sealed) { refuseUnsealedFile(b.data.tables); return body; }
     const tables: Record<string, unknown> = {};
     for (const [t, rows] of Object.entries(b.data.tables)) tables[t] = Array.isArray(rows) ? await sealRows(t, rows as Row[], key) : rows;
     return { ...b, data: { ...b.data, sealed: true, tables } };
@@ -98,15 +115,26 @@ async function openList(table: string, rows: Row[], key: Uint8Array, count: { un
   return out;
 }
 
-/** The answer as the screens may see it. An export comes back plaintext, ready to keep and to restore anywhere. */
+/**
+ * The answer as the screens may see it. An export comes back plaintext, ready to keep and to restore anywhere. A row
+ * that doesn't open is left out rather than costing the whole export, and the export says how many (unopened), so
+ * the person is told.
+ */
 export async function openResponse(path: string, data: unknown, key: Uint8Array): Promise<{ data: unknown; unopened: number }> {
   const count = { unopened: 0 };
   if (clean(path) === "/export") {
     const d = data as { sealed?: boolean; tables?: Record<string, Row[]> };
     if (!d?.sealed || !d.tables) return { data, unopened: 0 };
     const tables: Record<string, Row[]> = {};
-    for (const [t, rows] of Object.entries(d.tables)) tables[t] = await unsealRows(t, rows, key);
-    return { data: { ...d, sealed: false, tables }, unopened: 0 };
+    for (const [t, rows] of Object.entries(d.tables)) {
+      const opened: Row[] = [];
+      for (const r of rows) {
+        try { opened.push(...(await unsealRows(t, [r], key))); }
+        catch (e) { if (!(e instanceof SealError)) throw e; count.unopened++; }
+      }
+      tables[t] = opened;
+    }
+    return { data: { ...d, sealed: false, tables, ...(count.unopened ? { unopened: count.unopened } : {}) }, unopened: count.unopened };
   }
   const route = routeOf(path);
   if (!route || !data || typeof data !== "object") return { data, unopened: 0 };

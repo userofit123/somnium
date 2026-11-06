@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // Settings → Security (PLAN.md §4.2, §4.4): two-factor sign-in with an authenticator app and eight one-time backup
 // codes, ported from Money Manager's SecurityPane. The recovery key and the "can you get back in?" checklist come
-// with LDJ-7; the rows here are the skeleton they join. Nothing in this section ever touches the journal's data key.
-import { ref, computed } from "vue";
+// with LDJ-7; the rows here are the skeleton they join. The app lock's rows (PLAN.md §4.3) are here too: its delay can
+// change, but no row turns it off. Device verification wraps the data key when set up; nothing else here touches it.
+import { ref, computed, onMounted } from "vue";
+import { LOCK_DELAYS, LOCK_IDLE_TIMES } from "@somnium/shared";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
 import { useMe } from "../../api/queries";
@@ -12,6 +14,9 @@ import { useFmt } from "../../core/format";
 import { authKeyFor } from "../../core/auth";
 import { qrPath, keyGroups } from "../../core/qr";
 import { isLocalAccount } from "../../core/session";
+import { lock, setLockSettings, whileVerifying } from "../../core/lock";
+import { deviceStatus, deviceVerifierExists, setUpDevice, turnDeviceOff } from "../../core/unlock";
+import AppSelect from "../AppSelect.vue";
 import Icon from "../Icon.vue";
 
 const me = useMe();
@@ -50,6 +55,37 @@ async function newCodes() {
   const password = await prompt("New backup codes", { text: "The old ones stop working. Type your password.", placeholder: "Password", ok: "Make new codes", secret: true }); if (!password) return;
   try { codes.value = (await api.post("/auth/2fa/codes", { authKey: await authKeyFor(username.value, password) })).backupCodes; sec.refetch(); } catch (e) { toastError(e); }
 }
+
+// ----- the app lock -----
+const delays = LOCK_DELAYS.map((d) => ({ value: d.ms, label: d.label }));
+const idles = LOCK_IDLE_TIMES.map((d) => ({ value: d.ms, label: d.label }));
+const device = ref(deviceStatus());
+const deviceExists = ref(false);
+onMounted(async () => { deviceExists.value = await deviceVerifierExists(); });
+const isApp = !!(globalThis as { somniumNative?: unknown }).somniumNative;
+const deviceText = computed(() => {
+  if (device.value.on) return "On - your fingerprint, face or screen lock opens the app";
+  if (isApp) return "Not available in this app yet - it unlocks with your password";
+  if (!deviceExists.value) return "This device has no verification a browser can use, so it unlocks with your password";
+  if (device.value.noPrf) return "This device can confirm it is you but can't keep the key safe, so it unlocks with your password";
+  return "Off - it unlocks with your password";
+});
+async function deviceOn() {
+  busy.value = true;
+  try {
+    const r = await whileVerifying(() => setUpDevice(username.value));
+    toast(r === "on" ? "Device verification is on" : "This device can't keep the key safe, so it stays with your password");
+  } catch (e) { toastError((e as Error)?.name === "NotAllowedError" ? new Error("Verification was cancelled") : e); }
+  finally { busy.value = false; device.value = deviceStatus(); }
+}
+function deviceOff() { turnDeviceOff(); device.value = deviceStatus(); toast("Device verification is off"); }
+
+// the desktop app only: screenshots of the window, blank by default
+const privacy = (globalThis as { somniumNative?: { privacy?: { screenshotsAllowed(): Promise<boolean>; setScreenshotsAllowed(v: boolean): Promise<boolean> } } }).somniumNative?.privacy;
+const screenshots = ref(false);
+onMounted(async () => { if (privacy) screenshots.value = await privacy.screenshotsAllowed(); });
+async function toggleScreenshots() { if (privacy) screenshots.value = await privacy.setScreenshotsAllowed(!screenshots.value); }
+
 const copy = async (text: string, what: string) => { try { await navigator.clipboard.writeText(text); toast(`${what} copied`); } catch { toastError(new Error("Could not copy")); } };
 function download() {
   const blob = new Blob([`Somnium backup codes for ${username.value}\nEach one signs you in once when you cannot use your authenticator app.\n\n${codes.value!.join("\n")}\n`], { type: "text/plain" });
@@ -59,9 +95,20 @@ function download() {
 </script>
 
 <template>
-  <div v-if="localAccount" class="card"><div class="li"><div class="grow"><div class="t">On this device only</div><div class="s">A local account has no sign-in, so there is nothing to protect it with here. The app lock is under Features.</div></div></div></div>
+  <div class="sh first"><h2>App lock</h2></div>
+  <p class="tiny hgap">The app locks every time it starts and when you leave it. You can change when, not whether.</p>
+  <div class="card flush">
+    <div class="li"><div class="grow"><div class="t">Lock after leaving the app</div></div><AppSelect :model-value="lock.settings.delayMs" :options="delays" title="Lock after leaving the app" @change="setLockSettings({ delayMs: $event })" /></div>
+    <div class="li"><div class="grow"><div class="t">Lock when idle for</div></div><AppSelect :model-value="lock.settings.idleMs" :options="idles" title="Lock when idle for" @change="setLockSettings({ idleMs: $event })" /></div>
+    <div v-if="localAccount === false" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Device verification</div><div class="s">{{ deviceText }}</div></div>
+      <button v-if="device.on" class="qb" @click="deviceOff">Turn off</button>
+      <button v-else-if="!isApp && deviceExists && !device.noPrf" class="qb acc" :disabled="busy" @click="deviceOn">Turn on</button></div>
+    <div v-if="privacy" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : "Blocked - screenshots and screen sharing show a blank window" }}</div></div>
+      <button class="qb" @click="toggleScreenshots">{{ screenshots ? "Block" : "Allow" }}</button></div>
+  </div>
+  <div v-if="localAccount" class="card"><div class="li"><div class="grow"><div class="t">On this device only</div><div class="s">A local account has no password, so the lock screen only hides your journal. It doesn't keep anyone out.</div></div></div></div>
   <template v-else-if="localAccount === false">
-    <div class="sh first"><h2>Two-factor sign-in</h2></div>
+    <div class="sh"><h2>Two-factor sign-in</h2></div>
     <p class="tiny hgap">A code from an authenticator app on top of your password. Any app works - Aegis, Google Authenticator, 1Password, ...</p>
     <div class="card flush">
       <div class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Authenticator app</div><div class="s">{{ totp ? "On - every sign-in asks for a code" : "Off" }}</div></div>

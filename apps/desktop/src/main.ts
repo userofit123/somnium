@@ -102,12 +102,23 @@ async function openAccount(id: string) {
   win = next;
 }
 
+// Screenshots and screen sharing show a blank window unless the person allows them (PLAN.md §4.3). Electron does this on
+// Windows and macOS; it has no effect on Linux. The setting is kept per computer: a screenshot is a matter of this machine.
+const ALLOW_SCREENSHOTS = path.join(USER, "allow-screenshots.txt");
+const screenshotsAllowed = () => fs.existsSync(ALLOW_SCREENSHOTS);
+
+// LDJ-10: unlocking with the device isn't built here. WebAuthn refuses the app's http://127.0.0.1 address, and
+// safeStorage alone is not verification: it decrypts for anyone using the signed-in computer, without asking for
+// anything (and on Linux it may have no real keyring behind it, see safeStorage.getSelectedStorageBackend). Keeping the data key
+// in it would make the lock screen's button open the journal for whoever clicks. It needs a real prompt in front of it
+// (systemPreferences.promptTouchID on macOS, Windows Hello on Windows). Until then the desktop app unlocks with the password.
 function makeWindow(part?: Electron.Session) {
   const w = new BrowserWindow({
     width: 1400, height: 900, minWidth: 380, minHeight: 600, backgroundColor: "#17100d", show: false, autoHideMenuBar: true, title: "Somnium",
     icon: path.join(__dirname, "icon.png"),
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), session: part, contextIsolation: true, sandbox: false },
   });
+  w.setContentProtection(!screenshotsAllowed());
   w.once("ready-to-show", () => w.show());
   w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
   return w;
@@ -121,6 +132,13 @@ function showChooser() {
 }
 
 // ----- what the screens can ask of the app (window.somniumNative, see preload.ts) -----
+ipcMain.handle("privacy:screenshots", () => screenshotsAllowed());
+ipcMain.handle("privacy:setScreenshots", (_e, allow: unknown) => {
+  if (allow === true) fs.writeFileSync(ALLOW_SCREENSHOTS, "");
+  else fs.rmSync(ALLOW_SCREENSHOTS, { force: true });
+  for (const w of BrowserWindow.getAllWindows()) w.setContentProtection(allow !== true);
+  return allow === true;
+});
 ipcMain.handle("accounts:list", () => readAccounts());
 ipcMain.handle("accounts:addLocal", async (_e, name: string) => { const a = readAccounts(); const acc: Account = { id: crypto.randomUUID(), kind: "local", name: name || "Me" }; a.list.push(acc); writeAccounts(a); await openAccount(acc.id); });
 /** "somnium.home", "192.168.1.5:8080" or "https://Somnium.Example.com/x/" → "https://somnium.home" (https unless told otherwise). Same rules as the Android app (apps/web/src/native/accounts.ts). */

@@ -60,10 +60,14 @@ export function clientId(body: unknown): { id?: string } {
   return { id: v };
 }
 
-/** For routes where the server finds the row itself: a value sealed for another row would never open again. */
-export function refuseOtherRow(body: unknown, existingId: string) {
+/**
+ * For routes where the server finds the row itself: a value sealed for another row would never open again. A sealed
+ * value without an id can't be checked against the row, so a server refuses it, as insertRow does.
+ */
+export function refuseOtherRow(ctx: Ctx, table: string, body: unknown, cols: Record<string, unknown>, existingId: string) {
   const { id } = clientId(body);
   if (id && id !== existingId) throw conflict("This was changed on another device. Try again.");
+  if (!id && ctx.mode === "server" && (SEALED_COLUMNS[table] ?? []).some((c) => cols[c] != null)) throw bad("This field must be sealed by the app");
 }
 
 export async function listLive<T extends object>(q: Sql, table: string, where = "", params: unknown[] = [], order = "created_at DESC", limit = 500): Promise<T[]> {

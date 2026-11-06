@@ -10,6 +10,7 @@ import { backupNow, backupLog, readBackup, canPickFolder, pickFolder, folderName
 import { prompt, choose, confirm } from "../../core/ask";
 import { toast, toastError } from "../../core/toast";
 import { native } from "../../core/device";
+import { holdForDialog } from "../../core/lock";
 import AppSelect from "../AppSelect.vue";
 
 const s = useSettings();
@@ -29,6 +30,7 @@ async function now() {
   } catch (e) { toastError(e); } finally { busy.value = false; }
 }
 async function choose_folder() {
+  holdForDialog(); // the folder dialog takes focus from the window, and this page is waiting for its answer
   try { const f = N?.chooseBackupFolder ? await N.chooseBackupFolder() : await pickFolder(); if (f) { folder.value = f; toast("Backups will be saved there"); } } catch { /* cancelled */ }
 }
 async function restore(ev: Event) {

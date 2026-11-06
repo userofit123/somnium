@@ -6,6 +6,9 @@ export function readJson<T>(k: string, fallback: T): T {
 export function writeJson(k: string, v: unknown) {
   try { ls()?.setItem(k, JSON.stringify(v)); } catch { /* not remembered */ }
 }
+export function storedKeys(): string[] {
+  try { const s = ls(); return s ? Array.from({ length: s.length }, (_, i) => s.key(i) ?? "") : []; } catch { return []; }
+}
 export function readStr(k: string, fallback = ""): string {
   try { return ls()?.getItem(k) ?? fallback; } catch { return fallback; }
 }

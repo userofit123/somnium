@@ -11,6 +11,7 @@ import { invalidate } from "../../api/live";
 import { sync, schedule } from "../../api/replica";
 import { signOut, isLocalAccount } from "../../core/session";
 import { keyring } from "../../core/keyring";
+import { rememberBundle } from "../../core/unlock";
 import { authKeyFor, keysFor } from "../../core/auth";
 import { changePassword as rewrap, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
 import { prompt } from "../../core/ask";
@@ -58,6 +59,7 @@ async function changePassword() {
     const cur = await keysFor(user.value!.username, current);
     const bundle = await rewrap(dataKey, next);
     await api.post("/auth/password", { current: cur.authKeyText, authKey: bundle.authKey, kdfSalt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword });
+    rememberBundle({ salt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword }); // the lock screen takes the new password from now on
     sessions.refetch(); toast("Password changed. Other devices were signed out.");
   } catch (e) { toastError(e); } finally { dataKey.fill(0); }
 }

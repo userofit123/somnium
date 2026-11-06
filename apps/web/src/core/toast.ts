@@ -4,7 +4,11 @@ import { reactive } from "vue";
 export interface Toast { id: number; text: string; kind: "ok" | "err" | "pr"; action?: { label: string; run: () => void } }
 export const toasts = reactive<Toast[]>([]);
 let n = 0;
+// While the app is locked nothing may show (PLAN.md §4.3): a toast can name a dream, so it is dropped, not kept for later.
+let muted = false;
+export function muteToasts(on: boolean) { muted = on; if (on) toasts.splice(0); }
 export function toast(text: string, o: { kind?: Toast["kind"]; action?: Toast["action"]; ms?: number } = {}) {
+  if (muted) return;
   const t: Toast = { id: ++n, text, kind: o.kind ?? "ok", action: o.action };
   toasts.push(t);
   if (toasts.length > 3) toasts.shift();

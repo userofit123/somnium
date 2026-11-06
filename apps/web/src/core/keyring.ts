@@ -19,6 +19,8 @@ export const keyring = {
   isOpen(): boolean { return current !== null; },
   set(k: Uint8Array): void {
     if (k.length !== 32) throw new Error("A data key is 32 bytes");
+    // an all-zero key is a key someone has already wiped: sealing with it would look fine and protect nothing
+    if (k.every((b) => b === 0)) throw new Error("This data key has been cleared");
     const next = new Uint8Array(k); // our own copy: the caller may zero theirs
     current?.fill(0);
     current = next;

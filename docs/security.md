@@ -57,7 +57,7 @@ Android and in Electron) is plaintext so the app can search and analyse offline.
 
 **Local accounts** (no server) keep plaintext in their own database on the device for the same reason, with the
 same protection. Nothing of theirs ever leaves the device; sealing applies when data crosses to a server, and
-a local account has no server. Their data key exists for backups and for a later move to a server.
+a local account has no server. They have no password and no data key today, which limits the app lock (below).
 
 **Exports** carry the rows as the database they came from holds them, and say so: `"sealed": true` from the
 server (ciphertext, restorable only on the server), `"sealed": false` from a device (plaintext, for the person
@@ -71,3 +71,68 @@ the server is then dumped as the database admin and none of those strings, nor a
 second device opens the same rows from its first copy and from a later pull. A device without the key sends
 and takes only the plain tables. The same check runs on the direct API path, and `apps/server/test/media.test.ts`
 looks for a marker from an uploaded photo in the database dump and in every file under the media folder.
+
+## The app lock
+
+Nothing of the journal shows until the person proves it is them (PLAN.md §4.3). The decisions are in one tested
+function (`packages/shared/src/lock.ts`); `apps/web/src/core/lock.ts` feeds it the real events.
+
+- **When it locks:** on every start, reloads included; when the tab or app is hidden (and, in the desktop app, when
+  the window loses focus) for longer than the chosen delay (immediately by default; 30 s, 1, 5 or 15 minutes); after
+  idle time (10 minutes by default; 5, 15 or 30 minutes). It can't be turned off, and a saved value that isn't one of
+  the choices falls back to the default.
+- **What locking does:** the data key is zeroed and dropped from memory, the shells and pages are unmounted so no dream
+  is in the page, the query cache with its decrypted answers is emptied, open questions are dismissed, and toasts are
+  dropped. A form with unsaved text is lost with its page.
+- **System dialogs:** a file picker, the camera or the device's verification takes the app out of sight without the
+  person leaving it, so they hold the lock back, for two minutes at most.
+- **Unlocking with the password:** the bundle (salt and wrapped key) is asked of the server when it answers, because the
+  password may have changed elsewhere, and otherwise comes from a copy on the device made at sign-in. A successful
+  unwrap is the proof, with no round trip needed. With no connection, the password that was current at the last
+  contact is the one that works.
+- **Five wrong passwords in a row** sign the device out, which deletes its copy of the journal, including changes that
+  haven't reached the server. The count survives a reload. A cancelled verification or a missing connection isn't a
+  wrong try.
+- **After an admin reset** there is no wrapped key, so the lock screen says the journal is sealed until the recovery key
+  is entered. That entry comes with LDJ-7; until then the only ways on are signing in again and the screen right after.
+
+**Device verification** (web and PWA) uses a WebAuthn platform authenticator with the PRF extension: after the
+fingerprint, face or screen lock, the authenticator gives 32 secret bytes that wrap the data key, and only the wrapped
+blob is stored on the device. **WebAuthn without PRF can't release a key**: it confirms a presence and nothing more,
+and there would be nothing to open the journal with unless the key were stored unprotected. It never is. On such a
+device the person is told and uses the password. "Use password instead" is always there.
+
+**The desktop and Android apps** unlock with the password for now. WebAuthn refuses the desktop app's
+`http://127.0.0.1` address, and `safeStorage` alone asks for nothing, so keeping the key in it would open the
+journal for whoever clicks (LDJ-10). Android's Keystore and BiometricPrompt are LDJ-9. The desktop window's content
+protection is on by default, with a setting to allow screenshots. Electron applies it on Windows and macOS; on Linux
+it does nothing.
+
+**The honest limits.**
+
+- On the web the lock is real for the key: it is gone from memory, and only the password or the authenticator brings it
+  back. But a script running in the page (a malicious extension, a compromised server handing out bad code) sees
+  whatever the page sees while unlocked, and can capture the password as it is typed.
+- The copy of the journal in the browser's storage is plaintext (see above) and isn't encrypted by the lock. Anyone with
+  the unlocked browser profile can read it with the browser's developer tools, without touching the lock screen. The
+  lock protects against someone picking up the open app, not against someone with the profile.
+- The bundle and the wrong-try count live in the browser's storage. Someone with the profile can copy the bundle
+  and guess passwords offline, limited only by Argon2id, or reset the count. A signed-in session can also ask the server
+  for the bundle, and gets what sign-in itself hands over.
+- A hidden tab's timers are slowed by the browser, so with a delay other than "immediately" the key can stay in memory up to
+  about a minute longer than chosen. Coming back always checks the time. JavaScript can't guarantee that no copy of
+  a key or of decrypted text is left in memory until it is overwritten.
+- An operating system may keep a picture of the app for its task switcher, taken before the app learns it was hidden.
+  The web can't prevent that. Android's `FLAG_SECURE` (LDJ-9) and the desktop's content protection can.
+- **A local account has no password**, so there is nothing to prove. Its lock screen hides the journal on the same
+  triggers, says plainly that it keeps no one out, and opens with a button. It is a privacy screen until local accounts
+  get a password or device verification.
+
+**When a session ends without signing out** (it expired, or was ended elsewhere), the tab leaves the device's copy at
+once and goes back to the server, and the copy stays closed on the device for the same person's return. If someone
+else signs in on this device first, that copy and that person's queued changes are deleted, unsent ones included:
+a person's plaintext is never read by, nor sent under the session of, the next person (`packages/shared/src/copyOwner.ts`).
+Another tab that sees the session change reloads. Signing out also reloads the page when it has used the copy, because
+PGlite holds its IndexedDB connection for the life of the page and the deletion can only finish once the page lets go.
+When someone else signs in after an ended session, without a reload, the earlier person's copy is unreachable by the app
+at once, and the deletion finishes when that tab next reloads or closes. Until then it is on disk.

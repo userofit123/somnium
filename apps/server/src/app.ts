@@ -10,7 +10,7 @@ import { createEngine, uuidv7, withUser, type Db, type Engine } from "@somnium/e
 import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handlers
 import { isSealed } from "@somnium/shared";
 import {
-  hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, tooManyTries, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
+  hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, reserveTry, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
   newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
   useTotp, noteAccount, validDeviceId, ServerKeyError, RESET_MESSAGE, COOKIE, SESSION_DAYS, type SessionUser,
 } from "./auth";
@@ -76,6 +76,13 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const u = (await db.admin.query("SELECT kdf_salt FROM users WHERE username = $1", [name])).rows[0];
     return { kdfSalt: u?.kdf_salt ?? standInSalt(name, serverKey) };
   });
+  // what opens the journal on the lock screen (PLAN.md §4.3): the same two values sign-in hands over, both useless
+  // without the password. wrappedByPassword is null after an admin reset.
+  app.get("/api/auth/bundle", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const u = (await db.admin.query("SELECT kdf_salt, wrapped_by_password FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    return { kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password };
+  });
   const signIn = async (req: FastifyRequest, reply: FastifyReply, id: string, b: any) => {
     const device = deviceLabel(b?.deviceName, req.headers["user-agent"]);
     const deviceId = validDeviceId(b?.deviceId) ? b.deviceId : null;
@@ -111,16 +118,18 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
     const keys = [`ip:${req.ip}`, `u:${name}`];
-    if (tooManyTries(keys)) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
+    const release = reserveTry(keys); // a wrong try stays counted; only a right one takes it back
+    if (!release) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
     const u = (await db.admin.query("SELECT id, auth_hash, disabled_at, kdf_salt, wrapped_by_password, totp_enabled, totp_secret FROM users WHERE username = $1", [name])).rows[0];
     const ok = await checkSecret(validAuthKey(b?.authKey) ? b.authKey : "", u?.auth_hash ?? null);
-    if (!u || !ok || u.disabled_at) { recordFail(keys); return reply.code(401).send({ error: "Wrong username or password" }); }
+    if (!u || !ok || u.disabled_at) return reply.code(401).send({ error: "Wrong username or password" });
     if (u.totp_enabled) {
       const code = b?.code ?? b?.totp;
-      if (code === undefined || code === null || code === "") return { ok: false, totpRequired: true };
+      if (code === undefined || code === null || code === "") { release(); return { ok: false, totpRequired: true }; }
       const good = (await useTotp(db, u.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, u.id, code));
-      if (!good) { recordFail(keys); return reply.code(401).send({ error: "That code is not right" }); }
+      if (!good) return reply.code(401).send({ error: "That code is not right" });
     }
+    release();
     return { ok: true, totpRequired: false, kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password, token: await signIn(req, reply, u.id, b) };
   });
   app.post("/api/auth/logout", async (req, reply) => {
@@ -148,10 +157,10 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // in can't be used to guess it. A wrong one is a 403, not a 401: the app signs out on a 401, and a typo shouldn't.
   const recheck = async (req: FastifyRequest, reply: FastifyReply, authKey: unknown) => {
     const keys = [`ip:${req.ip}`, `u:${req.user!.username}`];
-    if (tooManyTries(keys)) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return false; }
+    const release = reserveTry(keys);
+    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return false; }
     const u = (await db.admin.query("SELECT auth_hash FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) return true;
-    recordFail(keys);
+    if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) { release(); return true; }
     reply.code(403).send({ error: "Wrong password" });
     return false;
   };
@@ -174,13 +183,17 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
     const keys = [`ip:${req.ip}`, `u:${name}`];
-    if (tooManyTries(keys)) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
-    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) return reply.code(400).send({ error: badBundle });
+    const release = reserveTry(keys);
+    if (!release) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) { release(); return reply.code(400).send({ error: badBundle }); }
     const u = (await db.admin.query("SELECT id, reset_code_hash FROM users WHERE username = $1 AND reset_expires_at > now()", [name])).rows[0];
     const ok = await checkSecret(plainCode(b?.code), u?.reset_code_hash ?? null);
-    if (!u || !ok) { recordFail(keys); return reply.code(403).send({ error: "That reset code is not right or has run out" }); }
-    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1",
-      [u.id, b.kdfSalt, await hashSecret(b.authKey)]);
+    if (!u || !ok) return reply.code(403).send({ error: "That reset code is not right or has run out" });
+    // one statement, bound to the code that was checked: of two uses at once, only one finds it still there
+    const used = await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1 AND reset_code_hash = $4 AND reset_expires_at > now() RETURNING id",
+      [u.id, b.kdfSalt, await hashSecret(b.authKey), u.reset_code_hash]);
+    if (!used.rows.length) return reply.code(403).send({ error: "That reset code is not right or has run out" });
+    release();
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [u.id]);
     await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [u.id]);
     await noteAccount(db, u.id, "Password set with a reset code. Two-factor sign-in is off.");
@@ -222,7 +235,9 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!u.totp_secret || u.totp_enabled) return reply.code(400).send({ error: "Start by scanning a new code" });
     const step = totpOk(decryptForServer(u.totp_secret, serverKey), (req.body as any)?.code);
     if (step === null) return reply.code(403).send({ error: "That code is not right. Check the time on your phone and try the next one." });
-    await db.admin.query("UPDATE users SET totp_enabled = true, totp_last_step = $2 WHERE id = $1", [req.user!.id, step]);
+    // bound to the secret that was checked: a /start in between has swapped it, and the new one is not confirmed yet
+    const on = await db.admin.query("UPDATE users SET totp_enabled = true, totp_last_step = $2 WHERE id = $1 AND totp_secret = $3 AND NOT totp_enabled RETURNING id", [req.user!.id, step, u.totp_secret]);
+    if (!on.rows.length) return reply.code(409).send({ error: "Start by scanning a new code" });
     await noteAccount(db, req.user!.id, "Two-factor sign-in turned on");
     return { ok: true, backupCodes: await issueBackupCodes(db, req.user!.id) };
   });
@@ -354,10 +369,14 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!need(req, reply)) return;
     const id = (req.params as any).id;
     if (!/^[0-9a-f-]{36}$/.test(id)) return reply.code(404).send();
-    const m = await withUser(db, req.user!.id, async (q) => (await q.query("SELECT mime, path FROM media WHERE id = $1 AND deleted_at IS NULL", [id])).rows[0]);
+    const m = await withUser(db, req.user!.id, async (q) => (await q.query("SELECT mime FROM media WHERE id = $1 AND deleted_at IS NULL", [id])).rows[0]);
     if (!m) return reply.code(404).send({ error: "Not found" });
+    // Where a file lives comes from who asks and which row, as in the upload above, never from the row's path column:
+    // sync push can set that column to anything, including a way out of the media folder.
+    const file = path.join(mediaDir, req.user!.id, id);
+    if (!fs.existsSync(file)) return reply.code(404).send({ error: "Not found" });
     reply.header("content-type", m.mime).header("cache-control", "private, max-age=31536000, immutable");
-    return reply.send(fs.createReadStream(path.join(mediaDir, m.path)));
+    return reply.send(fs.createReadStream(file));
   });
 
   // ----- everything else under /api: the engine -----

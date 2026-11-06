@@ -10,6 +10,8 @@ import { session, loadSession } from "../core/session";
 import { deviceId } from "../core/prefs";
 import { keyring } from "../core/keyring";
 import { keysFor, type SignInKeys } from "../core/auth";
+import { markUnlocked, signedOutReason } from "../core/lock";
+import { rememberBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
 import { current, setToken } from "../native/accounts";
 
@@ -22,7 +24,7 @@ if (f.value.invite) mode.value = "register";
 // after the password: the second factor. backup = the code field takes a one-time backup code instead
 const step = ref<"form" | "code" | "forgot" | "reset" | "recovery" | "resetDone">("form");
 const code = ref(""), backup = ref(false);
-const err = ref(""), busy = ref<"" | "unlock" | "send">("");
+const err = ref(signedOutReason()), busy = ref<"" | "unlock" | "send">("");
 // the reset code form, and what comes back: the sentence to show, and the sign-in to finish when it has been read
 const reset = ref({ code: "", password: "" });
 const resetMessage = ref("");
@@ -39,8 +41,14 @@ async function finish(r: any, encKey: Uint8Array | null, dataKey?: Uint8Array) {
   if (app && r?.token) setToken(r.token);
   // the server keeps the data key only wrapped by the password: open it here, never there
   if (dataKey) keyring.set(dataKey);
-  else if (encKey && r?.wrappedByPassword) keyring.set(await openWithEncKey({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword }, encKey));
+  else if (encKey && r?.wrappedByPassword) {
+    const opened = await openWithEncKey({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword }, encKey);
+    try { keyring.set(opened); } finally { opened.fill(0); } // the keyring has its own copy
+  }
   else keyring.clear(); // after an admin reset: signed in, journal sealed until the recovery key or a signed-in device re-wraps it (LDJ-7)
+  // the lock screen opens the journal with this, also without a connection
+  if (r?.kdfSalt) rememberBundle({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword ?? null });
+  markUnlocked(); // the password was just proven: no lock screen straight after signing in
   keys = null; f.value.password = ""; code.value = "";
   await loadSession();
 }
@@ -54,9 +62,11 @@ async function go() {
       if (problem) { err.value = problem; return; }
       busy.value = "unlock";
       const made = await createAccountKeys(f.value.password);
-      busy.value = "send";
-      const r = await api.post("/auth/sign-up", { username, displayName: f.value.displayName, invite: f.value.invite, authKey: made.authKey, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword, ...device() });
-      await finish(r, null, made.dataKey);
+      try {
+        busy.value = "send";
+        const r = await api.post("/auth/sign-up", { username, displayName: f.value.displayName, invite: f.value.invite, authKey: made.authKey, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword, ...device() });
+        await finish({ ...r, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword }, null, made.dataKey);
+      } finally { made.dataKey.fill(0); } // the keyring has its own copy
       return;
     }
     if (step.value === "form") { busy.value = "unlock"; keys = await keysFor(username, f.value.password); }
@@ -81,6 +91,7 @@ async function sendReset() {
     if (problem) { err.value = problem; return; }
     busy.value = "unlock";
     const made = await createAccountKeys(reset.value.password);
+    made.dataKey.fill(0); // never used: see above
     busy.value = "send";
     const r = await api.post("/auth/reset", { username, code: reset.value.code, authKey: made.authKey, kdfSalt: made.salt });
     resetMessage.value = r.message;
