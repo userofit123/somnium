@@ -7,7 +7,7 @@ import { addDays, journalStreak, loggedNights, recallRate, type NightLog } from 
 /** The day turns over for the journal at 05:00, the same cut-off Train uses for tonight's plan. */
 export const NIGHT_CUTOFF = 5;
 
-export interface HomeNight { id: string; date: string; nap: boolean; dreamCount?: number; noRecall?: boolean }
+export interface HomeNight { id: string; date: string; nap: boolean; dreamCount?: number; lucidCount?: number; noRecall?: boolean }
 export interface HomeDream { id: string; nightId: string; date: string; lucid: boolean; nightmare?: boolean; title?: string | null; deletedAt?: string | null }
 
 /**
@@ -78,7 +78,8 @@ export interface HomeRates {
   streak: number;
   /** Recall over the logged nights of the last `days` mornings (today included); plans are left out. */
   recall: { rate: number; withDreams: number; logged: number; days: number };
-  /** Lucid dreams filed under a morning of this calendar month. */
+  /** Lucid dreams filed under a morning of this calendar month, naps' dreams included (insights.ts: a nap is not a
+   *  night, its dreams are dreams). Read from the nights' own counts, so it never depends on how many dreams are loaded. */
   lucidThisMonth: number;
 }
 
@@ -90,7 +91,9 @@ export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[],
   return {
     streak: journalStreak(nights.filter((n) => !n.nap), today),
     recall: { rate: recallRate(inRange), withDreams: logged.filter((n) => n.dreamCount > 0).length, logged: logged.length, days },
-    lucidThisMonth: dreams.filter((d) => d.lucid && !d.deletedAt && d.date.slice(0, 7) === month).length,
+    lucidThisMonth: nights.length && nights.every((n) => n.lucidCount != null)
+      ? nights.filter((n) => n.date.slice(0, 7) === month).reduce((a, n) => a + (n.lucidCount ?? 0), 0)
+      : dreams.filter((d) => d.lucid && !d.deletedAt && d.date.slice(0, 7) === month).length,
   };
 }
 

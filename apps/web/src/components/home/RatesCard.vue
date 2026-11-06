@@ -12,7 +12,7 @@ const recall = computed(() => recallLine(props.rates.recall));
     <div class="card hnums">
       <div><div class="tiny">Journal streak</div><div class="hv num">{{ rates.streak }}</div><div class="tiny">{{ rates.streak === 1 ? "morning" : "mornings" }}</div></div>
       <div><div class="tiny">Recall, {{ rates.recall.days }} nights</div><div class="hv num">{{ recall.value }}</div><div class="tiny">{{ recall.sub }}</div></div>
-      <div><div class="tiny">Lucid this month</div><div class="hv num">{{ rates.lucidThisMonth }}</div><div class="tiny">{{ rates.lucidThisMonth === 1 ? "dream" : "dreams" }}</div></div>
+      <div><div class="tiny">Lucid dreams this month</div><div class="hv num">{{ rates.lucidThisMonth }}</div><div class="tiny">{{ rates.lucidThisMonth === 1 ? "dream" : "dreams" }}, naps too</div></div>
     </div>
   </section>
 </template>

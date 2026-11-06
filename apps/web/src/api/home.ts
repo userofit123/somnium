@@ -4,11 +4,13 @@
 import { uuidv7 } from "@somnium/engine/sealed-api";
 import { api } from "./client";
 import { invalidate } from "./live";
-import { ensureNight } from "./journal";
+import { ensureNight, needsServer } from "./journal";
 
 /** Saves the intention for a night's date, making the night when there is none (it then holds only a plan). */
 export async function saveIntention(date: string, text: string) {
-  const id = await ensureNight(date, false, uuidv7());
-  await api.put(`/nights/${id}`, { intention: text.trim() || null });
+  await needsServer(async () => {
+    const id = await ensureNight(date, false, uuidv7());
+    await api.put(`/nights/${id}`, { intention: text.trim() || null });
+  });
   invalidate(["journal", "train", "home"]);
 }

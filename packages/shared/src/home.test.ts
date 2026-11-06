@@ -95,6 +95,10 @@ describe("homeRates", () => {
     expect(lastLucid(dreams)?.id).toBe("4");
     expect(lastLucid([])).toBeNull();
   });
+  it("counts lucid dreams this month from the nights' counts, naps' dreams included, whatever dreams are loaded", () => {
+    const nights = [night("a", "2026-11-02", { lucidCount: 1 }), night("n", "2026-11-02", { nap: true, lucidCount: 1 }), night("o", "2026-10-30", { lucidCount: 3 })];
+    expect(homeRates(nights, [], today).lucidThisMonth).toBe(2);
+  });
 });
 
 describe("tipIndex", () => {

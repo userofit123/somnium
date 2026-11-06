@@ -1,5 +1,8 @@
 // Insights (PLAN.md §6.5): pure sums over logged nights, their dreams and the reality checks, computed on the device.
-// Plans (a night with only techniques planned) are left out everywhere, as in rates.ts. Dates are the morning's
+// Plans (a night with only techniques planned) are left out everywhere, as in rates.ts.
+// Naps, one rule everywhere (Home too, home.ts): a nap is not a night, so every count of nights (nights logged, nights
+// with recall, lucid nights, dreams a night, the "what works" groups) leaves it out; its dreams are still dreams, so
+// every count of dreams (lucid dreams, levels, nightmares, feelings) takes them in. Dates are the morning's
 // YYYY-MM-DD; times of day (bedtime, a check's moment) are read through `clock`, so tests don't depend on the zone.
 //
 // "What works for you" (LDJ-22) compares lucid nights on nights with something against nights without. It never
@@ -17,6 +20,8 @@ export interface InsightNight extends NightLog {
   id: string;
   date: string;
   nap?: boolean;
+  /** lucid dreams in the night, as the engine counts them (GET /nights): when given, a lucid night needs no dream list */
+  lucidCount?: number;
 }
 export interface InsightDream {
   nightId: string;
@@ -89,14 +94,16 @@ const span = (nights: { date: string }[], from: string | null, to: string) => {
 
 export interface RecallRow { key: string; nights: number; withRecall: number; dreams: number }
 export interface RecallInsight {
-  nights: number; withRecall: number; dreams: number;
+  /** dreams is of the nights only (it is "dreams a night"); napDreams are the naps' dreams beside them */
+  nights: number; withRecall: number; dreams: number; napDreams: number;
   byBucket: RecallRow[];
   /** Monday first. */
   byWeekday: RecallRow[];
 }
-/** Dreams per night and nights with recall, by week (or month) and by weekday of the morning. Naps are left out: they aren't nights. */
+/** Dreams per night and nights with recall, by week (or month) and by weekday of the morning. Naps aren't nights; their dreams are counted apart. */
 export function recallInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string, b: Bucket = "week"): RecallInsight {
-  const ns = nightsIn(nights, from, to).filter((n) => !n.nap);
+  const all = nightsIn(nights, from, to);
+  const ns = all.filter((n) => !n.nap);
   const count = new Map<string, number>();
   for (const d of dreamsOf(ns, dreams)) count.set(d.nightId, (count.get(d.nightId) ?? 0) + 1);
   const dc = (n: InsightNight) => count.get(n.id) ?? n.dreamCount ?? 0;
@@ -107,12 +114,14 @@ export function recallInsight(nights: InsightNight[], dreams: InsightDream[], fr
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(row);
   const total = row("all");
   for (const n of ns) { add(total, n); add(buckets.get(bucketOf(n.date, b)) ?? row(""), n); add(days[weekday(n.date)]!, n); }
-  return { nights: total.nights, withRecall: total.withRecall, dreams: total.dreams, byBucket: [...buckets.values()], byWeekday: days };
+  const napDreams = dreamsOf(all.filter((n) => n.nap), dreams).length;
+  return { nights: total.nights, withRecall: total.withRecall, dreams: total.dreams, napDreams, byBucket: [...buckets.values()], byWeekday: days };
 }
 
 // ---------- lucidity ----------
 
 export interface LucidityInsight {
+  /** lucid and dreams count nap dreams too; lucidNights and nights are nights only */
   lucid: number; dreams: number; lucidNights: number; nights: number;
   byBucket: { key: string; lucid: number; dreams: number }[];
   /** Lucid dreams by level 0-5 (0: marked lucid without a level). */
@@ -129,12 +138,14 @@ export function lucidityInsight(nights: InsightNight[], dreams: InsightDream[], 
   const levels = [0, 0, 0, 0, 0, 0];
   for (const d of lucid) levels[Math.max(0, Math.min(5, Math.round(d.lucidityLevel ?? 0)))]!++;
   const how = [...BECAME_LUCID_HOW, "unknown" as const].map((h) => ({ how: h, count: lucid.filter((d) => (d.becameLucidHow ?? "unknown") === h).length }));
-  return { lucid: lucid.length, dreams: ds.length, lucidNights: new Set(lucid.map((d) => d.nightId)).size, nights: ns.length, byBucket: [...buckets.values()], levels, how: how.filter((h) => h.count > 0) };
+  const main = new Set(ns.filter((n) => !n.nap).map((n) => n.id));
+  return { lucid: lucid.length, dreams: ds.length, lucidNights: new Set(lucid.filter((d) => main.has(d.nightId)).map((d) => d.nightId)).size, nights: main.size, byBucket: [...buckets.values()], levels, how: how.filter((h) => h.count > 0) };
 }
 
 // ---------- night events and emotions ----------
 
 export interface EventRow { key: string; nightmares: number; falseAwakenings: number; sleepParalysis: number }
+/** Nightmares, false awakenings and sleep paralysis: counts of dreams, so naps' dreams are in. */
 export function eventsInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string, b: Bucket = "month"): { total: Omit<EventRow, "key">; byBucket: EventRow[] } {
   const ns = nightsIn(nights, from, to);
   const { first, last } = span(ns, from, to);
@@ -152,7 +163,7 @@ export function eventsInsight(nights: InsightNight[], dreams: InsightDream[], fr
 }
 
 export interface EmotionRow { key: string; rated: number; avg: number | null; pleasant: number; neutral: number; unpleasant: number }
-/** The overall feeling of the dreams (-2..2) per bucket: its average and how many were pleasant, neutral or unpleasant. */
+/** The overall feeling of the dreams (naps' dreams too) (-2..2) per bucket: its average and how many were pleasant, neutral or unpleasant. */
 export function emotionsInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string, b: Bucket = "month"): { rated: number; byBucket: EmotionRow[] } {
   const ns = nightsIn(nights, from, to);
   const { first, last } = span(ns, from, to);
@@ -224,6 +235,7 @@ export function compareLucid(
 ): Comparison {
   const ns = loggedNights(nights);
   const lucidNights = new Set(dreamsOf(ns, dreams).filter((d) => d.lucid).map((d) => d.nightId));
+  for (const n of ns) if ((n.lucidCount ?? 0) > 0) lucidNights.add(n.id);
   const group = (pick: (n: InsightNight) => boolean, noun: Noun): Group => {
     const g = ns.filter(pick);
     return { noun, nights: g.length, lucid: g.filter((n) => lucidNights.has(n.id)).length, rate: null };
@@ -255,7 +267,11 @@ export const SLEEP_BANDS = [
   { id: "lt6", label: "under 6 h", lo: 0, hi: 6 }, { id: "6-7", label: "6-7 h", lo: 6, hi: 7 },
   { id: "7-8", label: "7-8 h", lo: 7, hi: 8 }, { id: "8+", label: "8 h or more", lo: 8, hi: Infinity },
 ] as const;
-/** Minutes after noon, so that evening and after-midnight bedtimes sort in order (22:00 is 600, 01:00 is 780). */
+/**
+ * Minutes after noon, so that evening and after-midnight bedtimes sort in order (22:00 is 600, 01:00 is 780).
+ * The bedtime is read on this device's clock (localClock) as it is now: nights logged in another time zone, or across a
+ * daylight saving change, land in the band of the zone the device is in today, not the one the person slept in.
+ */
 export const BEDTIME_BANDS = [
   { id: "lt22", label: "before 22:00", lo: 0, hi: 600 }, { id: "22-23", label: "22:00-23:00", lo: 600, hi: 660 },
   { id: "23-00", label: "23:00-00:00", lo: 660, hi: 720 }, { id: "00+", label: "after 00:00", lo: 720, hi: Infinity },

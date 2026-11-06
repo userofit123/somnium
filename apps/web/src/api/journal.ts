@@ -27,8 +27,13 @@ import { session } from "../core/session";
 export type NightRow = Night & { dreamCount: number; lucidCount: number };
 export type DreamRow = Dream & { date: string };
 export type DreamFull = Dream & { elements: DreamElement[] };
-/** The engine sends at most this many dreams in one list. */
+/** The engine sends at most this many dreams in one list (with their sealed text): the Journal's list says so. */
 export const DREAM_LIMIT = 2000;
+/** Every dream's plain facts (GET /dream-facts, no limit, nothing sealed): what Signs, Insights and Home sum over. */
+export interface DreamFact {
+  id: string; nightId: string; date: string; nap: boolean; lucid: boolean; lucidityLevel: number; emotionOverall: number | null;
+  nightmare: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
+}
 export { uuidv7 };
 
 /** Whether the journal being read is the one on this device (the copy or a local account), not the server's. */
@@ -37,11 +42,23 @@ export const onDevice = () => !usingHttp() || isLocalDevice();
 // every list is filed under "journal", so a change to nights, dreams or elements refreshes it live (shared live.ts)
 export function useJournal() {
   return {
-    nights: useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights") }),
+    // every night (all=1): the counts and rates must never stop at an older night
+    nights: useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights", { all: 1 }) }),
     dreams: useQuery({ queryKey: ["journal", "dreams"], queryFn: () => api.get<DreamRow[]>("/dreams", { limit: DREAM_LIMIT }) }),
     elements: useQuery({ queryKey: ["journal", "elements"], queryFn: () => api.get<Element[]>("/elements") }),
     links: useQuery({ queryKey: ["journal", "links"], queryFn: () => api.get<DreamElement[]>("/dream-elements") }),
+    // the sums read these, not the capped list above; on the device copy the same route reads the whole journal here
+    facts: useQuery({ queryKey: ["journal", "facts"], queryFn: () => api.get<DreamFact[]>("/dream-facts") }),
   };
+}
+
+/**
+ * A write that only the server can take: with the device copy (or a local account) it is kept on this device and sent
+ * later, but on the direct path a lost connection would fail it, and the person gets a plain reason, not a raw error.
+ */
+export async function needsServer<T>(f: () => Promise<T>): Promise<T> {
+  try { return await f(); }
+  catch (e) { if (!onDevice() && e instanceof ApiError && e.status === 0) throw new Error("Needs a connection, or turn on offline use"); throw e; }
 }
 
 const isWaitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";

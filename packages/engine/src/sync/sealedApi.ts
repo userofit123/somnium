@@ -17,6 +17,7 @@ interface Route { re: RegExp; table: string; nested?: Record<string, string> }
 const ROUTES: Route[] = [
   { re: /^\/dreams\/[^/]+\/elements(\/[^/]+)?$/, table: "dream_elements" },
   { re: /^\/dream-elements$/, table: "dream_elements" },
+  { re: /^\/dream-facts$/, table: "dreams" },
   { re: /^\/nights(\/[^/]+)?$/, table: "nights", nested: { dreams: "dreams" } },
   { re: /^\/dreams(\/[^/]+)?$/, table: "dreams", nested: { elements: "dream_elements" } },
   { re: /^\/elements(\/[^/]+)?$/, table: "elements", nested: { dreams: "dream_elements" } },

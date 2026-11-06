@@ -49,7 +49,7 @@ export function journalRoutes(r: Router) {
     const { rows } = await q.query<Record<string, unknown>>(
       `SELECT n.*, (SELECT count(*) FROM dreams d WHERE d.night_id = n.id AND d.deleted_at IS NULL)::int AS dream_count,
               (SELECT count(*) FROM dreams d WHERE d.night_id = n.id AND d.deleted_at IS NULL AND d.lucid)::int AS lucid_count
-       FROM nights n WHERE n.deleted_at IS NULL${where ? ` AND ${where}` : ""} ORDER BY n.date DESC LIMIT 1000`, params);
+       FROM nights n WHERE n.deleted_at IS NULL${where ? ` AND ${where}` : ""} ORDER BY n.date DESC${qs.all === "1" ? "" : " LIMIT 1000"}`, params);
     return rows.map((x) => ({ ...camel<Night>(x), dreamCount: Number(x.dream_count), lucidCount: Number(x.lucid_count) }));
   });
   r.get("/nights/:id", async ({ q }, p) => {
@@ -85,6 +85,16 @@ export function journalRoutes(r: Router) {
     const { rows } = await q.query(
       `SELECT d.*, n.date FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
        ${w.length ? "AND " + w.join(" AND ") : ""} ORDER BY n.date DESC, d.position, d.created_at LIMIT ${Math.min(intOrNull(qs.limit, 1, 2000) ?? 200, 2000)}`, params);
+    return camels(rows);
+  });
+  // Every live dream's plain facts, with no limit: what Signs and Insights sum over (PLAN.md §6.3, §6.5). Only columns
+  // that are never sealed, so the list stays light however long the journal grows and needs no key to open.
+  r.get("/dream-facts", async ({ q }) => {
+    const { rows } = await q.query(
+      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.emotion_overall, d.nightmare, d.false_awakening,
+              d.sleep_paralysis, d.became_lucid_how, d.favourite
+       FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
+       ORDER BY n.date DESC, d.position, d.created_at`);
     return camels(rows);
   });
   r.get("/dreams/:id", async ({ q }, p) => {

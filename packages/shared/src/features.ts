@@ -16,8 +16,7 @@ export const FEATURES: FeatureDef[] = [
   { id: "dreamYoga", group: "Train", name: "Dream yoga practices", desc: "The contemplative practices, with their sources.", on: false, ready: false },
   { id: "goals", group: "Train", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", on: false, ready: false },
   // Home (PLAN.md §6.1): extra cards under the day's own blocks
-  // top dream signs waits for the Signs ranking (PLAN.md §7.2, its own task): planned, not shown yet
-  { id: "homeSigns", group: "Home", name: "Top dream signs", desc: "Your most frequent dream signs on Home.", on: false, ready: false },
+  { id: "homeSigns", group: "Home", name: "Top dream signs", desc: "Your most frequent dream signs on Home.", on: false },
   { id: "homeLesson", group: "Home", name: "Next lesson", desc: "The course lesson you are on, on Home.", on: false },
   { id: "homeTip", group: "Home", name: "A tip from Learn", desc: "A short article summary from Learn on Home, a different one each day.", on: false },
   { id: "homeLastLucid", group: "Home", name: "Last lucid dream", desc: "The title and date of your latest lucid dream on Home.", on: false },

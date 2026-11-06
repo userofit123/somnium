@@ -38,17 +38,17 @@ async function mergeOne(e: Element) {
   if (!others.length) { toast("There is nothing else to merge it into yet"); return; }
   const into = await choose(`Merge "${e.name}" into`, others.map((x) => ({ label: `${x.name} · ${KIND_ONE[x.kind]}`, value: x.id })), "Its dreams move over, and its name is kept as another name for the one you pick.");
   const target = into ? byId.value.get(into) : undefined;
-  if (target) await run(e.id, () => mergeElements(e, target, links.value), "Merged");
+  if (target) await run(e.id, () => mergeElements(e, target), "Merged");
 }
 async function dismissOne(e: Element) {
   if (!(await confirm(`Dismiss "${e.name}"?`, { text: "It comes off the dreams it was found in and isn't suggested for them again.", ok: "Dismiss", danger: true }))) return;
-  await run(e.id, () => dismissElement(e, links.value, dreams.value), "Dismissed");
+  await run(e.id, () => dismissElement(e, links.value), "Dismissed");
 }
 </script>
 
 <template>
   <div>
-    <div class="sh first"><h2>Your dream signs</h2><span class="tiny">{{ shortlist.length ? "Ranked by how often and how lately" : "" }}</span></div>
+    <div class="sh first"><h2>Your dream signs</h2><span class="tiny">{{ shortlist.length ? "Ranked by how often, how lately and the kind of sign" : "" }}</span></div>
     <div class="card sgshort">
       <div v-if="!shortlist.length" class="empty sm">
         <b>No dream signs yet</b>
@@ -57,11 +57,11 @@ async function dismissOne(e: Element) {
       <div v-else class="list">
         <button v-for="(s, i) in shortlist" :key="s.element.id" class="li click sgrow" :class="{ on: selected === s.element.id }" @click="emit('open', s.element.id)">
           <span class="sgrank num">{{ i + 1 }}</span>
-          <div class="grow sgmin">
-            <div class="t">{{ s.element.name }}</div>
-            <div class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : "Marked by you", frequencyText(s.frequency)].join(" · ") }}</div>
-            <div v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }}</span></div>
-          </div>
+          <span class="grow sgmin sgcol">
+            <span class="t">{{ s.element.name }}</span>
+            <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : "Marked by you", frequencyText(s.frequency)].join(" · ") }}</span>
+            <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }}</span></span>
+          </span>
         </button>
       </div>
     </div>
@@ -74,9 +74,9 @@ async function dismissOne(e: Element) {
       <div class="sh sgk"><h3>{{ KIND_LABEL[g.kind] }}</h3><span class="tiny">{{ g.rows.length }}</span></div>
       <div class="card"><div class="list">
         <button v-for="r in g.rows" :key="r.element.id" class="li click sgrow" :class="{ on: selected === r.element.id }" @click="emit('open', r.element.id)">
-          <div class="grow sgmin"><div class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></div>
-            <div class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</div></div>
-          <div class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></div>
+          <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
+            <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
+          <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span>
         </button>
       </div></div>
     </section>
@@ -85,8 +85,8 @@ async function dismissOne(e: Element) {
       <div class="sh"><h2>To confirm</h2><span class="tiny">Found by the app in more than one dream</span></div>
       <div class="card"><div class="list">
         <div v-for="s in suggestions" :key="s.element.id" class="li sgrow">
-          <button class="grow sgmin sgopen" @click="emit('open', s.element.id)"><div class="t ellipsis">{{ s.element.name }}</div><div class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</div></button>
-          <button class="qb acc" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
+          <button class="grow sgmin sgopen sgcol" @click="emit('open', s.element.id)"><span class="t ellipsis">{{ s.element.name }}</span><span class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</span></button>
+          <button class="qb" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
           <Menu :items="[{ label: 'Merge into another', icon: 'layers', run: () => mergeOne(s.element) }, { label: 'Dismiss', icon: 'close', danger: true, run: () => dismissOne(s.element) }]" />
         </div>
       </div></div>
@@ -100,7 +100,7 @@ async function dismissOne(e: Element) {
         <div v-if="!lucid.rows.length" class="empty sm">No dream signs in your dreams yet.</div>
         <div v-else class="list">
           <button v-for="r in lucid.rows.slice(0, 8)" :key="r.element.id" class="li click sgrow" @click="emit('open', r.element.id)">
-            <div class="grow sgmin t ellipsis">{{ r.element.name }}</div>
+            <span class="grow sgmin t ellipsis">{{ r.element.name }}</span>
             <span class="tiny num">{{ r.inLucid }} lucid · {{ r.inOther }} other</span>
           </button>
         </div>
@@ -113,7 +113,7 @@ async function dismissOne(e: Element) {
         <p class="tiny sgmut">Yours is how many of your written dreams had the theme. Beside it, the share of 1,181 Canadian students who said they had ever had it (Nielsen and others, 2003). They measure different things (a count against a lifetime share), so they can't be compared directly.</p>
         <div class="list">
           <button v-for="t in themes" :key="t.theme.id" class="li click sgrow" @click="emit('open', t.element.id)">
-            <div class="grow sgmin"><div class="t">{{ t.theme.displayName ?? t.theme.name }}</div><div class="s">{{ t.theme.prevalenceTotal }}% have ever had it</div></div>
+            <span class="grow sgmin sgcol"><span class="t">{{ t.theme.displayName ?? t.theme.name }}</span><span class="s">{{ t.theme.prevalenceTotal }}% have ever had it</span></span>
             <span class="num sgcount">{{ t.yourDreams }}</span>
           </button>
         </div>
@@ -127,18 +127,20 @@ async function dismissOne(e: Element) {
 button.sgrow { cursor: pointer; }
 .sgrow.on { background: var(--s2); }
 .sgmin { min-width: 0; }
+/* spans inside the row buttons (a button may only hold phrasing content), stacked as the divs were */
+.sgcol { display: flex; flex-direction: column; }
 .sgopen { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.sgrank { width: 22px; flex: none; color: var(--acc); font-weight: 600; text-align: center; align-self: flex-start; }
-.sgcheck { color: var(--tx2); display: flex; gap: 6px; align-items: flex-start; margin-top: 4px; }
-.sgcheck :deep(svg) { flex: none; margin-top: 2px; color: var(--acc); }
-.sgspark { width: 84px; height: 26px; flex: none; }
+.sgrank { width: calc(var(--cpx) + var(--hg) / 2); flex: none; color: var(--acc); font-weight: 600; text-align: center; align-self: flex-start; }
+.sgcheck { color: var(--tx2); display: flex; gap: calc(var(--hg) / 2); align-items: flex-start; margin-top: calc(var(--hg) / 2); }
+.sgcheck :deep(svg) { flex: none; margin-top: calc(var(--hg) / 5); color: var(--acc); }
+.sgspark { width: calc(var(--lmh) * 1.75); height: calc(var(--lmh) / 2); flex: none; }
 /* the Motus sparkline sits at the foot of a stat card; here it is a small trend in the row */
 .sgspark :deep(.spark) { position: static; display: block; width: 100%; height: 100%; }
-.sgacc { color: var(--acc); margin-inline-start: 6px; vertical-align: -1px; display: inline-block; }
+.sgacc { color: var(--acc); margin-inline-start: calc(var(--hg) / 2); vertical-align: -0.1em; display: inline-block; }
 .sgmut { color: var(--tx2); margin: 0 0 var(--hg); }
 .sgsearch { margin-bottom: var(--hg); }
-.sgsearch input { width: 100%; padding-left: 38px; }
+/* the icon's room comes from the shared .search rule */
 .sgk { margin-top: var(--spg); }
-.sgk h3 { margin: 0; font-size: 14px; }
-.sgcount { font-weight: 600; min-width: 28px; text-align: end; }
+.sgk h3 { margin: 0; font-size: var(--fs); }
+.sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--hg)); text-align: end; }
 </style>

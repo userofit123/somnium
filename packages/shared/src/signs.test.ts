@@ -3,7 +3,7 @@ import * as lex from "@somnium/knowledge/lexicons";
 import { daysBetween } from "./course";
 import {
   categoryWeight, coOccurrence, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
-  mergePlan, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, themeComparison,
+  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, themeComparison,
   type SignDream, type SignElement, type SignLink,
 } from "./signs";
 
@@ -121,6 +121,23 @@ describe("mergePlan", () => {
     expect(p.repoint.map((l) => l.dreamId)).toEqual(["d1"]);
     expect(p.drop.map((l) => l.dreamId)).toEqual(["d2"]);
     expect(p.aliases).toBe("hound, Puppy, pup");
+  });
+  it("carries the sign mark, a missing category and the note over, the note once", () => {
+    const from = el("f", { name: "Flying", isDreamSign: true, signCategory: "action", note: "env-a" }), into = el("i", { name: "Floating", note: "env-b" });
+    const p = mergePlan(from, into, []);
+    expect(p).toMatchObject({ isDreamSign: true, signCategory: "action", note: "env-b\n\nenv-a" });
+    expect(mergePlan(from, { ...into, signCategory: "form", note: p.note }, []).note).toBe("env-b\n\nenv-a"); // a merge done again
+    expect(mergePlan(from, { ...into, signCategory: "form" }, []).signCategory).toBe("form");
+  });
+  it("marks a merge under way in the note and reads it back", () => {
+    const id = "01234567-89ab-cdef-0123-456789abcdef";
+    const n = mergeMark(id, "my note");
+    expect(mergingInto(n)).toBe(id);
+    expect(withoutMergeMark(n)).toBe("my note");
+    expect(mergingInto("my note")).toBeNull();
+    expect(withoutMergeMark(mergeMark(id, null))).toBeNull();
+    // the mark never ends up in the kept element's note
+    expect(mergePlan(el("f", { name: "a", note: n }), el("i", { name: "b" }), []).note).toBe("my note");
   });
 });
 

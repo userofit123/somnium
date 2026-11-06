@@ -27,10 +27,31 @@ describe("insights: recall", () => {
     const nap = night("2026-11-03", { nap: true, dreamCount: 1 });
     const dreams = [dream(a), dream(a), dream(c), dream(nap)];
     const r = recallInsight([a, b, c, plan, nap], dreams, null, "2026-11-12");
-    expect(r).toMatchObject({ nights: 3, withRecall: 2, dreams: 3 });
+    expect(r).toMatchObject({ nights: 3, withRecall: 2, dreams: 3, napDreams: 1 });
     expect(r.byBucket.map((w) => [w.key, w.nights, w.withRecall, w.dreams])).toEqual([["2026-11-02", 2, 1, 2], ["2026-11-09", 1, 1, 1]]);
     expect(r.byWeekday[0]).toMatchObject({ key: "Mon", nights: 1, withRecall: 1, dreams: 2 }); // 2 Nov
     expect(r.byWeekday[1]).toMatchObject({ key: "Tue", nights: 2, withRecall: 1, dreams: 1 }); // 3 and 10 Nov
+  });
+});
+
+describe("insights: naps, one rule", () => {
+  // a nap is not a night (no night count takes it in), but its dreams are dreams (every dream count does)
+  const a = night("2026-11-02", { dreamCount: 1 }), b = night("2026-11-03", { dreamCount: 1 });
+  const nap = night("2026-11-03", { nap: true, dreamCount: 1 });
+  const dreams = [dream(a), dream(b, { lucid: true }), dream(nap, { lucid: true, lucidityLevel: 2, nightmare: true, emotionOverall: 1 })];
+  it("leaves naps out of every night count and keeps their dreams in every dream count", () => {
+    const r = recallInsight([a, b, nap], dreams, null, "2026-11-07");
+    const l = lucidityInsight([a, b, nap], dreams, null, "2026-11-07");
+    expect(r).toMatchObject({ nights: 2, dreams: 2, napDreams: 1 });
+    expect(l).toMatchObject({ nights: r.nights, lucidNights: 1, lucid: 2, dreams: r.dreams + r.napDreams });
+    expect(l.levels[2]).toBe(1);
+    expect(eventsInsight([a, b, nap], dreams, null, "2026-11-07").total.nightmares).toBe(1);
+    expect(emotionsInsight([a, b, nap], dreams, null, "2026-11-07").rated).toBe(1);
+  });
+  it("reads a lucid night from the night's own count when the dream isn't in the list", () => {
+    const ns = Array.from({ length: 20 }, (_, i) => night(addDays("2026-10-01", i), { dreamCount: 1, lucidCount: i < 4 ? 1 : 0, wbtbUsed: i % 2 === 0 }));
+    const w = compareLucid(ns, [], { id: "x", label: "x", has: (n) => !!n.wbtbUsed, withNoun: { one: "a", many: "a" }, withoutNoun: { one: "b", many: "b" } });
+    expect(w.with.lucid + w.without.lucid).toBe(4);
   });
 });
 

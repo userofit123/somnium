@@ -60,6 +60,16 @@ describe("journal", () => {
     expect(nights[0]!.lucidCount).toBe(1);
   });
 
+  it("lists every dream's plain facts with no limit and nothing sealed", async () => {
+    const facts = await call<Record<string, unknown>[]>(A, "GET", "/dream-facts");
+    const mine = facts.find((f) => f.id === dream.id)!;
+    expect(mine).toMatchObject({ nightId: night.id, date: "2026-11-05", nap: false, lucid: true, lucidityLevel: 3, becameLucidHow: "dream_sign" });
+    expect(Object.keys(mine)).not.toContain("title");
+    expect(Object.keys(mine)).not.toContain("text");
+    expect(Object.keys(mine)).not.toContain("dismissed");
+    expect(await call<unknown[]>(B, "GET", "/dream-facts")).toEqual([]);
+  });
+
   it("refuses values off the scales and unknown enum words", async () => {
     expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidityLevel: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, control: 6 })).toBe(400);

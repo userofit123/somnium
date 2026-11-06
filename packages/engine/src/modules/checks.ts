@@ -13,12 +13,12 @@ const CHECK: Fields = {
 };
 
 export function checkRoutes(r: Router) {
-  // newest first; from/to are instants (ISO), limit at most 2000
+  // newest first; from/to are instants (ISO), limit at most 2000, or all=1 for every one (Insights sums them all)
   r.get("/reality-checks", async ({ q }, _p, _b, qs) => {
     const w: string[] = [], params: unknown[] = [];
     if (qs.from) { params.push(isoTime(qs.from)); w.push(`at >= $${params.length}`); }
     if (qs.to) { params.push(isoTime(qs.to)); w.push(`at <= $${params.length}`); }
-    return listLive<RealityCheck>(q, "reality_checks", w.join(" AND "), params, "at DESC", intOrNull(qs.limit, 1, 2000) ?? 200);
+    return listLive<RealityCheck>(q, "reality_checks", w.join(" AND "), params, "at DESC", qs.all === "1" ? 1_000_000 : intOrNull(qs.limit, 1, 2000) ?? 200);
   });
   r.get("/reality-checks/:id", async ({ q }, p) => getLive<RealityCheck>(q, "reality_checks", id(p.id), "reality check"));
   r.post("/reality-checks", async (ctx, _p, b) => insertRow<RealityCheck>(ctx, "reality_checks", "checks", { ...columns(CHECK, b, true), ...clientId(b) }));

@@ -3,9 +3,10 @@
 // two columns (the day on the left, the night and the numbers on the right); on a phone one column in that order.
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
-import { computed, onUnmounted, ref } from "vue";
-import { currentLesson, homeNights, homeRates, morningState, nextReminder, checksOn, lastLucid, planDay, rcSchedule, tipIndex } from "@somnium/shared";
+import { computed, onUnmounted, ref, watch } from "vue";
+import { currentLesson, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, nextReminder, checksOn, lastLucid, planDay, rcSchedule, tipIndex } from "@somnium/shared";
 import { useJournal } from "../api/journal";
+import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
 import { loaded, useSettings } from "../api/queries";
 import { useQuery } from "@tanstack/vue-query";
@@ -77,6 +78,14 @@ const tip = computed(() => {
   const a = pool[tipIndex(today.value, pool.length)];
   return a ? { id: a.id, title: a.title, summary: a.summary } : null;
 });
+watch(() => on.value.homeSigns, (v) => { if (v) void loadSignLexicons(); }, { immediate: true });
+// top dream signs: the same shortlist as Signs, over every dream's facts (never the capped list)
+const signs = computed(() => {
+  if (!on.value.homeSigns) return null;
+  const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
+  const list = signShortlist(els, elementStats(els, j.links.data.value ?? [], facts, today.value), facts, signLexicons.value?.checks ?? [], today.value, 3);
+  return list.map((x) => ({ id: x.element.id, name: x.element.name ?? "", line: [x.check ? `Check: ${x.check.name}` : "", frequencyText(x.frequency)].filter(Boolean).join(" · ") }));
+});
 const lucid = computed(() => {
   if (!on.value.homeLastLucid) return null;
   const d = lastLucid(dreams.value);
@@ -96,7 +105,7 @@ const lucid = computed(() => {
       <div class="hcol">
         <TonightCard :date="when.tonight" :same="when.same" :planned="planned" :intention="tonight?.intention ?? ''" />
         <RatesCard :rates="rates" />
-        <ExtraCards :lesson="lessonCard" :tip="tip" :lucid="lucid" />
+        <ExtraCards :lesson="lessonCard" :tip="tip" :lucid="lucid" :signs="signs" />
       </div>
     </div>
   </div>

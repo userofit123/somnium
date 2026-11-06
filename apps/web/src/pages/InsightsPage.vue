@@ -10,7 +10,7 @@ import {
   checksInsight, whatWorks, localClock, EMOTION_ANCHORS, MIN_NIGHTS, type Period, type Bucket, type Comparison, type RealityCheck,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
-import { useJournal, DREAM_LIMIT } from "../api/journal";
+import { useJournal } from "../api/journal";
 import { api } from "../api/client";
 import { loaded } from "../api/queries";
 import { useLearn } from "../core/learn";
@@ -27,16 +27,17 @@ const period = ref<Period>((PERIODS as readonly string[]).includes(readJson<stri
 const setPeriod = (p: Period) => { period.value = p; writeJson(PREF, p); };
 const from = computed(() => periodStart(period.value, today.value));
 const bucket = computed<Bucket>(() => bucketFor(period.value));
-// the checks of the period only (the engine sends at most 2000 in one list, newest first)
+// every check of the period (all=1: no limit, so a long habit of checks is never cut short)
 const checksQ = useQuery({
   queryKey: computed(() => ["checks", "insights", from.value ?? "all"]),
-  queryFn: () => api.get<RealityCheck[]>("/reality-checks", { ...(from.value ? { from: new Date(from.value + "T00:00:00").toISOString() } : {}), limit: 2000 }),
+  queryFn: () => api.get<RealityCheck[]>("/reality-checks", { ...(from.value ? { from: new Date(from.value + "T00:00:00").toISOString() } : {}), all: 1 }),
 });
-await loaded(j.nights, j.dreams);
+// every night (all=1) and every dream's plain facts (no limit): no sum here stops at an older dream
+await loaded(j.nights, j.facts);
 const { answers } = useLearn();
 
 const nights = computed(() => j.nights.data.value ?? []);
-const dreams = computed(() => j.dreams.data.value ?? []);
+const dreams = computed(() => j.facts.data.value ?? []);
 const recall = computed(() => recallInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const lucid = computed(() => lucidityInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const events = computed(() => eventsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
@@ -132,6 +133,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
               <div><div class="v num">{{ one(recall.dreams / recall.nights) }}</div><div class="tiny">dreams a night</div></div>
               <div><div class="v num">{{ recall.nights }}</div><div class="tiny">nights logged</div></div>
             </div>
+            <div v-if="recall.napDreams" class="tiny ins-note">Naps aren't counted as nights here; their {{ plural(recall.napDreams, "dream") }} count with your dreams below.</div>
             <div class="ins-sub">Dreams a night, by {{ bucket }}</div>
             <BarChart :bars="recallBars" :fmt="one" :height="150" />
             <div class="ins-sub">Nights with a dream, by weekday</div>

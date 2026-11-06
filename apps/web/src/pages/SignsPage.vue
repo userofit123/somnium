@@ -5,7 +5,7 @@
 import { computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { loaded } from "../api/queries";
-import { loadSignLexicons } from "../api/signs";
+import { finishMerges, loadSignLexicons } from "../api/signs";
 import { isPhone } from "../core/device";
 import SignsOverview from "../components/signs/SignsOverview.vue";
 import ElementPanel from "../components/signs/ElementPanel.vue";
@@ -13,8 +13,9 @@ import { useSigns } from "../components/signs/useSigns";
 
 const route = useRoute(), router = useRouter();
 const { j } = useSigns();
-await loaded(j.elements, j.links, j.dreams);
-onMounted(() => void loadSignLexicons());
+await loaded(j.elements, j.links, j.facts);
+// a merge cut short last time is finished now (its element shows "Finishing a merge" meanwhile); offline it waits
+onMounted(() => { void loadSignLexicons(); void finishMerges(j.elements.data.value ?? []).catch(() => {}); });
 
 const id = computed(() => (route.name === "signs-element" ? String(route.params.id ?? "") : ""));
 const open = (eid: string) => (id.value ? router.replace : router.push)({ name: "signs-element", params: { id: eid } });

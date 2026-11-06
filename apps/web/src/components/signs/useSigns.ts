@@ -1,5 +1,6 @@
 // The numbers behind the Signs screens, worked out on the device from the journal lists as opened here
-// (packages/shared/src/signs.ts does the maths). Nothing here goes to the server.
+// (packages/shared/src/signs.ts does the maths). Nothing here goes to the server. The sums run over every dream's plain
+// facts (GET /dream-facts, no limit), never the Journal's capped list, which only lends titles.
 import { computed } from "vue";
 import { elementStats, type ElementKind, type SignCategory } from "@somnium/shared";
 import { useJournal } from "../../api/journal";
@@ -20,7 +21,7 @@ export function useSigns() {
   const today = useToday();
   const elements = computed(() => j.elements.data.value ?? []);
   const links = computed(() => j.links.data.value ?? []);
-  const dreams = computed(() => j.dreams.data.value ?? []);
+  const dreams = computed(() => j.facts.data.value ?? []);
   const byId = computed(() => new Map(elements.value.map((e) => [e.id, e])));
   const stats = computed(() => elementStats(elements.value, links.value, dreams.value, today.value));
   return { j, today, elements, links, dreams, byId, stats };

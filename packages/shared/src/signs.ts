@@ -10,6 +10,8 @@ import { ELEMENT_KINDS, type ElementKind, type ElementSource, type SignCategory 
 export interface SignElement {
   id: string; kind: ElementKind; name: string | null; aliases: string | null;
   isDreamSign: boolean; signCategory: SignCategory | null; confirmed: boolean;
+  /** sealed; also carries the "merging into" mark while a merge is under way (mergeMark below) */
+  note?: string | null;
 }
 export interface SignLink { dreamId: string; elementId: string; source: ElementSource; confidence?: number | null; span?: string | null }
 export interface SignDream { id: string; date: string; lucid: boolean }
@@ -173,8 +175,22 @@ export function elementSuggestions<E extends SignElement>(elements: readonly E[]
     .sort((a, b) => b.stat.dreamCount - a.stat.dreamCount || (a.element.name ?? "").localeCompare(b.element.name ?? ""));
 }
 
-/** Merging `from` into `into`: the links to move, the ones already covered (dropped), and `into`'s new aliases. */
-export function mergePlan<L extends SignLink>(from: SignElement, into: SignElement, links: readonly L[]): { repoint: L[]; drop: L[]; aliases: string | null } {
+// A merge is several writes. Before the first, the merged element's (sealed) note gets a mark naming the one it goes
+// into, so a merge cut short (closed tab, lost connection) is seen, shown and finished the next time Signs opens.
+const MERGE_MARK = /^\[merging into ([0-9a-f-]{36})\]\n?/;
+/** The element a merge under way is moving this one into, or null. */
+export const mergingInto = (note: string | null | undefined): string | null => note?.match(MERGE_MARK)?.[1] ?? null;
+/** The note without the mark (null when nothing is left). */
+export const withoutMergeMark = (note: string | null | undefined): string | null => note?.replace(MERGE_MARK, "").trim() || null;
+export const mergeMark = (intoId: string, note: string | null | undefined): string => `[merging into ${intoId}]\n${withoutMergeMark(note) ?? ""}`;
+
+/**
+ * Merging `from` into `into`: the links to move, the ones already covered (dropped), and `into`'s new aliases, sign mark
+ * (either one marked), category (`into`'s, else `from`'s) and note (both, `from`'s added once).
+ */
+export function mergePlan<L extends SignLink>(from: SignElement, into: SignElement, links: readonly L[]): {
+  repoint: L[]; drop: L[]; aliases: string | null; isDreamSign: boolean; signCategory: SignCategory | null; note: string | null;
+} {
   const there = new Set(links.filter((l) => l.elementId === into.id).map((l) => l.dreamId));
   const mine = links.filter((l) => l.elementId === from.id);
   const names = [...parseAliases(into.aliases)];
@@ -182,7 +198,12 @@ export function mergePlan<L extends SignLink>(from: SignElement, into: SignEleme
     const t = a.trim();
     if (t && ![into.name ?? "", ...names].some((x) => fold(x) === fold(t))) names.push(t);
   }
-  return { repoint: mine.filter((l) => !there.has(l.dreamId)), drop: mine.filter((l) => there.has(l.dreamId)), aliases: names.length ? names.join(", ") : null };
+  const keep = withoutMergeMark(into.note), add = withoutMergeMark(from.note);
+  const note = !add || (keep ?? "").includes(add) ? keep : keep ? `${keep}\n\n${add}` : add;
+  return {
+    repoint: mine.filter((l) => !there.has(l.dreamId)), drop: mine.filter((l) => there.has(l.dreamId)), aliases: names.length ? names.join(", ") : null,
+    isDreamSign: into.isDreamSign || from.isDreamSign, signCategory: into.signCategory ?? from.signCategory, note,
+  };
 }
 
 // ---------- lucidity ----------

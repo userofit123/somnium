@@ -2,7 +2,7 @@
 // An element's page (PLAN.md §6.3): every dream it is in, what turns up with it, how often dreams with it were lucid
 // against dreams without it, and its name, kind, other names and dream sign mark to change.
 import { computed, reactive, ref } from "vue";
-import { coOccurrence, ELEMENT_KINDS, frequencyText, lucidSplit, pairedCheck, SIGN_ADVICE, SIGN_CATEGORIES, signFrequency, type SignCategory } from "@somnium/shared";
+import { addDays, coOccurrence, ELEMENT_KINDS, frequencyText, lucidSplit, mergingInto, pairedCheck, SIGN_ADVICE, SIGN_CATEGORIES, signFrequency, type SignCategory } from "@somnium/shared";
 import { mergeElements, saveElement, signLexicons } from "../../api/signs";
 import { choose } from "../../core/ask";
 import { useFmt } from "../../core/format";
@@ -17,22 +17,22 @@ import { CATEGORY_LABEL, KIND_ONE, dreamsText, useSigns } from "./useSigns";
 const props = defineProps<{ id: string; back?: boolean }>();
 const emit = defineEmits<{ close: []; open: [id: string] }>();
 const fmt = useFmt();
-const { elements, links, dreams, byId, stats } = useSigns();
+const { j, today, elements, links, dreams, byId, stats } = useSigns();
 const el = computed(() => byId.value.get(props.id));
 const stat = computed(() => stats.value.get(props.id));
 const live = computed(() => new Set(dreams.value.map((d) => d.id)));
+// the dreams come from the facts (all of them); titles from the Journal's list, which holds the newest 2000
+const titles = computed(() => new Map((j.dreams.data.value ?? []).map((d) => [d.id, d])));
 const its = computed(() => { const ids = new Set(stat.value?.dreamIds ?? []); return dreams.value.filter((d) => ids.has(d.id)); });
+const merging = computed(() => { const to = mergingInto(el.value?.note); return to ? byId.value.get(to)?.name ?? "another element" : null; });
 const along = computed(() => coOccurrence(props.id, links.value, live.value).map((c) => ({ ...c, el: byId.value.get(c.elementId) })).filter((c) => c.el?.name).slice(0, 12));
 const split = computed(() => lucidSplit(props.id, links.value, dreams.value));
 const pct = (a: number, n: number) => (n ? `${Math.round((a / n) * 100)}%` : "-");
 const freq = computed(() => (stat.value ? frequencyText(signFrequency(stat.value, dreams.value)) : ""));
 const check = computed(() => (el.value?.isDreamSign || el.value?.signCategory ? pairedCheck(el.value.signCategory, signLexicons.value?.checks ?? []) : null));
-// the 12 weeks as bars, labelled by the date each week starts
-const weeks = computed(() => (stat.value?.weekly ?? []).map((v, i, a) => {
-  const d = new Date(); d.setDate(d.getDate() - (a.length - 1 - i) * 7 - 6);
-  return { label: fmt.value.date(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, { day: "numeric", month: "short" }), value: v };
-}));
-const label = (d: { title: string | null; text: string | null }) => d.title?.trim() || d.text?.trim().slice(0, 80) || "Untitled dream";
+// the 12 weeks as bars, labelled by the date each week starts (today from useToday, so it turns over at midnight)
+const weeks = computed(() => (stat.value?.weekly ?? []).map((v, i, a) => ({ label: fmt.value.date(addDays(today.value, -(a.length - 1 - i) * 7 - 6), { day: "numeric", month: "short" }), value: v })));
+const label = (id: string) => { const d = titles.value.get(id); return d ? d.title?.trim() || d.text?.trim().slice(0, 80) || "Untitled dream" : "Dream"; };
 
 // editing
 const editing = ref(false), saving = ref(false);
@@ -69,7 +69,7 @@ async function mergeInto() {
   const into = await choose(`Merge "${e.name}" into`, others.map((x) => ({ label: `${x.name} · ${KIND_ONE[x.kind]}`, value: x.id })), "Its dreams move over, and its name is kept as another name for the one you pick.");
   const target = into ? byId.value.get(into) : undefined;
   if (!target) return;
-  try { await mergeElements(e, target, links.value); toast("Merged"); emit("open", target.id); } catch (x) { toastError(x); }
+  try { await mergeElements(e, target); toast("Merged"); emit("open", target.id); } catch (x) { toastError(x); }
 }
 const menu = computed(() => [
   { label: "Mark as a dream sign", icon: "sparkle", run: () => markSign(true), hidden: !!el.value?.isDreamSign },
@@ -92,6 +92,8 @@ const menu = computed(() => [
       <button class="btn" @click="edit"><Icon name="edit" :size="16" />Edit</button>
     </div>
     <div v-if="el.aliases" class="tiny sgmut">Also called {{ el.aliases }}</div>
+    <div v-if="merging" class="sgbox"><div class="t"><Icon name="layers" :size="15" class="sgacc" /> Finishing a merge</div>
+      <div class="tiny">A merge into {{ merging }} was cut short. It finishes on its own when Signs opens with a connection.</div></div>
 
     <div class="sgstats">
       <div><div class="num sgbig">{{ stat?.dreamCount ?? 0 }}</div><div class="tiny sgmut">{{ (stat?.dreamCount ?? 0) === 1 ? "dream" : "dreams" }}</div></div>
@@ -122,7 +124,7 @@ const menu = computed(() => [
     <div v-else class="list">
       <RouterLink v-for="d in its" :key="d.id" class="li click sglink" :to="{ name: 'journal-dream', params: { id: d.id } }">
         <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="16" :class="d.lucid ? 'sgacc' : 'sgmut'" :aria-label="d.lucid ? 'Lucid' : undefined" />
-        <div class="grow sgmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s">{{ [fmt.date(d.date, { day: "numeric", month: "short", year: "numeric" }), d.lucid ? "Lucid" : ""].filter(Boolean).join(" · ") }}</div></div>
+        <div class="grow sgmin"><div class="t ellipsis">{{ label(d.id) }}</div><div class="s">{{ [fmt.date(d.date, { day: "numeric", month: "short", year: "numeric" }), d.lucid ? "Lucid" : ""].filter(Boolean).join(" · ") }}</div></div>
       </RouterLink>
     </div>
 
@@ -140,15 +142,15 @@ const menu = computed(() => [
 
 <style scoped>
 .sgp { display: flex; flex-direction: column; gap: var(--hg); }
-.sgph { display: flex; align-items: center; gap: 8px; }
-.sgt { font-size: 20px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+.sgph { display: flex; align-items: center; gap: var(--hg); }
+.sgt { font-size: calc(var(--fs-lg) * 1.25); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .sgmin { min-width: 0; }
 .sgmut { color: var(--tx2); }
 .sgacc { color: var(--acc); }
 .sgstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); }
-.sgbig { font-size: 20px; font-weight: 600; }
-.sgbox { background: var(--s2); border-radius: var(--r-sm); padding: var(--hg); display: flex; flex-direction: column; gap: 4px; }
-.sgbox .t { font-weight: 500; display: flex; align-items: center; gap: 6px; }
-.sgh { margin: var(--hg) 0 0; font-size: 14px; }
+.sgbig { font-size: calc(var(--fs-lg) * 1.25); font-weight: 600; }
+.sgbox { background: var(--s2); border-radius: var(--r-sm); padding: var(--cpy) var(--cpx); display: flex; flex-direction: column; gap: calc(var(--hg) / 2); }
+.sgbox .t { font-weight: 500; display: flex; align-items: center; gap: calc(var(--hg) / 2); }
+.sgh { margin: var(--hg) 0 0; font-size: var(--fs); }
 .sglink { color: var(--tx); text-decoration: none; }
 </style>
