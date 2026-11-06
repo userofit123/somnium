@@ -1,7 +1,7 @@
 ---
 title: How common is lucid dreaming?
 section: basics
-summary: About half of people have had at least one lucid dream, and about one in five have them monthly, with large differences by age and sleep habits.
+summary: About half of people have had at least one lucid dream, and about one in five have them monthly, with large differences by age.
 reviewed: 2026-11-06
 sources: [A21, A41, A60, A61, B29, B46, B47, B49, B50]
 ---

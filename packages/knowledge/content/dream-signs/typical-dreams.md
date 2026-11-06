@@ -43,7 +43,7 @@ Figures are percentages of respondents who had ever dreamed the theme. Ranks fol
 
 ## Further down the list
 
-Discovering a new room at home (32.3 percent), losing control of a vehicle (32.0), being half awake and paralysed in bed (27.2), having magical powers other than flying (24.9), teeth falling out (18.8), and being an object such as a tree or rock (3.5) are among the remaining 35 items [C13]. Four themes exceed 60 percent in both sexes: being chased, falling, school, and sexual experiences [C13a].
+Discovering a new room at home (32.3 percent), losing control of a vehicle (32.0), being half awake and paralysed in bed (27.2), having magical powers other than flying (24.9), teeth falling out (18.8), and being an object such as a tree or rock (3.5) are among the remaining 35 items [C13]. Three themes exceed 60 percent in both sexes: being chased, falling, and sexual experiences; school exceeds 60 percent in women (71.3) but not in men (56.9) [C13][C13a].
 
 ## Sex differences
 

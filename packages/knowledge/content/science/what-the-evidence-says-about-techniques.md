@@ -22,13 +22,13 @@ The International Lucid Dream Induction Study (2020; 355 completers) compared MI
 
 ## The laboratory studies
 
-Erlacher and Stumbrys (2020) woke 51 students from REM after about 6 hours and compared a 60-minute wake period of dream work and MILD (about 54 percent self-rated lucid dreams, 27 percent signal-verified), 30 minutes of the same (36 percent; 14 percent verified), and 60 minutes of reading (9 percent) or balance games (0 percent) [B39]. A follow-up that moved the interruption to 4.5 hours found much lower rates, suggesting that "the earlier sleep interruption seems to reduce the lucid dream induction rate" [B40].
+Erlacher and Stumbrys (2020) woke 51 students from REM after about 6 hours and compared a 60-minute wake period of dream work and MILD (about 53-54 percent (two groups) self-rated lucid dreams, 27 percent signal-verified), 30 minutes of the same (36 percent; 14 percent verified), and 60 minutes of reading (9 percent) or balance games (0 percent) [B39]. A follow-up that moved the interruption to 4.5 hours found much lower rates, suggesting that "the earlier sleep interruption seems to reduce the lucid dream induction rate" [B40].
 
 ## The table
 
 | Technique | Evidence level | Key studies | Reported success |
 |---|---|---|---|
-| MILD with WBTB | Best supported; replicated across labs and large field studies | LaBerge 1980; Aspy 2017, 2020; Erlacher and Stumbrys 2020 [B37][B38][B39] | 17 to 20 percent of nights at home; about 46 percent of attempts if asleep within 5 minutes; about 53 percent self-rated in a lab nap |
+| MILD with WBTB | Best supported; replicated across labs and large field studies | LaBerge 1980; Aspy 2017, 2020; Erlacher and Stumbrys 2020 [B37][B38][B39] | 17 to 20 percent of nights at home; about 46 percent of attempts if asleep within 5 minutes; about 53-54 percent (two groups) self-rated in a lab nap |
 | WBTB alone | Supported as an amplifier, not separable from what is done while awake | Erlacher and Stumbrys 2020; Erlacher 2022 [B39][B40] | 9 percent if reading, 0 percent if gaming; 1 hour better than 30 minutes; 4.5 hours too early |
 | SSILD | One large field study | Aspy 2020 [B38] | 16.9 percent of nights |
 | Reality testing alone | Weak as a standalone; adds nothing to MILD | Aspy 2017, 2020; Tan and Fan 2023 [B37][B38][B35] | Least effective arm |

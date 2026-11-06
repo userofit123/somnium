@@ -20,7 +20,7 @@ Hearne also patented a "dream machine" that detected REM from breathing and deli
 
 Working independently at Stanford, Stephen LaBerge signalled from his own lucid dream on 13 January 1978, with EEG, eye movements and muscle tone all recorded [A35]. He completed his PhD in psychophysiology at Stanford in 1980 and published "Lucid dreaming as a learnable skill: a case study" the same year [A37]. In 1981, with Lynn Nagel, William Dement and Vincent Zarcone, he published "Lucid dreaming verified by volitional communication during REM sleep", in which five subjects signalled lucidity by eye movements and fist clenches during unequivocal REM sleep [A38].
 
-LaBerge also developed the MILD technique during his doctoral work, and reported in his case study that with it he went from fewer than one lucid dream a month to as many as twenty-six in a month [A37][D1].
+LaBerge also developed the MILD technique during his doctoral work, and later reported that with it he went from fewer than one lucid dream a month to as many as twenty-six in a month [A37][D1].
 
 ## The priority question
 

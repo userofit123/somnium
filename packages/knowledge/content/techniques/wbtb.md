@@ -29,7 +29,7 @@ Sleep cycles lengthen their REM periods across the night, so a return to sleep a
 
 ## When
 
-On nights when you can sleep in afterwards, ideally waking from a dream rather than from a time-based alarm [D13][D14]. The app recommends no more than two or three nights a week [B69].
+On nights when you can sleep in afterwards, ideally waking from a dream rather than from a time-based alarm [D13][D14]. Somnium suggests no more than two or three nights a week.
 
 ## Common errors
 

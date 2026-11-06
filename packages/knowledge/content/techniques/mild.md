@@ -13,7 +13,7 @@ Stephen LaBerge developed MILD during his doctoral work at Stanford and publishe
 
 ## Evidence level
 
-Controlled field studies and sleep-laboratory studies. MILD with wake-back-to-bed raised lucid dreaming from 9.4 to 17.4 percent of nights in the Australian study [D11] and produced lucid dreams on 16.5 to 20 percent of nights in the international study [D12]. In the laboratory, an hour of dream work and MILD after about six hours of sleep gave self-rated lucid dreams in over half of participants, 27 percent verified by eye signals [D13]. Among cognitive techniques it has the most consistent supporting evidence [D15][B35].
+Controlled field studies and sleep-laboratory studies. MILD with wake-back-to-bed raised lucid dreaming from 9.4 to 17.4 percent of nights in the Australian study [D11] and produced lucid dreams on 16.5 to 20 percent of nights in the international study [D12]; the MILD groups that also practised reality testing scored lower (10.8 and 13.4 percent) [D12]. In the laboratory, an hour of dream work and MILD after about six hours of sleep gave self-rated lucid dreams in over half of participants, 27 percent verified by eye signals [D13]. Among cognitive techniques it has the most consistent supporting evidence [D15][B35].
 
 ## Prerequisite
 

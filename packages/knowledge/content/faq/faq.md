@@ -3,7 +3,7 @@ title: Frequently asked questions
 section: faq
 summary: Short answers to the questions people ask most, each pointing to the article with the evidence.
 reviewed: 2026-11-06
-sources: [A21, A31, A33, A34, A38, A54, B6, B8, B24, B31, B35, B37, B38, B41, B43, B46, B52, B54, B55, B56, B57, B60, B61, B63, B64, B65, B66, B68, B69, B70, B71, B72, C1, C2, C4, C13, D1, D3, D5, D8]
+sources: [A21, A31, A33, A34, A38, A54, A56, B6, B8, B24, B31, B35, B37, B38, B41, B43, B46, B52, B54, B55, B56, B57, B60, B61, B63, B64, B65, B66, B68, B69, B70, B71, B72, C1, C2, C4, C13, D1, D3, D5, D8]
 ---
 
 ## Is lucid dreaming real?
@@ -48,7 +48,7 @@ REM paralysis persisting into wakefulness, often with hallucinations. It is comm
 
 ## What is a false awakening?
 
-A dream of having woken up. Test your state on every awakening; false awakenings often turn into lucid dreams [B8].
+A dream of having woken up. Test your state on every awakening; false awakenings often turn into lucid dreams, though the figures behind this come from a self-selected group of habitual lucid dreamers [B8].
 
 ## Can I control my dreams?
 
@@ -68,7 +68,7 @@ It increased the amount of dream content recalled in one trial but did not incre
 
 ## Do dream masks or 40 Hz devices work?
 
-The one validated mask went out of production in 2004; the 40 Hz stimulation result did not replicate; portable devices are of unproven reliability [B41][B24][B56].
+The one validated mask went out of production in 2004; the 40 Hz stimulation result did not replicate; portable devices are of unproven reliability [B41][B24][A56].
 
 ## Do apps work?
 

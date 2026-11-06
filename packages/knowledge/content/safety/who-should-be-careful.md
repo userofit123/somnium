@@ -30,7 +30,7 @@ Based on the above, this app advises against induction practice, or recommends d
 
 ## Sleep paralysis and distressing lucid dreams
 
-Fragmented sleep is a known trigger for sleep paralysis, which is unpleasant but physiologically harmless and self-limiting [B6][B7]. A content analysis of 400 forum posts found the main complaints were lucid dysphoria, poor sleep and sleep paralysis, mostly after failed induction or low-control lucid dreams [B76]. If you have a history of frightening sleep paralysis, the wake-initiated methods are the ones most likely to pass through it [B15].
+Fragmented sleep is a known trigger for sleep paralysis, which is unpleasant but physiologically harmless and self-limiting [B6][B7]. A content analysis of 400 forum posts found the main complaints were lucid dysphoria, poor sleep and sleep paralysis, mostly after failed induction or low-control lucid dreams [B76]. If you have a history of frightening sleep paralysis, the wake-initiated methods are the ones most likely to pass through it [B15]. This is advice, not a research finding.
 
 ## The stop rule
 

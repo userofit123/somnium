@@ -14,7 +14,7 @@ A recurring claim in 1970s dream literature, repeated in Patricia Garfield's bes
 
 The source is Kilton Stewart (1902 to 1965), who visited the Senoi in 1934. G. William Domhoff's The Mystique of Dreams (1985) and his later online update conclude that Stewart "misunderstood Senoi psychology and dream practices, and incorrectly attributed his own ideas to them", that the Senoi do have a dream theory but do not practise "Senoi Dream Theory as Americans know it", and that there is no good evidence that dream control is achieved by Stewart's methods [A31].
 
-The claim should be presented as a myth [A31]. The "Senoi" advice to confront and conquer dream enemies survives in some nightmare guidance; LaBerge allows the conquest approach only in special cases, and Tholey's research found that attacking dream figures tends to produce "avenging figures" rather than peace [D1][D8].
+The claim should be presented as a myth [A31]. The "Senoi" advice to confront and conquer dream enemies survives in some nightmare guidance; LaBerge allows the conquest approach only in special cases, and Tholey's research found that attacking dream figures tends to produce avenging figures rather than peace [D1][D8].
 
 ## Carlos Castaneda and don Juan
 

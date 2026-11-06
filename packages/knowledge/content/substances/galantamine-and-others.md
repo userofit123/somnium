@@ -38,7 +38,7 @@ There are no studies of melatonin as a lucid-dream inducer [B54]. In two small t
 
 ## Cannabis
 
-THC suppresses REM eye-movement density and, to a lesser degree, REM duration; withdrawal produces a rebound above baseline [B10]. Heavy users abstaining show lower total sleep and shortened REM latency [B14]. The vivid dreams after stopping cannabis are REM rebound, not a technique, and they fade within weeks [B10].
+THC suppresses REM eye-movement density and, to a lesser degree, REM duration; withdrawal produces a rebound above baseline [B10]. Heavy users abstaining show lower total sleep and slow-wave sleep and shortened REM latency on night 2 [B14]. The vivid dreams after stopping cannabis are REM rebound, not a technique, and they probably fade within weeks, though no source cited here measures how long.
 
 ## Alcohol and other drugs
 
