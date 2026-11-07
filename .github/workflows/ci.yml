@@ -49,10 +49,8 @@ jobs:
   # End-to-end tests (LDJ-43, e2e/): the built web app served by the real server on a throwaway PostgreSQL, driven by
   # Playwright in desktop and phone viewports. PostgreSQL rather than PGlite because the harness opens its own psql
   # connection to make invites, read what the server stores and delete its test accounts, and PGlite is single-process.
-  # The browser tests run on request (Actions → CI → Run workflow) until they pass on GitHub's runner (LDJ-61).
   # The first run failed because a fresh database has no users, so the app showed its first-run admin screen (e2e/db.ts ensureAdmin).
   e2e:
-    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
