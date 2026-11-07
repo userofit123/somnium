@@ -11,7 +11,7 @@ import { pgliteDb } from "@somnium/engine/pglite";
 import { uuidv7, type Db } from "@somnium/engine";
 import { createAccountKeys, changePassword, openWithPassword, toBase64url, fromBase64url, sealColumn } from "@somnium/shared";
 import { buildApp } from "../src/app";
-import { totp, forgetFails, failKeyCount, recordFail, tooManyTries, reserveTry, keyFromFile, makeDataDir, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
+import { totp, forgetFails, failKeyCount, recordFail, reserveTry, nameWait, keyFromFile, makeDataDir, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
 
 let app: FastifyInstance, db: Db, dir: string;
 let ann: { authKey: string }; // the first account (the admin), used by the admin test
@@ -34,7 +34,7 @@ beforeAll(async () => {
   ({ app } = await buildApp({ db, dataDir: dir }));
 }, 120000);
 afterAll(async () => { await app.close(); await db.close(); fs.rmSync(dir, { recursive: true, force: true }); });
-beforeEach(() => forgetFails());
+beforeEach(() => forgetFails(db));
 
 describe("sign-up and sign-in with the auth key", () => {
   it("makes the first account the admin, signs in with authKey and hands back the bundle, refuses a wrong key", async () => {
@@ -253,15 +253,91 @@ describe("a code only counts once, and wrong codes wait", () => {
     expect((await post("/auth/reset", { username: "late", code: resetCode, authKey: fresh.authKey, kdfSalt: fresh.salt })).statusCode).toBe(403);
   });
 
-  it("forgets keys whose tries have run out, not only the ones asked about", () => {
-    recordFail(["u:someone", "u:" + "x".repeat(100000)]);
-    expect(failKeyCount()).toBe(2);
-    const later = Date.now() + 16 * 60000;
-    const clock = vi.spyOn(Date, "now").mockReturnValue(later);
+  it("forgets keys whose tries have run out, not only the ones asked about, and cuts long names to size", async () => {
+    await recordFail(db, "10.9.9.9", "someone");
+    await recordFail(db, "10.9.9.9", "x".repeat(100000));
+    expect(await failKeyCount(db)).toBe(3); // one address, two names
+    expect((await db.admin.query("SELECT max(length(key))::int AS n FROM sign_in_tries")).rows[0].n).toBe(64);
+    await db.admin.query("UPDATE sign_in_tries SET at = at - interval '16 minutes'");
+    const t = await reserveTry(db, "10.9.9.8", "someone-else");
+    expect("release" in t).toBe(true);
+    expect(await failKeyCount(db)).toBe(2); // only the try just reserved
+  });
+});
+
+describe("sign-in tries kept in the database (LDJ-59)", () => {
+  const from = (remoteAddress: string, username: string, authKey: string) =>
+    app.inject({ method: "POST", url: "/api/auth/sign-in", remoteAddress, payload: { username, authKey, wantToken: true } });
+  const later = (s: number) => db.admin.query(`UPDATE sign_in_tries SET at = at - interval '${s} seconds'`);
+
+  it("still waits after a restart: a new server on the same database remembers the tries", async () => {
+    const { keys } = await signUp("restart", "correct horse battery", { invite: await invite() });
+    await forgetFails(db);
+    const wrong = await createAccountKeys("not the password at all");
+    for (let i = 0; i < 5; i++) expect((await from("10.1.0.1", "restart", wrong.authKey)).statusCode).toBe(401);
+    const next = await buildApp({ db, dataDir: dir });
     try {
-      expect(tooManyTries(["u:someone-else"])).toBe(false);
-      expect(failKeyCount()).toBe(0);
-    } finally { clock.mockRestore(); }
+      const r = await next.app.inject({ method: "POST", url: "/api/auth/sign-in", remoteAddress: "10.1.0.1", payload: { username: "restart", authKey: keys.authKey } });
+      expect(r.statusCode).toBe(429);
+      expect(Number(r.headers["retry-after"])).toBeGreaterThan(800);
+    } finally { await next.app.close(); }
+  });
+
+  it("an address gets five wrong tries in all, whichever names it tries", async () => {
+    const wrong = await createAccountKeys("not the password at all");
+    for (let i = 0; i < 5; i++) expect((await from("10.2.0.1", `name${i}`, wrong.authKey)).statusCode).toBe(401);
+    expect((await from("10.2.0.1", "ann", ann.authKey)).statusCode).toBe(429);
+    expect((await from("10.2.0.2", "ann", ann.authKey)).statusCode).toBe(200); // another address is not held up
+  });
+
+  it("a stranger guessing from many addresses slows a name down but can't lock its owner out", async () => {
+    const { keys } = await signUp("owner", "correct horse battery", { invite: await invite() });
+    await forgetFails(db);
+    const wrong = await createAccountKeys("not the password at all");
+    // forty guesses from eight addresses, five each (each under its own limit); a refused one waits as told, then goes on
+    let refused = 0;
+    for (let i = 0; i < 40; i++) {
+      const r = await from(`10.3.0.${i % 8}`, "owner", wrong.authKey);
+      if (r.statusCode === 429) { refused++; expect(r.json().retryAfter).toBeLessThanOrEqual(30); await later(31); }
+      else expect(r.statusCode).toBe(401);
+    }
+    expect(refused).toBeGreaterThan(0); // the name did slow down
+    // right after a guess the owner is asked to wait, at most half a minute
+    expect((await from("10.3.1.1", "owner", wrong.authKey)).statusCode).toBe(401);
+    const held = await from("10.4.0.1", "owner", keys.authKey);
+    expect(held.statusCode).toBe(429);
+    expect(held.json().retryAfter).toBeLessThanOrEqual(30);
+    expect(held.json().error).toMatch(/Wait \d+ seconds?/);
+    await later(30);
+    expect((await from("10.4.0.1", "owner", keys.authKey)).statusCode).toBe(200);
+  });
+
+  it("the wait per name grows 1 s, 2 s, 4 s ... after five tries, and stops at 30 s", () => {
+    expect([0, 4, 5, 6, 7, 9, 10, 50].map(nameWait)).toEqual([0, 0, 1, 2, 4, 16, 30, 30]);
+  });
+});
+
+describe("security headers (LDJ-59)", () => {
+  it("every answer carries the strict policy, with the hashes of index.html's inline blocks", async () => {
+    const web = fs.mkdtempSync(path.join(os.tmpdir(), "somnium-web-test-"));
+    const body = "document.documentElement.dataset.x='1'";
+    fs.writeFileSync(path.join(web, "index.html"), `<!doctype html><html><head><script>${body}</script><style>b{}</style></head><body><script type="module" src="/a.js"></script></body></html>`);
+    const served = await buildApp({ db, dataDir: dir, webDir: web });
+    try {
+      for (const url of ["/", "/journal", "/api/auth/status", "/api/nowhere"]) {
+        const r = await served.app.inject({ method: "GET", url });
+        const csp = String(r.headers["content-security-policy"]);
+        expect(csp, url).toContain("default-src 'self'");
+        expect(csp, url).toContain(`'sha256-${crypto.createHash("sha256").update(body).digest("base64")}'`);
+        expect(csp, url).toContain(`style-src 'self' 'sha256-${crypto.createHash("sha256").update("b{}").digest("base64")}'`);
+        expect(csp, url).toContain("frame-ancestors 'none'");
+        expect(csp, url).not.toContain("'unsafe-eval'");
+        expect(r.headers["referrer-policy"]).toBe("no-referrer");
+        expect(r.headers["cross-origin-opener-policy"]).toBe("same-origin");
+        expect(r.headers["x-content-type-options"]).toBe("nosniff");
+        expect(String(r.headers["permissions-policy"])).toContain("camera=(self), microphone=(self)");
+      }
+    } finally { await served.app.close(); fs.rmSync(web, { recursive: true, force: true }); }
   });
 });
 
@@ -359,7 +435,7 @@ describe("media", () => {
 describe("requests sent at the same moment", () => {
   it("a parallel burst of wrong passwords stops at five", async () => {
     const { keys } = await signUp("burst", "correct horse battery", { invite: await invite() });
-    forgetFails();
+    await forgetFails(db);
     const wrong = await createAccountKeys("not the password at all");
     const codes = (await Promise.all(Array.from({ length: 9 }, () => signIn("burst", wrong.authKey)))).map((r) => r.statusCode).sort();
     expect(codes).toEqual([401, 401, 401, 401, 401, 429, 429, 429, 429]);
@@ -368,16 +444,17 @@ describe("requests sent at the same moment", () => {
 
   it("a right password takes its try back, however often it is used", async () => {
     const { keys, h } = await signUp("right", "correct horse battery", { invite: await invite() });
-    forgetFails();
+    await forgetFails(db);
     for (let i = 0; i < 7; i++) expect((await signIn("right", keys.authKey)).statusCode).toBe(200);
     expect((await post("/auth/2fa/codes", { authKey: keys.authKey }, h)).statusCode).toBe(200);
-    expect(failKeyCount()).toBe(0);
-    const release = reserveTry(["u:x"])!;
-    for (let i = 0; i < 4; i++) expect(reserveTry(["u:x"])).not.toBeNull();
-    expect(reserveTry(["u:x"])).toBeNull();
-    release(); release(); // twice counts once
-    expect(reserveTry(["u:x"])).not.toBeNull();
-    expect(reserveTry(["u:x"])).toBeNull();
+    expect(await failKeyCount(db)).toBe(0);
+    const t = await reserveTry(db, "10.5.0.1", "x");
+    if (!("release" in t)) throw new Error("refused");
+    for (let i = 0; i < 4; i++) expect("release" in (await reserveTry(db, "10.5.0.1", "x"))).toBe(true);
+    expect("wait" in (await reserveTry(db, "10.5.0.1", "x"))).toBe(true);
+    await t.release(); await t.release(); // twice counts once
+    expect(await failKeyCount(db)).toBe(2);
+    expect((await db.admin.query("SELECT count(*)::int AS n FROM sign_in_tries")).rows[0].n).toBe(8);
   });
 
   it("one reset code works once, even for two uses at the same moment", async () => {
@@ -387,7 +464,7 @@ describe("requests sent at the same moment", () => {
     const one = await createAccountKeys("the first new password"), two = await createAccountKeys("the second new password");
     const answers = await Promise.all([one, two].map((k) => post("/auth/reset", { username: "resetrace", code: resetCode, authKey: k.authKey, kdfSalt: k.salt })));
     expect(answers.map((r) => r.statusCode).sort()).toEqual([200, 403]);
-    forgetFails();
+    await forgetFails(db);
     const winner = answers[0]!.statusCode === 200 ? one : two, loser = winner === one ? two : one;
     expect((await signIn("resetrace", winner.authKey)).statusCode).toBe(200);
     expect((await signIn("resetrace", loser.authKey)).statusCode).toBe(401);

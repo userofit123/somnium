@@ -16,16 +16,22 @@
 // Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
 // only when the person switched that on, and only while this device can read it.
 import { QueryObserver } from "@tanstack/vue-query";
-import { planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, withDefaults, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
+import { planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { queryClient } from "../api/live";
 import { keyring } from "../core/keyring";
 import { readStr, writeStr } from "../core/prefs";
 import { isNativeApp } from "./notifications";
 import { logCheck } from "../api/checks";
+import { session } from "../core/session";
+import { current as currentAccount } from "./accounts";
 
 /** An action button: opens the app at `url`, or (Android) logs a check with `outcome` without opening it. */
-export interface ReminderAction { id: string; title: string; url?: string; outcome?: "awake" | "unsure" | "dreaming"; check?: string }
+export interface ReminderAction {
+  id: string; title: string; url?: string; outcome?: "awake" | "unsure" | "dreaming"; check?: string;
+  /** whose check it logs (the app account and the person signed in on it): the queue posts it to that one only */
+  account?: string; user?: string;
+}
 export interface DueReminder {
   at: number; title: string; body: string; url: string; tag?: string;
   kind?: "reality_check" | "bedtime" | "wbtb" | "morning_journal" | "practice";
@@ -66,7 +72,7 @@ async function topSign(): Promise<string | null> {
 /** The reality check reminders due from `now` over the coming `days` waking days (1: until the end of tomorrow's). */
 export async function upcoming(s: RealityCheckSchedule, settings: Settings, now = Date.now(), sign: string | null = null, days = 1): Promise<DueReminder[]> {
   const catalog = await checkCatalog();
-  const today = new Date(now), out: DueReminder[] = [];
+  const today = new Date(now), out: DueReminder[] = [], owner = queueOwner();
   // yesterday too: its window may run past midnight into today
   for (let d = -1; d <= days; d++) {
     for (const p of planDay(s, localDate(addDays(today, d)), s.seed, settings.sleep)) {
@@ -75,7 +81,7 @@ export async function upcoming(s: RealityCheckSchedule, settings: Settings, now 
       const { title, body } = reminderText(c, { sign: s.showSign ? sign : null, habit: p.habit });
       out.push({
         at: p.at, title, body, url: `/check?kind=${encodeURIComponent(p.check)}&prompted=1`, kind: "reality_check", lockTitle: "Reality check",
-        actions: CHECK_OUTCOMES.map(([outcome, t]) => ({ id: outcome, title: t, outcome, check: p.check })),
+        actions: CHECK_OUTCOMES.map(([outcome, t]) => ({ id: outcome, title: t, outcome, check: p.check, ...owner })),
       });
     }
   }
@@ -119,7 +125,7 @@ export async function showReminder(r: Pick<DueReminder, "title" | "body" | "url"
 // ----- Android: the SomniumReminders plugin (apps/android) -----
 interface AndroidReminders {
   schedule(o: { items: (DueReminder & { channel: string })[] }): Promise<{ count: number; exact: boolean }>;
-  pending(): Promise<{ items: { id: string; at: number; check: string; outcome: "awake" | "unsure" | "dreaming" }[] }>;
+  pending(): Promise<{ items: QueuedCheck[] }>;
   ack(o: { ids: string[] }): Promise<void>;
   exactAlarms(): Promise<{ allowed: boolean; needsAsking: boolean }>;
   openExactAlarmSettings(): Promise<void>;
@@ -132,6 +138,11 @@ const channelOf = (r: DueReminder) => (r.kind === "wbtb" ? "wbtb_alarm" : r.kind
 // /check (logCheck: no note, nothing sealed). Ids already sent are remembered here, so a queue that wasn't cleared
 // (the app closed between the two steps) can't send one twice.
 const SENT = "somniumQueuedChecksSent";
+/** The account and person a check logged from a notification belongs to; nothing when either is unknown. */
+const queueOwner = (): { account?: string; user?: string } => {
+  const account = currentAccount()?.id, user = session.user?.id;
+  return account && user ? { account, user } : {};
+};
 let flushing = false;
 export async function flushPending() {
   const p = androidReminders();
@@ -140,8 +151,11 @@ export async function flushPending() {
   try {
     const { items } = await p.pending();
     if (!items?.length) return;
-    const sent = new Set<string>(JSON.parse(readStr(SENT, "[]")) as string[]), done: string[] = [];
-    for (const it of items) {
+    // only the open account's, for whoever is signed in on it; another account's wait for it (a check logged under
+    // one account and posted to another would land in the wrong journal). One without an owner can't be placed: dropped.
+    const { account, user } = queueOwner(), { mine, stale } = splitQueuedChecks(items, account, user);
+    const sent = new Set<string>(JSON.parse(readStr(SENT, "[]")) as string[]), done: string[] = stale.map((it) => it.id);
+    for (const it of mine) {
       if (!sent.has(it.id)) {
         try { await logCheck(it.check, it.outcome, true, { at: it.at }); } catch { break; } // tried again on the next open
         sent.add(it.id);
@@ -250,3 +264,14 @@ export function stopReminders() {
 }
 /** The planned times still to come here (Settings shows the next one). */
 export const plannedAhead = () => plan.slice();
+
+/** An account removed from this phone: the checks its notifications queued go too (native/accounts.ts drop). */
+export async function forgetQueuedChecks(account: string) {
+  const p = androidReminders();
+  if (!p) return;
+  try {
+    const { items } = await p.pending();
+    const ids = queuedChecksOf(items ?? [], account).map((it) => it.id);
+    if (ids.length) await p.ack({ ids });
+  } catch { /* the plugin is older than this page: nothing queued with an owner */ }
+}

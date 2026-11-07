@@ -1,6 +1,6 @@
 // Training: the practice log (a day's lessons, techniques and habits), progress through the course, goals and
 // reminders (PLAN.md §5, §6.4, §8, §9). The course's content and the recommendation rules live elsewhere.
-import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
+import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, storableSchedule, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, bool, dateStr } from "../util";
 import { clientId, refuseOtherRow, columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
@@ -19,7 +19,9 @@ const GOAL: Fields = {
   target: required((v) => intOrNull(v, 1, 1000), "target"),
   period: enumOf(GOAL_PERIODS, "week"),
 };
-const REMINDER: Fields = { kind: required(enumOrNull(REMINDER_KINDS), "kind"), schedule: json, enabled: (v) => bool(v, true) };
+// the table is plain (not sealed): the schedule keeps only times, numbers and values from fixed lists (storableSchedule),
+// so free text sent by any client never lands in it
+const REMINDER: Fields = { kind: required(enumOrNull(REMINDER_KINDS), "kind"), schedule: (v) => json(v && typeof v === "object" && !Array.isArray(v) ? storableSchedule(v as Record<string, unknown>) : v), enabled: (v) => bool(v, true) };
 
 export function practiceRoutes(r: Router) {
   r.get("/practice", async ({ q }, _p, _b, qs) => {

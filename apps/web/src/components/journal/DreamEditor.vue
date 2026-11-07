@@ -13,6 +13,7 @@ import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Collapse from "../Collapse.vue";
 import NightSheet from "./NightSheet.vue";
+import DreamMedia from "./DreamMedia.vue";
 import { loadLexicons, suggestElements } from "./detect";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
@@ -144,6 +145,9 @@ function confirmSug(s: Suggestion) {
 /** Not this one, for this dream: kept with the dream (sealed), so it stays gone after a reload and on other devices. */
 function dismissSug(s: Suggestion) { f.dismissed = JSON.stringify([...dismissedKeys.value, s.key]); }
 
+// the checked text of a photographed page goes at the end of the dream, and is read for elements like typed text
+function addText(t: string) { const now = (f.text ?? "").trimEnd(); f.text = now ? `${now}\n\n${t}` : t; }
+
 const state = computed(() => saveState[props.id]);
 const stateText = computed(() => ({ saving: "Saving", saved: "Saved", waiting: "Kept on this device · sends when the server is back", error: saveError[props.id] ?? "Couldn't save" } as Record<string, string>)[state.value ?? ""] ?? "");
 
@@ -194,6 +198,8 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
           <button class="jx" :aria-label="'Not ' + s.name" @click="dismissSug(s)"><Icon name="close" :size="12" /></button>
         </span>
       </div>
+
+      <DreamMedia :dream-id="id" edit @text="addText" />
 
       <div class="chips jchips">
         <button v-for="c in CHIPS" :key="c.k" class="fchip" :class="{ on: chipOn(c.k) }" :aria-pressed="chipOn(c.k)" @click="toggleChip(c.k)">{{ c.label }}</button>

@@ -38,14 +38,17 @@ self.addEventListener("notificationclick", (e) => {
   e.notification.close();
   // a button with a page of its own (the morning's "No recall", the WBTB alarm's "I'm up") is opened like a tap
   const own = e.action ? e.notification.data?.actions?.[e.action] : null;
-  const url = (typeof own === "string" && own.startsWith("/") ? own : null) ?? e.notification.data?.url ?? "/";
+  // only a page of this app: reduced to its path and query on this origin ("//elsewhere" or a full address can't leave it)
+  const here = (u) => { try { const x = new URL(u, location.origin); return x.origin === location.origin ? x.pathname + x.search : null; } catch { return null; } };
+  const ownPath = typeof own === "string" ? here(own) : null;
+  const url = ownPath ?? (typeof e.notification.data?.url === "string" ? here(e.notification.data.url) : null) ?? "/";
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const c = all.find((x) => new URL(x.url).origin === location.origin);
-    if (e.action && !own && c) { c.postMessage({ somniumAction: e.action }); return; }
+    if (e.action && !ownPath && c) { c.postMessage({ somniumAction: e.action }); return; }
     if (c) { await c.focus(); c.navigate?.(url).catch?.(() => {}); return; }
     const open = new URL(url, location.origin);
-    if (e.action && !own) open.searchParams.set("somniumAction", e.action);
+    if (e.action && !ownPath) open.searchParams.set("somniumAction", e.action);
     await self.clients.openWindow(open.pathname + open.search);
   })());
 });
@@ -128,7 +131,12 @@ self.addEventListener("message", (e) => {
 // page's list until something has used it, and offline it then fails to load ("Failed to fetch dynamically imported
 // module"). So every kept built file is read for the files it can import ("./name-hash.js", "assets/name-hash.css"),
 // and those are kept too, and theirs in turn. Built names never change, so each is fetched once.
-const IMPORTED = /(?:\.\/|\/?assets\/)([\w.-]+\.(?:js|css|wasm|data))\b/g;
+// (one folder deep: the OCR model keeps its own name in a hashed folder, vite.config.ts ocrModel)
+const IMPORTED = /(?:\.\/|\/?assets\/)([\w.-]+(?:\/[\w.-]+)?\.(?:js|css|wasm|data|gz))\b/g;
+// The text reader for photos (core/ocr.ts, LDJ-20) is several megabytes that only people with Photos and OCR switched
+// on ever use. Its files (named ocr-*, vite.config.ts) are kept like any other lazy chunk once fetched, and carried over
+// from the last version's cache when unchanged, but never fetched here ahead of use for everyone.
+const HEAVY = /^\/assets\/ocr-/;
 async function keepImported(cc) {
   const roots = [];
   for (const r of await cc.keys()) { const p = new URL(r.url).pathname; if (p.startsWith("/assets/") && p.endsWith(".js")) roots.push(p); }
@@ -144,6 +152,11 @@ async function follow(cc, roots) {
     if (seen.has(p)) continue;
     seen.add(p);
     let res = await cc.match(p);
+    if (!res && HEAVY.test(p)) {
+      // the same file in an earlier version's cache (built names change only with their content): kept, not fetched again
+      const had = await caches.match(p);
+      if (had && keepable(had)) { await cc.put(p, had.clone()); res = had; } else continue;
+    }
     if (!res) {
       try { res = await fetch(p); } catch { whole = false; continue; } // next time
       if (!keepable(res)) continue;
@@ -162,7 +175,7 @@ async function prune(cc) {
   const pageRes = await cc.match("/");
   if (!pageRes) return;
   const html = await pageRes.text();
-  const NAMED = /\/assets\/([\w.-]+\.(?:js|css|wasm|data))\b/g;
+  const NAMED = /\/assets\/([\w.-]+(?:\/[\w.-]+)?\.(?:js|css|wasm|data|gz))\b/g;
   // everything the page reaches is kept first (a file the page loaded can be kept before the chunk that imports it)
   const reach = await follow(cc, [...html.matchAll(NAMED)].map((m) => "/assets/" + m[1]));
   if (!reach) return;

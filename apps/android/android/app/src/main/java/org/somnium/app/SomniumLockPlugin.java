@@ -127,14 +127,19 @@ public class SomniumLockPlugin extends Plugin {
         verify(call, null);
     }
 
-    /** { id, dataKey } → { blob }: a fresh Keystore key for this account wraps the data key, after the verification. */
+    /** { id, dataKey } → { blob }: a fresh Keystore key for this account wraps the data key, after the verification.
+     *  The new key is made under an alias of its own and only becomes this account's once the verification passed and
+     *  the wrap worked (commitKey): a cancelled prompt leaves the key that opens the blob already stored untouched. */
     @PluginMethod
     public void wrap(PluginCall call) {
         String id = call.getString("id"), dataKey = call.getString("dataKey");
         if (!validId(id) || dataKey == null) { call.reject("Bad request", "bad"); return; }
         if (!canUse()) { call.reject("This phone has no screen lock", "unavailable"); return; }
         try {
-            newKey(alias(id));
+            dropKeys(id, true); // what an earlier wrap that was never finished left
+            String next = alias(id) + "." + System.currentTimeMillis();
+            call.getData().put(PENDING, next); // set here, whatever the page sent under that name
+            newKey(next);
             verify(call, PER_USE ? cipherFor(call) : null);
         } catch (Exception e) { fail(call, e); }
     }
@@ -153,8 +158,33 @@ public class SomniumLockPlugin extends Plugin {
     public void forget(PluginCall call) {
         String id = call.getString("id");
         if (!validId(id)) { call.reject("Bad request", "bad"); return; }
-        try { KeyStore ks = KeyStore.getInstance(STORE); ks.load(null); if (ks.containsAlias(alias(id))) ks.deleteEntry(alias(id)); call.resolve(); }
+        try { dropKeys(id, false); getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(CURRENT + id).apply(); call.resolve(); }
         catch (Exception e) { call.reject("Couldn't remove the key", "failed"); }
+    }
+
+    // which Keystore alias holds this account's key now: the plain one (older versions), or the last committed wrap's
+    private static final String CURRENT = "lock.alias.", PENDING = "_pendingAlias";
+    private String currentAlias(String id) { return getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(CURRENT + id, alias(id)); }
+    /** The alias this call uses: a wrap's own new one, an unwrap's the account's current one. */
+    private String aliasOf(PluginCall call) {
+        return call.getString("dataKey") != null ? call.getString(PENDING) : currentAlias(call.getString("id"));
+    }
+    /** The wrap worked: its new key becomes the account's, and the one before it goes. */
+    private void commitKey(PluginCall call) throws Exception {
+        String id = call.getString("id"), next = call.getString(PENDING);
+        if (next == null) return;
+        getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(CURRENT + id, next).commit();
+        dropKeys(id, true);
+    }
+    /** This account's keys (the plain alias and every "alias.n"); keepCurrent: all but the one in use. */
+    private void dropKeys(String id, boolean keepCurrent) throws Exception {
+        KeyStore ks = KeyStore.getInstance(STORE); ks.load(null);
+        String base = alias(id), cur = currentAlias(id);
+        for (String a : java.util.Collections.list(ks.aliases())) {
+            if (!(a.equals(base) || a.startsWith(base + "."))) continue;
+            if (keepCurrent && a.equals(cur)) continue;
+            ks.deleteEntry(a);
+        }
     }
 
     private static boolean validId(String id) { return id != null && id.matches("[A-Za-z0-9_-]{1,64}"); }
@@ -174,9 +204,10 @@ public class SomniumLockPlugin extends Plugin {
     }
 
     /** The cipher for this call: encrypting for wrap (the Keystore makes the IV), decrypting with the blob's IV for unwrap. */
-    private static Cipher cipherFor(PluginCall call) throws Exception {
+    private Cipher cipherFor(PluginCall call) throws Exception {
         KeyStore ks = KeyStore.getInstance(STORE); ks.load(null);
-        SecretKey key = (SecretKey) ks.getKey(alias(call.getString("id")), null);
+        String a = aliasOf(call);
+        SecretKey key = a == null ? null : (SecretKey) ks.getKey(a, null);
         if (key == null) throw new KeyPermanentlyInvalidatedException("No key");
         Cipher c = Cipher.getInstance(TRANSFORM);
         if (call.getString("dataKey") != null) c.init(Cipher.ENCRYPT_MODE, key);
@@ -251,6 +282,7 @@ public class SomniumLockPlugin extends Plugin {
                 System.arraycopy(iv, 0, packed, 0, iv.length);
                 System.arraycopy(ct, 0, packed, iv.length, ct.length);
                 r.put("blob", Base64.encodeToString(packed, B64));
+                commitKey(call);
             } else {
                 byte[] all = Base64.decode(blob, B64);
                 key = c.doFinal(all, IV_BYTES, all.length - IV_BYTES);

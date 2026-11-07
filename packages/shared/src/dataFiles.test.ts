@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { crc32, csvCell, dreamMarkdownFiles, exportCsv, journalMarkdown, makeZip, parseCsv, toCsv } from "./dataFiles";
+import { backupsPastKeep, crc32, csvCell, looksLikeBackup, dreamMarkdownFiles, exportCsv, journalMarkdown, makeZip, parseCsv, toCsv } from "./dataFiles";
 
 const hasUnzip = (() => { try { execFileSync("unzip", ["-v"], { stdio: "ignore" }); return true; } catch { return false; } })();
 
@@ -23,6 +23,12 @@ describe("csv", () => {
     expect(csvCell("@cmd")).toBe("'@cmd");
     expect(csvCell("-2")).toBe("-2");
     expect(csvCell(-2)).toBe("-2");
+  });
+  it("guards a joined list too, on the text it ends up as", () => {
+    expect(csvCell(["=cmd()", "x"])).toBe("'=cmd(); x");
+    expect(csvCell(["@sum", "mild"])).toBe("'@sum; mild");
+    expect(csvCell(["+1"])).toBe("+1");
+    expect(csvCell(["mild", "=x"])).toBe("mild; =x");
   });
   it("reads back what it writes", () => {
     const rows = [["date", "text"], ["2026-11-01", 'a "quoted", multi\nline text'], ["2026-11-02", ""]];
@@ -78,5 +84,25 @@ describe("zip", () => {
     const out = execFileSync("unzip", ["-t", path]).toString();
     expect(out).toMatch(/No errors detected/);
     expect(execFileSync("unzip", ["-p", path, "dream-2026-11-01.md"]).toString()).toBe("# Flying\n");
+  });
+});
+
+describe("backups in a folder", () => {
+  const n = (d: string, p = "") => `${p}somnium-backup-${d}.somniumbackup`;
+  it("prunes only this app's backups, past the newest kept", () => {
+    const names = [n("2026-11-01-08-00"), n("2026-11-03-08-00"), n("2026-11-02-08-00"), "my-notes.somniumbackup", "somnium-backup-copy.somniumbackup", "photo.jpg"];
+    expect(backupsPastKeep(names, 2)).toEqual([n("2026-11-01-08-00")]);
+    expect(backupsPastKeep(names, 0)).toEqual([n("2026-11-02-08-00"), n("2026-11-01-08-00")]); // the newest always stays
+  });
+  it("keeps to one account's when named for it", () => {
+    const names = [n("2026-11-01-08-00", "Ann-"), n("2026-11-02-08-00", "Ann-"), n("2026-11-03-08-00", "Bob-"), n("2026-11-04-08-00")];
+    expect(backupsPastKeep(names, 1, "Ann-")).toEqual([n("2026-11-01-08-00", "Ann-")]);
+    expect(backupsPastKeep(names, 1)).toEqual([]);
+  });
+  it("knows a backup by what is inside", () => {
+    expect(looksLikeBackup('{"format":"somnium-backup","version":1')).toBe(true);
+    expect(looksLikeBackup('{"format":"somnium-backup-locked","version":1')).toBe(true);
+    expect(looksLikeBackup('{"format":"other"}')).toBe(false);
+    expect(looksLikeBackup("PK\u0003\u0004")).toBe(false);
   });
 });

@@ -192,6 +192,8 @@ async function drop(acc: Account) {
   // what it left in this app's storage: sealed drafts, queued changes, what unlocks its journal, its cached session
   if (userId) { forgetStoredDrafts(place, userId); forgetOutbox(place, userId); forgetUnlock(userId, place); }
   if (acc.deviceKey) { delete acc.deviceKey; forgetKeystoreKey(acc.id); }
+  // reality checks its notifications logged and the app hasn't posted yet: they were this account's only
+  await (await import("./reminders")).forgetQueuedChecks(acc.id);
   writeJson("somniumSession:" + place + "#" + acc.id, null);
   // the open account's database has to be closed first, or deleting it waits until the app is closed
   if (acc.kind === "local") { if (accounts.active === acc.id) await closeOpen(); await dropDatabase(`/pglite/somnium-${acc.id}`); }

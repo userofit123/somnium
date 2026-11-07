@@ -16,6 +16,7 @@ import { toast, toastError } from "../../core/toast";
 import Icon from "../Icon.vue";
 import Menu, { type MenuItem } from "../Menu.vue";
 import Sheet from "../Sheet.vue";
+import DreamMedia from "./DreamMedia.vue";
 import { lexiconsReady, loadLexicons, suggestElements } from "./detect";
 
 const props = defineProps<{ id: string; back?: boolean }>();
@@ -140,6 +141,8 @@ const menu = computed((): MenuItem[] => [
           </span>
         </div>
       </div>
+
+      <DreamMedia :dream-id="id" />
 
       <section v-if="els.length" class="jsec">
         <div class="tiny jmut">Elements</div>

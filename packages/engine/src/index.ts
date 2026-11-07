@@ -12,6 +12,7 @@ import { dataRoutes } from "./modules/data";
 import { syncRoutes } from "./modules/sync";
 import { activityLogRoutes } from "./modules/activitylog";
 import { journalRoutes } from "./modules/journal";
+import { mediaRoutes } from "./modules/media";
 import { checkRoutes } from "./modules/checks";
 import { practiceRoutes } from "./modules/practice";
 
@@ -47,7 +48,7 @@ export interface Engine {
 export async function createEngine(db: Db, opts: { mode: "server" | "local"; now?: () => Date; seed?: boolean } = { mode: "server" }): Promise<Engine> {
   await migrate(db);
   const router = new Router();
-  for (const add of [settingsRoutes, dataRoutes, syncRoutes, activityLogRoutes, journalRoutes, checkRoutes, practiceRoutes]) add(router);
+  for (const add of [settingsRoutes, dataRoutes, syncRoutes, activityLogRoutes, journalRoutes, mediaRoutes, checkRoutes, practiceRoutes]) add(router);
   const listeners = new Set<Listener>();
   const now = opts.now ?? (() => new Date());
 

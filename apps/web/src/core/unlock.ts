@@ -51,7 +51,7 @@ export async function freshBundle(): Promise<UnlockBundle | null> {
   try {
     const r = await api.get<{ kdfSalt: string; wrappedByPassword: string | null }>("/auth/bundle", undefined, { wait: 4000 });
     const b = { salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword };
-    if (id && me() === id) writeOwn(BUNDLE, b, id);
+    if (id && me() === id) { writeOwn(BUNDLE, b, id); settleLegacyBundle(); }
     return b;
   } catch { return cachedBundle(); }
 }
@@ -215,11 +215,19 @@ export function forgetUnlock(userId: string, at = place()) {
 /** Someone is signed in: what another person's ended session left on this device goes, older records without an owner too.
  *  Not another account saved in this app: switching back to it has to unlock offline. */
 export function forgetUnlocksOfOthers(userId: string) {
-  // Updating from a version that kept one record per server (no owner): the signed-in person's own copy may not exist
-  // yet, and this is all that lets them unlock with the password offline. The bundle is only wrapped by a password,
-  // so under the wrong person it just fails to open; the device's wrapped key is never adopted, it goes below.
+  // the record without an owner that an older version kept (one per server) stays until settleLegacyBundle decides
+  // whose it is: nothing on it says, so it is never taken as this person's on sight
+  const legacy = `${BUNDLE}:${place()}`;
+  for (const kind of [BUNDLE, DEVICE]) for (const n of unlockRecordsToForget(storedKeys(), kind, place(), userId, savedUserIds())) if (n !== legacy) writeJson(n, null);
+}
+/** Updating from a version that kept one bundle per server, with no owner: it is only taken as this person's once
+ *  /auth/bundle has answered for them and its salt is the server's (the server's copy is what is kept, as it is the
+ *  newer). Another salt means it was someone else's, or an old password's: it is dropped, never adopted. */
+function settleLegacyBundle() {
   const old = `${BUNDLE}:${place()}`;
   const legacy = readJson<UnlockBundle | null>(old, null);
-  if (legacy && typeof legacy.salt === "string" && typeof legacy.wrappedByPassword === "string" && !readJson(unlockRecordName(BUNDLE, place(), userId), null)) writeOwn(BUNDLE, legacy, userId);
-  for (const kind of [BUNDLE, DEVICE]) for (const n of unlockRecordsToForget(storedKeys(), kind, place(), userId, savedUserIds())) writeJson(n, null);
+  if (!legacy) return;
+  // a match is already adopted (the server's bundle was just stored as this person's, the same salt); either way the
+  // ownerless record has done its job and goes
+  writeJson(old, null);
 }

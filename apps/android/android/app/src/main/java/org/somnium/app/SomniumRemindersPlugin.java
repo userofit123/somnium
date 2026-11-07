@@ -103,8 +103,9 @@ public class SomniumRemindersPlugin extends Plugin {
             for (int i = 0; i < items.length() && keep.length() < MAX; i++) {
                 JSONObject it = items.optJSONObject(i);
                 if (it == null || it.optLong("at", 0) < now - 60_000) continue;
-                String url = it.optString("url", "/");
-                if (!url.startsWith("/")) continue;
+                String url = appPath(it.optString("url", "/"));
+                if (url == null) continue;
+                try { it.put("url", url); } catch (JSONException e) { continue; }
                 keep.put(it);
             }
         }
@@ -195,7 +196,8 @@ public class SomniumRemindersPlugin extends Plugin {
 
     // ----- the queue of checks logged from a notification -----
 
-    /** The checks waiting to be posted: [{ id, at, check, outcome }]. They stay until acknowledged (ack). */
+    /** The checks waiting to be posted: [{ id, at, check, outcome, account, user }]. They stay until acknowledged (ack):
+     *  the web app posts each to its own account only, and drops an account's when it is removed. */
     @PluginMethod
     public void pending(PluginCall call) {
         JSObject r = new JSObject();
@@ -256,6 +258,18 @@ public class SomniumRemindersPlugin extends Plugin {
         return u != null ? u : RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
     }
 
+    /** A page of this app: the address reduced to its path and query, as the web app and its service worker do.
+     *  "//elsewhere" starts with "/" too, so a prefix test isn't enough. Null for anything that isn't one. */
+    static String appPath(String u) {
+        if (u == null || u.isEmpty()) return null;
+        try {
+            java.net.URI x = new java.net.URI("https", "app.invalid", "/", null).resolve(u);
+            if (!"https".equals(x.getScheme()) || !"app.invalid".equals(x.getHost()) || x.getPort() != -1 || x.getRawUserInfo() != null) return null;
+            String path = x.getRawPath() == null || x.getRawPath().isEmpty() ? "/" : x.getRawPath();
+            return x.getRawQuery() == null ? path : path + "?" + x.getRawQuery();
+        } catch (Exception e) { return null; }
+    }
+
     /** Opens the app on a page (handed to the web app by SomniumUpdaterPlugin's "open" event). */
     static PendingIntent openPath(Context ctx, String path, int code) { return openPath(ctx, path, code, 0); }
     /** `notice`: the notification to take away once the app is open (a button doesn't, and the alarm would ring on). */
@@ -302,11 +316,13 @@ public class SomniumRemindersPlugin extends Plugin {
                 String outcome = a.optString("outcome", "");
                 if (!outcome.isEmpty()) {
                     Intent log = new Intent(ctx, Action.class).setAction(ACTION_CHECK)
-                        .putExtra("check", a.optString("check", "")).putExtra("outcome", outcome).putExtra("notice", id);
+                        .putExtra("check", a.optString("check", "")).putExtra("outcome", outcome).putExtra("notice", id)
+                        // whose check it is: the web app posts it to that account only (flushPending)
+                        .putExtra("account", a.optString("account", "")).putExtra("user", a.optString("user", ""));
                     pi = PendingIntent.getBroadcast(ctx, id * 8 + 1 + k, log, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
                 } else {
-                    String url = a.optString("url", "");
-                    if (!url.startsWith("/")) continue;
+                    String url = appPath(a.optString("url", ""));
+                    if (url == null) continue;
                     pi = openPath(ctx, url, id * 8 + 1 + k, id);
                 }
                 b.addAction(0, a.optString("title", ""), pi);
@@ -339,6 +355,7 @@ public class SomniumRemindersPlugin extends Plugin {
         @Override
         public void onReceive(Context ctx, Intent intent) {
             String check = intent.getStringExtra("check"), outcome = intent.getStringExtra("outcome");
+            String account = intent.getStringExtra("account"), user = intent.getStringExtra("user");
             if (outcome == null || !(outcome.equals("awake") || outcome.equals("unsure") || outcome.equals("dreaming"))) return;
             synchronized (LOCK) {
                 JSONArray q = queue(ctx), next = new JSONArray();
@@ -349,7 +366,9 @@ public class SomniumRemindersPlugin extends Plugin {
                         .put("id", UUID.randomUUID().toString())
                         .put("at", System.currentTimeMillis())
                         .put("check", check == null ? "" : check)
-                        .put("outcome", outcome));
+                        .put("outcome", outcome)
+                        .put("account", account == null ? "" : account)
+                        .put("user", user == null ? "" : user));
                 } catch (JSONException e) { return; }
                 prefs(ctx).edit().putString(KEY_QUEUE, next.toString()).apply();
             }

@@ -118,9 +118,9 @@ describe("journal", () => {
     expect((await call<CourseProgress>(A, "PUT", "/course/lesson-3", { state: "active" })).startedAt).not.toBeNull();
     const g = await call<Goal>(A, "POST", "/goals", { kind: "recall_per_week", target: 5 });
     expect(g.period).toBe("week");
-    const rem = await call<Reminder>(A, "POST", "/reminders", { kind: "reality_check", schedule: { every: 90 } });
+    const rem = await call<Reminder>(A, "POST", "/reminders", { kind: "reality_check", schedule: { perDay: 6, note: "free text never stored" } });
     expect(rem.enabled).toBe(true);
-    expect(rem.schedule).toEqual({ every: 90 });
+    expect(rem.schedule).toEqual({ perDay: 6 });
     expect(await status(A, "POST", "/goals", { kind: "steps" })).toBe(400);
     // a missing kind is a plain 400, not a database error
     expect(await status(A, "POST", "/goals", { target: 3 })).toBe(400);

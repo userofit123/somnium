@@ -207,8 +207,8 @@ function download() {
 }
 // every device this account is signed in on, this one too; the journal stays sealed on each until it signs in again
 async function signOutEverywhere() {
-  if (!(await confirm("Sign out everywhere?", { text: "Every device signed in to this account, including this one, will need the password again.", ok: "Sign out everywhere", danger: true }))) return;
-  try { await api.post("/auth/logout-others"); await signOut(); } catch (e) { toastError(e); }
+  if (!(await confirm("Sign out everywhere?", { text: "Every device signed in to this account, including this one, will need the password again, and every API token stops working.", ok: "Sign out everywhere", danger: true }))) return;
+  try { await api.post("/auth/logout-others", { tokens: true }); await signOut(); } catch (e) { toastError(e); }
 }
 </script>
 
@@ -309,7 +309,7 @@ async function signOutEverywhere() {
     <p class="tiny">The server only ever sees a key made from your password, never the password itself. Your dreams are sealed on this device before they go anywhere. A phone with device verification on keeps your journal's key behind its own screen lock; signing it out (or a password reset, which signs out every device) makes it forget the key. The desktop app never holds it: it can't make your computer ask for you.</p>
     <div class="sh"><h2>Sign out everywhere</h2></div>
     <div class="card flush">
-      <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too. Use it if a device is lost.</div></div><button class="qb" @click="signOutEverywhere">Sign out everywhere</button></div>
+      <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too, and every API token. Use it if a device is lost.</div></div><button class="qb" @click="signOutEverywhere">Sign out everywhere</button></div>
       <div class="li click" @click="router.push('/settings/log')"><div class="grow"><div class="t">Activity log</div><div class="s">Sign-ins and security changes</div></div><Icon name="right" :size="16" class="muted" /></div>
     </div>
   </template>

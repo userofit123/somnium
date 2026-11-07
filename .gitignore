@@ -45,3 +45,4 @@ Thumbs.db
 *.aab
 release/
 apps/android/android/app/src/main/assets/public/
+apps/server/data/

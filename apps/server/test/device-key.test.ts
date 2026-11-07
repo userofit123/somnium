@@ -44,7 +44,7 @@ beforeAll(async () => {
   ({ app } = await buildApp({ db, dataDir: dir }));
 }, 120000);
 afterAll(async () => { await app.close(); await db.close(); fs.rmSync(dir, { recursive: true, force: true }); });
-beforeEach(() => forgetFails());
+beforeEach(() => forgetFails(db));
 
 describe("device keys", () => {
   it("registers the proof only with the password, and a session holds a key only with the proof", async () => {

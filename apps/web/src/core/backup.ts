@@ -9,7 +9,7 @@
 // Backups by default), the Android app to Documents/Somnium, a Chromium browser into a folder picked once; any other
 // browser can't write files on its own, so it offers a download when one is due.
 import { api } from "../api/client";
-import { SealError } from "@somnium/shared";
+import { SealError, backupsPastKeep, looksLikeBackup } from "@somnium/shared";
 import { invalidate } from "../api/live";
 import {
   BACKUP_LOCKED_FORMAT, lockBackupFile, makeBackupFile, openBackupKey, openExport, parseBackupFile, unlockBackupFile,
@@ -20,6 +20,7 @@ import { localKeys } from "./localLock";
 import { saved } from "./accounts";
 import { readJson, writeJson } from "./prefs";
 import { toast } from "./toast";
+import { session } from "./session";
 import { choose, confirm, prompt } from "./ask";
 
 /** A direct export leaves out rows that didn't open (sealedApi.ts): only the number is said, nothing of what they hold. */
@@ -55,6 +56,7 @@ export async function makeBackup(passphrase?: string): Promise<Blob> {
   return new Blob([JSON.stringify(file)], { type: "application/json" });
 }
 
+const owner = () => `${saved.active ?? ""}|${session.user?.id ?? ""}`;
 export const backupName = (d = new Date()) => `somnium-backup-${d.toISOString().slice(0, 16).replace(/[T:]/g, "-")}.somniumbackup`;
 export function download(blob: Blob, name: string) {
   const a = document.createElement("a");
@@ -94,13 +96,19 @@ export async function canBackUpSilently(): Promise<boolean> {
 
 /** Writes a backup now: into the apps' folder or the chosen one (keeping the newest `keep`), or as a download. */
 export async function backupNow(o: { passphrase?: string; keep?: number; interactive?: boolean } = {}): Promise<string> {
+  // whose backup this is: an account switched (or someone else signed in) while it was being made means the file is
+  // not written, or not kept, under the account now open
+  const who = owner(), moved = () => owner() !== who;
+  const switched = () => new Error("The account changed while the backup was being made. It wasn't kept.");
   try {
     const blob = await makeBackup(o.passphrase);
+    if (moved()) throw switched();
     const name = backupName();
     let where: string;
     const save = nativeSave();
     if (save) {
-      await save(name, new Uint8Array(await blob.arrayBuffer()), o.keep ?? 7);
+      const written = await save(name, new Uint8Array(await blob.arrayBuffer()), o.keep ?? 7);
+      if (moved()) { await (globalThis as any).somniumNative?.discardBackup?.(written).catch(() => {}); throw switched(); }
       where = (await (globalThis as any).somniumNative?.backupFolder?.().catch(() => null)) ?? "the app's backup folder";
     } else {
       const h = await idb<any>((s) => s.get("dir")).catch(() => null);
@@ -109,9 +117,14 @@ export async function backupNow(o: { passphrase?: string; keep?: number; interac
       if (h && perm === "granted") {
         const f = await h.getFileHandle(name, { create: true });
         const w = await f.createWritable(); await w.write(blob); await w.close();
+        if (moved()) { await h.removeEntry(name).catch(() => {}); throw switched(); }
+        // only this app's own backups go (its name, and its format inside): never another .somniumbackup in the folder
         const names: string[] = [];
-        for await (const [n] of h.entries()) if (String(n).endsWith(".somniumbackup")) names.push(String(n));
-        for (const old of names.sort().reverse().slice(o.keep ?? 7)) await h.removeEntry(old);
+        for await (const [n] of h.entries()) names.push(String(n));
+        for (const old of backupsPastKeep(names, o.keep ?? 7)) {
+          const head = await (await h.getFileHandle(old)).getFile().then((f: Blob) => f.slice(0, 200).text()).catch(() => "");
+          if (looksLikeBackup(head)) await h.removeEntry(old);
+        }
         where = `Folder: ${h.name}`;
       } else if (o.interactive !== false) { download(blob, name); where = "Downloaded"; }
       else throw new Error("This browser can't save backups on its own. Pick a folder, or download one.");

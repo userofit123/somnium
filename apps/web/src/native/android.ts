@@ -1,6 +1,7 @@
 // Inside the Android app (Capacitor): accounts, backups to a folder on the phone, the in-app updater, the system bars'
 // colours, and the back button. Exposed as window.somniumNative, like the desktop app.
 import { accounts, addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser, localKeys, setLocalKeys, compactLocal, current, deviceBlob, setDeviceBlob, forgetDeviceBlobsOf } from "./accounts";
+import { BACKUP_NAME, backupsPastKeep, looksLikeBackup } from "@somnium/shared";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 import { REPO, newer, fetchWithin } from "../core/releases";
 import { applyTheme } from "../core/theme";
@@ -76,14 +77,26 @@ export function installAndroidBridge() {
       device: "phone", insecureAllowed: false,
       keys: localKeys, setKeys: setLocalKeys, compact: compactLocal,
     },
-    // backups go to Documents/Somnium on the phone (the Filesystem plugin), newest `keep` are kept
+    // backups go to Documents/Somnium on the phone (the Filesystem plugin), named for the account (as on the desktop),
+    // and its newest `keep` are kept. That folder is shared with anything else on the phone: only files with this app's
+    // name and its format inside are ever deleted, and only this account's.
     async saveBackup(name: string, bytes: Uint8Array, keep: number) {
       const fs = P("Filesystem");
+      const a = current(), prefix = a ? a.name.replace(/[^\w.-]+/g, "_") + "-" : "";
+      const file = `${prefix}${name}`;
       let bin = ""; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      await fs.writeFile({ path: `Somnium/${name}`, data: btoa(bin), directory: "DOCUMENTS", recursive: true });
-      const list = (await fs.readdir({ path: "Somnium", directory: "DOCUMENTS" })).files.map((f: any) => f.name ?? f).filter((n: string) => n.endsWith(".somniumbackup")).sort().reverse();
-      for (const old of list.slice(Math.max(1, keep))) await fs.deleteFile({ path: `Somnium/${old}`, directory: "DOCUMENTS" }).catch(() => {});
-      return `Documents/Somnium/${name}`;
+      await fs.writeFile({ path: `Somnium/${file}`, data: btoa(bin), directory: "DOCUMENTS", recursive: true });
+      const list = (await fs.readdir({ path: "Somnium", directory: "DOCUMENTS" })).files.map((f: any) => String(f.name ?? f));
+      for (const old of backupsPastKeep(list, keep, prefix)) {
+        const head = await fs.readFile({ path: `Somnium/${old}`, directory: "DOCUMENTS", encoding: "utf8" }).then((r: any) => String(r.data ?? "").slice(0, 200)).catch(() => "");
+        if (looksLikeBackup(head)) await fs.deleteFile({ path: `Somnium/${old}`, directory: "DOCUMENTS" }).catch(() => {});
+      }
+      return `Documents/Somnium/${file}`;
+    },
+    // a backup made across an account switch: the file is not kept (core/backup.ts backupNow)
+    async discardBackup(where: string) {
+      const m = /^Documents\/Somnium\/([^/]+)$/.exec(where);
+      if (m && BACKUP_NAME.test(m[1]!)) await P("Filesystem").deleteFile({ path: `Somnium/${m[1]}`, directory: "DOCUMENTS" }).catch(() => {});
     },
     backupFolder: async () => "Documents/Somnium",
     update: {
@@ -120,7 +133,8 @@ export function installAndroidBridge() {
   };
   // the hardware back button closes an open sheet, goes back in the app, and leaves it from the home page
   // a tap on the update download's notification names a page (App & Versions): open it
-  P("SomniumUpdater")?.addListener?.("open", ({ path }: { path?: string }) => { if (typeof path === "string" && path.startsWith("/")) void router.push(path); });
+  // only a page of this app, reduced to its path and query: "//elsewhere" starts with "/" too
+  P("SomniumUpdater")?.addListener?.("open", ({ path }: { path?: string }) => { const p = typeof path === "string" ? appPath(path) : null; if (p) void router.push(p); });
   // leaving the app and coming back, from the activity itself (SomniumLockPlugin): the page's lock waits out the delay
   // from the moment the app began to leave. The page's own visibility events say the same, so nothing is counted twice.
   P("SomniumLock")?.addListener?.("away", ({ at }: { at?: number }) => nativeAway(typeof at === "number" ? at : Date.now()));
@@ -146,4 +160,9 @@ export function installAndroidBridge() {
   // the look was put on the page before this bridge existed (main.ts starts the theme first), so the bars missed it:
   // give them the current one now
   applyTheme();
+}
+
+/** A page of this app from an address a notification handed over: its path and query on this origin, else null. */
+export function appPath(u: string): string | null {
+  try { const x = new URL(u, location.origin); return x.origin === location.origin ? x.pathname + x.search : null; } catch { return null; }
 }

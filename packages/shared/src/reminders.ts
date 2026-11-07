@@ -225,3 +225,50 @@ export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, acti
   if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/journal?write=1&date=${p.morning}`;
   return "/train";
 }
+
+/** A reality check logged from a notification's button (Android), waiting in the plugin's queue. account and user say
+ *  whose reminder it was: the app account it was planned for, and who was signed in on it. */
+export interface QueuedCheck { id: string; at: number; check: string; outcome: "awake" | "unsure" | "dreaming"; account?: string; user?: string }
+/**
+ * Which queued checks the open account may post now (mine), and which belong to another account on this device and
+ * wait for it (others). One queued without an owner (made by an older version) can't be placed, so it is never
+ * posted: it goes with the rest of what is acknowledged (stale). Nothing is posted while who is signed in is unknown.
+ */
+export function splitQueuedChecks<T extends QueuedCheck>(items: readonly T[], account: string | null | undefined, user: string | null | undefined): { mine: T[]; others: T[]; stale: T[] } {
+  const out = { mine: [] as T[], others: [] as T[], stale: [] as T[] };
+  for (const it of items) {
+    if (!it.account || !it.user) out.stale.push(it);
+    else if (account && user && it.account === account && it.user === user) out.mine.push(it);
+    else out.others.push(it);
+  }
+  return out;
+}
+/** The queued checks of an account being removed from this device (with or without who was signed in on it). */
+export const queuedChecksOf = <T extends QueuedCheck>(items: readonly T[], account: string): T[] => items.filter((it) => it.account === account);
+
+/** The reality checks' ids (packages/knowledge/lexicons/checks.json; reminders-queue.test.ts keeps the two the same). */
+export const CHECK_IDS = ["re-read-text", "digital-clock", "memory-test", "light-switch", "turning-180", "nose-pinch", "finger-through-palm", "counting-fingers", "jumping", "mirror"] as const;
+/**
+ * A reminders row's schedule as the server stores it. The reminders table is plain (not in SEALED_COLUMNS: it holds
+ * times and choices from fixed lists, PLAN.md §9), so only those go in: the known keys, each with a time, a number, a
+ * yes/no or a value from its fixed list (habit labels, check ids, techniques). Anything else, free text included, is
+ * dropped, whatever sent it. Keys left out stay out (the readers default them).
+ */
+export function storableSchedule(saved: Record<string, unknown>): Record<string, unknown> {
+  const s = saved as Record<string, any>, out: Record<string, unknown> = {};
+  const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  for (const k of ["perDay", "minGap", "seed", "lead"]) if (num(s[k])) out[k] = s[k];
+  for (const k of ["useSleep", "showSign"]) if (typeof s[k] === "boolean") out[k] = s[k];
+  for (const k of ["from", "to", "at"]) if (typeof s[k] === "string" && HHMM.test(s[k])) out[k] = s[k];
+  if (s.quiet && typeof s.quiet === "object") {
+    const q: Record<string, unknown> = {};
+    if (typeof s.quiet.on === "boolean") q.on = s.quiet.on;
+    for (const k of ["from", "to"]) if (typeof s.quiet[k] === "string" && HHMM.test(s.quiet[k])) q[k] = s.quiet[k];
+    out.quiet = q;
+  }
+  if (Array.isArray(s.habits)) out.habits = s.habits.filter((h: any) => h && typeof h.at === "string" && HHMM.test(h.at) && HABIT_LABELS.includes(h.label)).slice(0, 20).map((h: any) => ({ at: h.at, label: h.label }));
+  if (Array.isArray(s.checks)) out.checks = s.checks.filter((c: unknown) => (CHECK_IDS as readonly unknown[]).includes(c)).slice(0, 20);
+  if (s.pausedOn === null || (typeof s.pausedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.pausedOn))) out.pausedOn = s.pausedOn;
+  if (TECHNIQUES.some((t) => t.id === s.technique)) out.technique = s.technique;
+  return out;
+}

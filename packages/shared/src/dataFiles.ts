@@ -54,11 +54,12 @@ export function makeZip(entries: readonly ZipEntry[]): Uint8Array {
 
 // ----- CSV -----
 /** One cell: quoted when it holds a comma, quote, line break or edge space; a text that a spreadsheet would run as a
- *  formula (=, +, -, @ at the start) gets a leading apostrophe. Numbers stay numbers. */
+ *  formula (=, +, -, @ at the start), a joined list's included, gets a leading apostrophe. Numbers stay numbers. */
 export function csvCell(v: unknown): string {
   if (v == null) return "";
   let s = Array.isArray(v) ? v.join("; ") : typeof v === "object" ? JSON.stringify(v) : String(v);
-  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s)) s = "'" + s;
+  // on the final text, after a list is joined: ["=cmd()", "x"] must not start a formula either
+  if (typeof v !== "number" && typeof v !== "bigint" && typeof v !== "boolean" && /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s)) s = "'" + s;
   return /[",\r\n]|^\s|\s$/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 export const toCsv = (header: readonly string[], rows: readonly (readonly unknown[])[]): string =>
@@ -146,4 +147,19 @@ export function exportCsv(tables: Record<string, unknown>, table: CsvTable, incl
   else if (table === "nights") rows = [...rows].sort((a, b) => dayOf(a.date).localeCompare(dayOf(b.date))).map((r) => ({ ...r, date: dayOf(r.date) }));
   else rows = [...rows].sort((a, b) => String(a.at).localeCompare(String(b.at)));
   return toCsv(cols, rows.map((r) => cols.map((c) => r[c])));
+}
+
+// ----- backup files in a folder: which ones this app wrote -----
+// Keeping the newest N deletes older backups, in folders the person shares with other things (Documents/Somnium on a
+// phone, any folder on a computer): only files that carry both the name this app gives them and the format inside.
+/** The name the app gives a backup: [account_]somnium-backup-YYYY-MM-DD-HH-MM.somniumbackup. */
+export const BACKUP_NAME = /^(?:[\w.-]+-)?somnium-backup-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}\.somniumbackup$/;
+/** The start of a file this app wrote: a backup's JSON, plain or under a passphrase, begins with its format. */
+export const looksLikeBackup = (head: string): boolean => /^﻿?\s*\{\s*"format"\s*:\s*"somnium-backup(?:-locked)?"/.test(head);
+/** Among the names in a folder, the backups of this app (and of this account: `prefix`, "" for any) past the newest
+ *  `keep`. A caller still checks each one's start (looksLikeBackup) before deleting it. */
+export function backupsPastKeep(names: readonly string[], keep: number, prefix = ""): string[] {
+  const own = names.filter((n) => BACKUP_NAME.test(n) && n.startsWith(prefix) && (prefix !== "" || n.startsWith("somnium-backup-")));
+  // newest first by the time in the name (an account prefix doesn't change the order within one account)
+  return own.sort().reverse().slice(Math.max(1, keep));
 }

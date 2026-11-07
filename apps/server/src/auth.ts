@@ -86,52 +86,63 @@ export async function userForToken(db: Db, token: string | undefined): Promise<S
   return { id: r.id, username: r.username, role: r.role, sessionId: r.sid };
 }
 
-// failed sign-ins: after 5 in 15 minutes from one address (or for one name), wait
-const FAIL_WINDOW = 15 * 60000;
-const fails = new Map<string, number[]>();
-// A sign-in may send any username of any length, so a key is cut to size and every key is swept on every call, not
-// just the ones asked about: names tried once and never again must not stay in memory for good.
-const failKey = (k: string) => k.slice(0, 64);
-function pruneFails() {
-  const cutoff = Date.now() - FAIL_WINDOW;
-  for (const [k, times] of fails) {
-    const recent = times.filter((t) => t > cutoff);
-    if (recent.length) fails.set(k, recent); else fails.delete(k);
-  }
-}
-export function tooManyTries(keys: string[]): boolean {
-  pruneFails();
-  return keys.some((k) => (fails.get(failKey(k))?.length ?? 0) >= 5);
-}
-export function recordFail(keys: string[]) {
-  pruneFails();
-  for (const k of keys.map(failKey)) fails.set(k, [...(fails.get(k) ?? []), Date.now()]);
-}
+// Wrong sign-in tries (PLAN.md §4.2, LDJ-59), kept in the database (sign_in_tries) so a restart does not forget them.
+// Two counts, over the last 15 minutes:
+// - per address ("ip:"): five wrong tries, then a hard wait until the oldest is 15 minutes old;
+// - per name ("u:"): five free tries, then a growing wait after the latest one (1 s, 2 s, 4 s ... at most 30 s). Never a
+//   lockout: a stranger guessing at your name from many addresses slows it down for everyone, but cannot keep you out
+//   for more than half a minute, and from one address the hard limit above stops them first.
+const WINDOW = "15 minutes", WINDOW_S = 15 * 60;
+const ADDRESS_TRIES = 5, NAME_FREE = 5, NAME_MAX_WAIT = 30;
+// A sign-in may send any username of any length, so a key is cut to size before it is stored.
+const cut = (k: string) => k.slice(0, 64);
+const keysFor = (ip: string, name: string) => ({ a: cut(`ip:${ip}`), u: cut(`u:${name}`) });
+/** Seconds a name waits after its latest try, with n tries in the window (the one about to be made not counted). */
+export const nameWait = (n: number) => (n < NAME_FREE ? 0 : Math.min(NAME_MAX_WAIT, 2 ** (n - NAME_FREE)));
+export type Try = { release: () => Promise<void> } | { wait: number; error: string };
+const prune = (db: Db) => db.admin.query(`DELETE FROM sign_in_tries WHERE at < clock_timestamp() - interval '${WINDOW}'`);
+
 /**
- * Counts this try before the slow hash, so a burst sent at once can't all pass the check and only then be recorded.
- * Answers null when there have been too many, otherwise a function to take the try back: call it when the
- * secret was right. Not calling it leaves the try counted as a failure.
+ * Counts this try before the slow hash, so a burst sent at once can't all pass the check and only then be recorded:
+ * the check and the reservation are one transaction, holding a lock per key, so each of the burst sees the ones
+ * before it. Answers how long to wait when there have been too many, otherwise `release` to take the try back:
+ * call it when the secret was right. Not calling it leaves the try counted as a failure.
  */
-export function reserveTry(keys: string[]): (() => void) | null {
-  if (tooManyTries(keys)) return null;
-  const at = Date.now(), held = keys.map(failKey);
-  for (const k of held) fails.set(k, [...(fails.get(k) ?? []), at]);
+export async function reserveTry(db: Db, ip: string, name: string): Promise<Try> {
+  const { a, u } = keysFor(ip, name);
+  await prune(db);
+  const got = await db.tx(async (q): Promise<{ wait: number; error: string } | { ids: unknown[] }> => {
+    for (const k of [a, u].sort()) await q.query("SELECT pg_advisory_xact_lock(hashtext($1))", [k]);
+    const r = (await q.query(
+      `SELECT count(*) FILTER (WHERE key = $1)::int AS ip_n,
+              extract(epoch FROM clock_timestamp() - min(at) FILTER (WHERE key = $1))::float AS ip_age,
+              count(*) FILTER (WHERE key = $2)::int AS name_n,
+              extract(epoch FROM clock_timestamp() - max(at) FILTER (WHERE key = $2))::float AS name_since
+       FROM sign_in_tries WHERE key IN ($1, $2) AND at > clock_timestamp() - interval '${WINDOW}'`, [a, u])).rows[0] as any;
+    if (r.ip_n >= ADDRESS_TRIES) return { wait: Math.max(1, Math.ceil(WINDOW_S - r.ip_age)), error: "Too many tries. Wait 15 minutes." };
+    const left = nameWait(r.name_n) - (r.name_since ?? Infinity);
+    if (left > 0) { const s = Math.ceil(left); return { wait: s, error: `Too many tries for this name. Wait ${s} second${s === 1 ? "" : "s"}.` }; }
+    return { ids: (await q.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2) RETURNING id", [a, u])).rows.map((x: any) => x.id) };
+  });
+  if ("wait" in got) return got;
   let released = false;
-  return () => {
-    if (released) return;
-    released = true;
-    for (const k of held) {
-      const left = [...(fails.get(k) ?? [])];
-      const i = left.lastIndexOf(at);
-      if (i >= 0) left.splice(i, 1);
-      if (left.length) fails.set(k, left); else fails.delete(k);
-    }
+  return {
+    release: async () => {
+      if (released) return;
+      released = true;
+      await db.admin.query("DELETE FROM sign_in_tries WHERE id = ANY($1)", [got.ids]);
+    },
   };
 }
+/** A wrong answer that was not reserved first (a second factor checked after the password): counted the same way. */
+export async function recordFail(db: Db, ip: string, name: string): Promise<void> {
+  const { a, u } = keysFor(ip, name);
+  await db.admin.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2)", [a, u]);
+}
 /** Tests only: forget the failed tries, so one wait does not spill into the next test. */
-export const forgetFails = () => fails.clear();
+export const forgetFails = async (db: Db) => { await db.admin.query("DELETE FROM sign_in_tries"); };
 /** Tests only: how many keys are being remembered. */
-export const failKeyCount = () => fails.size;
+export const failKeyCount = async (db: Db) => Number((await db.admin.query("SELECT count(DISTINCT key)::int AS n FROM sign_in_tries")).rows[0].n);
 
 export const validUsername = (u: unknown): u is string => typeof u === "string" && /^[a-zA-Z0-9._-]{2,40}$/.test(u);
 /** The authKey is 32 bytes as base64url (43 characters); the password rules themselves are checked on the device. */

@@ -146,6 +146,7 @@ await loaded(me);
           <div class="card">
             <div class="li"><div class="grow"><div class="t">Somnium</div><div class="s">Version {{ session.version }} · API level {{ session.apiLevel }}</div></div></div>
             <div class="li"><div class="grow"><div class="t">Look and feel</div><div class="s">From Money Manager and Motus. Fonts: Inter and Nunito (SIL Open Font License)</div></div></div>
+            <div class="li"><div class="grow"><div class="t">Reading text from photos</div><div class="s">tesseract.js, its engine and the English model from tessdata (Apache License 2.0), kept in the app and run on this device</div></div></div>
             <div class="li"><div class="grow"><div class="t">Source</div><div class="s">github.com/userofit123/somnium</div></div></div>
           </div>
         </template>

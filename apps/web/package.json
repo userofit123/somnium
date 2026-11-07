@@ -8,14 +8,17 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "vue": "3.5.13",
-    "vue-router": "4.5.0",
-    "@tanstack/vue-query": "5.62.7",
-    "@somnium/shared": "workspace:*",
+    "@electric-sql/pglite": "0.2.15",
     "@somnium/engine": "workspace:*",
     "@somnium/knowledge": "workspace:*",
-    "@electric-sql/pglite": "0.2.15",
-    "qrcode-generator": "2.0.4"
+    "@somnium/shared": "workspace:*",
+    "@tanstack/vue-query": "5.62.7",
+    "@tesseract.js-data/eng": "1.0.0",
+    "qrcode-generator": "2.0.4",
+    "tesseract.js": "6.0.1",
+    "tesseract.js-core": "6.1.2",
+    "vue": "3.5.13",
+    "vue-router": "4.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "5.2.1",

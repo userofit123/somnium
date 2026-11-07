@@ -120,7 +120,7 @@ describe("isolation through raw SQL (row-level security)", () => {
   });
 
   it("the sign-in tables are closed to the app role", async () => {
-    for (const t of ["sessions", "invites", "app_meta"]) {
+    for (const t of ["sessions", "invites", "app_meta", "sign_in_tries"]) {
       await expect(withUser(eng.db, A, (q) => q.query(`SELECT * FROM ${t}`)), t).rejects.toThrow();
     }
   });

@@ -26,6 +26,8 @@ const ROUTES: Route[] = [
   { re: /^\/reality-checks(\/[^/]+)?$/, table: "reality_checks" },
   { re: /^\/practice(\/[^/]+)?$/, table: "practice_log" },
   { re: /^\/course(\/[^/]+)?$/, table: "course_progress" },
+  // a dream's files: the list and the text read from a photo (POST /media, the file itself, is sealed apart: isMediaUpload)
+  { re: /^\/media(\/[^/]+)?$/, table: "media" },
 ];
 // The path as the server's router will see it: what the browser's fetch resolves (".", "..", a query, a fragment),
 // then no empty segments. Otherwise "/dreams/" would reach the dreams route here unrecognised: no key check, no sealing.

@@ -10,7 +10,8 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
-import { checkServerAddress, cleanName, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
+import { securityHeaders } from "@somnium/server/src/headers";
+import { backupsPastKeep, checkServerAddress, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
  *  or the recovery key, kept with the account and gone with it. */
@@ -69,11 +70,13 @@ async function startLocal(acc: Account): Promise<{ port: number; close: () => Pr
 function startProxy(acc: Account): Promise<{ port: number; close: () => Promise<void> }> {
   const target = new URL(acc.url!);
   const lib = target.protocol === "https:" ? https : http;
+  // the same headers as the server's own answers (CSP, nosniff, ...): the screens come from here, not from the server
+  const headers = securityHeaders(WEB);
   const mime: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json", ".json": "application/json" };
   const serveFile = (root: string, rel: string, res: http.ServerResponse) => {
     const f = path.join(root, path.normalize(rel).replace(/^(\.\.[/\\])+/, ""));
     if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return false;
-    res.writeHead(200, { "content-type": mime[path.extname(f)] ?? "application/octet-stream", "cache-control": rel.startsWith("assets/") ? "max-age=31536000, immutable" : "no-cache" });
+    res.writeHead(200, { ...headers(), "content-type": mime[path.extname(f)] ?? "application/octet-stream", "cache-control": rel.startsWith("assets/") ? "max-age=31536000, immutable" : "no-cache" });
     fs.createReadStream(f).pipe(res);
     return true;
   };
@@ -319,8 +322,10 @@ ipcMain.handle("backup:save", (_e, name: string, bytes: Uint8Array, keep: number
   const acc = readAccounts().list.find((a) => a.id === readAccounts().active);
   const file = path.join(dir, (acc ? acc.name.replace(/[^\w.-]+/g, "_") + "-" : "") + path.basename(name));
   fs.writeFileSync(file + ".tmp", Buffer.from(bytes)); fs.renameSync(file + ".tmp", file);
-  const mine = fs.readdirSync(dir).filter((f) => f.endsWith(".somniumbackup") && (!acc || f.startsWith(acc.name.replace(/[^\w.-]+/g, "_") + "-"))).sort().reverse();
-  for (const old of mine.slice(Math.max(1, keep))) fs.rmSync(path.join(dir, old), { force: true });
+  // only this app's backups of this account past the newest `keep`: its name and its format inside, never another
+  // .somniumbackup that happens to be in the folder
+  const head = (f: string) => { try { const fd = fs.openSync(path.join(dir, f), "r"); try { const b = Buffer.alloc(200); return b.subarray(0, fs.readSync(fd, b, 0, 200, 0)).toString("utf8"); } finally { fs.closeSync(fd); } } catch { return ""; } };
+  for (const old of backupsPastKeep(fs.readdirSync(dir), keep, acc ? acc.name.replace(/[^\w.-]+/g, "_") + "-" : "")) if (looksLikeBackup(head(old))) fs.rmSync(path.join(dir, old), { force: true });
   return file;
 });
 ipcMain.handle("backup:open", () => shell.openPath(backupDir()));

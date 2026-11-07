@@ -1,18 +1,52 @@
 // Files of the journal (photos, recordings). A server only ever holds them sealed: httpTransport seals a file on its
 // way up (client.ts), and it is opened here on its way back and handed to the screens as an object URL. A URL holds
 // the open file, so all of them go when the journal locks.
-import { isSealed, unsealColumnBytes } from "@somnium/shared";
+import { computed } from "vue";
+import { useQuery } from "@tanstack/vue-query";
+import { isSealed, unsealColumnBytes, type Media } from "@somnium/shared";
 import { LockedError } from "@somnium/engine/sealed-api";
 import { api, ApiError, fetchFile, isLocalDevice } from "./client";
 import { keyring } from "../core/keyring";
+import { queryClient } from "./live";
 
 const urls = new Map<string, string>();
 const forgetAll = () => { for (const u of urls.values()) URL.revokeObjectURL(u); urls.clear(); };
 keyring.onChange((open) => { if (!open) forgetAll(); });
 
-/** Stores a file, on a dream if one is given. Sealing happens in the transport, so no caller can skip it. */
-export const uploadMedia = (file: Blob, dreamId?: string) =>
-  api.post<{ id: string; url: string }>(dreamId ? `/media?dreamId=${encodeURIComponent(dreamId)}` : "/media", file);
+/** Stores a file, on a dream if one is given. Sealing happens in the transport, so no caller can skip it.
+ *  kind: "sketch" tells a drawing from a photo (both are pictures); duration: a recording's length in seconds. */
+export const uploadMedia = (file: Blob, dreamId?: string, extra: { kind?: "sketch"; duration?: number } = {}) => {
+  const qs = new URLSearchParams();
+  if (dreamId) qs.set("dreamId", dreamId);
+  if (extra.kind) qs.set("kind", extra.kind);
+  if (extra.duration != null) qs.set("duration", String(Math.round(extra.duration)));
+  const s = qs.toString();
+  return api.post<{ id: string; url: string }>(s ? `/media?${s}` : "/media", file);
+};
+
+// ----- a dream's files (LDJ-20). The list and the read text come from the server (/media is server-only in
+// replica.ts, as the files are); the transport opens the sealed text on the way in and seals it on the way out. -----
+export type MediaRow = Pick<Media, "id" | "dreamId" | "kind" | "mime" | "size" | "duration" | "ocrText" | "createdAt">;
+const key = (dreamId: string) => ["dreams", "media", dreamId];
+/** A dream's photos, sketches and recordings, oldest first. Filed under "dreams", so any change to a dream reloads it. */
+export const useDreamMedia = (dreamId: () => string, enabled: () => boolean) =>
+  useQuery({ queryKey: computed(() => key(dreamId())), enabled: computed(enabled), queryFn: () => api.get<MediaRow[]>("/media", { dreamId: dreamId() }) });
+const refresh = (dreamId: string) => queryClient.invalidateQueries({ queryKey: key(dreamId) });
+export async function addMedia(dreamId: string, file: Blob, extra?: { kind?: "sketch"; duration?: number }) {
+  const r = await uploadMedia(file, dreamId, extra);
+  await refresh(dreamId);
+  return r;
+}
+export async function removeMedia(m: MediaRow) {
+  await api.del(`/media/${m.id}`);
+  const u = urls.get(m.id); if (u) { URL.revokeObjectURL(u); urls.delete(m.id); }
+  if (m.dreamId) await refresh(m.dreamId);
+}
+/** Keeps the text read from a photo on its row, sealed. */
+export async function saveOcrText(m: MediaRow, text: string) {
+  await api.put(`/media/${m.id}`, { ocrText: text });
+  if (m.dreamId) await refresh(m.dreamId);
+}
 
 async function open(id: string): Promise<Blob> {
   const r = await fetchFile(`/media/${encodeURIComponent(id)}`);
@@ -29,6 +63,10 @@ async function open(id: string): Promise<Blob> {
     return new Blob([bytes.slice()], { type });
   } finally { key.fill(0); }
 }
+
+/** The opened file itself, for reading on this device (the text of a photo). The page's own rules (connect-src)
+ *  don't let it fetch its blob: URLs, so this opens it again rather than reading the URL back. */
+export const mediaBlob = (id: string) => open(id);
 
 /** "media:<id>" (or an id) → a URL the screens can show. A local account's data: URL and any other address pass as they are. */
 export async function mediaObjectUrl(src: string | null | undefined): Promise<string> {

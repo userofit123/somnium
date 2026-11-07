@@ -185,12 +185,20 @@ never lands in a plaintext database. See also "Backups".
   encrypted with the **server's own key** (`DATA_DIR/app.key`, made on the first start with mode 600, or `APP_KEY`),
   which is not the journal's key (the server has none). A code is accepted once only. Turning it on and off needs a code,
   and `/2fa/start` is refused while it is on.
-- **Try limits.** After five wrong tries in 15 minutes from one address, or against one name, further tries are refused
-  for the rest of that window ("Too many tries. Wait 15 minutes."). The same counter covers wrong passwords, wrong
-  two-factor codes, wrong reset codes, wrong recovery keys, wrong key proofs and the password asked again for
-  sensitive actions. A burst sent at the same moment cannot all pass: each try is counted before the slow hash. The
-  count is kept in the server's memory, so restarting it clears it, and because it also counts per name, someone
-  who knows a username can keep it locked out. Nothing is deleted by wrong tries.
+- **Try limits** (`reserveTry`, `apps/server/src/auth.ts`). Two counts over the last 15 minutes:
+  - **per address:** after five wrong tries, further tries from that address are refused until the oldest of them is
+    15 minutes old ("Too many tries. Wait 15 minutes.", with `Retry-After`);
+  - **per name:** five tries free, then a growing wait after the latest one: 1 s, 2 s, 4 s, ... at most 30 s ("Too many
+    tries for this name. Wait N seconds."). Never a lockout: a stranger guessing at your name from many addresses
+    slows every try at it to one per half minute or so, but you get in after at most 30 seconds, and from one address
+    the per-address limit stops them first.
+
+  The same counts cover wrong passwords, wrong two-factor codes, wrong reset codes, wrong recovery keys, wrong key
+  proofs and the password asked again for sensitive actions. A burst sent at the same moment cannot all pass: each try
+  is reserved before the slow hash, in one transaction holding a lock per key, and only a right answer takes it back.
+  The tries are kept in the database (table `sign_in_tries`, key and time, migration `013_sign_in_tries`), so a
+  restart does not clear them; rows older than 15 minutes are pruned on every try, and a name is cut to 64 characters.
+  Like the other sign-in tables it is not granted to the app role. Nothing is deleted by wrong tries.
 - Every sign-in from a **new device** posts a note to the account's activity log (Settings → Security), once per device,
   as do password, two-factor, recovery-key and admin actions.
 - **Admin** (`/api/admin/*`) can list accounts, make invites, switch registration, disable or delete accounts, make a
@@ -275,7 +283,7 @@ verification is turned on again. Signing out forgets the blob and the Keystore k
 Leaving the app is reported once it is out of sight (`onStop`), timed from `onPause`, so the lock's delay counts from the
 moment the app began to leave, while a permission dialog or the app's own prompt (which only pause it) does not lock it.
 A local account opens with the phone's verification too, and "Set a new password" re-wraps its record from the key the
-prompt released, after checking it is the open journal's key. The Android app's Keystore work is in progress (LDJ-9, LDJ-10).
+prompt released, after checking it is the open journal's key. Before Android 11 the Keystore key cannot be tied to each single use: after the fingerprint or screen lock it stays usable for 15 seconds, so anything running in the app in that window could use it. From Android 11 every unwrap needs its own verification.
 
 **Desktop: password only, no OS prompt, no device key.** The desktop app unlocks with the password and holds no device
 key (LDJ-10, decided). WebAuthn refuses its `http://127.0.0.1` address, and Electron's `safeStorage` asks for nothing: it
@@ -375,7 +383,7 @@ phone's prompt releases the key first, so the phone verifies the person. Other d
 Limits: the desktop has no device key (above), so this works from a phone only. A device key does not outlive its
 session: signing out, or a reset, forgets it. An account signed in before device keys existed registers its proof on its
 next sign-in; until then device verification still unlocks the phone, and the server says it needs one sign-in with the
-password first. Device keys are in progress (LDJ-10).
+password first.
 
 ## Backups and exports
 
@@ -386,13 +394,18 @@ password first. Device keys are in progress (LDJ-10).
   whole file once more (Argon2id, AES-256-GCM), which hides those too.
 - Making one needs the journal open, so automatic backups run while the app is unlocked: the desktop app writes to a
   folder (Documents/Somnium Backups by default), the Android app to Documents/Somnium, a Chromium browser into a folder
-  picked once; any other browser offers a download. They are logged on the device (time, size, where). **Automatic
-  backups are in progress (LDJ-35)** and a backup you restore into an account on a server moves the account there.
-- A **plain export** (JSON, Markdown, CSV; in progress, LDJ-36) is **plaintext, readable by anyone who has the file**.
+  picked once; any other browser offers a download. They are logged on the device (time, size, where). A backup you restore into an account on a server moves the account there.
+- A **plain export** (JSON, Markdown, CSV) is **plaintext, readable by anyone who has the file**.
   See "Exports" above for how that arises. Keep exported files like the journal itself.
 - A backup holds the journal tables, the settings and the account's wrapped keys; it has no session, no server key and no two-factor secrets. The server's own
   database and `appdata` volume are backed up by you, with your usual server backup: the key file `/data/app.key` is
   needed to read two-factor secrets after a restore, and without it people must set two-factor up again.
+- A backup opens with the password the account had **when it was made**, even after that password is changed. After
+  changing a password because someone else may know it, delete the older backups.
+- On Android, backups go to Documents/Somnium, which is **shared storage**: other apps with file access, a computer
+  over USB and any cloud sync of Documents can read the files. They are sealed, so they still need the password,
+  recovery key or passphrase. The app deletes only its own backups (its file name pattern plus its format inside), one
+  account at a time.
 - Docker's `/data/media` holds the sealed files, mode 600, a folder per account.
 
 ## Reminders and notifications
@@ -411,7 +424,7 @@ password first. Device keys are in progress (LDJ-10).
 - On Android the alarms are exact alarms kept in the app's storage and set again after a restart without the web app, the
   network or the journal's key. The Awake / Not sure / Dreaming buttons on a reality-check notification log the check with
   no note and nothing sealed. The WBTB alarm is a real alarm with its own channel and rings up to 10 minutes. Without the
-  exact-alarm permission they may come a little late, never not at all. Android reminders are in progress (LDJ-29, LDJ-30).
+  exact-alarm permission they may come a little late, never not at all.
 - The desktop app keeps reminders in the page and the main process; it does not yet stay in the tray after the window
   closes (planned, LDJ-56).
 
@@ -419,8 +432,8 @@ password first. Device keys are in progress (LDJ-10).
 
 - **Who talks to whom.** The app talks to your own server (the page and `/api`, plus a live-update stream per signed-in
   person, `/api/events`). Nothing else leaves the device except the **update check**: GitHub's public "latest release"
-  list, asked by the server (`apps/server/src/version.ts`), the web app (`core/releases.ts`) and the Android app, and
-  by the desktop auto-updater, sending no identifier. All analysis (lexicons, `compromise`, `tesseract.js`) runs on
+  list, asked by the server (`apps/server/src/version.ts`, which the web app asks through `/api/update-check`), by the
+  Android app for a local account (`core/releases.ts`), and by the desktop auto-updater, sending no identifier. All analysis (lexicons, `compromise`, `tesseract.js`) runs on
   the device; fonts are bundled; there are no analytics, telemetry or error reporting. A server account's browser
   talks to your server only; the server talks to the database and, for the update check, GitHub.
 - **Docker.** The `db` container (PostgreSQL 16) is only on an **internal** network (`backend`, `internal: true`): it has
@@ -430,15 +443,36 @@ password first. Device keys are in progress (LDJ-10).
   interfaces (`HOST`, default `0.0.0.0`), which is why the published port is bound to `127.0.0.1`.
 - **Row-level security.** Every request runs in a database transaction as the role `somnium_app` with `app.user_id` set to
   the signed-in person (`withUser`, `packages/engine/src/db.ts`), so even a query that forgets `WHERE user_id = ...`
-  cannot see or change another person's rows. The sign-in tables (`sessions`, `invites`, `app_meta`) are not granted to
+  cannot see or change another person's rows. The sign-in tables (`sessions`, `invites`, `app_meta`, `sign_in_tries`) are not granted to
   that role at all. Every user table has `user_id` and a policy.
 - **Cookies and headers.** As in "Sign-in" (HttpOnly, SameSite=Strict, Secure over HTTPS, the `X-Somnium` header on
-  changes). Every answer carries `X-Content-Type-Options: nosniff`, so an uploaded file can never be run as a page.
-  Uploaded files are served only to their owner, from a path made from the session and the id, never from the row's
-  path column.
-- **A Content-Security-Policy is not set yet.** PLAN.md §4.2 calls for a strict one; the server today sends only
-  `nosniff`. Until it does, nothing in the code loads scripts from other sites (everything is bundled), but the browser
-  would not stop a script that got in from calling out. This is open work, listed under "Not covered".
+  changes). Uploaded files are served only to their owner, from a path made from the session and the id, never from
+  the row's path column.
+- **Security headers** (`apps/server/src/headers.ts`), on every answer the server gives, files, API and errors alike,
+  from one `onSend` hook:
+  - `Content-Security-Policy`:
+    `default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-...'; style-src 'self' 'sha256-...';
+    style-src-attr 'unsafe-inline'; img-src 'self' blob: data:; media-src 'self' blob:; font-src 'self';
+    connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'none';
+    form-action 'self'; object-src 'none'`.
+    The hashes are those of `index.html`'s inline pre-paint script and splash style, read from the built file (again
+    whenever it changes), never typed in. `'wasm-unsafe-eval'` lets the device database (PGlite) and the photo text
+    reader (tesseract.js) compile WebAssembly; it does not allow `eval` or `new Function`. Style attributes are
+    allowed (`style-src-attr`, which Vue's static templates need); style sheets and `<style>` elements are not, unless
+    bundled or hashed. `connect-src` is the server only: the update check goes through it, so a script that got in
+    cannot call out.
+  - `Referrer-Policy: no-referrer`, `Cross-Origin-Opener-Policy: same-origin`,
+    `X-Content-Type-Options: nosniff` (an uploaded file can never be run as a page or script), and
+    `Permissions-Policy: camera=(self), microphone=(self)` with the other powerful features (location, payment, USB,
+    serial, HID, MIDI, screen capture, motion sensors, topics) turned off.
+  - **Desktop:** a local account's screens come from the same server code, so the same headers; a server account's
+    come from the app's own proxy, which adds them to every file it serves (`apps/desktop/src/main.ts`).
+  - **Android:** the files come from the app bundle, so the policy is a `<meta>` tag written into `index.html` by
+    `apps/android/prepare-web.mjs`, with the hashes taken from the built file there. It differs in two places:
+    `connect-src` also allows `https:` and `http:` (your server can be at any address; most requests go through the
+    native side, which the policy does not see), and there is no `frame-ancestors` (a `<meta>` policy can't carry it).
+  - **Development:** the Vite dev server sends a looser policy (inline scripts and styles, websockets) so hot reload
+    works (`apps/web/vite.config.ts`); the strict one is on the built app.
 - **Behind a proxy.** The server trusts proxy headers (`trustProxy: true`) to know the address of a client and whether
   the request was HTTPS. Run it only behind your own proxy, never directly on the internet, or a caller can fake both.
 - **The desktop app** runs its own local server on `127.0.0.1` for a local account, one port per account, and opens
@@ -455,8 +489,8 @@ password first. Device keys are in progress (LDJ-10).
   usernames, how many nights and dreams exist, how large each file is, and when a device signed in. They cannot read
   content, but they can delete or inject rows (see "Limits we accept").
 - **A stolen recovery key** opens any sealed copy of the journal even with two-factor on (see above).
-- **No Content-Security-Policy** yet (see "The network").
-- **The sign-in try counter is in the server's memory** and clears on restart; it is per address and per name.
+- **Many addresses against one name.** The per-name wait slows such guessing to about one try per 30 seconds; it does
+  not stop it. A strong password is what makes it hopeless (10+ characters, not on the common list).
 - **Memory.** Strings and Web Crypto's key copies cannot be zeroed; the key can linger for the length of one step after
   locking.
 - **Lost password, lost recovery key, no signed-in phone:** gone for good.
@@ -482,6 +516,7 @@ Run `./scripts/pnpm.sh -r test`. The tests that carry the claims above:
 | **Crypto: wrap, unwrap, password change, recovery.** Argon2id and HKDF key separation, envelopes, wrong key and tampered byte refused, wrap by password, recovery key and device key, password change re-wraps the same data key, NFC, constant-time compare | `packages/shared/src/crypto/crypto.test.ts` |
 | Crypto for local accounts: round trip, password change, recovery with a new key, damaged record | `packages/shared/src/crypto/localAccount.test.ts` |
 | Crypto against the server: sign-up and sign-in with the authKey, two-factor and backup codes, the wait after wrong tries, password change, admin reset, the server's key | `apps/server/test/auth.test.ts`, `apps/server/test/account.test.ts` |
+| **Try limits in the database**: they survive a restart (a new server on the same database), an address gets five in all, a name slows down (1, 2, 4 ... 30 s) but its owner still gets in from another address; **security headers** with the hashes of `index.html` on every answer | `apps/server/test/auth.test.ts` |
 | Recovery flow on the server: the verifier hashed, the same answer for unknown names, the shared limit, one use under a race, two-factor, opening again after an admin reset | `apps/server/test/recovery.test.ts` |
 | Device keys: proof registration, new password without the old, wrong proof counted, two-factor still asked | `apps/server/test/device-key.test.ts` |
 | Backups: sealed, opens with password or recovery key, passphrase wrap, merge and replace | `packages/engine/test/backup.test.ts` |

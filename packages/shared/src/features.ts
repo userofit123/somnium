@@ -5,9 +5,9 @@ export interface FeatureDef { id: string; name: string; group: string; desc: str
 
 export const FEATURES: FeatureDef[] = [
   // Journal
-  { id: "voiceNotes", group: "Journal", name: "Voice notes", desc: "Record a dream by voice in the morning; the recording stays sealed on your device and server.", on: false, ready: false },
-  { id: "sketches", group: "Journal", name: "Sketches", desc: "Draw a scene from a dream next to its text.", on: false, ready: false },
-  { id: "photos", group: "Journal", name: "Photos and OCR", desc: "Photograph a paper journal page; the text is read on your device and added to the dream.", on: false, ready: false },
+  { id: "voiceNotes", group: "Journal", name: "Voice notes", desc: "Record a dream by voice in the morning (up to 5 minutes); the recording is sealed before it leaves this device.", on: false },
+  { id: "sketches", group: "Journal", name: "Sketches", desc: "Draw a scene from a dream next to its text.", on: false },
+  { id: "photos", group: "Journal", name: "Photos and OCR", desc: "Add photos to a dream and read a paper journal page into its text. The reading happens on this device; place data is taken out of every photo.", on: false },
   { id: "dayNotes", group: "Journal", name: "Day notes", desc: "A line about your day, to see what shows up in dreams days later.", on: false, ready: false },
   { id: "markdownExport", group: "Journal", name: "Markdown export per dream", desc: "Save any dream as a Markdown file.", on: false, ready: false },
   { id: "shareText", group: "Journal", name: "Share a dream as text", desc: "Send a dream's text to another app.", on: false, ready: false },

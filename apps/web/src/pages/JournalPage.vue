@@ -13,6 +13,7 @@ import { useFmt } from "../core/format";
 import { useToday } from "../core/today";
 import { readStr, writeStr } from "../core/prefs";
 import { toast, toastError } from "../core/toast";
+import { confirm } from "../core/ask";
 import Icon from "../components/Icon.vue";
 import Menu from "../components/Menu.vue";
 import Sheet from "../components/Sheet.vue";
@@ -89,7 +90,7 @@ const closeRead = () => (history.state?.back ? router.back() : router.replace("/
 async function noRecall(d: string) { try { await markNoRecall(d); } catch (e) { toastError(e); } }
 // the morning reminder (PLAN.md §9, LDJ-30): its tap opens /journal?write=1&date=..., its "No recall" button
 // /journal?norecall=... - here, behind the lock, because both need the journal's key. Each is done once, then the
-// address goes back to plain /journal.
+// address goes back to plain /journal. No recall is written only after the person confirms it here.
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 watch(() => [route.name, route.query.write, route.query.norecall], async () => {
   if (route.name !== "journal") return;
@@ -98,6 +99,11 @@ watch(() => [route.name, route.query.write, route.query.norecall], async () => {
   if (typeof q.norecall === "string" && DATE.test(q.norecall)) {
     const d = q.norecall;
     await router.replace("/journal");
+    // an address anyone can open (a link, another app): it only asks, the person says yes; a night with dreams is
+    // never marked (markNoRecall refuses it)
+    const night = fmt.value.date(d, { weekday: "long", day: "numeric", month: "long" });
+    if (loggedOn(d)?.dreamCount) { toast("That night already has dreams"); return; }
+    if (!(await confirm(`No recall for ${night}?`, { text: "Logs the night with no dreams remembered.", ok: "Log no recall" }))) return;
     try { await markNoRecall(d); toast("No recall logged"); } catch (e) { toastError(e); }
   }
 }, { immediate: true });
@@ -105,6 +111,8 @@ const menu = computed(() => [
   { label: "No recall last night", icon: "moon", run: () => noRecall(today.value), hidden: todayLogged.value },
   { label: "Write a dream", icon: "plus", run: () => write(), hidden: !mode.value || isPhone.value },
   { label: "Search filters", icon: "filter", run: () => (filterOpen.value = true), hidden: empty.value },
+  // the same import as Settings → Data (LDJ-16, LDJ-36): Markdown, text or CSV, dates found, a review before saving
+  { label: "Import from a file", icon: "upload", run: () => router.push({ name: "settings", params: { section: "data" } }) },
 ]);
 </script>
 

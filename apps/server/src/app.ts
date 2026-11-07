@@ -15,6 +15,7 @@ import {
   useTotp, noteAccount, validDeviceId, ServerKeyError, RESET_MESSAGE, COOKIE, SESSION_DAYS, type SessionUser,
 } from "./auth";
 import { VERSION, API_LEVEL, checkForUpdate } from "./version";
+import { securityHeaders } from "./headers";
 
 // mode "local": a server that takes the journal in the clear. Nothing uses it any more: the desktop app's own server for
 // a local account runs as "server", since its screens seal the journal like a server account's (LDJ-53).
@@ -52,12 +53,21 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (req.method !== "GET" && req.method !== "HEAD" && req.cookies[COOKIE] && !req.headers.authorization && req.headers["x-somnium"] !== "1" && req.url.startsWith("/api/"))
       return reply.code(403).send({ error: "Missing X-Somnium header" });
   });
-  // a browser must take every answer as the type it says it is: an uploaded file can never be run as a page or script
-  app.addHook("onSend", async (_req, reply) => { reply.header("x-content-type-options", "nosniff"); });
+  // the security headers (CSP, nosniff, ...) on every answer, files and errors included (headers.ts)
+  const headers = securityHeaders(o.webDir);
+  app.addHook("onSend", async (_req, reply) => { reply.headers(headers()); });
   const need = (req: FastifyRequest, reply: FastifyReply) => { if (!req.user) { reply.code(401).send({ error: "Sign in first" }); return false; } return true; };
   const needAdmin = (req: FastifyRequest, reply: FastifyReply) => { if (!need(req, reply)) return false; if (req.user!.role !== "admin") { reply.code(403).send({ error: "Admins only" }); return false; } return true; };
   const setCookie = (req: FastifyRequest, reply: FastifyReply, token: string) =>
     reply.setCookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: req.protocol === "https", path: "/", maxAge: SESSION_DAYS * 86400 });
+
+  // a try at a secret, counted before the slow hash (reserveTry in auth.ts); null once it was answered with a wait
+  const tryOrWait = async (req: FastifyRequest, reply: FastifyReply, name: string) => {
+    const t = await reserveTry(db, req.ip, name);
+    if ("release" in t) return t.release;
+    reply.code(429).header("retry-after", String(t.wait)).send({ error: t.error, retryAfter: t.wait });
+    return null;
+  };
 
   // ----- sign-in (PLAN.md §4.1-4.2): the device sends authKey, never the password -----
   const serverKey = loadServerKey(o.dataDir);
@@ -120,19 +130,18 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.post("/api/auth/sign-in", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
-    const keys = [`ip:${req.ip}`, `u:${name}`];
-    const release = reserveTry(keys); // a wrong try stays counted; only a right one takes it back
-    if (!release) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
+    const release = await tryOrWait(req, reply, name); // a wrong try stays counted; only a right one takes it back
+    if (!release) return reply;
     const u = (await db.admin.query("SELECT id, auth_hash, disabled_at, kdf_salt, wrapped_by_password, totp_enabled, totp_secret FROM users WHERE username = $1", [name])).rows[0];
     const ok = await checkSecret(validAuthKey(b?.authKey) ? b.authKey : "", u?.auth_hash ?? null);
     if (!u || !ok || u.disabled_at) return reply.code(401).send({ error: "Wrong username or password" });
     if (u.totp_enabled) {
       const code = b?.code ?? b?.totp;
-      if (code === undefined || code === null || code === "") { release(); return { ok: false, totpRequired: true }; }
+      if (code === undefined || code === null || code === "") { await release(); return { ok: false, totpRequired: true }; }
       const good = (await useTotp(db, u.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, u.id, code));
       if (!good) return reply.code(401).send({ error: "That code is not right" });
     }
-    release();
+    await release();
     return { ok: true, totpRequired: false, kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password, token: await signIn(req, reply, u.id, b) };
   });
   app.post("/api/auth/logout", async (req, reply) => {
@@ -152,18 +161,20 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   });
   app.post("/api/auth/logout-others", async (req, reply) => {
     if (!need(req, reply)) return;
-    await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2 AND platform <> 'api'", [req.user!.id, req.user!.sessionId]);
+    // { tokens: true } (Settings → Security's "Sign out everywhere", after a loss): the API tokens end as well, or a
+    // token copied off a lost device would keep working. Without it (the device list's "Sign out the others") they stay.
+    const tokens = (req.body as { tokens?: unknown } | undefined)?.tokens === true;
+    await db.admin.query(`DELETE FROM sessions WHERE user_id = $1 AND id <> $2${tokens ? "" : " AND platform <> 'api'"}`, [req.user!.id, req.user!.sessionId]);
     return { ok: true };
   });
   // asking for the password again (changing it, turning two-factor off, deleting the account): the device sends the
   // current authKey; the same check and the same wait after too many tries as signing in, so a device left signed
   // in can't be used to guess it. A wrong one is a 403, not a 401: the app signs out on a 401, and a typo shouldn't.
   const recheck = async (req: FastifyRequest, reply: FastifyReply, authKey: unknown) => {
-    const keys = [`ip:${req.ip}`, `u:${req.user!.username}`];
-    const release = reserveTry(keys);
-    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return false; }
+    const release = await tryOrWait(req, reply, req.user!.username);
+    if (!release) return false;
     const u = (await db.admin.query("SELECT auth_hash FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) { release(); return true; }
+    if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) { await release(); return true; }
     reply.code(403).send({ error: "Wrong password" });
     return false;
   };
@@ -187,10 +198,10 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // a stolen session token alone can never register a proof of its own choosing. Once there it never changes (the data
   // key never does). A wrong proof is counted like a wrong password.
   const proofCheck = async (req: FastifyRequest, reply: FastifyReply, proof: unknown) => {
-    const release = reserveTry([`ip:${req.ip}`, `u:${req.user!.username}`]);
-    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return null; }
+    const release = await tryOrWait(req, reply, req.user!.username);
+    if (!release) return null;
     const u = (await db.admin.query("SELECT key_proof_hash, totp_enabled, totp_secret FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    if (!u?.key_proof_hash) { release(); reply.code(409).send({ error: "Sign in with your password once on this device first", needsPassword: true }); return null; }
+    if (!u?.key_proof_hash) { await release(); reply.code(409).send({ error: "Sign in with your password once on this device first", needsPassword: true }); return null; }
     if (!(await checkSecret(validAuthKey(proof) ? proof : "", u.key_proof_hash))) { reply.code(403).send({ error: "This device doesn't hold your journal's key" }); return null; }
     return { u, release };
   };
@@ -211,7 +222,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!need(req, reply)) return;
     const c = await proofCheck(req, reply, (req.body as any)?.keyProof);
     if (!c) return;
-    c.release();
+    await c.release();
     await db.admin.query("UPDATE sessions SET holds_key = true WHERE id = $1", [req.user!.sessionId]);
     return { ok: true };
   });
@@ -236,11 +247,11 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const { u, release } = c;
     if (u.totp_enabled) {
       const code = b?.code;
-      if (code === undefined || code === null || code === "") { release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
+      if (code === undefined || code === null || code === "") { await release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
       const good = (await useTotp(db, req.user!.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, req.user!.id, code));
       if (!good) return reply.code(403).send({ error: "That code is not right", totpRequired: true });
     }
-    release();
+    await release();
     await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = $4, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL WHERE id = $1",
       [req.user!.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2", [req.user!.id, req.user!.sessionId]);
@@ -254,10 +265,9 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.post("/api/auth/reset", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
-    const keys = [`ip:${req.ip}`, `u:${name}`];
-    const release = reserveTry(keys);
-    if (!release) return reply.code(429).send({ error: "Too many tries. Wait 15 minutes." });
-    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) { release(); return reply.code(400).send({ error: badBundle }); }
+    const release = await tryOrWait(req, reply, name);
+    if (!release) return reply;
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) { await release(); return reply.code(400).send({ error: badBundle }); }
     const u = (await db.admin.query("SELECT id, reset_code_hash FROM users WHERE username = $1 AND reset_expires_at > now()", [name])).rows[0];
     const ok = await checkSecret(plainCode(b?.code), u?.reset_code_hash ?? null);
     if (!u || !ok) return reply.code(403).send({ error: "That reset code is not right or has run out" });
@@ -265,7 +275,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const used = await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = NULL, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL, totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1 AND reset_code_hash = $4 AND reset_expires_at > now() RETURNING id",
       [u.id, b.kdfSalt, await hashSecret(b.authKey), u.reset_code_hash]);
     if (!used.rows.length) return reply.code(403).send({ error: "That reset code is not right or has run out" });
-    release();
+    await release();
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1", [u.id]);
     await db.admin.query("DELETE FROM backup_codes WHERE user_id = $1", [u.id]);
     await noteAccount(db, u.id, "Password set with a reset code. Two-factor sign-in is off.");
@@ -301,8 +311,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // key, an unknown name and an account without a key all get the same answer after the same slow hash.
   const checkRecovery = async (req: FastifyRequest, reply: FastifyReply, b: any) => {
     const name = String(b?.username ?? "").toLowerCase();
-    const release = reserveTry([`ip:${req.ip}`, `u:${name}`]); // the same count as signing in: a name gets five guesses in all, not five per door;
-    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return null; }
+    const release = await tryOrWait(req, reply, name); // the same count as signing in: a name gets five guesses in all, not five per door;
+    if (!release) return null;
     const u = (await db.admin.query("SELECT id, disabled_at, recovery_salt, wrapped_by_recovery, recovery_verifier, totp_enabled, totp_secret, wrapped_by_password FROM users WHERE username = $1", [name])).rows[0];
     const ok = await checkSecret(validAuthKey(b?.recoveryVerifier) ? b.recoveryVerifier : "", u?.recovery_verifier ?? null);
     if (!u || !ok || u.disabled_at) { reply.code(403).send({ error: wrongRecovery }); return null; }
@@ -311,7 +321,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.post("/api/auth/recovery/open", async (req, reply) => {
     const c = await checkRecovery(req, reply, req.body);
     if (!c) return;
-    c.release();
+    await c.release();
     return { recoverySalt: c.u.recovery_salt, wrappedByRecovery: c.u.wrapped_by_recovery, totpRequired: !!c.u.totp_enabled };
   });
   // The new password and a new recovery key in one step, both made on the device from the opened data key
@@ -329,11 +339,11 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     // just signed in with, and it becomes the one that opens the journal. Checking it here means a typo is refused
     // instead of quietly becoming the new sign-in password. The key was right, so only the password try stays counted.
     if (!u.wrapped_by_password && req.user && req.user.id === u.id) {
-      if (!(await recheck(req, reply, b?.current))) { release(); return; }
+      if (!(await recheck(req, reply, b?.current))) { await release(); return; }
     }
     if (u.totp_enabled) {
       const code = b?.code;
-      if (code === undefined || code === null || code === "") { release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
+      if (code === undefined || code === null || code === "") { await release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
       const good = (await useTotp(db, u.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, u.id, code));
       if (!good) return reply.code(403).send({ error: "That code is not right", totpRequired: true });
     }
@@ -343,7 +353,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
        WHERE id = $1 AND recovery_verifier = $8 RETURNING id`,
       [u.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword, b.next.recoverySalt, b.next.wrappedByRecovery, await hashSecret(b.next.recoveryVerifier), u.recovery_verifier]);
     if (!used.rows.length) return reply.code(403).send({ error: wrongRecovery });
-    release();
+    await release();
     // the recovery key opened the data key, so its proof can be trusted as much as the key (LDJ-10)
     if (validAuthKey(b?.keyProof)) await db.admin.query("UPDATE users SET key_proof_hash = $2 WHERE id = $1 AND key_proof_hash IS NULL", [u.id, await hashSecret(b.keyProof)]);
     const keep = req.user && req.user.id === u.id ? req.user.sessionId : null;
@@ -407,7 +417,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!(await recheck(req, reply, b?.authKey))) return;
     const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (u.totp_enabled && !(await useTotp(db, req.user!.id, decryptForServer(u.totp_secret, serverKey), b?.code)) && !(await useBackupCode(db, req.user!.id, b?.code))) {
-      recordFail([`ip:${req.ip}`, `u:${req.user!.username}`]); // the same count recheck looks at, so five wrong codes wait too
+      await recordFail(db, req.ip, req.user!.username); // the same count recheck looks at, so five wrong codes wait too
       return reply.code(403).send({ error: "That code is not right" });
     }
     await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1", [req.user!.id]);
@@ -498,8 +508,10 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     const sealedOnly = (o.mode ?? "server") === "server";
     if (sealedOnly && !isSealed(buf.toString("latin1"))) return reply.code(400).send({ error: "This file must be sealed by the app" });
     const mime = String(req.headers["content-type"]);
-    const kind = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : "photo";
-    const { dreamId: dreamParam, id: idParam } = req.query as Record<string, string | undefined>;
+    const { dreamId: dreamParam, id: idParam, kind: kindParam, duration: durationParam } = req.query as Record<string, string | undefined>;
+    // a drawing is a picture too; ?kind=sketch tells it apart from a photo (anything else is read from the type)
+    const kind = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : kindParam === "sketch" ? "sketch" : "photo";
+    const duration = durationParam && /^\d{1,5}$/.test(durationParam) && +durationParam <= 86400 ? +durationParam : null;
     const dreamId = dreamParam || null;
     if (dreamId && !isUuid(dreamId)) return reply.code(400).send({ error: "Invalid dream" });
     if (idParam ? !isUuid(idParam) : sealedOnly) return reply.code(400).send({ error: "Invalid file id" });
@@ -507,8 +519,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     try {
       await withUser(db, req.user!.id, async (q) => {
         await visible(q, "dreams", dreamId, "dream");
-        await q.query("INSERT INTO media (id, user_id, kind, mime, size, path, dream_id) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-          [id, req.user!.id, kind, mime, buf.length, `${req.user!.id}/${id}`, dreamId]);
+        await q.query("INSERT INTO media (id, user_id, kind, mime, size, path, dream_id, duration) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+          [id, req.user!.id, kind, mime, buf.length, `${req.user!.id}/${id}`, dreamId, duration]);
       });
     } catch (e) {
       if (e instanceof HttpError) return reply.code(e.status).send({ error: e.message });

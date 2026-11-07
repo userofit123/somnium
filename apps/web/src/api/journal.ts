@@ -85,9 +85,13 @@ export async function ensureNight(date: string, nap: boolean, wantedId: string):
 
 /**
  * "No recall" for a night: logs the night with no dreams, marked so (a night that holds only tonight's plan is not
- * logged without it). Already logged is fine. Offline on the direct path it waits in the outbox (nothing sealed).
+ * logged without it). Already logged is fine; a night with dreams is refused. Offline on the direct path it waits in
+ * the outbox (nothing sealed).
  */
 export async function markNoRecall(date: string) {
+  // never on a night that holds dreams: whatever asked (a button, a reminder's address), the dreams say otherwise
+  const known = await api.get<NightRow[]>("/nights", { from: date, to: date }).catch((e) => { if (!isWaitable(e) || onDevice()) throw e; return null; });
+  if ((nightOfDate(known ?? [], date)?.dreamCount ?? 0) > 0) throw new Error("That night already has dreams");
   try { const id = await ensureNight(date, false, uuidv7()); await api.put(`/nights/${id}`, { noRecall: true }); }
   catch (e) { if (!isWaitable(e) || onDevice()) throw e; await send("post", "/nights", { id: uuidv7(), date, noRecall: true }); }
   invalidate(["journal", "home"]);

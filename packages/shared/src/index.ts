@@ -25,3 +25,4 @@ export * from "./dreamPage";
 export * from "./outbox";
 export * from "./dataFiles";
 export * from "./importText";
+export * from "./media";

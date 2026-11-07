@@ -66,4 +66,15 @@ describe("signing out the other devices", () => {
     expect(await signedIn(api)).toBe(true);
     expect(await signedIn(h)).toBe(true);
   });
+  it("ends API tokens too when signing out everywhere", async () => {
+    const id = uuidv7();
+    await db.admin.query("INSERT INTO users (id, username, auth_hash) VALUES ($1,$2,$3)", [id, "dee", await hashSecret(PW)]);
+    const h = { authorization: `Bearer ${await createSession(db, id, "Browser", "web")}` };
+    const phone = { authorization: `Bearer ${await createSession(db, id, "Phone", "android")}` };
+    const api = { authorization: `Bearer ${await createSession(db, id, "script", "api")}` };
+    expect((await app.inject({ method: "POST", url: "/api/auth/logout-others", headers: h, payload: { tokens: true } })).statusCode).toBe(200);
+    expect(await signedIn(api)).toBe(false);
+    expect(await signedIn(phone)).toBe(false);
+    expect(await signedIn(h)).toBe(true);
+  });
 });

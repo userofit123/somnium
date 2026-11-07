@@ -63,7 +63,7 @@ beforeAll(async () => {
   admin = (await signUp("boss")).keys;
 }, 120000);
 afterAll(async () => { await app.close(); await db.close(); fs.rmSync(dir, { recursive: true, force: true }); });
-beforeEach(() => forgetFails());
+beforeEach(() => forgetFails(db));
 
 describe("making the recovery key", () => {
   it("needs the password, keeps only a hash of the verifier, and replaces the old key", async () => {
@@ -116,7 +116,7 @@ describe("forgot password with the recovery key", () => {
       expect(a).not.toBe((await get(`/auth/salt?username=${n}`)).json().kdfSalt); // not the sign-in stand-in either
     }
     const answers = await Promise.all(["nobody-here", "nokey", "vera"].map(async (n) => {
-      forgetFails();
+      await forgetFails(db);
       const r = await post("/auth/recovery/open", { username: n, recoveryVerifier: randomVerifier() });
       return [r.statusCode, r.body];
     }));
@@ -132,7 +132,7 @@ describe("forgot password with the recovery key", () => {
     expect((await signIn("guess", keys.authKey)).statusCode).toBe(429); // the same count as signing in
     const { body } = await finishBody("guess", set.recoveryVerifier, keys.dataKey, "a whole new password");
     expect((await post("/auth/recovery/finish", body)).statusCode).toBe(429);
-    forgetFails();
+    await forgetFails(db);
     // a burst sent at once cannot all be checked: the tries are reserved before the slow hash
     const burst = await Promise.all(Array.from({ length: 8 }, () => post("/auth/recovery/open", { username: "guess", recoveryVerifier: randomVerifier() })));
     expect(burst.filter((r) => r.statusCode === 429).length).toBe(3);
@@ -227,7 +227,7 @@ describe("the sealed journal after an admin reset", () => {
     expect(missing.statusCode).toBe(403);
     expect((await get("/auth/security", lockH)).json().sealed).toBe(true);
     expect((await signIn("sealy", typo.pw.authKey)).statusCode).not.toBe(200);
-    forgetFails();
+    await forgetFails(db);
     const { pw, body } = await finishBody("sealy", opened.recoveryVerifier, opened.dataKey, "the password after reset", { current: reset.authKey });
     const done = await post("/auth/recovery/finish", body, lockH);
     expect(done.statusCode).toBe(200);
