@@ -31,8 +31,10 @@ const addNote = () => router.replace(`/check/note/${done.value!.id}`);
 </script>
 
 <template>
-  <div class="auth">
+  <div class="auth" role="main">
     <div class="card stack" style="width:min(440px,100%)">
+      <!-- the answer replaces the buttons; say so to a screen reader, which would otherwise hear nothing -->
+      <p class="sr" role="status">{{ !done ? "" : done.outcome === "dreaming" ? "You're dreaming. Stay calm and look at your hands." : done.queued ? "Logged. Saved on this device." : "Logged" }}</p>
       <template v-if="!done">
         <div>
           <h1 style="margin-top:0">Are you dreaming?</h1>
@@ -47,7 +49,7 @@ const addNote = () => router.replace(`/check/note/${done.value!.id}`);
           <button class="btn lg block tonal" :disabled="busy" @click="pick('unsure')">Not sure</button>
           <button class="btn lg block tonal" :disabled="busy" @click="pick('dreaming')">Dreaming!</button>
         </div>
-        <p v-if="err" class="err" style="margin:0">{{ err }}</p>
+        <p v-if="err" class="err" role="alert" style="margin:0">{{ err }}</p>
         <button class="btn o s" type="button" @click="close">Cancel</button>
       </template>
       <template v-else>

@@ -18,7 +18,7 @@ const label = (d: DreamRow) => d.title?.trim() || d.text?.trim().slice(0, 90) ||
     <div v-if="!bare" class="sh"><h2>{{ fmt.date(g.night.date, { weekday: "short", day: "numeric", month: "short", year: "numeric" }) }}</h2><span class="tiny">{{ g.night.nap ? "Nap" : g.dreams.length ? (g.dreams.length === 1 ? "1 dream" : `${g.dreams.length} dreams`) : "" }}</span></div>
     <div class="card jnc" :class="{ b: bare }"><div class="list">
       <div v-if="!g.dreams.length" class="li"><Icon name="moon" :size="18" class="jmut" /><div class="grow"><div class="t jmut">No recall</div></div></div>
-      <button v-for="d in g.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" @click="emit('open', d.id)">
+      <button v-for="d in g.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="emit('open', d.id)">
         <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" :class="d.lucid ? 'jacc' : 'jmut'" />
         <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s">{{ [d.lucid ? `Lucid${d.lucidityLevel ? " " + d.lucidityLevel : ""}` : "", d.nightmare ? "Nightmare" : "", (counts.get(d.id) ?? 0) ? `${counts.get(d.id)} element${counts.get(d.id) === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || "Dream" }}</div></div>
         <span class="r jmk"><Icon v-if="d.nightmare" name="flame" :size="16" class="jneg" :aria-label="'Nightmare'" /><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>

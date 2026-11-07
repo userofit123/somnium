@@ -36,7 +36,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
         </button>
       </div>
       <div v-if="rule" class="tmove">
-        <div class="tbar" role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }" /></div>
+        <div class="tbar" role="progressbar" aria-label="Progress towards moving on" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }" /></div>
         <div class="tmrow">
           <div class="grow"><div class="tprog">{{ rule.progress }}</div><div class="tiny">{{ rule.reason }}</div></div>
           <button v-if="rule.ready" class="btn" :disabled="moving" @click="emit('moveOn')">{{ lesson.number === lessons.length ? "Finish the course" : "Move on" }}</button>

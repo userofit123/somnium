@@ -18,7 +18,7 @@ const ITEMS = [
     <div class="stack">
       <AccountSwitcher variant="card" />
       <div class="card flush">
-        <div v-for="i in ITEMS" :key="i.to" class="li click" @click="router.push(i.to)"><span class="bi sg"><Icon :name="i.icon" :size="17" /></span><div class="grow"><div class="t">{{ i.label }}</div><div class="s">{{ i.hint }}</div></div><Icon name="right" :size="16" class="muted" /></div>
+        <button type="button" v-for="i in ITEMS" :key="i.to" class="li click" @click="router.push(i.to)"><span class="bi sg"><Icon :name="i.icon" :size="17" /></span><div class="grow"><div class="t">{{ i.label }}</div><div class="s">{{ i.hint }}</div></div><Icon name="right" :size="16" class="muted" /></button>
       </div>
     </div>
   </div>

@@ -59,7 +59,7 @@ const total = articles.length;
       <router-link to="/learn/where-am-i" class="ln" :class="{ on: kind === 'where' }">Where am I</router-link>
       <div class="s lcount">{{ total }} articles</div>
     </aside>
-    <main class="lmain">
+    <div class="lmain">
       <router-link v-if="isPhone && back" :to="back.to" class="lback"><Icon name="left" /> {{ back.label }}</router-link>
       <LearnHome v-if="kind === 'home'" />
       <SectionView v-else-if="kind === 'section'" :section="section" />
@@ -68,6 +68,6 @@ const total = articles.length;
       <FaqView v-else-if="kind === 'faq'" />
       <ResourcesView v-else-if="kind === 'resources'" />
       <Questionnaires v-else-if="kind === 'where'" />
-    </main>
+    </div>
   </div>
 </template>

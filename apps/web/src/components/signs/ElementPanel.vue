@@ -129,9 +129,9 @@ const menu = computed(() => [
     </div>
 
     <Sheet v-if="editing" title="Edit element" @close="editing = false">
-      <div class="fld"><label>Name</label><input v-model="f.name" maxlength="120" /></div>
+      <div class="fld"><label>Name</label><input aria-label="Name" v-model="f.name" maxlength="120" /></div>
       <div class="fld"><label>Kind</label><AppSelect v-model="f.kind" :options="ELEMENT_KINDS.map((k) => ({ value: k, label: KIND_ONE[k] }))" /></div>
-      <div class="fld"><label>Other names</label><input v-model="f.aliases" placeholder="Comma separated" /></div>
+      <div class="fld"><label>Other names</label><input aria-label="Other names" v-model="f.aliases" placeholder="Comma separated" /></div>
       <label class="tgl"><div class="grow"><div class="t">Dream sign</div><div class="tiny">Something that tells you you might be dreaming</div></div><span class="tg"><input v-model="f.isDreamSign" type="checkbox" /></span></label>
       <div v-if="f.isDreamSign || f.kind === 'dream_sign'" class="fld"><label>Category</label>
         <AppSelect v-model="f.signCategory" :options="[{ value: null, label: 'Not sure' }, ...SIGN_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))]" /></div>

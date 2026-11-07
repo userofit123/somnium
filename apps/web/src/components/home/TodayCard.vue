@@ -30,7 +30,7 @@ const tick = useChange((id: string, on: boolean, row?: PracticeLog) => tickPract
         </div>
         <button class="btn" :class="{ o: !primary }" @click="router.push('/check')">Log a check</button>
       </div>
-      <div v-if="planned" class="tbar hbar" role="progressbar" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }" /></div>
+      <div v-if="planned" class="tbar hbar" role="progressbar" aria-label="Reality checks done today" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }" /></div>
       <template v-if="lesson && items.length">
         <div class="hsub"><span class="t">Today's practice</span><span class="tiny">{{ practice }}</span></div>
         <div class="tcheck">

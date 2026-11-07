@@ -55,7 +55,7 @@ async function dismissOne(e: Element) {
         A sign shows here once it turns up in 3 dreams, or in 2 within a month, and is an odd kind of thing (LaBerge's inner awareness, action, form or context) or one you marked as a dream sign.
       </div>
       <div v-else class="list">
-        <button v-for="(s, i) in shortlist" :key="s.element.id" class="li click sgrow" :class="{ on: selected === s.element.id }" @click="emit('open', s.element.id)">
+        <button v-for="(s, i) in shortlist" :key="s.element.id" class="li click sgrow" :class="{ on: selected === s.element.id }" :aria-current="(selected === s.element.id) || undefined" @click="emit('open', s.element.id)">
           <span class="sgrank num">{{ i + 1 }}</span>
           <span class="grow sgmin sgcol">
             <span class="t">{{ s.element.name }}</span>
@@ -73,7 +73,7 @@ async function dismissOne(e: Element) {
     <section v-for="g in groups" :key="g.kind">
       <div class="sh sgk"><h3>{{ KIND_LABEL[g.kind] }}</h3><span class="tiny">{{ g.rows.length }}</span></div>
       <div class="card"><div class="list">
-        <button v-for="r in g.rows" :key="r.element.id" class="li click sgrow" :class="{ on: selected === r.element.id }" @click="emit('open', r.element.id)">
+        <button v-for="r in g.rows" :key="r.element.id" class="li click sgrow" :class="{ on: selected === r.element.id }" :aria-current="(selected === r.element.id) || undefined" @click="emit('open', r.element.id)">
           <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
             <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
           <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span>

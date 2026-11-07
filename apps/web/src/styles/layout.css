@@ -190,7 +190,7 @@ html.vt-r::view-transition-new(root) {
   font-family: inherit;
 }
 
-main {
+main, .lmain {
   flex: 1 1 0;
   width: 100%;
   max-width: 1320px;

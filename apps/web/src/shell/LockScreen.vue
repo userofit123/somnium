@@ -44,7 +44,7 @@ const keyOwner = () => (local.value ? "your journal on this device" : session.us
 const triesLeft = computed(() => FREE_WRONG_TRIES - lock.wrongTries);
 const triesText = computed(() => (lock.wrongTries === 0 || triesLeft.value <= 0 ? "" : `${triesLeft.value} ${triesLeft.value === 1 ? "try" : "tries"} left, then each try has to wait.`));
 const waiting = computed(() => lock.waitMs > 0);
-const waitText = computed(() => `Too many wrong tries. Try again in ${formatWait(lock.waitMs)}. Your journal stays locked.`);
+// the wrong-try wait is announced once (role=alert); its ticking time is aria-live="off" so it is not read out every second
 const unsent = computed(() => unsentChanges());
 
 const showPassword = () => { step.value = "password"; err.value = ""; void nextTick(() => pwInput.value?.focus()); };
@@ -300,7 +300,7 @@ async function leave() {
       <div class="fld"><label for="lock-np">{{ sealed ? "Your password" : "New password" }}</label><input id="lock-np" v-model="rec.password" type="password" :autocomplete="sealed ? 'current-password' : 'new-password'" required :minlength="sealed ? undefined : PASSWORD_MIN" /></div>
       <div v-if="!sealed" class="fld"><label for="lock-np2">New password again</label><input id="lock-np2" v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
       <div v-if="totpNeeded" class="fld"><label for="lock-code">Code from your authenticator, or a backup code</label><input id="lock-code" v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
-      <div v-if="local && waiting" class="err" role="alert">{{ waitText }}</div>
+      <div v-if="local && waiting" class="err" role="alert">Too many wrong tries. Try again in <span aria-live="off">{{ formatWait(lock.waitMs) }}</span>. Your journal stays locked.</div>
       <div v-else-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="busy || (local && waiting)">{{ busy ? "Opening..." : "Open journal" }}</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="local ? readLocalKeys() : sealed ? (step = 'password') : showPassword()">Back</button></p>
@@ -338,7 +338,7 @@ async function leave() {
       <Logo />
       <h1>Locked</h1>
       <p class="muted auth-lede">@{{ session.user?.username }}</p>
-      <div v-if="waiting" class="err" role="status">{{ waitText }}</div>
+      <div v-if="waiting" class="err" role="alert">Too many wrong tries. Try again in <span aria-live="off">{{ formatWait(lock.waitMs) }}</span>. Your journal stays locked.</div>
       <div v-else-if="err" class="err">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="busy || waiting" @click="useDevice">{{ busy ? "Waiting for your device..." : "Unlock with this device" }}</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="showPassword">Use password instead</button></p>
@@ -352,7 +352,7 @@ async function leave() {
       <!-- for password managers: which account this password is for -->
       <input class="lock-user" type="text" autocomplete="username" :value="local ? 'Somnium on this device' : session.user?.username" readonly tabindex="-1" aria-hidden="true" />
       <div class="fld"><label for="lock-pw">Password</label><input id="lock-pw" ref="pwInput" v-model="password" type="password" autocomplete="current-password" required /></div>
-      <div v-if="waiting" class="err" role="status">{{ waitText }}</div>
+      <div v-if="waiting" class="err" role="alert">Too many wrong tries. Try again in <span aria-live="off">{{ formatWait(lock.waitMs) }}</span>. Your journal stays locked.</div>
       <div v-else-if="err" class="err" role="alert">{{ err }}</div>
       <p v-else-if="triesText" class="tiny lock-tries">{{ triesText }}</p>
       <button class="btn block lg" :disabled="busy || waiting">{{ busy ? "Unlocking..." : "Unlock" }}</button>

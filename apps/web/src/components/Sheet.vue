@@ -5,6 +5,7 @@ import { onMounted, onBeforeUnmount, ref } from "vue";
 import { usePullDown } from "../core/pullDown";
 import { sheetOpened, sheetClosed } from "../core/sheets";
 import { lockScroll } from "../core/scrollLock";
+import { trapFocus } from "../core/focusTrap";
 import Icon from "./Icon.vue";
 
 // noHistory: no Back step of its own (see core/leave.ts)
@@ -15,15 +16,16 @@ const root = ref<HTMLElement | null>(null), sheet = ref<HTMLElement | null>(null
 const onTop = () => [...document.querySelectorAll(".scr:not(.leaving)")].at(-1) === root.value;
 const key = (e: KeyboardEvent) => { if (e.key === "Escape" && !props.noClose && onTop()) { e.stopPropagation(); emit("close"); } };
 defineExpose({ onTop });
-let backId = 0, unlock = () => {};
+let backId = 0, unlock = () => {}, release = () => {};
 onMounted(() => {
   addEventListener("keydown", key); unlock = lockScroll();
+  if (sheet.value) release = trapFocus(sheet.value);
   if (!props.noClose && !props.noHistory) backId = sheetOpened(() => emit("close"));
 });
 const pull = usePullDown(() => sheet.value, () => root.value, () => !props.noClose, () => emit("close"));
 // However a sheet is closed (its own buttons or the page), a copy of it plays the closing animation for a moment.
 onBeforeUnmount(() => {
-  removeEventListener("keydown", key); unlock();
+  removeEventListener("keydown", key); unlock(); release();
   if (backId) sheetClosed(backId);
   const el = root.value;
   if (!el || pull.pulledAway || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -38,7 +40,7 @@ onBeforeUnmount(() => {
 <template>
   <Teleport to="body">
     <div ref="root" class="scr" @mousedown.self="!noClose && emit('close')">
-      <div ref="sheet" class="sht" :class="size" role="dialog" :aria-label="title">
+      <div ref="sheet" class="sht" :class="size" role="dialog" aria-modal="true" :aria-label="title">
         <div class="sh_h">
           <slot name="head"><b>{{ title }}</b></slot>
           <button v-if="!noClose" class="ib sm plain" aria-label="Close" @click="emit('close')"><Icon name="close" /></button>

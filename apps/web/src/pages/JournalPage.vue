@@ -127,7 +127,7 @@ const menu = computed(() => [
         <div class="ph">
           <div><h1>Journal</h1></div>
           <div class="acts">
-            <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" @click="setView('calendar')">Calendar</button></div>
+            <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" :aria-pressed="view === 'list'" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" :aria-pressed="view === 'calendar'" @click="setView('calendar')">Calendar</button></div>
             <Menu :items="menu" />
             <!-- with a dream open beside the list, its Edit or Done is the one primary button; this moves to the menu -->
             <button v-if="!empty && !isPhone && !mode" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
@@ -182,7 +182,7 @@ const menu = computed(() => [
         <div class="fld"><label>To</label><DatePicker v-model="filter.to" :min="filter.from || undefined" :max="today" clearable /></div>
       </div>
       <div class="fld"><label>Elements</label>
-        <div v-if="named.length" class="chips"><button v-for="e in named" :key="e.id" class="fchip" :class="{ on: filter.elementIds.includes(e.id) }" @click="toggleEl(e.id)">{{ e.name }}</button></div>
+        <div v-if="named.length" class="chips"><button v-for="e in named" :key="e.id" class="fchip" :class="{ on: filter.elementIds.includes(e.id) }" :aria-pressed="filter.elementIds.includes(e.id)" @click="toggleEl(e.id)">{{ e.name }}</button></div>
         <div v-else class="tiny jmut">Elements you add to dreams show here.</div>
       </div>
       <template #foot><button class="btn o" :disabled="!narrowed" @click="clearFilter">Clear</button><button class="btn" @click="filterOpen = false">Show</button></template>

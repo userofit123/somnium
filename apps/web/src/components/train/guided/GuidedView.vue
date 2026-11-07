@@ -5,6 +5,7 @@ import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import "../../../styles/components/guided.css";
 import Icon from "../../Icon.vue";
+import { vTrap } from "../../../core/focusTrap";
 import SourceSheet from "../../learn/SourceSheet.vue";
 import { useSettings } from "../../../api/queries";
 import WbtbPlanner from "./WbtbPlanner.vue";
@@ -34,7 +35,7 @@ const running = ref(false);
 </script>
 
 <template>
-  <div v-if="shown" class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
+  <div v-if="shown" v-trap class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
     <div class="gtop">
       <button type="button" class="gx" @click="close"><Icon name="close" :size="18" /> Close</button>
       <span class="grow" />

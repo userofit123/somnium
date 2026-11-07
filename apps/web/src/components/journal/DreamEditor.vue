@@ -207,12 +207,12 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 
       <div class="fld">
         <label>Lucidity</label>
-        <div class="seg jscale"><button v-for="n in 6" :key="n" :class="{ on: f.lucidityLevel === n - 1 }" @click="set('lucidityLevel', n - 1)">{{ n - 1 }}</button></div>
+        <div class="seg jscale" role="group" aria-label="Lucidity"><button v-for="n in 6" :key="n" type="button" :class="{ on: f.lucidityLevel === n - 1 }" :aria-pressed="f.lucidityLevel === n - 1" @click="set('lucidityLevel', n - 1)">{{ n - 1 }}</button></div>
         <div class="tiny jan">{{ LUCIDITY_ANCHORS[f.lucidityLevel ?? 0] }}</div>
       </div>
       <div class="fld">
         <label>Vividness</label>
-        <div class="seg jscale"><button v-for="n in 5" :key="n" :class="{ on: f.vividness === n }" @click="set('vividness', n)">{{ n }}</button></div>
+        <div class="seg jscale" role="group" aria-label="Vividness"><button v-for="n in 5" :key="n" type="button" :class="{ on: f.vividness === n }" :aria-pressed="f.vividness === n" @click="set('vividness', n)">{{ n }}</button></div>
         <div class="tiny jan">{{ f.vividness ? VIVIDNESS_ANCHORS[f.vividness - 1] : "Not set" }}</div>
       </div>
 
@@ -241,22 +241,22 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <Collapse :open="more">
         <div class="fld">
           <label>Control</label>
-          <div class="seg jscale"><button v-for="n in 6" :key="n" :class="{ on: f.control === n - 1 }" @click="set('control', n - 1)">{{ n - 1 }}</button></div>
+          <div class="seg jscale" role="group" aria-label="Control"><button v-for="n in 6" :key="n" type="button" :class="{ on: f.control === n - 1 }" :aria-pressed="f.control === n - 1" @click="set('control', n - 1)">{{ n - 1 }}</button></div>
           <div class="tiny jan">{{ f.control != null ? CONTROL_ANCHORS[f.control] : "Not set" }}</div>
         </div>
         <div class="fld">
           <label>Dreamsign awareness</label>
-          <div class="seg jscale"><button v-for="n in 5" :key="n" :class="{ on: f.awareness === n - 1 }" @click="set('awareness', n - 1)">{{ n - 1 }}</button></div>
+          <div class="seg jscale" role="group" aria-label="Dreamsign awareness"><button v-for="n in 5" :key="n" type="button" :class="{ on: f.awareness === n - 1 }" :aria-pressed="f.awareness === n - 1" @click="set('awareness', n - 1)">{{ n - 1 }}</button></div>
           <div class="tiny jan">{{ f.awareness != null ? DSA_ANCHORS[f.awareness] : "Not set · how aware you were of a dreamsign in this dream" }}</div>
         </div>
         <div class="fld">
           <label>Recall clarity</label>
-          <div class="seg jscale"><button v-for="n in 5" :key="n" :class="{ on: f.recallClarity === n }" @click="set('recallClarity', n)">{{ n }}</button></div>
+          <div class="seg jscale" role="group" aria-label="Recall clarity"><button v-for="n in 5" :key="n" type="button" :class="{ on: f.recallClarity === n }" :aria-pressed="f.recallClarity === n" @click="set('recallClarity', n)">{{ n }}</button></div>
           <div class="tiny jan">{{ f.recallClarity ? RECALL_ANCHORS[f.recallClarity - 1] : "Not set" }}</div>
         </div>
         <div class="fld">
           <label>Overall emotion</label>
-          <div class="seg jscale"><button v-for="n in 5" :key="n" :class="{ on: f.emotionOverall === n - 3 }" @click="set('emotionOverall', n - 3)">{{ n - 3 > 0 ? "+" + (n - 3) : n - 3 }}</button></div>
+          <div class="seg jscale" role="group" aria-label="Overall emotion"><button v-for="n in 5" :key="n" type="button" :class="{ on: f.emotionOverall === n - 3 }" :aria-pressed="f.emotionOverall === n - 3" @click="set('emotionOverall', n - 3)">{{ n - 3 > 0 ? "+" + (n - 3) : n - 3 }}</button></div>
           <div class="tiny jan">{{ f.emotionOverall != null ? EMOTION_ANCHORS[f.emotionOverall + 2] : "Not set" }}</div>
         </div>
       </Collapse>

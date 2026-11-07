@@ -58,6 +58,9 @@ html.phone .tview .tuse .btn { width: 100%; }
 .tpm .pmbtns { display: flex; gap: 8px; flex: none; }
 .tpm .pmbig { min-width: 64px; min-height: 44px; }
 .tpm .pmpick { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: var(--hg); }
+/* its text buttons (choose targets, the example day, undo) are links in the accent, like .lnk everywhere else; they
+   were left with the browser's grey button look */
+.tpm .lnk { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; }
 .tpm .pmlist { display: flex; flex-wrap: wrap; gap: 6px; }
 .tpm .pmsteps { margin: 0 0 var(--hg); padding-left: 18px; }
 .tpm .pmweek, .tmed p, .tyoga > p { margin: var(--hg) 0 0; }

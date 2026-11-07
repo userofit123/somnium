@@ -185,16 +185,16 @@ async function leaveReset() {
 </script>
 
 <template>
-  <div class="auth">
+  <div class="auth" role="main">
     <form v-if="step === 'code'" class="card" @submit.prevent="go">
       <Logo />
       <h1>One more step</h1>
       <p class="muted auth-lede">{{ backup ? "Type one of your backup codes. It works once." : "Type the code from your authenticator app." }}</p>
-      <div class="fld"><label>{{ backup ? "Backup code" : "6-digit code" }}</label><input v-model="code" :inputmode="backup ? 'text' : 'numeric'" :maxlength="backup ? 11 : 6" autocomplete="one-time-code" autocapitalize="characters" autofocus required /></div>
+      <div class="fld"><label>{{ backup ? "Backup code" : "6-digit code" }}</label><input :aria-label="backup ? 'Backup code' : '6-digit code'" v-model="code" :inputmode="backup ? 'text' : 'numeric'" :maxlength="backup ? 11 : 6" autocomplete="one-time-code" autocapitalize="characters" autofocus required /></div>
       <div v-if="err" class="err">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Signing in..." : "Sign in" }}</button>
-      <p class="center tiny auth-link"><a class="acc click" @click="backup = !backup; code = ''">{{ backup ? "Use the authenticator app instead" : "Lost the authenticator? Use a backup code" }}</a></p>
-      <p class="center tiny auth-link"><a class="acc click" @click="back">Back</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="backup = !backup; code = ''">{{ backup ? "Use the authenticator app instead" : "Lost the authenticator? Use a backup code" }}</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="back">Back</a></p>
     </form>
     <div v-else-if="step === 'forgot'" class="card">
       <Logo />
@@ -204,29 +204,29 @@ async function leaveReset() {
         <button type="button" class="btn o block" @click="step = 'reset'; err = ''">I have a reset code</button>
         <button type="button" class="btn o block" @click="step = 'recovery'; err = ''">I have a recovery key</button>
       </div>
-      <p class="center tiny auth-link"><a class="acc click" @click="back">Back</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="back">Back</a></p>
     </div>
     <form v-else-if="step === 'recovery'" class="card" @submit.prevent="checkKey">
       <Logo />
       <h1>Recovery key</h1>
       <p class="muted auth-lede">The 20-character key you saved when you made it. It opens your journal and lets you choose a new password.</p>
-      <div class="fld"><label>Username</label><input v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
-      <div class="fld"><label>Recovery key</label><input v-model="rec.key" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required /></div>
+      <div class="fld"><label>Username</label><input aria-label="Username" v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
+      <div class="fld"><label>Recovery key</label><input aria-label="Recovery key" v-model="rec.key" class="mono" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX-XXXX" required /></div>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Checking..." : "Next" }}</button>
-      <p class="center tiny auth-link"><a class="acc click" @click="step = 'forgot'; err = ''">Back</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="step = 'forgot'; err = ''">Back</a></p>
     </form>
     <form v-else-if="step === 'recoveryPassword'" class="card" @submit.prevent="setPasswordWithKey">
       <Logo />
       <h1>Choose a new password</h1>
       <p class="muted auth-lede">Your recovery key is right. The new password seals your journal from now on, and you get a new recovery key - the one you typed stops working.</p>
       <input class="auth-hidden" type="text" autocomplete="username" :value="f.username" readonly tabindex="-1" aria-hidden="true" />
-      <div class="fld"><label>New password</label><input v-model="rec.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" autofocus /><p class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters.</p></div>
-      <div class="fld"><label>New password again</label><input v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
+      <div class="fld"><label>New password</label><input aria-label="New password" v-model="rec.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" autofocus /><p class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters.</p></div>
+      <div class="fld"><label>New password again</label><input aria-label="New password again" v-model="rec.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
       <div v-if="totpNeeded" class="fld"><label>Code from your authenticator, or a backup code</label><input v-model="rec.code" autocomplete="one-time-code" autocapitalize="characters" maxlength="11" required /></div>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Setting your password..." : "Set password" }}</button>
-      <p class="center tiny auth-link"><a class="acc click" @click="back">Cancel</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="back">Cancel</a></p>
     </form>
     <div v-else-if="step === 'offerKey'" class="card">
       <Logo />
@@ -234,7 +234,7 @@ async function leaveReset() {
       <p class="muted auth-lede">Nobody can send you your password, the admin included. The recovery key is the way back in if you forget it. It takes a second, and you see it once.</p>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="!!busy" @click="makeFirstKey">{{ busy ? "Making your key..." : "Make recovery key" }}</button>
-      <p class="center tiny auth-link"><a class="acc click" @click="leaveWithKey">Skip for now</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="leaveWithKey">Skip for now</a></p>
       <p class="center tiny muted auth-link">You can make it later in Settings · Security.</p>
     </div>
     <div v-else-if="step === 'newKey'" class="card">
@@ -251,12 +251,12 @@ async function leaveReset() {
       <Logo />
       <h1>Set a new password</h1>
       <p class="muted auth-lede">Your admin can give you a reset code. It works once, for one day.</p>
-      <div class="fld"><label>Username</label><input v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
-      <div class="fld"><label>Reset code</label><input v-model="reset.code" maxlength="11" autocomplete="off" autocapitalize="characters" required /></div>
-      <div class="fld"><label>New password</label><input v-model="reset.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /><p class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters.</p></div>
+      <div class="fld"><label>Username</label><input aria-label="Username" v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
+      <div class="fld"><label>Reset code</label><input aria-label="Reset code" v-model="reset.code" maxlength="11" autocomplete="off" autocapitalize="characters" required /></div>
+      <div class="fld"><label>New password</label><input aria-label="New password" v-model="reset.password" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /><p class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters.</p></div>
       <div v-if="err" class="err">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy ? "Setting your password..." : "Set password" }}</button>
-      <p class="center tiny auth-link"><a class="acc click" @click="step = 'forgot'; err = ''">Back</a></p>
+      <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="step = 'forgot'; err = ''">Back</a></p>
     </form>
     <div v-else-if="step === 'resetDone'" class="card">
       <Logo />
@@ -269,18 +269,18 @@ async function leaveReset() {
       <h1>{{ setup ? "Welcome to Somnium" : mode === "login" ? "Sign in" : "Create your account" }}</h1>
       <p class="muted auth-lede">{{ setup ? "Create the first account. It will be the admin of this server." : mode === "login" ? "Your dreams, sealed." : "You need an invite code from the admin." }}</p>
       <div v-if="creating" class="fld"><label>Your name</label><input v-model="f.displayName" autocomplete="name" /></div>
-      <div class="fld"><label>Username</label><input v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
-      <div class="fld"><label>Password</label><input v-model="f.password" type="password" :autocomplete="creating ? 'new-password' : 'current-password'" required :minlength="creating ? PASSWORD_MIN : undefined" />
+      <div class="fld"><label>Username</label><input aria-label="Username" v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
+      <div class="fld"><label>Password</label><input aria-label="Password" v-model="f.password" type="password" :autocomplete="creating ? 'new-password' : 'current-password'" required :minlength="creating ? PASSWORD_MIN : undefined" />
         <p v-if="creating" class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters. It seals your journal: the server never sees it, so nobody can send it to you if it is lost - you will get a recovery key.</p></div>
       <div v-if="!setup && mode === 'register' && session.registration === 'invite'" class="fld"><label>Invite code</label><input v-model="f.invite" required /></div>
       <div v-if="err" class="err">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy === "unlock" ? "Unlocking..." : busy ? (creating ? "Creating..." : "Signing in...") : creating ? "Create account" : "Sign in" }}</button>
-      <p v-if="!setup && mode === 'login'" class="center tiny auth-link"><a class="acc click" @click="step = 'forgot'; err = ''">Forgot password?</a></p>
+      <p v-if="!setup && mode === 'login'" class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="step = 'forgot'; err = ''">Forgot password?</a></p>
       <p v-if="!setup && session.registration !== 'closed'" class="center tiny auth-link">
-        <a v-if="mode === 'login'" class="acc click" @click="mode = 'register'; err = ''">Have an invite? Create an account</a>
-        <a v-else class="acc click" @click="mode = 'login'; err = ''">Already have an account? Sign in</a>
+        <a v-if="mode === 'login'" class="acc click" href="#" role="button" @click.prevent="mode = 'register'; err = ''">Have an invite? Create an account</a>
+        <a v-else class="acc click" href="#" role="button" @click.prevent="mode = 'login'; err = ''">Already have an account? Sign in</a>
       </p>
-      <p v-if="accounts" class="center tiny auth-link"><a class="acc click" @click="accounts.chooser()">Other accounts and servers</a></p>
+      <p v-if="accounts" class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="accounts.chooser()">Other accounts and servers</a></p>
     </form>
   </div>
 </template>

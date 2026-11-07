@@ -13,9 +13,9 @@ const pick = (v: string) => emit("update:modelValue", props.all != null && props
   <div>
     <div class="flbl">{{ label }}</div>
     <div class="chips hscroll">
-      <button v-if="all != null" class="fchip" :class="{ on: !modelValue }" @click="emit('update:modelValue', '')">{{ all }}</button>
+      <button v-if="all != null" class="fchip" :class="{ on: !modelValue }" :aria-pressed="!modelValue" @click="emit('update:modelValue', '')">{{ all }}</button>
       <slot>
-        <button v-for="o in options" :key="o.value" class="fchip" :class="{ on: modelValue === o.value }" @click="pick(o.value)">
+        <button v-for="o in options" :key="o.value" class="fchip" :class="{ on: modelValue === o.value }" :aria-pressed="modelValue === o.value" @click="pick(o.value)">
           <Icon v-if="o.icon" :name="o.icon" :size="14" />{{ o.label }}<span v-if="o.count != null" class="n">{{ o.count }}</span>
         </button>
       </slot>

@@ -78,7 +78,7 @@ function key(e: KeyboardEvent) {
     <div class="tp">
       <div class="tpq">
         <button type="button" class="fchip" @click="set(now()[0]!, now()[1]!); close()">Now</button>
-        <button v-for="[h, m] in QUICK" :key="h" type="button" class="fchip" :class="{ on: val?.h === h && val?.m === m }" @click="set(h, m); close()">{{ fmtT(h, m) }}</button>
+        <button v-for="[h, m] in QUICK" :key="h" type="button" class="fchip" :class="{ on: val?.h === h && val?.m === m }" :aria-pressed="val?.h === h && val?.m === m" @click="set(h, m); close()">{{ fmtT(h, m) }}</button>
       </div>
       <div ref="cols" class="tpc" :class="{ three: h12 }">
         <div class="tcol" role="listbox" aria-label="Hour"><button v-for="h in hours" :key="h" type="button" role="option" :aria-selected="isHour(h)" :class="{ on: isHour(h) }" @click="pickHour(h)">{{ h12 ? h : p2(h) }}</button></div>

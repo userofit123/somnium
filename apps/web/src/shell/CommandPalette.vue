@@ -20,6 +20,8 @@ function key(e: KeyboardEvent) {
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); open.value = !open.value; q.value = ""; sel.value = 0; nextTick(() => inp.value?.focus()); return; }
   if (!open.value) return;
   if (e.key === "Escape") open.value = false;
+  // the search field is the only stop inside, so Tab stays in it rather than wandering into the page behind
+  if (e.key === "Tab") e.preventDefault();
   if (e.key === "ArrowDown") { sel.value = Math.min(items.value.length - 1, sel.value + 1); e.preventDefault(); }
   if (e.key === "ArrowUp") { sel.value = Math.max(0, sel.value - 1); e.preventDefault(); }
   if (e.key === "Enter") pick(items.value[sel.value]);
@@ -27,7 +29,12 @@ function key(e: KeyboardEvent) {
 const pick = (i?: Item) => { if (!i) return; open.value = false; i.run(); };
 // the page behind stays still while it is open
 let unlock = () => {};
-watch(open, (o) => { unlock(); unlock = o ? lockScroll() : () => {}; });
+// focus goes back to where it was when it closes
+let back: HTMLElement | null = null;
+watch(open, (o) => {
+  unlock(); unlock = o ? lockScroll() : () => {};
+  if (o) back = document.activeElement as HTMLElement | null; else { const b = back; back = null; nextTick(() => { if (b?.isConnected) b.focus(); }); }
+});
 onMounted(() => addEventListener("keydown", key));
 onBeforeUnmount(() => { removeEventListener("keydown", key); unlock(); });
 </script>
@@ -35,10 +42,10 @@ onBeforeUnmount(() => { removeEventListener("keydown", key); unlock(); });
 <template>
   <Teleport to="body">
     <div v-if="open" class="scr" style="align-items:flex-start;padding-top:12vh" @mousedown.self="open = false">
-      <div class="sht" style="width:min(560px,100%)">
-        <div class="search" style="margin:14px"><Icon name="search" :size="18" /><input ref="inp" v-model="q" placeholder="Type a page" @input="sel = 0" /></div>
-        <div class="sh_b" style="padding:0 8px 10px">
-          <div v-for="(i, k) in items" :key="i.hint + i.label" class="li click" :style="k === sel ? { background: 'var(--s2)', borderRadius: 'var(--r-sm)' } : undefined" style="padding:9px 10px;min-height:0;border:0" @mouseenter="sel = k" @click="pick(i)">
+      <div class="sht" style="width:min(560px,100%)" role="dialog" aria-modal="true" aria-label="Go to a page">
+        <div class="search" style="margin:14px"><Icon name="search" :size="18" /><input ref="inp" v-model="q" placeholder="Type a page" aria-label="Type a page" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="cmdk-l" :aria-activedescendant="items.length ? 'cmdk-' + sel : undefined" @input="sel = 0" /></div>
+        <div id="cmdk-l" class="sh_b" role="listbox" aria-label="Pages" style="padding:0 8px 10px">
+          <div v-for="(i, k) in items" :id="'cmdk-' + k" :key="i.hint + i.label" class="li click" role="option" :aria-selected="k === sel" :style="k === sel ? { background: 'var(--s2)', borderRadius: 'var(--r-sm)' } : undefined" style="padding:9px 10px;min-height:0;border:0" @mouseenter="sel = k" @click="pick(i)">
             <Icon :name="i.icon" :size="18" class="muted" /><span class="grow">{{ i.label }}</span><span class="tiny">{{ i.hint }}</span></div>
           <div v-if="!items.length" class="tiny" style="padding:10px">Nothing found</div>
         </div>

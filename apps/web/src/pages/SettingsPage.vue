@@ -77,10 +77,10 @@ await loaded(me);
         <template v-for="([g, xs], gi) in GROUPS" :key="g">
           <div class="sh" :class="{ first: gi === 0 }"><h2>{{ g }}</h2></div>
           <div class="card flush">
-            <div v-for="[k, l, ic, h] in xs" :key="k" class="li click" @click="go(k)"><span class="bi sg"><Icon :name="ic" :size="17" /></span><div class="grow"><div class="t">{{ l }}</div><div class="s">{{ h }}</div></div><Icon name="right" :size="16" class="muted" /></div>
+            <button type="button" v-for="[k, l, ic, h] in xs" :key="k" class="li click" @click="go(k)"><span class="bi sg"><Icon :name="ic" :size="17" /></span><div class="grow"><div class="t">{{ l }}</div><div class="s">{{ h }}</div></div><Icon name="right" :size="16" class="muted" /></button>
           </div>
         </template>
-        <div class="card flush spt"><div class="li click" @click="signOut()"><span class="bi sg"><Icon name="logout" :size="17" /></span><span class="grow t">Sign out</span></div></div>
+        <div class="card flush spt"><button type="button" class="li click" @click="signOut()"><span class="bi sg"><Icon name="logout" :size="17" /></span><span class="grow t">Sign out</span></button></div>
       </div>
       <!-- computer: the same groups down the side -->
       <!-- a div, not <nav>: the app's <nav> styles are the side rail's -->

@@ -7,7 +7,7 @@ import { readJson, writeJson } from "./prefs";
 
 type Pal = { L: string[]; D: string[] };
 export const ATM: Record<string, Pal> = {
-  Dusk: { L: ["#5b4de0", "#e4dfff", "#1a1550", "#f8f7fd", "#1f8fb3", "#ffffff"], D: ["#a99cff", "#3d3490", "#e4dfff", "#141233", "#6fd6ff", "#1a1550"] },
+  Dusk: { L: ["#5142d4", "#e4dfff", "#1a1550", "#f8f7fd", "#1f8fb3", "#ffffff"], D: ["#a99cff", "#3d3490", "#e4dfff", "#141233", "#6fd6ff", "#1a1550"] },
   Ember: { L: ["#954523", "#ffe2d6", "#471500", "#fdf9f7", "#a52746", "#ffffff"], D: ["#f8b396", "#6f3820", "#fedccd", "#17100d", "#f47b99", "#441704"] },
   Indigo: { L: ["#4355b9", "#dee0ff", "#0b1550", "#fbf8fd", "#7b4fb8", "#fff"], D: ["#b9c3ff", "#2d3f9e", "#dee0ff", "#111218", "#c7a6ff", "#0b1550"] },
   Ocean: { L: ["#006b7d", "#b3ebff", "#001f26", "#f4fafc", "#2d7dd2", "#fff"], D: ["#4fd8eb", "#004e5c", "#b3ebff", "#0a1417", "#5aa9ff", "#00363f"] },

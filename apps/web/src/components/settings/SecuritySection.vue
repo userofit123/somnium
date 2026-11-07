@@ -286,7 +286,7 @@ async function signOutEverywhere() {
         <div class="grow sec-key"><div class="tiny">Key</div><code class="mono sec-code">{{ keyGroups(start.secret) }}</code>
           <div><button type="button" class="qb" @click="copy(start!.secret, 'Key')"><Icon name="copy" :size="15" />Copy key</button><a class="qb" :href="start.url">Open in app</a></div></div>
       </div>
-      <div class="fld"><label>The code the app shows now</label><input v-model="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" required /></div>
+      <div class="fld"><label>The code the app shows now</label><input aria-label="The code the app shows now" v-model="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" required /></div>
       <div class="sec-actions"><button class="btn" :disabled="busy || code.length < 6">Turn on</button><button type="button" class="qb" @click="start = null">Cancel</button></div>
     </form>
 
@@ -310,7 +310,7 @@ async function signOutEverywhere() {
     <div class="sh"><h2>Sign out everywhere</h2></div>
     <div class="card flush">
       <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too, and every API token. Use it if a device is lost.</div></div><button class="qb" @click="signOutEverywhere">Sign out everywhere</button></div>
-      <div class="li click" @click="router.push('/settings/log')"><div class="grow"><div class="t">Activity log</div><div class="s">Sign-ins and security changes</div></div><Icon name="right" :size="16" class="muted" /></div>
+      <button type="button" class="li click" @click="router.push('/settings/log')"><div class="grow"><div class="t">Activity log</div><div class="s">Sign-ins and security changes</div></div><Icon name="right" :size="16" class="muted" /></button>
     </div>
   </template>
 </template>

@@ -45,7 +45,7 @@
   --sdim: #07070b;
   --sdim2: #12121a;
   --sdimtx: #8d8a99;
-  --sdimtx2: #5f5c6b;
+  --sdimtx2: #65626f;
   --ease: cubic-bezier(.2, .8, .2, 1);
   --t-slide: .25s;
   /* the Android app hands the bars' sizes over as --nst / --nsb / --nsl / --nsr (older WebViews report no safe area);

@@ -64,14 +64,14 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
     </div>
     <div class="fld">
       <label>Sleep quality</label>
-      <div class="seg jscale"><button v-for="q in 5" :key="q" :class="{ on: n.sleepQuality === q }" @click="n.sleepQuality = n.sleepQuality === q ? null : q">{{ q }}</button></div>
+      <div class="seg jscale" role="group" aria-label="Sleep quality"><button v-for="q in 5" :key="q" type="button" :class="{ on: n.sleepQuality === q }" :aria-pressed="n.sleepQuality === q" @click="n.sleepQuality = n.sleepQuality === q ? null : q">{{ q }}</button></div>
       <div class="tiny jan">{{ quality }}</div>
     </div>
     <label class="tgl"><div class="grow"><div class="t">Wake back to bed</div><div class="s">Woke up on purpose, stayed up a while, went back to sleep</div></div><span class="tg"><input v-model="n.wbtbUsed" type="checkbox" /></span></label>
     <div v-if="n.wbtbUsed" class="fld"><label>Minutes awake</label><NumStep :value="n.wbtbMinutesAwake" :min="0" :max="600" :step="5" unit="min" @set="(v) => (n.wbtbMinutesAwake = v)" /></div>
     <div class="fld"><label>Techniques used</label><ChoiceTiles v-model="n.techniquesDone" :options="techs" multiple compact /></div>
-    <div class="fld"><label>Substances</label><input v-model="n.substances" placeholder="Caffeine, alcohol, supplements, medicines" maxlength="500" /></div>
-    <div class="fld"><label>Notes</label><textarea v-model="n.notes" rows="3" placeholder="Anything else about the night" /></div>
+    <div class="fld"><label>Substances</label><input aria-label="Substances" v-model="n.substances" placeholder="Caffeine, alcohol, supplements, medicines" maxlength="500" /></div>
+    <div class="fld"><label>Notes</label><textarea aria-label="Notes" v-model="n.notes" rows="3" placeholder="Anything else about the night" /></div>
   </Sheet>
 </template>
 

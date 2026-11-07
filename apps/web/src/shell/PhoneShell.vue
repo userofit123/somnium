@@ -59,10 +59,10 @@ function te(e: TouchEvent) {
 
 <template>
   <div class="pshell" @touchstart.passive="ts" @touchend.passive="te">
-    <div class="pmain"><router-view v-slot="{ Component, route: r }"><Suspense><Transition :name="motion" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></div>
+    <div class="pmain" role="main"><router-view v-slot="{ Component, route: r }"><Suspense><Transition :name="motion" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></div>
     <div class="dock">
       <div class="tabbar">
-        <button v-for="t in TABS" :key="t.name" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" @click="router.push(t.to)"><span class="ic"><Icon :name="t.icon" :size="22" /></span>{{ t.label }}</button>
+        <button v-for="t in TABS" :key="t.name" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to)"><span class="ic"><Icon :name="t.icon" :size="22" /></span>{{ t.label }}</button>
       </div>
     </div>
     <SyncPill />
