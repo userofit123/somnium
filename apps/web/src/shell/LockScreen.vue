@@ -54,16 +54,25 @@ const showPassword = () => { step.value = "password"; err.value = ""; void nextT
 // password instead"; only leaving the app and coming back asks again. Hidden while a prompt runs (Android's screen-lock
 // PIN is its own activity) or just after it is the prompt itself, not leaving, so it doesn't count as a new return.
 // A browser's WebAuthn refuses a page without focus, so the web waits for focus too; the Android path asks the Keystore.
-let autoAsked = false, promptEndedAt = 0;
+let autoAsked = false, promptEndedAt = 0, hiddenInPrompt = false, alive = true;
 const inView = () => document.visibilityState === "visible" && (!!nativeLock() || document.hasFocus());
 function autoDevice() {
-  if (autoAsked || step.value !== "device" || busy.value || !inView() || wrongTryWait() > 0) return;
+  if (!alive || autoAsked || step.value !== "device" || busy.value || !inView() || wrongTryWait() > 0) return;
   autoAsked = true;
   void useDevice(true);
 }
 function onSight() {
   if (document.visibilityState === "visible") { autoDevice(); return; }
-  if (!busy.value && Date.now() - promptEndedAt > 1500) autoAsked = false;
+  const since = Date.now() - promptEndedAt;
+  if (!busy.value && since > 1500) { autoAsked = false; return; }
+  // maybe the prompt's own hide: decided when the prompt ends, or when the 1.5 s after it pass; still hidden then means
+  // the person really left, so the next return asks again. Back in view before that (the PIN activity) it doesn't.
+  hiddenInPrompt = true;
+  if (!busy.value) setTimeout(settleHide, 1500 - since + 50);
+}
+function settleHide() {
+  if (hiddenInPrompt && !busy.value && document.visibilityState === "hidden") autoAsked = false;
+  if (!busy.value) hiddenInPrompt = false;
 }
 document.addEventListener("visibilitychange", onSight);
 addEventListener("focus", onSight);
@@ -98,7 +107,7 @@ async function readLocalKeys() {
 // left the app while offering device verification: the key was dropped, so this starts over
 const stop = keyring.onChange((open) => { if (!open && (step.value === "offer" || step.value === "noPrf")) showPassword(); });
 onBeforeUnmount(() => {
-  stop(); password.value = "";
+  alive = false; stop(); password.value = "";
   document.removeEventListener("visibilitychange", onSight);
   removeEventListener("focus", onSight);
 });
@@ -155,7 +164,7 @@ async function useDevice(auto = false) {
     const cancelled = (e as Error)?.name === "NotAllowedError";
     err.value = waiting.value || (auto && cancelled) ? "" : cancelled ? "Verification was cancelled or timed out."
       : (e as Error)?.name === "DeviceNotice" ? (e as Error).message : "This device couldn't open your journal. Use your password.";
-  } finally { busy.value = false; promptEndedAt = Date.now(); }
+  } finally { busy.value = false; promptEndedAt = Date.now(); settleHide(); }
 }
 
 // straight after a password unlock, so the browser sees it as the person's own doing
