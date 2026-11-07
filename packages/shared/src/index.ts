@@ -31,3 +31,4 @@ export * from "./localModel";
 export * from "./lag";
 export * from "./goals";
 export * from "./report";
+export * from "./contrast";
