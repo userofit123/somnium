@@ -9,6 +9,7 @@ import { LockedError, needsKey, sealRow, sealRows, unsealRow, unsealRows, type R
 
 export { LockedError, needsKey, uuidv7, sealRows, unsealRows };
 export * from "./backupFile";
+export { rekeyForAccount, fromOtherAccount } from "./rekey";
 
 /** Reads a raw answer from the server, for the two routes where it picks the row. */
 export type Lookup = (path: string) => Promise<any>;

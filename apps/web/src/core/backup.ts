@@ -12,7 +12,7 @@ import { api } from "../api/client";
 import { SealError, backupsPastKeep, looksLikeBackup } from "@somnium/shared";
 import { invalidate } from "../api/live";
 import {
-  BACKUP_LOCKED_FORMAT, lockBackupFile, makeBackupFile, openBackupKey, openExport, parseBackupFile, unlockBackupFile,
+  BACKUP_LOCKED_FORMAT, lockBackupFile, makeBackupFile, openBackupKey, openExport, parseBackupFile, rekeyForAccount, unlockBackupFile,
   type BackupAccount, type BackupFile,
 } from "@somnium/engine/sealed-api";
 import { keyring } from "./keyring";
@@ -171,7 +171,8 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
  * Restores a .somniumbackup or a Somnium JSON export: a preview answered on the device, the password or recovery key
  * for a backup, then merge (add what's missing, newest wins) or replace (asked twice; the account and its keys stay).
  * The rows are opened here with the backup's key and sealed again by the transport under this account's key, so a
- * backup restores into a local account, a server account or a different account alike.
+ * backup restores into a local account, a server account or a different account alike (with new ids in another one).
+ * Changes the server refuses afterwards stay on this device and the sync pill says how many (replica.ts).
  */
 export async function restoreFromFile(file: Blob, fmt: { date: (s: string) => string }): Promise<boolean> {
   let parsed = parseBackupFile(await file.text());
@@ -206,6 +207,9 @@ export async function restoreFromFile(file: Blob, fmt: { date: (s: string) => st
     if (!(await confirm("Really replace everything?", { text: "This can't be undone. A backup of what you have now is saved first.", ok: "Replace", danger: true }))) return false;
     await backupNow({ interactive: true });
   }
+  // another account's backup: its entries get ids of their own in this account (LDJ-62), here, while they are in the
+  // clear, because each sealed value is bound to its row id and the transport seals them under the new ones
+  if (session.user) data = await rekeyForAccount(data, session.user);
   const counts = await api.post<Record<string, number>>("/import", { data, mode });
   invalidate(["*"]);
   toast(`Restored · ${plural(counts.dreams ?? 0, "dream")} · ${plural(counts.nights ?? 0, "night")}`);

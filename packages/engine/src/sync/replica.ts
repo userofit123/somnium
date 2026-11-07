@@ -67,6 +67,8 @@ export async function loadSnapshot(db: Db, snap: { cursor: number; user: any; ta
     }
   });
   const pushed = Number((await db.admin.query("SELECT coalesce(max(seq), 0) AS s FROM sync_log")).rows[0].s);
+  // behind the sent position the log keeps only changes the server refused (markSent), and none of these were
+  await db.admin.query("DELETE FROM sync_log WHERE seq <= $1", [pushed]);
   return saveMeta(db, { cursor: snap.cursor, pushed, device: (await replicaMeta(db)).device || uuidv7(), ready: true, unopened, heldBack });
 }
 
@@ -90,9 +92,11 @@ export async function plainChanges(db: Db, limit = 500): Promise<{ changes: Chan
   const changes: Change[] = latest.map((e: any) => { const row = e.op === "upsert" ? rows.get(keyOf(e.tbl, e.pk)) ?? null : null; return { tbl: e.tbl, pk: e.pk, op: row ? "upsert" : "delete", at: new Date(e.at).toISOString(), row }; });
   return { upTo: Number(log.at(-1).seq), changes };
 }
-/** The server has those plain changes: forget them. The position stays, because sealed changes before them still wait. */
-export async function markPlainSent(db: Db, upTo: number) {
-  await db.admin.query("DELETE FROM sync_log WHERE seq > $1 AND seq <= $2 AND NOT (tbl = ANY($3::text[]))", [(await replicaMeta(db)).pushed, upTo, SEALED_TABLES]);
+/** The server has those plain changes: forget them, except the ones it refused (markSent). The position stays,
+ *  because sealed changes before them still wait. */
+export async function markPlainSent(db: Db, upTo: number, refused: Refused[] = []) {
+  await db.admin.query("DELETE FROM sync_log WHERE seq > $1 AND seq <= $2 AND NOT (tbl = ANY($3::text[])) AND NOT (jsonb_build_object('tbl', tbl, 'pk', pk) = ANY($4::jsonb[]))",
+    [(await replicaMeta(db)).pushed, upTo, SEALED_TABLES, refusedKeys(refused)]);
 }
 /** While locked: where the next pull starts, past what was already read for plain tables. */
 export const plainSince = async (db: Db) => { const m = await replicaMeta(db); return Math.max(m.cursor, m.plainCursor ?? 0); };
@@ -103,15 +107,32 @@ export async function takePlain(db: Db, userId: string, remote: Change[], plainC
   return res;
 }
 
-/** The server has them: forget them here. */
-export async function markSent(db: Db, upTo: number) {
-  await db.admin.query("DELETE FROM sync_log WHERE seq <= $1", [upTo]);
+// Changes the server refused (push's failed: they don't fit its data, e.g. another account's row ids, LDJ-62). Never
+// forgotten without a word: they stay in this copy's log behind the sent position, so the rest of the send goes on
+// without them, and requeueRefused puts them back in line once per sync, which tries them again and says how many
+// were refused again (the sync pill, with no content). They count as waiting, so this copy isn't erased while it
+// holds them.
+export type Refused = { tbl: string; pk: Record<string, unknown> };
+const refusedKeys = (refused: Refused[]) => refused.map((r) => JSON.stringify({ tbl: r.tbl, pk: r.pk }));
+
+/** The server has them: forget them here, except the ones it refused (see above). */
+export async function markSent(db: Db, upTo: number, refused: Refused[] = []) {
+  await db.admin.query("DELETE FROM sync_log WHERE seq <= $1 AND NOT (jsonb_build_object('tbl', tbl, 'pk', pk) = ANY($2::jsonb[]))", [upTo, refusedKeys(refused)]);
   await saveMeta(db, { pushed: upTo });
 }
-/** Rows not yet sent to the server, for "N changes waiting". */
+/** Refused changes back in line to be sent again: at the start of a sync, so each sync tries them once. */
+export async function requeueRefused(db: Db) {
+  await db.tx(async (q) => {
+    const m = await metaOf(q);
+    // the latest entry of each row: an older one would be sent as well and could only lose to it
+    await q.query(`INSERT INTO sync_log (user_id, tbl, pk, op, at)
+      SELECT DISTINCT ON (tbl, pk) user_id, tbl, pk, op, at FROM sync_log WHERE seq <= $1 ORDER BY tbl, pk, seq DESC`, [m.pushed]);
+    await q.query("DELETE FROM sync_log WHERE seq <= $1", [m.pushed]);
+  });
+}
+/** Rows not yet on the server (refused ones included), for "N changes waiting". */
 export async function waitingCount(db: Db) {
-  const m = await replicaMeta(db);
-  return Number((await db.admin.query("SELECT count(DISTINCT (tbl, pk)) AS n FROM sync_log WHERE seq > $1", [m.pushed])).rows[0].n);
+  return Number((await db.admin.query("SELECT count(DISTINCT (tbl, pk)) AS n FROM sync_log")).rows[0].n);
 }
 
 /**

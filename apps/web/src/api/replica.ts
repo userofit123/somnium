@@ -227,17 +227,23 @@ async function run(mineEra: number) {
   // when the request now in flight began: the grace counts from there, not from the start of a long sync
   let tried = Date.now();
   const call = <T = any>(method: string, path: string, body?: unknown) => { goOn(); tried = Date.now(); return http<T>(owner, method, path, body); };
-  let changed = false, failed = 0;
+  let changed = false;
+  // rows the server refused in this sync (they don't fit its data): kept here to try again, and counted for the pill
+  const refused = new Set<string>();
+  const noteRefused = (list: { tbl: string; pk: unknown }[] = []) => { for (const f of list) refused.add(`${f.tbl} ${JSON.stringify(f.pk)}`); return list; };
   try {
     const meta = await R.replicaMeta(db);
+    // the changes refused last time go round once more: what was refused may fit now
+    await R.requeueRefused(db);
     if (!keyed) {
       for (;;) {
         const out = await R.plainChanges(db);
         if (!out.changes.length) break;
         const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
-        await R.markPlainSent(db, out.upTo);
+        // refused ones stay in the log ahead of the position here, so a page of nothing but those ends the send
+        await R.markPlainSent(db, out.upTo, noteRefused(res.failed));
         if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected.filter((c: any) => !needsKey(c.tbl))); changed = true; }
-        if (res.failed?.length) failed = res.failed.length;
+        if (res.failed?.length && res.failed.length >= out.changes.length) break;
       }
       for (;;) {
         const p = await call("GET", `/sync/pull?since=${await R.plainSince(db)}&device=${encodeURIComponent(meta.device)}`);
@@ -255,9 +261,9 @@ async function run(mineEra: number) {
       const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
       // before marking them sent: stopped here, they are sent again next time and the server's answer comes again.
       if (res.rejected.length) { await withKey((key) => R.applyRemote(db, userId, res.rejected, undefined, key)); changed = true; }
-      await R.markSent(db, out.upTo);
-      // the server couldn't take some (they no longer fit its data): say so rather than lose them without a word
-      if (res.failed?.length) { failed = res.failed.length; console.warn(`Sync: the server refused ${failed} change${failed === 1 ? "" : "s"}`); }
+      // the server couldn't take some (they don't fit its data): kept to try again on the next sync, and said below,
+      // rather than lost without a word
+      await R.markSent(db, out.upTo, noteRefused(res.failed));
     }
     for (;;) {
       const m = await R.replicaMeta(db);
@@ -270,9 +276,9 @@ async function run(mineEra: number) {
     }
     failingSince = 0;
     const after = await R.replicaMeta(db);
-    const unopened = after.unopened?.length ?? 0, heldBack = after.heldBack?.length ?? 0;
+    const unopened = after.unopened?.length ?? 0, heldBack = after.heldBack?.length ?? 0, failed = refused.size;
     const problems = [
-      failed ? `${failed} change${failed === 1 ? "" : "s"} from this device didn't fit the server's data` : "",
+      failed ? `The server refused ${failed} change${failed === 1 ? "" : "s"} from this device. ${failed === 1 ? "It is" : "They are"} kept here and tried again` : "",
       unopened ? `${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened` : "",
       heldBack ? `${heldBack} row${heldBack === 1 ? "" : "s"} from the server couldn't be saved yet` : "",
     ].filter(Boolean).join(" · ");

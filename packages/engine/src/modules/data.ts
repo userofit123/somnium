@@ -12,6 +12,8 @@ import { bad } from "../errors";
 import { oneOf } from "../util";
 import { refusePlain } from "./rows";
 import { previewImport } from "../sync/sealedApi";
+import { fromOtherAccount, rekeyForAccount } from "../sync/rekey";
+import { SEALED_TABLES } from "../sealed";
 
 export const EXPORT_FORMAT = 1;
 const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders", "day_notes"] as const;
@@ -20,7 +22,8 @@ export async function exportAll(q: Sql, userId: string, sealed = false) {
   const tables: Record<string, any[]> = {};
   for (const t of TABLES) tables[t] = (await q.query(`SELECT * FROM ${t}`)).rows.map((r: any) => { const o = { ...r }; delete o.user_id; return o; });
   const settings = (await q.query("SELECT data FROM user_settings")).rows[0]?.data ?? {};
-  const user = (await q.query("SELECT username, display_name, email FROM users WHERE id = $1", [userId])).rows[0];
+  // the owner's id says whose rows these are, so a restore into another account knows to give them ids of their own
+  const user = (await q.query("SELECT id, username, display_name, email FROM users WHERE id = $1", [userId])).rows[0];
   return { app: "somnium", format: EXPORT_FORMAT, exportedAt: new Date().toISOString(), sealed, user, settings, tables };
 }
 
@@ -28,6 +31,15 @@ export async function importAll(ctx: Ctx, data: any, mode: "replace" | "merge") 
   if (!data || data.app !== "somnium" || !data.tables) throw bad("This is not a Somnium export");
   if (data.format > EXPORT_FORMAT) throw bad("This export is from a newer version of Somnium. Update the app first.");
   if (data.sealed && ctx.mode !== "server") throw bad("This export holds the journal sealed, as the server stores it. Export again from a signed-in device to restore it here.");
+  // another account's rows under their own ids would be refused by row-level security, one by one (LDJ-62): they get
+  // ids of their own here (rekey.ts). Sealed values are bound to their row id, so a sealed journal can't be given new
+  // ids where only ciphertext is seen; the app does that before sealing, and a file that skipped it is refused whole.
+  const me = { id: ctx.userId, username: (await ctx.q.query("SELECT username FROM users WHERE id = $1", [ctx.userId])).rows[0]?.username ?? null };
+  if (fromOtherAccount(data, me)) {
+    const sealedRows = SEALED_TABLES.some((t) => Array.isArray(data.tables[t]) && data.tables[t].length);
+    if (data.sealed && sealedRows) throw bad("This backup is from another account. Restore it in the Somnium app, which opens it and gives its entries to this account.");
+    data = await rekeyForAccount(data, me);
+  }
   // before the replace below removes anything, and outside the merge's savepoints, which would swallow it
   if (ctx.mode === "server") for (const t of TABLES) for (const row of Array.isArray(data.tables[t]) ? data.tables[t] : []) refusePlain(t, row);
   const q = ctx.q;
