@@ -1,6 +1,7 @@
 ---
 title: Sleep, REM and why timing matters
 section: science
+order: 1
 summary: Lucid dreams happen mostly in the long REM periods late in the night, which is why nearly every technique is timed to them.
 reviewed: 2026-11-06
 sources: [B1, B2, B3, B4, B5, B6, B7, B8, B9, B10, B11, B39, B40, B78, C1, C2]

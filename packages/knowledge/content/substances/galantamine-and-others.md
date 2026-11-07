@@ -1,6 +1,7 @@
 ---
 title: Galantamine and other substances
 section: substances
+order: 1
 summary: What the studies show about galantamine, cholinergics, nicotine, vitamin B6, melatonin, cannabis and "dream herbs", their risks, and why this app recommends none of them.
 reviewed: 2026-11-06
 sources: [B10, B11, B12, B13, B14, B52, B53, B54, B55, B56, D1, D37]

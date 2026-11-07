@@ -1,6 +1,7 @@
 ---
 title: Stabilising and prolonging a lucid dream
 section: techniques
+order: 21
 summary: Keep calm, engage the senses, keep moving, and spin when the dream fades: LaBerge's methods for staying in a lucid dream, with his own statistics.
 reviewed: 2026-11-06
 sources: [D1, D5, D7, D8, D11]

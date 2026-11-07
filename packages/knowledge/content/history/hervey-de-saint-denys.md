@@ -1,6 +1,7 @@
 ---
 title: Hervey de Saint-Denys and the first dream diary
 section: history
+order: 3
 summary: A French sinologist kept a dream journal from his teens and in 1867 published the first book on learning to direct dreams.
 reviewed: 2026-11-06
 sources: [A17, A18, B45, C1, C5, C5a, C6]

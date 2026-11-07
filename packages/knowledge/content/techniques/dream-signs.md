@@ -1,6 +1,7 @@
 ---
 title: Dream sign targeting
 section: techniques
+order: 2
 summary: Catalogue the recurring oddities in your own dreams, pick the most frequent category, and train yourself to notice it.
 reviewed: 2026-11-06
 sources: [C1, C2, C17, D1, D3, D5]

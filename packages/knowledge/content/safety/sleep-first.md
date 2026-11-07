@@ -1,6 +1,7 @@
 ---
 title: Sleep first
 section: safety
+order: 2
 summary: Never shorten total sleep to make room for practice; limit sleep interruptions to a few nights a week and keep the wake period quiet.
 reviewed: 2026-11-06
 sources: [B2, B8, B38, B39, B40, B43, B65, B68, B69, B76, B77, D1, D4, D12, D19, D20]

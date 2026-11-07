@@ -1,6 +1,7 @@
 ---
 title: Hearne and LaBerge: the verification race
 section: history
+order: 8
 summary: Two researchers, in Hull in 1975 and at Stanford in 1978, independently proved that lucid dreamers can signal from REM sleep.
 reviewed: 2026-11-06
 sources: [A16, A21, A34, A35, A36, A37, A38, A42, B15, B16, B18, B27, D1]

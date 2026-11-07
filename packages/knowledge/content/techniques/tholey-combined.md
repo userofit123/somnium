@@ -1,6 +1,7 @@
 ---
 title: Tholey's reflection and combined technique
 section: techniques
+order: 9
 summary: Tholey's critical question, extended with intention and autosuggestion, is the oldest systematic induction method and the ancestor of reality testing.
 reviewed: 2026-11-06
 sources: [B35, C4, D1, D5, D6, D7, D8, D12]

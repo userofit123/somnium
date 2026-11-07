@@ -1,6 +1,7 @@
 ---
 title: All-day awareness (ADA)
 section: techniques
+order: 4
 summary: A community practice of noticing the small details of waking life until, as its author puts it, the dream itself becomes your dream sign.
 reviewed: 2026-11-06
 sources: [B46, D8, D18, D20]

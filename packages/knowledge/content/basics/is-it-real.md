@@ -1,6 +1,7 @@
 ---
 title: Is it real? How lucid dreaming was verified
 section: basics
+order: 4
 summary: Lucid dreamers can send pre-agreed eye signals from inside REM sleep, and laboratories have used that channel since 1975.
 reviewed: 2026-11-06
 sources: [A16, A21, A28, A34, A35, A36, A38, A54, B1, B4, B15, B16, B19, B27]

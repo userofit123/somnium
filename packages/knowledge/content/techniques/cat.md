@@ -1,6 +1,7 @@
 ---
 title: Cycle Adjustment Technique (CAT)
 section: techniques
+order: 10
 summary: Daniel Love's schedule-based method shifts your waking time so that the body expects to wake inside a long REM period.
 reviewed: 2026-11-06
 sources: [B2, B69, D4, D24]

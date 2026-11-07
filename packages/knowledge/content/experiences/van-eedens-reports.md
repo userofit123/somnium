@@ -1,6 +1,7 @@
 ---
 title: Van Eeden's reports
 section: experiences
+order: 1
 summary: Short passages from the 1913 paper in which Frederik van Eeden named the lucid dream and described his own experiments inside it.
 reviewed: 2026-11-06
 sources: [A19, A20, A21, A23, A28, A34, A38, C6a]

@@ -1,6 +1,7 @@
 ---
 title: Devices and apps
 section: tools
+order: 1
 summary: One validated light mask from the 1990s, one replicated sound-cue method, an unreplicated stimulation study, and a market of unproven products.
 reviewed: 2026-11-06
 sources: [A34, A42, A43, A55, A57, B15, B23, B24, B25, B38, B41, B42, B43, B44, B56, D1]

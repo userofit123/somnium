@@ -6,17 +6,20 @@
 // Two loaders: the web bundle uses Vite's import.meta.glob so the articles ship inside the app
 // (offline, no network); readAll() reads the same files from disk for Node tests and tooling.
 
+// The sections in reading order (LDJ-57): what it is, how sleep and the brain work, recall and dream signs, the
+// techniques from beginner to advanced, safety, what it is good for, tools, substances, traditions, then history
+// and people's accounts, with the glossary and FAQ last. Within a section the articles follow their `order`.
 export const sections = [
   { id: "basics", title: "What lucid dreaming is" },
-  { id: "history", title: "History" },
   { id: "science", title: "The science" },
+  { id: "dream-signs", title: "Dream signs and dream content" },
   { id: "techniques", title: "Techniques" },
-  { id: "traditions", title: "Traditions" },
+  { id: "safety", title: "Safety" },
+  { id: "benefits", title: "Benefits and uses" },
   { id: "tools", title: "Tools and devices" },
   { id: "substances", title: "Substances" },
-  { id: "benefits", title: "Benefits and uses" },
-  { id: "safety", title: "Safety" },
-  { id: "dream-signs", title: "Dream signs and dream content" },
+  { id: "traditions", title: "Traditions" },
+  { id: "history", title: "History" },
   { id: "experiences", title: "People's experiences" },
   { id: "glossary", title: "Glossary" },
   { id: "faq", title: "FAQ" },
@@ -41,6 +44,8 @@ export interface Article {
   slug: string;
   section: Section;
   title: string;
+  /** Reading position within the section, from the `order` front matter (1 is read first). */
+  order: number;
   summary: string;
   /** ISO date of the last editorial review. */
   reviewed: string;
@@ -131,11 +136,14 @@ export function parseArticle(path: string, raw: string): Article {
   if (tryIt !== undefined && !(techniqueIds as readonly string[]).includes(tryIt as string)) {
     throw new Error(`${path}: unknown tryIt ${String(tryIt)}`);
   }
+  const order = Number(scalar(meta, "order", path));
+  if (!Number.isInteger(order) || order < 1) throw new Error(`${path}: order must be a whole number from 1`);
   return {
     id: `${section}/${slug}`,
     slug,
     section: section as Section,
     title: scalar(meta, "title", path),
+    order,
     summary: scalar(meta, "summary", path),
     reviewed: scalar(meta, "reviewed", path),
     sources,
@@ -165,7 +173,7 @@ export function loadFromFiles(files: Record<string, string>): Knowledge {
     if (/(^|\/)sources\.md$/.test(path)) sources = parseSources(raw);
     else if (path.endsWith(".md")) articles.push(parseArticle(path, raw));
   }
-  articles.sort((a, b) => sectionOrder.get(a.section)! - sectionOrder.get(b.section)! || a.title.localeCompare(b.title));
+  articles.sort((a, b) => sectionOrder.get(a.section)! - sectionOrder.get(b.section)! || a.order - b.order || a.title.localeCompare(b.title));
   return { articles, sources };
 }
 
@@ -182,7 +190,7 @@ function bundled(): Record<string, string> {
 
 const bundle = loadFromFiles(bundled());
 
-/** All articles, in section order then by title. Empty outside a Vite build; use readAll() there. */
+/** All articles, in section order then by reading order. Empty outside a Vite build; use readAll() there. */
 export const articles: readonly Article[] = bundle.articles;
 
 /** Source id to reference text. Empty outside a Vite build. */

@@ -1,6 +1,7 @@
 ---
 title: Tholey and the German school
 section: history
+order: 6
 summary: Paul Tholey ran the first systematic induction research from 1959 and gave lucid dreaming its German name, Klartraum.
 reviewed: 2026-11-06
 sources: [A25, A26, A27, A28, C1, C4, D6, D8, D9, D10, D12]

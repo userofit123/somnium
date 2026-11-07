@@ -1,6 +1,7 @@
 ---
 title: Existing journal apps
 section: tools
+order: 2
 summary: A neutral survey of the dream-journal apps and open-source projects that exist, what their users praise and complain about, and the gaps this app set out to fill.
 reviewed: 2026-11-06
 sources: [C13, C18, C39a, C39b, C39c, C39d, C39e, C39f, C39g, C39h, C39i, C39j, C39k, C39l, C39m, C39n, C39o, C39p, C39q, C39r, C40a, C40b, C40c, C40d, C40e, C40f, C40g, C40h, C40i, C40j]

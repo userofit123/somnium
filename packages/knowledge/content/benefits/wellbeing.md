@@ -1,6 +1,7 @@
 ---
 title: Wellbeing and sleep
 section: benefits
+order: 3
 summary: Lucid dreams themselves do not seem to harm sleep or mood; sleep-interrupting induction methods can, and the cross-sectional links cut both ways.
 reviewed: 2026-11-06
 sources: [B29, B30, B38, B65, B68, B69, B70, B71, B73, B74, B75, B76, B77, B80, B81]

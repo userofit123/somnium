@@ -1,6 +1,7 @@
 ---
 title: The Lucidity Institute years (1981 to 2000)
 section: history
+order: 9
 summary: Newsletters, a professional association, the standard books and the first REM-detecting cue masks all appeared in the two decades after verification.
 reviewed: 2026-11-06
 sources: [A25, A29, A30, A39, A40, A41, A42, A43, B41, C2, D1, D4, D5, D10]

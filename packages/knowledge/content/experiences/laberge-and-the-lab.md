@@ -1,6 +1,7 @@
 ---
 title: LaBerge and the laboratory
 section: experiences
+order: 3
 summary: Stephen LaBerge's own records: the first signalled lucid dream, the MILD case study, the spinning statistics and the accounts he gathered from other dreamers.
 reviewed: 2026-11-06
 sources: [A35, A38, B16, B37, B38, D1, D2, D3, D4, D38]

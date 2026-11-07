@@ -1,6 +1,7 @@
 ---
 title: Timeline
 section: history
+order: 11
 summary: Key dates in the history of lucid dreaming, from Aristotle to real-time dialogue with sleepers.
 reviewed: 2026-11-06
 sources: [A3, A6, A7, A11, A15, A17, A19, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A34, A35, A36, A37, A38, A39, A40, A41, A42, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, B41, B43, D35]

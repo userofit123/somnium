@@ -1,6 +1,7 @@
 ---
 title: How this app helps
 section: basics
+order: 7
 summary: The app follows the parts of the research that have held up, from dream recall and sign spotting to timed techniques and honest statistics.
 reviewed: 2026-11-06
 sources: [A60, B37, B38, B48, B52, B56, B69, B70, B71, C1, C2, C9, C12a, C13, D5]

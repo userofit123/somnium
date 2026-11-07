@@ -17,8 +17,10 @@ export interface Settings {
   sleep: { bedtime: string; wake: string; /** Minutes, 60-120. */ cycle: number };
   /** Learn: reading progress and "Where am I" answers. No dream content, so these sync in the clear. */
   learn: {
-    /** Article id to the ISO date it was read to the end. */
+    /** Article id to the ISO date it was read to the end. An empty string means marked unread by hand (the settings merge cannot delete a key). */
     read: Record<string, string>;
+    /** Pinned items for quick access, in the order pinned: article ids, `lesson:<id>`, `term:<slug>`, `faq:<slug>`. Plain ids, nothing personal. */
+    pinned: string[];
     /** The article opened last, for "Continue reading". */
     last: string;
     /** Dated answers per scale (ldfs, madre), oldest first. */
@@ -38,7 +40,7 @@ export const DEFAULT_SETTINGS: Settings = {
   updates: { autoCheck: true, autoDownload: true, wifiOnly: false },
   layout: "auto",
   sleep: { bedtime: "23:00", wake: "07:00", cycle: 90 },
-  learn: { read: {}, last: "", assessments: { ldfs: [], madre: [] } },
+  learn: { read: {}, pinned: [], last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
 };
 

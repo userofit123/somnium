@@ -71,9 +71,25 @@ describe("knowledge base content", () => {
     for (const a of kb.articles) expect(a.body, a.id).not.toMatch(/\b(we|the app) recommends? (taking |using )?(galantamine|nicotine|melatonin|supplements?)\b/i);
   });
 
-  it("sorts articles by section order then title", () => {
+  it("gives every article a reading order, unique within its section", () => {
+    for (const s of sectionIds) {
+      const orders = kb.articles.filter((a) => a.section === s).map((a) => a.order);
+      expect(orders.length, s).toBeGreaterThan(0);
+      expect([...orders].sort((x, y) => x - y), `${s} orders must be 1..n`).toEqual(orders.map((_, i) => i + 1));
+    }
+  });
+
+  it("starts the basics section with what-is-lucid-dreaming", () => {
+    expect(kb.articles.find((a) => a.section === "basics")?.id).toBe("basics/what-is-lucid-dreaming");
+  });
+
+  it("sorts articles by section order then reading order", () => {
     const order = kb.articles.map((a) => sectionIds.indexOf(a.section));
     expect(order).toEqual([...order].sort((x, y) => x - y));
+    for (const s of sectionIds) {
+      const inSection = kb.articles.filter((a) => a.section === s).map((a) => a.order);
+      expect(inSection).toEqual([...inSection].sort((x, y) => x - y));
+    }
   });
 });
 

@@ -1,10 +1,13 @@
+import { progressOf, startPath, togglePin, pinId } from "./learn";
+import { resolveResources, resourceGroups } from "./resources";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { buildIndex, search, highlight, excerpt, plain } from "./search";
 import { neighbours, glossaryTerms, faqItems, markRead, continueReading } from "./learn";
 import { addAnswer, assessments } from "./assessments";
 import { readAll } from "./content";
 
-const mk = (id: string, title: string, summary: string, body: string) => ({ id, slug: id, section: id.split("/")[0] as any, title, summary, reviewed: "2026-01-01", sources: [], body, words: 1 });
+const mk = (id: string, title: string, summary: string, body: string) => ({ id, slug: id, section: id.split("/")[0] as any, title, summary, reviewed: "2026-01-01", sources: [], order: 1, body, words: 1 });
 const list = [
   mk("basics/a", "Reality checks", "Ask whether you are dreaming.", "Pinch your nose [B1].\n\nBreathing through a pinched nose works in dreams."),
   mk("basics/b", "Sleep stages", "REM is where most dreams happen.", "Nothing here about checks."),
@@ -75,5 +78,37 @@ describe("real content", () => {
     expect(faqItems(kb.articles.find((a) => a.id === "faq/faq")!.body).length).toBeGreaterThan(5);
     const idx = buildIndex(kb.articles);
     expect(search(idx, "reality check").length).toBeGreaterThan(0);
+  });
+});
+
+describe("progress, pins and the start path", () => {
+  it("counts read articles and treats an empty date as unread", () => {
+    const list = [{ id: "a" }, { id: "b" }, { id: "c" }, { id: "d" }, { id: "e" }];
+    expect(progressOf(list, { a: "2026-11-01", b: "2026-11-02", c: "" })).toEqual({ read: 2, total: 5, percent: 40 });
+    expect(progressOf([], {}).percent).toBe(0);
+  });
+  it("toggles pins in the order pinned", () => {
+    expect(togglePin(["a"], "b")).toEqual(["a", "b"]);
+    expect(togglePin(["a", "b"], "a")).toEqual(["b"]);
+    expect(pinId.term("Reality check")).toBe("term:reality-check");
+  });
+  it("has a start path of real articles with no repeats", async () => {
+    const kb = await readAll();
+    expect(new Set(startPath).size).toBe(startPath.length);
+    for (const id of startPath) expect(kb.articles.map((a) => a.id), id).toContain(id);
+  });
+  it("builds Resources only from references and links that appear in RESEARCH.md", async () => {
+    const kb = await readAll();
+    const research = readFileSync(new URL("../../../RESEARCH.md", import.meta.url), "utf8");
+    for (const g of resolveResources(kb.sources)) {
+      expect(g.items.length, g.id).toBeGreaterThan(0);
+      for (const r of g.items) {
+        for (const id of r.src) expect(kb.sources.has(id), `${r.title}: ${id}`).toBe(true);
+        if (r.link) expect(research, `${r.title} link ${r.link}`).toContain(r.link);
+        expect(r.title + r.by + (r.note ?? ""), r.title).not.toMatch(/[–—]|recommended|best/i);
+        if (g.id === "studies") expect(r.note, r.title).toBeTruthy();
+      }
+    }
+    expect(resourceGroups.map((g) => g.id)).toEqual(["books", "studies", "orgs", "sites", "communities"]);
   });
 });

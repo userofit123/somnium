@@ -1,6 +1,7 @@
 ---
 title: Measuring lucidity and recall
 section: science
+order: 4
 summary: The published scales for lucid-dream frequency, dream recall and per-dream lucidity, and how the app uses them without fooling you.
 reviewed: 2026-11-06
 sources: [B22, B25, B46, B48, B49, B50, C2, C12a, C18, C21, C21a, C30, C33, C36, C49]

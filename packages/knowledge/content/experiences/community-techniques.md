@@ -1,6 +1,7 @@
 ---
 title: Where the community techniques came from
 section: experiences
+order: 5
 summary: SSILD, FILD, ADA, DEILD, VILD and CAT were born on forums; here are their origins and their authors' own words.
 reviewed: 2026-11-06
 sources: [A51, A58, A59, D1, D12, D19, D20, D21, D22, D23, D24]

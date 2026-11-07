@@ -1,6 +1,7 @@
 ---
 title: False awakenings and sleep paralysis
 section: safety
+order: 3
 summary: Both are common, both are harmless, and both have a simple response: test your state, relax, and treat them as doorways rather than threats.
 reviewed: 2026-11-06
 sources: [B6, B7, B8, B70, B71, C4, D1, D5, D10, D19]

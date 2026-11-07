@@ -1,6 +1,7 @@
 ---
 title: Van Eeden and the word "lucid"
 section: history
+order: 4
 summary: In 1913 the Dutch psychiatrist Frederik van Eeden named the lucid dream and reported 352 cases from fifteen years of his own records.
 reviewed: 2026-11-06
 sources: [A19, A20, A21, A23, A28, C6, C6a]

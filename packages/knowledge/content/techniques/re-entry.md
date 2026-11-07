@@ -1,6 +1,7 @@
 ---
 title: Dream re-entry
 section: techniques
+order: 20
 summary: After a premature awakening, lie still, relax and imagine yourself back in the dream to resume it with awareness.
 reviewed: 2026-11-06
 sources: [D1, D5, D13, D22]

@@ -14,6 +14,7 @@ import SectionView from "../components/learn/SectionView.vue";
 import ArticleView from "../components/learn/ArticleView.vue";
 import GlossaryView from "../components/learn/GlossaryView.vue";
 import FaqView from "../components/learn/FaqView.vue";
+import ResourcesView from "../components/learn/ResourcesView.vue";
 import Questionnaires from "../components/learn/Questionnaires.vue";
 
 const route = useRoute();
@@ -25,6 +26,7 @@ const kind = computed(() => {
   if (a === "where-am-i") return "where";
   if (a === "glossary") return "glossary";
   if (a === "faq") return "faq";
+  if (a === "resources") return "resources";
   if (b && findArticle(`${a}/${b}`)) return "article";
   if (sections.some((s) => s.id === a)) return "section";
   return "home";
@@ -46,23 +48,25 @@ const total = articles.length;
     <aside v-if="!isPhone" class="lnav" aria-label="Learn sections">
       <router-link to="/learn" class="ln" :class="{ on: kind === 'home' }">Learn home</router-link>
       <template v-for="s in sections" :key="s.id">
-        <router-link :to="'/learn/' + s.id" class="ln" :class="{ on: section === s.id && kind !== 'where' && kind !== 'home' }">
+        <router-link :to="'/learn/' + s.id" class="ln" :class="{ on: section === s.id && kind !== 'where' && kind !== 'home' && kind !== 'resources' }">
           {{ s.title }}<span class="s">{{ single(s.id) ? "" : articlesIn(s.id).length }}</span>
         </router-link>
         <div v-if="section === s.id && !single(s.id) && kind !== 'where'" class="lsub">
           <router-link v-for="a in articlesIn(s.id)" :key="a.id" :to="'/learn/' + a.id" class="lsl" :class="{ on: article?.id === a.id, done: !!read[a.id] }">{{ a.title }}</router-link>
         </div>
       </template>
+      <router-link to="/learn/resources" class="ln" :class="{ on: kind === 'resources' }">Resources</router-link>
       <router-link to="/learn/where-am-i" class="ln" :class="{ on: kind === 'where' }">Where am I</router-link>
       <div class="s lcount">{{ total }} articles</div>
     </aside>
     <main class="lmain">
       <router-link v-if="isPhone && back" :to="back.to" class="lback"><Icon name="left" /> {{ back.label }}</router-link>
-      <LearnHome v-if="kind === 'home'" :show-sections="isPhone" />
+      <LearnHome v-if="kind === 'home'" />
       <SectionView v-else-if="kind === 'section'" :section="section" />
       <ArticleView v-else-if="kind === 'article' && article" :key="article.id" :article="article" />
       <GlossaryView v-else-if="kind === 'glossary'" />
       <FaqView v-else-if="kind === 'faq'" />
+      <ResourcesView v-else-if="kind === 'resources'" />
       <Questionnaires v-else-if="kind === 'where'" />
     </main>
   </div>

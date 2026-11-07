@@ -1,6 +1,7 @@
 ---
 title: Debunked stories: the Senoi and Castaneda
 section: history
+order: 7
 summary: Two of the most repeated origin stories in lucid-dreaming books, the Senoi dream people and don Juan, do not hold up.
 reviewed: 2026-11-06
 sources: [A5, A6, A8, A9, A17, A29, A31, A32, A33, A57, C5, D1, D8, D25, D38]

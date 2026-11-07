@@ -1,6 +1,7 @@
 ---
 title: Dream yoga practices
 section: traditions
+order: 1
 summary: The night practices of the Naropa lineage, Tenzin Wangyal's Bön dream yoga and Namkhai Norbu's practice of natural light, presented as the traditions describe them.
 reviewed: 2026-11-06
 sources: [A13, A14, D1, D28, D29, D30, D35, D36]

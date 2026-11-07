@@ -1,6 +1,7 @@
 ---
 title: Glossary
 section: glossary
+order: 1
 summary: Short definitions of the terms used in this app, from ADA to WILD.
 reviewed: 2026-11-06
 sources: [A1, A11, A26, A42, B1, B5, B6, B8, B10, B14, B15, B16, B22, B23, B24, B31, B33, B41, B42, B50, B51, B52, B56, B61, C1, C2, C8, C12, C13, C17, C18, C23, C24, C41a, D1, D4, D5, D8, D19, D20, D21, D22, D23, D24, D27]

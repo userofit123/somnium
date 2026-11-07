@@ -1,6 +1,7 @@
 ---
 title: Meditation and mindfulness
 section: techniques
+order: 13
 summary: Long-term meditators have more lucid dreams, but an eight-week mindfulness course did not increase them; daytime attention is a foundation, not an inducer.
 reviewed: 2026-11-06
 sources: [A14, B46, D1, D5, D8, D18, D19, D20, D31, D32, D33]

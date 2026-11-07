@@ -1,6 +1,7 @@
 ---
 title: Nightmares: what the clinical studies show
 section: benefits
+order: 1
 summary: Lucid-dreaming therapy for nightmares is the best-developed application, with encouraging but thin evidence and a better-proven alternative.
 reviewed: 2026-11-06
 sources: [B6, B30, B57, B58, B59, B60, B61, B62, B63, B69, B73, C18, C19, D1, D8, D10]

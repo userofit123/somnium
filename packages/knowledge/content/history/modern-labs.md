@@ -1,6 +1,7 @@
 ---
 title: Modern laboratories (2009 to the present)
 section: history
+order: 10
 summary: Since 2009, brain recordings, large home studies and two-way communication have reshaped what is known about lucid dreaming.
 reviewed: 2026-11-06
 sources: [A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A60, B15, B21, B39, B40, B42, B43, B46, B78]

@@ -1,6 +1,7 @@
 ---
 title: What a lucid dream feels like
 section: basics
+order: 3
 summary: Published accounts and rating scales describe lucidity as a range, from a faint suspicion to clear insight with memory and control.
 reviewed: 2026-11-06
 sources: [A19, A44, B8, B22, B68, B71, B75, B76, C2, C41a, D1, D5]

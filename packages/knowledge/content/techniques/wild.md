@@ -1,6 +1,7 @@
 ---
 title: WILD (wake-initiated lucid dreaming)
 section: techniques
+order: 15
 summary: Keeping awareness through the transition into sleep, usually after waking in the night or during a nap, by attending to imagery, counting or the body.
 reviewed: 2026-11-06
 sources: [B15, D1, D4, D5, D7, D13, D19, D30, D32]

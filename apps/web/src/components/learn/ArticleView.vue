@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // One article: the rendered body, sources with the reviewed date, the "try it" button, previous and next.
-import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { articles, sources, type Article } from "@somnium/knowledge/content";
 import { parseMarkdown } from "@somnium/knowledge/markdown";
@@ -8,42 +8,41 @@ import { neighbours } from "@somnium/knowledge/learn";
 import { sections } from "@somnium/knowledge/content";
 import LearnBlocks from "./LearnBlocks.vue";
 import SourceSheet from "./SourceSheet.vue";
-import { useLearn, recordRead, recordOpened } from "../../core/learn";
+import { useLearn, recordOpened, setRead, togglePinned, useReadAtEnd } from "../../core/learn";
+import Menu, { type MenuItem } from "../Menu.vue";
+import PinButton from "./PinButton.vue";
+import ReadMark from "./ReadMark.vue";
 
 const props = defineProps<{ article: Article }>();
 const router = useRouter();
-const { read, last } = useLearn();
+const { read, last, pinned } = useLearn();
 const blocks = computed(() => parseMarkdown(props.article.body));
 const near = computed(() => neighbours(articles, props.article.id));
 const sectionTitle = computed(() => sections.find((s) => s.id === props.article.section)?.title ?? "");
 const open = ref<string[] | null>(null);
-const end = ref<HTMLElement | null>(null);
 const listed = computed(() => props.article.sources.filter((id) => sources.has(id)));
 const showSources = ref(false);
 const techLabel = computed(() => (props.article.tryIt ?? "").replace(/-/g, " "));
 
-// "read" means scrolled to the end. A scroll listener, not an IntersectionObserver: a jump to the bottom (End key,
-// a fling) can pass the end marker between two frames, and it still counts as having reached the end.
-let timer = 0, done = false;
-function check() {
-  if (done || !end.value) return;
-  if (end.value.getBoundingClientRect().top <= innerHeight) { done = true; recordRead(read.value, props.article.id); removeEventListener("scroll", check); }
-}
-async function watchEnd() {
-  removeEventListener("scroll", check); done = false; clearTimeout(timer); await nextTick();
-  addEventListener("scroll", check, { passive: true });
-  // a short article that fits on screen counts once it has been shown for a moment
-  timer = window.setTimeout(check, 1200);
-}
-onMounted(() => { recordOpened(last.value, props.article.id); void watchEnd(); });
-watch(() => props.article.id, () => { showSources.value = false; recordOpened(last.value, props.article.id); void watchEnd(); });
-onBeforeUnmount(() => { removeEventListener("scroll", check); clearTimeout(timer); });
+const { end, arm } = useReadAtEnd(() => props.article.id, read);
+onMounted(() => recordOpened(last.value, props.article.id));
+watch(() => props.article.id, () => { showSources.value = false; recordOpened(last.value, props.article.id); void arm(); });
+const isRead = computed(() => !!read.value[props.article.id]);
+const isPinned = computed(() => pinned.value.includes(props.article.id));
+const menu = computed((): MenuItem[] => [
+  { label: isPinned.value ? "Unpin" : "Pin for quick access", icon: "pin", run: () => togglePinned(pinned.value, props.article.id) },
+  { label: isRead.value ? "Mark as unread" : "Mark as read", icon: "check", run: () => setRead(props.article.id, !isRead.value) },
+]);
 const go = (a: Article) => router.push("/learn/" + a.id);
 </script>
 
 <template>
   <article class="art">
-    <div class="eyebrow">{{ sectionTitle }}</div>
+    <div class="ahead">
+      <div class="eyebrow grow">{{ sectionTitle }} <ReadMark :done="isRead" class="rdm-eb" /></div>
+      <PinButton :id="article.id" :label="article.title" />
+      <Menu :items="menu" label="Article actions" />
+    </div>
     <h1>{{ article.title }}</h1>
     <p class="lede">{{ article.summary }}</p>
     <LearnBlocks :blocks="blocks" @cite="open = $event" />

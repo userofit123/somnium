@@ -1,6 +1,7 @@
 ---
 title: VILD (Visually Incubated Lucid Dream)
 section: techniques
+order: 18
 summary: Rehearsing a short fixed scene in which you do a reality check, so that when the scene plays as a dream you test and become lucid.
 reviewed: 2026-11-06
 sources: [B2, D1, D4, D23, D27]

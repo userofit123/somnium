@@ -1,6 +1,7 @@
 ---
 title: Dream journaling
 section: techniques
+order: 1
 summary: Keeping a journal is the foundation of every programme: it raises recall, supplies dream signs and gives MILD something to work with.
 reviewed: 2026-11-06
 sources: [A17, B33, B38, B48, C1, C2, C5, C21, C30, D1, D5, D20]

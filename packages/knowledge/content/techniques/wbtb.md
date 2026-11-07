@@ -1,6 +1,7 @@
 ---
 title: Wake-back-to-bed (WBTB)
 section: techniques
+order: 7
 summary: Interrupting sleep after five to six hours and spending the time awake on dream work roughly doubles the chance of a lucid dream that night.
 reviewed: 2026-11-06
 sources: [B2, B3, B6, B35, B39, B69, D1, D3, D4, D5, D11, D12, D13, D14]

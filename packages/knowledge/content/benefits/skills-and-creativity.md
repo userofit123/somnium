@@ -1,6 +1,7 @@
 ---
 title: Skills, creativity and problem solving
 section: benefits
+order: 2
 summary: Three small studies show practising a movement in a lucid dream can improve waking performance; the creativity claims rest on correlations.
 reviewed: 2026-11-06
 sources: [B19, B38, B47, B64, B65, B66, B67, B68, B71, B73, B82, D1, D16, D17, D27]

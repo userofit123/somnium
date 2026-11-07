@@ -1,6 +1,7 @@
 ---
 title: Dream control
 section: techniques
+order: 22
 summary: Expectation shapes what happens in a lucid dream; start small, prefer dialogue to force, and know that control is a separate skill from awareness.
 reviewed: 2026-11-06
 sources: [B22, B31, B71, D1, D5, D7, D8, D9, D10, D26]

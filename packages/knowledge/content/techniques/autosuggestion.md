@@ -1,6 +1,7 @@
 ---
 title: Autosuggestion
 section: techniques
+order: 8
 summary: A low-effort, pressure-free suggestion to yourself while relaxed that you will have a lucid dream, used when concentration is low.
 reviewed: 2026-11-06
 sources: [D1, D5, D32]

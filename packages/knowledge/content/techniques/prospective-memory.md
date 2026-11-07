@@ -1,6 +1,7 @@
 ---
 title: Prospective memory training
 section: techniques
+order: 5
 summary: LaBerge's one-week exercise in remembering to do something later, which he treats as the prerequisite skill for MILD.
 reviewed: 2026-11-06
 sources: [A32, C2, D1, D5, D25]

@@ -1,6 +1,7 @@
 ---
 title: Levels of lucidity and the scales used to measure them
 section: basics
+order: 6
 summary: Researchers measure how often you are lucid and how lucid a given dream was with separate, published scales, and this app uses them.
 reviewed: 2026-11-06
 sources: [B15, B22, B25, B46, B49, B50, B51, C2, C35, C41, C41a]

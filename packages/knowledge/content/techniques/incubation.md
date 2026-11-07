@@ -1,6 +1,7 @@
 ---
 title: Dream incubation
 section: techniques
+order: 12
 summary: Choosing a problem or scene before sleep so the dream addresses it, with a controlled study behind the basic method and a lucid extension from LaBerge.
 reviewed: 2026-11-06
 sources: [B2, B82, D1, D23, D27, D35]

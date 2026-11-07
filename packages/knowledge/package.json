@@ -10,7 +10,8 @@
     "./learn": "./src/learn.ts",
     "./assessments": "./src/assessments.ts",
     "./techniques": "./src/techniques.ts",
-    "./course": "./src/course.ts"
+    "./course": "./src/course.ts",
+    "./resources": "./src/resources.ts"
   },
   "scripts": {
     "test": "vitest run",

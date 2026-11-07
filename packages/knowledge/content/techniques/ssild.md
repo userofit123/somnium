@@ -1,6 +1,7 @@
 ---
 title: SSILD (Senses-Initiated Lucid Dream)
 section: techniques
+order: 16
 summary: A forum-born routine of cycling attention through sight, hearing and touch after a short night awakening, which matched MILD in the one study that tested it.
 reviewed: 2026-11-06
 sources: [A58, A59, B35, D12, D19]

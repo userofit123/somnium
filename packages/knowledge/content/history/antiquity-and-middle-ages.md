@@ -1,6 +1,7 @@
 ---
 title: Antiquity and the Middle Ages
 section: history
+order: 1
 summary: Aristotle, Augustine, the Upanishads, Ibn al-Arabi and Aquinas all noticed that a sleeper can know they are dreaming, long before anyone named it.
 reviewed: 2026-11-06
 sources: [A3, A4, A5, A6, A7, A8, A9, A10, A11, A15, A16]

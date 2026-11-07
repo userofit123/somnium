@@ -1,6 +1,7 @@
 ---
 title: Sound cues during sleep
 section: techniques
+order: 14
 summary: A sound trained before sleep and replayed during REM is the one cue method replicated in two laboratories and tested in an app, with sleep disruption as the cost.
 reviewed: 2026-11-06
 sources: [B42, B43, B44, B45, B56, D1, D5]

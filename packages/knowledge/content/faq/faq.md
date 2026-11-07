@@ -1,6 +1,7 @@
 ---
 title: Frequently asked questions
 section: faq
+order: 1
 summary: Short answers to the questions people ask most, each pointing to the article with the evidence.
 reviewed: 2026-11-06
 sources: [A21, A31, A33, A34, A38, A54, A56, B6, B8, B24, B31, B35, B37, B38, B41, B43, B46, B52, B54, B55, B56, B57, B60, B61, B63, B64, B65, B66, B68, B69, B70, B71, B72, C1, C2, C4, C13, D1, D3, D5, D8]

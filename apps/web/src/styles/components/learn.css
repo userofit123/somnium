@@ -94,3 +94,29 @@
 .qfoot { display: flex; align-items: center; justify-content: space-between; gap: var(--spg); flex-wrap: wrap; }
 .qfoot .s { flex: 1 1 200px; }
 @media (prefers-reduced-motion: reduce) { .fqc { transition: none; } }
+
+/* progress, pins and read marks (LDJ-51) */
+.pbar { height: 6px; border-radius: 999px; background: var(--s2); overflow: hidden; }
+.pfill { height: 100%; border-radius: 999px; background: var(--acc); transition: width .3s; }
+.pgap { margin-top: var(--hg); }
+.overall { display: flex; flex-direction: column; gap: var(--hg); }
+.sprog { display: flex; flex-direction: column; gap: 6px; margin-bottom: var(--spg); }
+.startlede { margin-bottom: var(--hg); }
+.lrow { display: flex; align-items: center; gap: var(--hg); }
+.rlink { min-width: 0; text-decoration: none; color: inherit; display: block; }
+.num { color: var(--tx2); font-variant-numeric: tabular-nums; }
+.rdm { display: inline-flex; align-items: center; gap: 4px; color: var(--acc); font-size: var(--fs-sm); }
+.rdm svg { flex: none; }
+.ahead { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; }
+.ahead .eyebrow { margin-bottom: 0; display: flex; align-items: center; gap: var(--hg); flex-wrap: wrap; }
+.pinb { color: var(--tx2); flex: none; }
+.pinb.on { color: var(--acc); }
+.pinb.on svg { fill: currentColor; }
+.gterm { display: flex; align-items: center; justify-content: space-between; gap: var(--hg); scroll-margin-top: 64px; }
+.fqrow { display: flex; align-items: center; }
+.fqrow .fqh { flex: 1; min-width: 0; }
+.fqrow .pinb { margin-inline-end: var(--hg); }
+.rsrc .rnote { margin-top: 2px; color: var(--tx); }
+.rlinks { display: flex; align-items: center; gap: var(--hg); margin-top: 6px; }
+.rlinks .srcurl { display: inline; margin-top: 0; }
+@media (prefers-reduced-motion: reduce) { .pfill { transition: none; } }

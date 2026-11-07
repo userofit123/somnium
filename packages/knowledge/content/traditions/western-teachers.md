@@ -1,6 +1,7 @@
 ---
 title: Western teachers
 section: traditions
+order: 2
 summary: What has been verified about the books and programmes of Alan Wallace, Charlie Morley, Andrew Holecek, Robert Waggoner and Daniel Love.
 reviewed: 2026-11-06
 sources: [A29, A30, A31, B52, B56, C41, C42, D24, D25, D26, D30, D31, D32, D33, D34, D37]

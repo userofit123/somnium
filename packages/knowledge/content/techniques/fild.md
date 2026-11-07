@@ -1,6 +1,7 @@
 ---
 title: FILD (Finger Induced Lucid Dream)
 section: techniques
+order: 17
 summary: A community method of making tiny alternating finger movements at the edge of sleep, then testing with a nose pinch.
 reviewed: 2026-11-06
 sources: [B2, B15, C1, D11, D12, D21]

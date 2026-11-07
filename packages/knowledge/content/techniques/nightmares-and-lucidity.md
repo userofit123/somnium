@@ -1,6 +1,7 @@
 ---
 title: Nightmares and lucidity
 section: techniques
+order: 23
 summary: Face the figure, open a dialogue, and redream the recurrent nightmare with a new ending: the LaBerge and Tholey approach, with the clinical evidence and its limits.
 reviewed: 2026-11-06
 sources: [B57, B60, B61, B62, B63, B73, D1, D8, D10]

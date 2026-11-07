@@ -1,6 +1,7 @@
 ---
 title: What study participants reported
 section: experiences
+order: 4
 summary: The numbers behind the techniques come from ordinary volunteers; here is what they did, what they achieved and what they found hard.
 reviewed: 2026-11-06
 sources: [A54, B27, B37, B38, B39, B42, B43, B76, C33, D1, D5, D11, D12, D13, D14, D19]

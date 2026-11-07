@@ -1,6 +1,7 @@
 ---
 title: Early twentieth-century writers
 section: history
+order: 5
 summary: Between 1913 and the 1960s a handful of English-language writers described training themselves to recognise and alter dreams.
 reviewed: 2026-11-06
 sources: [A22, A23, A24, A25, A28]

@@ -1,6 +1,7 @@
 ---
 title: What is lucid dreaming?
 section: basics
+order: 1
 summary: A lucid dream is a dream in which you know, while it is still going on, that you are dreaming.
 reviewed: 2026-11-06
 sources: [A1, A2, A3, A19, A21, A34, A38, A61, B1, B15, B22, B31, B50, D1, D5]

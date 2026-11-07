@@ -1,6 +1,7 @@
 ---
 title: Typical dreams and how common they are
 section: dream-signs
+order: 3
 summary: The twenty most common dream themes from a survey of 1,181 students, with the share of people who have ever dreamed each one.
 reviewed: 2026-11-06
 sources: [C1, C13, C13a, C14, C16, C17, C47]

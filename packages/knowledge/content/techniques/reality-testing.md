@@ -1,6 +1,7 @@
 ---
 title: Reality testing (critical state testing)
 section: techniques
+order: 3
 summary: Asking "Am I dreaming?" with a real test several times a day builds a habit that can carry into dreams, but alone it is a weak inducer.
 reviewed: 2026-11-06
 sources: [B35, B38, B44, C1, D1, D3, D5, D7, D8, D11, D12, D20]

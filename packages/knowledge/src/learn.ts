@@ -77,3 +77,40 @@ export function continueReading(list: readonly Article[], read: ReadMap, opened?
   }
   return list.find((a) => !read[a.id]);
 }
+
+/** Read count and whole percent of `list` (read means a non-empty date; "" is an article marked unread by hand). */
+export function progressOf(list: readonly Pick<Article, "id">[], read: ReadMap): { read: number; total: number; percent: number } {
+  const n = list.filter((a) => !!read[a.id]).length;
+  return { read: n, total: list.length, percent: list.length ? Math.round((n / list.length) * 100) : 0 };
+}
+
+/** The short reading path on Learn home, in order: recall and the journal first, then the first technique, then pitfalls. */
+export const startPath: readonly string[] = [
+  "basics/what-is-lucid-dreaming",
+  "basics/how-common-is-it",
+  "basics/your-first-week",
+  "dream-signs/dream-recall",
+  "techniques/journaling",
+  "safety/sleep-first",
+  "basics/which-technique-first",
+  "techniques/reality-testing",
+  "techniques/mild",
+  "techniques/wbtb",
+  "basics/common-mistakes-and-dry-spells",
+];
+
+/** Ids for pinned things that are not articles; articles pin by their own id. */
+export const pinId = {
+  lesson: (id: string) => `lesson:${id}`,
+  term: (term: string) => `term:${slug(term)}`,
+  faq: (question: string) => `faq:${slug(question)}`,
+};
+
+export function slug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
+}
+
+/** Adds the id at the end, or removes it when already pinned. */
+export function togglePin(pinned: readonly string[], id: string): string[] {
+  return pinned.includes(id) ? pinned.filter((p) => p !== id) : [...pinned, id];
+}

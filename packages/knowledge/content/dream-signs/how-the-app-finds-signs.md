@@ -1,6 +1,7 @@
 ---
 title: How the app finds signs
 section: dream-signs
+order: 4
 summary: The app reads each dream on your device, suggests signs, characters, settings and themes for you to confirm, and ranks signs by frequency and by their link to lucidity.
 reviewed: 2026-11-06
 sources: [C1, C2, C9, C9a, C11, C12, C12a, C12b, C13, C21, C23, C24, C24a, C32, C33, C39a, C39b, C40c]

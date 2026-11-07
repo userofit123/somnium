@@ -1,6 +1,7 @@
 ---
 title: What the evidence says about techniques
 section: science
+order: 5
 summary: MILD with wake-back-to-bed is the best-supported method, reality testing alone is weak, and most of the rest is promising, unreplicated or untested.
 reviewed: 2026-11-06
 sources: [B15, B23, B24, B25, B33, B34, B35, B36, B37, B38, B39, B40, B41, B42, B43, B44, B46, B47, B48, B52, B53]

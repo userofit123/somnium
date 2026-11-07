@@ -1,6 +1,7 @@
 ---
 title: Dream recall and how to improve it
 section: dream-signs
+order: 1
 summary: Most dreams are forgotten unless you wake from them; the best-supported aids are extra morning sleep, intention, staying still and writing at once.
 reviewed: 2026-11-06
 sources: [B48, B55, C1, C2, C25, C26, C28, C29, C29a, C30, C30a, C31, C33, C42]

@@ -1,6 +1,7 @@
 ---
 title: Hervey de Saint-Denys' accounts
 section: experiences
+order: 2
 summary: What the first dream diarist found over twenty years of recording and directing his own dreams, as described by his reviewers.
 reviewed: 2026-11-06
 sources: [A17, A18, B41, B42, B45, C1, C5, C5a, C6, C12]

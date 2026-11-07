@@ -1,6 +1,7 @@
 ---
 title: What dream signs are
 section: dream-signs
+order: 2
 summary: LaBerge's four categories of dream sign, inner awareness, action, form and context, with the sub-types and the book's own examples.
 reviewed: 2026-11-06
 sources: [C1, C2, C4, C46]

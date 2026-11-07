@@ -1,6 +1,7 @@
 ---
 title: Who should be careful or not practise
 section: safety
+order: 1
 summary: People with psychotic, bipolar or dissociative conditions, active sleep disorders, or acute depression, grief or PTSD should get advice before attempting induction.
 reviewed: 2026-11-06
 sources: [B6, B7, B15, B52, B56, B60, B69, B70, B71, B72, B73, B76]

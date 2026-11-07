@@ -1,6 +1,7 @@
 ---
 title: When to stop
 section: safety
+order: 4
 summary: Pause the practice if lucid dreams become distressing, if waking life starts to feel dreamlike, or if sleep, mood or concentration suffer.
 reviewed: 2026-11-06
 sources: [B6, B15, B37, B43, B48, B69, B70, B71, B72, B76, D1, D5, D20, D24]

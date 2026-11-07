@@ -1,6 +1,7 @@
 ---
 title: The lucid brain
 section: science
+order: 2
 summary: Brain recordings of verified lucid dreams point to prefrontal and parietal regions, but the studies are small and the famous 40 Hz finding has not held up well.
 reviewed: 2026-11-06
 sources: [B15, B17, B18, B19, B20, B21, B23, B24, B25, B26, B28, B29, B30, B78]

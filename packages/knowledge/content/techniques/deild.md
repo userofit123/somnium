@@ -1,6 +1,7 @@
 ---
 title: DEILD (Dream Exit Initiated Lucid Dream)
 section: techniques
+order: 19
 summary: Lying completely still as a dream ends so that REM resumes and you re-enter the dream already aware, sometimes several times in a row.
 reviewed: 2026-11-06
 sources: [B35, D1, D5, D13, D22]

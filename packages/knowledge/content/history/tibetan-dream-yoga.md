@@ -1,6 +1,7 @@
 ---
 title: Tibetan dream yoga
 section: history
+order: 2
 summary: Dream yoga, one of the Six Yogas of Naropa, is the oldest sustained practice of lucidity, and it differs from lucid dreaming in aim.
 reviewed: 2026-11-06
 sources: [A7, A11, A12, A13, A14, D1, D30, D35]

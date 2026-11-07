@@ -1,6 +1,7 @@
 ---
 title: Two-way communication with dreamers
 section: science
+order: 3
 summary: In 2021 four laboratories showed that lucid dreamers can hear questions and answer them from inside REM sleep.
 reviewed: 2026-11-06
 sources: [A54, A57, B27, B42, B43]

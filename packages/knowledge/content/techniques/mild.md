@@ -1,6 +1,7 @@
 ---
 title: MILD (Mnemonic Induction of Lucid Dreams)
 section: techniques
+order: 6
 summary: LaBerge's intention-and-visualisation method, practised on waking from a dream, is the best-supported technique there is.
 reviewed: 2026-11-06
 sources: [B35, D1, D2, D3, D5, D11, D12, D13, D15]

@@ -1,6 +1,7 @@
 ---
 title: The morning nap
 section: techniques
+order: 11
 summary: Waking early, staying up for an hour, then napping is the single protocol with the highest lucid-dream rates in the Lucidity Institute's field studies.
 reviewed: 2026-11-06
 sources: [D1, D3, D4, D5, D13]
