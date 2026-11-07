@@ -124,7 +124,7 @@ describe("insights: what works for you", () => {
   it("says it plainly, with both sample sizes and rates, when both groups have enough nights", () => {
     const w = whatWorks(nights, dreams, utcClock);
     expect(w.wbtb).toMatchObject({ enough: true, with: { nights: 12, lucid: 3, rate: 0.25 }, without: { nights: 30, lucid: 2 } });
-    expect(w.wbtb.text).toBe("On your 12 WBTB nights you were lucid on 3 (25%); on your 30 other nights on 2 (7%).");
+    expect(w.wbtb.text).toBe("On your 12 WBTB nights you were lucid on 3 (25%); on your 30 other nights, you were lucid on 2 (7%).");
     expect(w.wbtb.text).not.toMatch(/caus/i);
     // MILD on 20 nights, without on 22
     expect(w.techniques.map((t) => t.id)).toEqual(["technique:mild"]); // WBTB has its own comparison
@@ -153,7 +153,7 @@ describe("insights: what works for you", () => {
     const timed = nights.map((n, i) => ({ ...n, minutesToSleep: i < 12 ? String(i % 3 ? 5 : 10) : i < 22 ? "25" : null }));
     const a = whatWorks(timed, dreams, utcClock).asleep;
     expect(a).toMatchObject({ id: "asleep", enough: true, with: { nights: 12, lucid: 3, rate: 0.25 }, without: { nights: 10, lucid: 0, rate: 0 } });
-    expect(a.text).toBe("On your 12 nights asleep within 10 min you were lucid on 3 (25%); on your 10 nights asleep after more than 10 min on 0 (0%).");
+    expect(a.text).toBe("On your 12 nights asleep within 10 min you were lucid on 3 (25%); on your 10 nights it took more than 10 min to fall asleep, you were lucid on 0 (0%).");
   });
 
   it("is reusable for any split, and ignores plans and dreams of other nights", () => {
@@ -162,7 +162,7 @@ describe("insights: what works for you", () => {
       id: "x", label: "x", has: (n) => n.date < "2026-08-21", withNoun: { one: "early night", many: "early nights" }, withoutNoun: { one: "late night", many: "late nights" },
     });
     expect(c).toMatchObject({ enough: true, with: { nights: 20, lucid: 3, rate: 0.15 }, without: { nights: 22, lucid: 2 } });
-    expect(c.text).toBe("On your 20 early nights you were lucid on 3 (15%); on your 22 late nights on 2 (9%).");
+    expect(c.text).toBe("On your 20 early nights you were lucid on 3 (15%); on your 22 late nights, you were lucid on 2 (9%).");
   });
 
   it("works out hours asleep less the time awake", () => {

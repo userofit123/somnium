@@ -227,7 +227,7 @@ const pct = (r: number) => `${Math.round(r * 100)}%`;
 export function comparisonText(c: Pick<Comparison, "with" | "without" | "enough">): string {
   const { with: a, without: b } = c;
   if (!c.enough) return `Not enough nights yet: ${plural(a.nights, a.noun)} and ${plural(b.nights, b.noun)} so far, ${MIN_NIGHTS} of each needed.`;
-  return `On your ${plural(a.nights, a.noun)} you were lucid on ${a.lucid} (${pct(a.rate!)}); on your ${plural(b.nights, b.noun)} on ${b.lucid} (${pct(b.rate!)}).`;
+  return `On your ${plural(a.nights, a.noun)} you were lucid on ${a.lucid} (${pct(a.rate!)}); on your ${plural(b.nights, b.noun)}, you were lucid on ${b.lucid} (${pct(b.rate!)}).`;
 }
 
 /**
@@ -340,7 +340,7 @@ export function whatWorks(nights: InsightNight[], dreams: InsightDream[], clock:
     has: (n) => { const m = asleepIn(n); return m != null && m <= ASLEEP_WITHIN; },
     lacks: (n) => { const m = asleepIn(n); return m != null && m > ASLEEP_WITHIN; },
     withNoun: { one: `night asleep within ${ASLEEP_WITHIN} min`, many: `nights asleep within ${ASLEEP_WITHIN} min` },
-    withoutNoun: { one: `night asleep after more than ${ASLEEP_WITHIN} min`, many: `nights asleep after more than ${ASLEEP_WITHIN} min` },
+    withoutNoun: { one: `night it took more than ${ASLEEP_WITHIN} min to fall asleep`, many: `nights it took more than ${ASLEEP_WITHIN} min to fall asleep` },
   });
   return { techniques, wbtb, wbtbBands, sleep, nap, bedtime, asleep };
 }

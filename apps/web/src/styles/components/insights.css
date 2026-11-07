@@ -12,6 +12,7 @@
 .insights .ins-note:first-child { margin-top: 0; }
 .insights .ins-works { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: calc(var(--hg) * 2); }
 html.phone .insights .ins-works { grid-template-columns: minmax(0, 1fr); }
+html.phone .insights .ins-stats.ins-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .insights .ins-cmp { padding: calc(var(--hg) * .5) 0; border-top: 1px solid var(--ol); }
 .insights .ins-cmp .t { font-weight: 600; }
 .insights .ins-cmp .s { margin-top: 4px; line-height: 1.45; }

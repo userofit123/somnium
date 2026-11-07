@@ -91,7 +91,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   });
 
   // nightmares: only the ones that woke you count towards it. Bad dreams (upsetting, but you slept on) are more
-  // common and go with well-being much less (Zadra and Donderi 2000, RESEARCH.md C18), so they never bring the
+  // common and go with well-being much less (Zadra and Donderi 2000, RESEARCH.md C18; C19 counts 431 bad dreams against 253 nightmares), so they never bring the
   // lesson up on their own; the reason names them when there were some, so the person sees the whole picture.
   const upset = dreamsSince(REC.nmDays);
   const nm = upset.filter((d) => d.nightmare).length;

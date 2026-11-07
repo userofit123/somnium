@@ -102,7 +102,8 @@ export function journalRoutes(r: Router) {
   r.get("/dream-facts", async ({ q }) => {
     const { rows } = await q.query(
       `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.emotion_overall, d.nightmare, d.bad_dream,
-              d.false_awakening,               d.sleep_paralysis, d.became_lucid_how, d.favourite
+              d.false_awakening,
+              d.sleep_paralysis, d.became_lucid_how, d.favourite
        FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
        ORDER BY n.date DESC, d.position, d.created_at`);
     return camels(rows);

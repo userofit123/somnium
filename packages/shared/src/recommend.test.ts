@@ -88,7 +88,7 @@ describe("recommend: WBTB works for you", () => {
     expect(has(mk(10, 5, MIN_NIGHTS - 1, 0), "wbtb-works")).toBe(false);
   });
   it("gives both numbers in the reason", () => {
-    expect(all(mk(10, 4, 10, 1)).find((x) => x.id === "wbtb-works")!.reason).toBe("On your 10 WBTB nights you were lucid on 4 (40%); on your 10 other nights on 1 (10%).");
+    expect(all(mk(10, 4, 10, 1)).find((x) => x.id === "wbtb-works")!.reason).toBe("On your 10 WBTB nights you were lucid on 4 (40%); on your 10 other nights, you were lucid on 1 (10%).");
   });
 });
 
