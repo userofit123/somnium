@@ -112,7 +112,8 @@ describe("detectElements", () => {
     const ms = times.sort((x, y) => x - y)[2]!;
     console.log(`detect: 3,000 words in ${ms.toFixed(1)} ms`);
     expect(s.length).toBeGreaterThan(0);
-    expect(ms).toBeLessThan(50);
+    // 50 ms on a laptop; a shared CI runner is slower and noisier, so it only guards against a large regression there
+    expect(ms).toBeLessThan(process.env.CI ? 200 : 50);
   });
 });
 
