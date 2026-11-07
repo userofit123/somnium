@@ -45,3 +45,40 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug
+  # End-to-end tests (LDJ-43, e2e/): the built web app served by the real server on a throwaway PostgreSQL, driven by
+  # Playwright in desktop and phone viewports. PostgreSQL rather than PGlite because the harness opens its own psql
+  # connection to make invites, read what the server stores and delete its test accounts, and PGlite is single-process.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env: { POSTGRES_USER: somnium, POSTGRES_PASSWORD: somnium-ci, POSTGRES_DB: somnium }
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U somnium -d somnium" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      E2E_BASE_URL: http://127.0.0.1:8801
+      E2E_PSQL: psql postgres://somnium:somnium-ci@127.0.0.1:5432/somnium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @somnium/web exec vite build
+      - name: Install psql and the Playwright browser
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+          pnpm exec playwright install --with-deps chromium
+      - name: Start the server on the built app
+        run: |
+          DATABASE_URL=postgres://somnium:somnium-ci@127.0.0.1:5432/somnium PORT=8801 HOST=127.0.0.1 WEB_DIR=$PWD/apps/web/dist LOG=0 \
+            DATA_DIR=$RUNNER_TEMP/somnium-data nohup pnpm --filter @somnium/server exec tsx src/index.ts > $RUNNER_TEMP/server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8801/api/auth/status >/dev/null && exit 0; sleep 2; done
+          cat $RUNNER_TEMP/server.log; exit 1
+      - run: pnpm e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: e2e-report, path: "e2e/report\ne2e/test-results", retention-days: 7 }
