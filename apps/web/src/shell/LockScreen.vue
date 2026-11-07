@@ -13,7 +13,7 @@
 // A local account (LDJ-53) works the same way with its own envelope, kept in the account's record on this device
 // (core/localLock.ts): the password opens it, the recovery key sets a new one, wrong tries wait the same. One made
 // before local accounts had passwords is asked to set one here, and what it holds is then sealed in place.
-import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { FREE_WRONG_TRIES, PASSWORD_MIN, deviceFailureCounts, formatWait, passwordProblem } from "@somnium/shared";
 import { isLocalAccount, session, signOut, unsentChanges } from "../core/session";
 import { keyOpenedOnLockScreen, lock, markUnlocked, whileVerifying, wrongTry, wrongTryWait } from "../core/lock";
@@ -21,7 +21,7 @@ import { keyring } from "../core/keyring";
 import { authKeyFor } from "../core/auth";
 import { downloadRecoveryKey, finishRecovery, openRecovery } from "../core/recovery";
 import { canRecoverLocal, localKeyState, makeLocalRecoveryKey, recoverLocalAccount, sealJournalInPlace, setUpLocalPassword, unlockLocal } from "../core/localLock";
-import { cachedBundle, rememberBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
+import { cachedBundle, rememberBundle, declineDevice, deviceStatus, deviceVerifierExists, freshBundle, nativeLock, setUpDevice, shouldOfferDevice, unlockWithDevice, unlockWithPassword, type UnlockBundle } from "../core/unlock";
 import Logo from "./Logo.vue";
 
 type Step = "loading" | "password" | "device" | "offer" | "noPrf" | "recovery" | "newKey" | "signOut" | "localSetup" | "localDamaged" | "offerKey";
@@ -49,18 +49,39 @@ const unsent = computed(() => unsentChanges());
 
 const showPassword = () => { step.value = "password"; err.value = ""; void nextTick(() => pwInput.value?.focus()); };
 
+// The device's verification opens by itself, as Money Manager's lock does when it shows (LDJ-69): once each time the
+// app is back in view, never while it is out of sight or a wrong-try wait runs. A cancel leaves the button and "Use
+// password instead"; only leaving the app and coming back asks again. Hidden while a prompt runs (Android's screen-lock
+// PIN is its own activity) or just after it is the prompt itself, not leaving, so it doesn't count as a new return.
+// A browser's WebAuthn refuses a page without focus, so the web waits for focus too; the Android path asks the Keystore.
+let autoAsked = false, promptEndedAt = 0;
+const inView = () => document.visibilityState === "visible" && (!!nativeLock() || document.hasFocus());
+function autoDevice() {
+  if (autoAsked || step.value !== "device" || busy.value || !inView() || wrongTryWait() > 0) return;
+  autoAsked = true;
+  void useDevice(true);
+}
+function onSight() {
+  if (document.visibilityState === "visible") { autoDevice(); return; }
+  if (!busy.value && Date.now() - promptEndedAt > 1500) autoAsked = false;
+}
+document.addEventListener("visibilitychange", onSight);
+addEventListener("focus", onSight);
+// a wait that ends with the app in view: the one ask of this return wasn't used yet
+watch(waiting, (w) => { if (!w) autoDevice(); });
+
 onMounted(async () => {
   if (await isLocalAccount()) {
     local.value = true;
     await readLocalKeys();
     // the Android app opens a local journal with the phone's verification too (LDJ-9)
-    if (step.value === "password" && deviceStatus().on && (await deviceVerifierExists())) { canUseDevice.value = true; step.value = "device"; }
+    if (step.value === "password" && deviceStatus().on && (await deviceVerifierExists())) { canUseDevice.value = true; step.value = "device"; autoDevice(); }
     return;
   }
   loaded = freshBundle().then((b) => { bundle.value = b; });
   // if the check never answers (a stuck authenticator or storage), fall back to the password after 3 s, sign-out in view
   canUseDevice.value = deviceStatus().on && (await Promise.race([deviceVerifierExists(), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]));
-  if (canUseDevice.value) step.value = "device"; else showPassword();
+  if (canUseDevice.value) { step.value = "device"; autoDevice(); } else showPassword();
 });
 // A first password only where there is no record at all. A record that can't be read, or isn't in the expected shape,
 // may hold the only way to the journal's key: setting a password would replace it and lock the journal away for good,
@@ -76,7 +97,11 @@ async function readLocalKeys() {
 }
 // left the app while offering device verification: the key was dropped, so this starts over
 const stop = keyring.onChange((open) => { if (!open && (step.value === "offer" || step.value === "noPrf")) showPassword(); });
-onBeforeUnmount(() => { stop(); password.value = ""; });
+onBeforeUnmount(() => {
+  stop(); password.value = "";
+  document.removeEventListener("visibilitychange", onSight);
+  removeEventListener("focus", onSight);
+});
 
 // the key can go while a step here waits (leaving the app, the idle time): the journal never opens without it
 function openJournal() {
@@ -117,7 +142,9 @@ async function unlock() {
   finally { busy.value = false; }
 }
 
-async function useDevice() {
+// auto: opened by autoDevice. Its cancel says nothing (a browser that wants a tap first refuses it the same way): the
+// button is there
+async function useDevice(auto = false) {
   if (busy.value || wrongTryWait() > 0) return;
   err.value = ""; busy.value = true;
   try {
@@ -125,9 +152,10 @@ async function useDevice() {
     openJournal();
   } catch (e) {
     if (deviceFailureCounts(e)) wrongTry();
-    err.value = waiting.value ? "" : (e as Error)?.name === "NotAllowedError" ? "Verification was cancelled or timed out."
+    const cancelled = (e as Error)?.name === "NotAllowedError";
+    err.value = waiting.value || (auto && cancelled) ? "" : cancelled ? "Verification was cancelled or timed out."
       : (e as Error)?.name === "DeviceNotice" ? (e as Error).message : "This device couldn't open your journal. Use your password.";
-  } finally { busy.value = false; }
+  } finally { busy.value = false; promptEndedAt = Date.now(); }
 }
 
 // straight after a password unlock, so the browser sees it as the person's own doing
@@ -340,7 +368,7 @@ async function leave() {
       <p class="muted auth-lede">@{{ session.user?.username }}</p>
       <div v-if="waiting" class="err" role="alert">Too many wrong tries. Try again in <span aria-live="off">{{ formatWait(lock.waitMs) }}</span>. Your journal stays locked.</div>
       <div v-else-if="err" class="err">{{ err }}</div>
-      <button type="button" class="btn block lg" :disabled="busy || waiting" @click="useDevice">{{ busy ? "Waiting for your device..." : "Unlock with this device" }}</button>
+      <button type="button" class="btn block lg" :disabled="busy || waiting" @click="useDevice()">{{ busy ? "Waiting for your device..." : "Unlock with this device" }}</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="showPassword">Use password instead</button></p>
       <p class="center tiny auth-link"><button type="button" class="lock-link muted" @click="askSignOut">Sign out</button></p>
     </div>
