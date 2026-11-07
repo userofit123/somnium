@@ -38,6 +38,8 @@ export interface DueReminder {
   kind?: "reality_check" | "bedtime" | "wbtb" | "morning_journal" | "practice";
   /** All a locked screen shows of it (Android: the notification's public version). */
   lockTitle?: string;
+  /** No sound (reality checks, from the schedule): Android uses its vibrate-only channel, desktop and web a silent one. */
+  silent?: boolean;
   actions?: ReminderAction[];
 }
 interface DesktopReminders { setPlan(items: DueReminder[]): Promise<unknown>; onPause?(cb: (on: boolean) => void): void }
@@ -81,7 +83,7 @@ export async function upcoming(s: RealityCheckSchedule, settings: Settings, now 
       const c = catalog.find((x) => x.id === p.check) ?? catalog[0]!;
       const { title, body } = reminderText(c, { sign: s.showSign ? sign : null, habit: p.habit });
       out.push({
-        at: p.at, title, body, url: `/check?kind=${encodeURIComponent(p.check)}&prompted=1`, kind: "reality_check", lockTitle: "Reality check",
+        at: p.at, title, body, url: `/check?kind=${encodeURIComponent(p.check)}&prompted=1`, kind: "reality_check", lockTitle: "Reality check", silent: s.silent,
         actions: CHECK_OUTCOMES.map(([outcome, t]) => ({ id: outcome, title: t, outcome, check: p.check, ...owner })),
       });
     }
@@ -139,12 +141,12 @@ function catAlarms(today: Date, now: number, days: number): DueReminder[] {
 
 /** Shows one reminder now: through the service worker when there is one (a tap opens its page, a button its own),
  *  else a plain one. */
-export async function showReminder(r: Pick<DueReminder, "title" | "body" | "url" | "tag" | "actions">) {
+export async function showReminder(r: Pick<DueReminder, "title" | "body" | "url" | "tag" | "actions" | "silent">) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return false;
   // the browser's buttons only open pages (a check is logged on /check, which the tap opens anyway)
   const acts = (r.actions ?? []).filter((a) => a.url);
   const opts = {
-    body: r.body, tag: r.tag ?? "somnium-reality-check", icon: "/icon-192.png", badge: "/icon-192.png", requireInteraction: false,
+    body: r.body, silent: r.silent === true, tag: r.tag ?? "somnium-reality-check", icon: "/icon-192.png", badge: "/icon-192.png", requireInteraction: false,
     data: { url: r.url, actions: Object.fromEntries(acts.map((a) => [a.id, a.url])) }, actions: acts.map((a) => ({ action: a.id, title: a.title })),
   } as NotificationOptions;
   const reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : undefined;
@@ -164,7 +166,7 @@ interface AndroidReminders {
 }
 export const androidReminders = (): AndroidReminders | undefined => (globalThis as any).Capacitor?.getPlatform?.() === "android" ? (globalThis as any).Capacitor?.Plugins?.SomniumReminders : undefined;
 const ANDROID_DAYS = 7;
-const channelOf = (r: DueReminder) => (r.kind === "wbtb" ? "wbtb_alarm" : r.kind === "reality_check" ? "reality_checks" : "night");
+const channelOf = (r: DueReminder) => (r.kind === "wbtb" ? "wbtb_alarm" : r.kind === "reality_check" ? (r.silent ? "reality_checks_quiet" : "reality_checks") : "night");
 
 // Checks logged from a notification's buttons wait in the plugin's queue; they go through the same locked-safe path as
 // /check (logCheck: no note, nothing sealed). Ids already sent are remembered here, so a queue that wasn't cleared

@@ -166,7 +166,7 @@ async function tryNow() {
   <template v-if="on">
     <div class="sh"><h2>When</h2></div>
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">How many a day</div><div class="s">6 to 12 is usual</div></div><NumStep :value="s.perDay" :min="PER_DAY_MIN" :max="PER_DAY_MAX" @set="(v) => save({ perDay: v })" /></div>
+      <div class="li"><div class="grow"><div class="t">How many a day</div><div class="s">5 to 10 is usual (LaBerge, Tholey; RESEARCH.md Part C, 7, [1] [3] [4])</div></div><NumStep :value="s.perDay" :min="PER_DAY_MIN" :max="PER_DAY_MAX" @set="(v) => save({ perDay: v })" /></div>
       <div class="li"><div class="grow"><div class="t">Minimum gap</div><div class="s">Minutes between two reminders</div></div><NumStep :value="s.minGap" :step="5" :min="5" :max="240" unit="min" @set="(v) => save({ minGap: v })" /></div>
       <label class="tgl"><div class="grow"><div class="t">Use my sleep times</div><div class="s">From an hour after waking to an hour before bed</div></div><span class="tg"><input type="checkbox" :checked="s.useSleep" @change="save({ useSleep: ($event.target as HTMLInputElement).checked })" /></span></label>
       <div class="frow">
@@ -201,6 +201,7 @@ async function tryNow() {
     <div class="card">
       <p class="tiny" style="margin:0">The reminders take these in turn.</p>
       <div class="chips"><button v-for="c in catalog" :key="c.id" type="button" class="fchip" :class="{ on: s.checks.includes(c.id) }" :aria-pressed="s.checks.includes(c.id)" @click="toggleCheck(c.id)">{{ c.name }}</button></div>
+      <label class="tgl"><div class="grow"><div class="t">{{ androidApp ? "Vibrate only" : "No sound" }}</div><div class="s">{{ androidApp ? "Reality checks buzz with no sound, for places where sound is not wanted (RESEARCH.md Part C, 7, [39o] [39p])." : desktopApp ? "Reality checks come with no sound. This computer can't vibrate." : "Reality checks come with no sound. Browsers can't buzz on their own, so vibrating is only in the Android app." }}</div></div><span class="tg"><input type="checkbox" :checked="s.silent" @change="save({ silent: ($event.target as HTMLInputElement).checked })" /></span></label>
       <label class="tgl"><div class="grow"><div class="t">Show my dream sign in reminders</div><div class="s">Adds your top dream sign's name. Off by default: it can be read on a locked screen.</div></div><span class="tg"><input type="checkbox" :checked="s.showSign" @change="save({ showSign: ($event.target as HTMLInputElement).checked })" /></span></label>
     </div>
   </template>

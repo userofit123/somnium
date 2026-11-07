@@ -25,6 +25,7 @@ export interface RealityCheckSchedule {
   minGap: number; // minutes, at least 5
   habits: HabitMoment[];
   checks: string[]; // ids from packages/knowledge/lexicons/checks.json, rotated in turn
+  silent: boolean; // no sound: vibration only where the device can (Android), else just quiet (LDJ-67)
   showSign: boolean; // the top dream sign's name in the text: it is sealed, so off unless the person turns it on
   pausedOn: string | null; // "YYYY-MM-DD": no reminders that day
   seed: number; // fixed when the row is made; the same seed and date give the same plan everywhere
@@ -33,7 +34,7 @@ export interface RealityCheckSchedule {
 export const PER_DAY_MIN = 1, PER_DAY_MAX = 20;
 export const DEFAULT_RC_SCHEDULE: RealityCheckSchedule = {
   perDay: 8, useSleep: true, from: "08:00", to: "22:00", quiet: { on: false, from: "12:30", to: "13:30" }, minGap: 30,
-  habits: [], checks: ["nose-pinch", "re-read-text"], showSign: false, pausedOn: null, seed: 1,
+  habits: [], checks: ["nose-pinch", "re-read-text"], silent: false, showSign: false, pausedOn: null, seed: 1,
 };
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -52,6 +53,7 @@ export function rcSchedule(saved: unknown): RealityCheckSchedule {
     minGap: clampInt(s.minGap, 5, 240, D.minGap),
     habits: Array.isArray(s.habits) ? s.habits.filter((h: any) => h && HHMM.test(h.at) && HABIT_LABELS.includes(h.label)).slice(0, 20).map((h: any) => ({ at: h.at, label: h.label })) : [],
     checks: Array.isArray(s.checks) && s.checks.some((c: unknown) => typeof c === "string") ? s.checks.filter((c: unknown): c is string => typeof c === "string").slice(0, 20) : D.checks,
+    silent: s.silent === true,
     showSign: s.showSign === true,
     pausedOn: typeof s.pausedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.pausedOn) ? s.pausedOn : null,
     seed: clampInt(s.seed, 0, 2 ** 31 - 1, D.seed),
@@ -258,7 +260,7 @@ export function storableSchedule(saved: Record<string, unknown>): Record<string,
   const s = saved as Record<string, any>, out: Record<string, unknown> = {};
   const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
   for (const k of ["perDay", "minGap", "seed", "lead"]) if (num(s[k])) out[k] = s[k];
-  for (const k of ["useSleep", "showSign"]) if (typeof s[k] === "boolean") out[k] = s[k];
+  for (const k of ["useSleep", "showSign", "silent"]) if (typeof s[k] === "boolean") out[k] = s[k];
   for (const k of ["from", "to", "at"]) if (typeof s[k] === "string" && HHMM.test(s[k])) out[k] = s[k];
   if (s.quiet && typeof s.quiet === "object") {
     const q: Record<string, unknown> = {};

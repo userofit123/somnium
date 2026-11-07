@@ -51,7 +51,7 @@ public class SomniumRemindersPlugin extends Plugin {
     static final String PREFS = "somnium_reminders";
     private static final String KEY_PLAN = "plan", KEY_ARMED = "armed", KEY_QUEUE = "queue";
     private static final int ALARM_BASE = 42000, MAX = 400, QUEUE_MAX = 200;
-    static final String CH_RC = "reality_checks", CH_NIGHT = "night", CH_ALARM = "wbtb_alarm";
+    static final String CH_RC = "reality_checks", CH_RC_QUIET = "reality_checks_quiet", CH_NIGHT = "night", CH_ALARM = "wbtb_alarm";
     private static final String ACTION_FIRE = "org.somnium.app.REMINDER_FIRE", ACTION_CHECK = "org.somnium.app.REMINDER_CHECK";
     private static final Object LOCK = new Object();
 
@@ -238,6 +238,16 @@ public class SomniumRemindersPlugin extends Plugin {
             ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
             nm.createNotificationChannel(ch);
         }
+        if (nm.getNotificationChannel(CH_RC_QUIET) == null) {
+            // vibration only (LDJ-67): a channel's sound can't change per notification on Android 8+, so it has its own
+            NotificationChannel ch = new NotificationChannel(CH_RC_QUIET, "Reality checks, vibrate only", NotificationManager.IMPORTANCE_DEFAULT);
+            ch.setDescription("The same reminders with no sound, for places where sound is not wanted");
+            ch.setSound(null, null);
+            ch.enableVibration(true);
+            ch.setVibrationPattern(new long[] { 0, 250, 150, 250 });
+            ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+            nm.createNotificationChannel(ch);
+        }
         if (nm.getNotificationChannel(CH_NIGHT) == null) {
             NotificationChannel ch = new NotificationChannel(CH_NIGHT, "Bedtime, morning and practice", NotificationManager.IMPORTANCE_DEFAULT);
             ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
@@ -306,6 +316,9 @@ public class SomniumRemindersPlugin extends Plugin {
             // before Android 8 (no channels) the sound is set on the notification
             b.setSound(alarmSound(), AudioManager.STREAM_ALARM).setVibrate(new long[] { 0, 800, 400, 800 }).setTimeoutAfter(10 * 60_000);
             pub.setTimeoutAfter(10 * 60_000);
+        } else if (CH_RC_QUIET.equals(channel)) {
+            // before Android 8 (no channels) the quiet one is set on the notification
+            b.setVibrate(new long[] { 0, 250, 150, 250 });
         } else b.setDefaults(NotificationCompat.DEFAULT_ALL);
         JSONArray actions = it.optJSONArray("actions");
         if (actions != null) {

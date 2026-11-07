@@ -472,7 +472,7 @@ ipcMain.handle("update:metered", () => new Promise<{ metered: boolean; known: bo
 // question and the check's own instruction (plus the top dream sign's name if the person turned that on).
 // Looked at against the wall clock every 20 s (and on waking from sleep) rather than one timer each: a timer's clock
 // stands still while the computer sleeps, which would push every later reminder back by the time asleep.
-interface PlannedReminder { at: number; title: string; body: string; url: string }
+interface PlannedReminder { at: number; title: string; body: string; url: string; silent?: boolean }
 let rcPlan: PlannedReminder[] = [];
 let rcFiredUpTo = 0;
 let rcTick: ReturnType<typeof setInterval> | null = null;
@@ -489,7 +489,7 @@ const pausedToday = () => pausedUntil() > Date.now();
 function showReminder(r: PlannedReminder) {
   if (!Notification.isSupported() || Date.now() - r.at > LATE) return; // the computer slept through it: skipped, not late
   if (isCheck(r) && r.at < pausedUntil()) return;
-  const n = new Notification({ title: r.title, body: r.body, icon: path.join(__dirname, "icon.png") });
+  const n = new Notification({ title: r.title, body: r.body, silent: r.silent === true, icon: path.join(__dirname, "icon.png") });
   n.on("click", () => { rcShown.delete(n); showWindow(r.url); });
   n.on("close", () => rcShown.delete(n));
   rcShown.add(n);
@@ -512,7 +512,7 @@ ipcMain.handle("reminders:setPlan", (_e, items: unknown) => {
   for (const it of items.slice(0, 200)) {
     if (!it || typeof it.at !== "number" || typeof it.title !== "string" || typeof it.body !== "string" || typeof it.url !== "string") continue;
     if (!ALLOWED_URL.test(it.url) || it.at < now - 60_000 || it.at > now + AHEAD) continue;
-    rcPlan.push({ at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url });
+    rcPlan.push({ at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url, silent: it.silent === true });
   }
   rcPlan.sort((x, y) => x.at - y.at);
   // a plan sent again (a change, a new day) doesn't show again what was already shown

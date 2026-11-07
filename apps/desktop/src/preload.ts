@@ -70,7 +70,7 @@ const api = {
   },
   // reality check reminders: the page sends the plan (times and words), the main process shows them (main.ts)
   reminders: {
-    setPlan: (items: { at: number; title: string; body: string; url: string }[]) => ipcRenderer.invoke("reminders:setPlan", items),
+    setPlan: (items: { at: number; title: string; body: string; url: string; silent?: boolean }[]) => ipcRenderer.invoke("reminders:setPlan", items),
     onPause: (cb: (on: boolean) => void) => { onPause = cb; },
   },
   // the optional local text model: the main process keeps the address (per account) and makes the one call to it
