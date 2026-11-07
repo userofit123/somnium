@@ -3,7 +3,7 @@
 // account (rekey.ts), links between them kept and sealed values bound to the new ids; and a change the server refuses
 // stays in the device's log to be tried again.
 import { describe, it, expect, beforeAll } from "vitest";
-import { newDataKey } from "@somnium/shared";
+import { newDataKey, mergeMark, mergingInto, withoutMergeMark } from "@somnium/shared";
 import { createEngine, replica, sealRequest, openResponse, type Engine } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
@@ -78,6 +78,19 @@ describe("restoring into another account", () => {
     expect((await opened(B, KEY_B)).dreams).toHaveLength(1);
   });
 
+  it("points a merge cut short at the element's new id", async () => {
+    const into = uuidv7(), from = uuidv7();
+    const file = { ...fileOfA(), tables: { elements: [
+      { id: into, kind: "place", name: "Harbour", note: null },
+      { id: from, kind: "place", name: "Port", note: mergeMark(into, "Seen twice") },
+    ] } };
+    const els = (await rekeyForAccount(file, { id: B })).tables.elements as any[];
+    expect(mergingInto(els[1].note)).toBe(els[0].id);
+    expect(els[0].id).not.toBe(into);
+    expect(withoutMergeMark(els[1].note)).toBe("Seen twice");
+    expect(els[0].note).toBeNull();
+  });
+
   it("refuses a sealed file of another account rather than losing its rows one by one", async () => {
     const body = await sealRequest("POST", "/import", { data: fileOfA(), mode: "merge" }, KEY_B, noLookup);
     const r = await server.handle({ method: "POST", path: "/import", body, userId: B });
@@ -125,5 +138,31 @@ describe("a device's copy", () => {
     const again = await replica.localChanges(device.db, 500, KEY_B);
     expect(again.changes.map((c) => c.pk.id)).toEqual([n1]);
     expect(await replica.waitingCount(device.db)).toBe(1);
+  });
+
+  it("while locked, sends a refused plain change once per sync and goes on past it", async () => {
+    // a goal under one of A's ids (refused), a sealed change waiting for the key, then a goal that fits
+    const taken = uuidv7(), fits = uuidv7();
+    await server.db.admin.query("INSERT INTO goals (id, user_id, kind, target) VALUES ($1, $2, 'journal_streak', 3)", [taken, A]);
+    await device.db.admin.query("INSERT INTO goals (id, user_id, kind, target) VALUES ($1, $2, 'journal_streak', 4)", [taken, C]);
+    await call(device, C, "POST", "/import", { data: { ...fileOfA(), user: { id: C }, tables: { nights: [{ id: uuidv7(), date: "2026-10-11", nap: false }] } }, mode: "merge" });
+    await device.db.admin.query("INSERT INTO goals (id, user_id, kind, target) VALUES ($1, $2, 'journal_streak', 5)", [fits, C]);
+    const pushed = (await replica.replicaMeta(device.db)).pushed;
+    // the locked send, one change per page: the page of only the refused one must not end it
+    const sent: string[] = [];
+    for (let page = 0; page < 10; page++) {
+      const out = await replica.plainChanges(device.db, 1);
+      if (!out.changes.length) break;
+      sent.push(...out.changes.map((c) => String(c.pk.id)));
+      const res = await call(server, C, "POST", "/sync/push", { device: deviceId, changes: out.changes });
+      await replica.markPlainSent(device.db, out.upTo, res.failed);
+    }
+    expect(sent).toEqual([taken, fits]);
+    expect((await server.db.admin.query("SELECT user_id FROM goals WHERE id = $1", [fits])).rows[0]?.user_id).toBe(C);
+    // the sealed change still holds the position; the refused goal waits behind it for the next sync
+    expect((await replica.replicaMeta(device.db)).pushed).toBe(pushed);
+    expect((await device.db.admin.query("SELECT 1 FROM sync_log WHERE pk = $1::jsonb", [JSON.stringify({ id: fits })])).rows).toHaveLength(0);
+    await replica.requeueRefused(device.db);
+    expect((await replica.plainChanges(device.db)).changes.map((c) => c.pk.id)).toEqual([taken]);
   });
 });

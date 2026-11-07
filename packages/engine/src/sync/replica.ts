@@ -93,10 +93,16 @@ export async function plainChanges(db: Db, limit = 500): Promise<{ changes: Chan
   return { upTo: Number(log.at(-1).seq), changes };
 }
 /** The server has those plain changes: forget them, except the ones it refused (markSent). The position stays,
- *  because sealed changes before them still wait. */
+ *  because sealed changes before them still wait; so the refused ones go behind it under a negative seq (the log's
+ *  own seqs start at 1, and -seq keeps their order for requeueRefused). Left ahead of it they would be read again on
+ *  every page of this sync, and a page of nothing but them would end the send with later changes still unsent. */
 export async function markPlainSent(db: Db, upTo: number, refused: Refused[] = []) {
-  await db.admin.query("DELETE FROM sync_log WHERE seq > $1 AND seq <= $2 AND NOT (tbl = ANY($3::text[])) AND NOT (jsonb_build_object('tbl', tbl, 'pk', pk) = ANY($4::jsonb[]))",
-    [(await replicaMeta(db)).pushed, upTo, SEALED_TABLES, refusedKeys(refused)]);
+  await db.tx(async (q) => {
+    const params = [(await metaOf(q)).pushed, upTo, SEALED_TABLES];
+    const inPage = "seq > $1 AND seq <= $2 AND NOT (tbl = ANY($3::text[]))";
+    if (refused.length) await q.query(`UPDATE sync_log SET seq = -seq WHERE ${inPage} AND jsonb_build_object('tbl', tbl, 'pk', pk) = ANY($4::jsonb[])`, [...params, refusedKeys(refused)]);
+    await q.query(`DELETE FROM sync_log WHERE ${inPage}`, params);
+  });
 }
 /** While locked: where the next pull starts, past what was already read for plain tables. */
 export const plainSince = async (db: Db) => { const m = await replicaMeta(db); return Math.max(m.cursor, m.plainCursor ?? 0); };
@@ -108,7 +114,7 @@ export async function takePlain(db: Db, userId: string, remote: Change[], plainC
 }
 
 // Changes the server refused (push's failed: they don't fit its data, e.g. another account's row ids, LDJ-62). Never
-// forgotten without a word: they stay in this copy's log behind the sent position, so the rest of the send goes on
+// forgotten without a word: they stay in this copy's log behind the sent position (markSent, markPlainSent), so the rest of the send goes on
 // without them, and requeueRefused puts them back in line once per sync, which tries them again and says how many
 // were refused again (the sync pill, with no content). They count as waiting, so this copy isn't erased while it
 // holds them.
@@ -124,9 +130,10 @@ export async function markSent(db: Db, upTo: number, refused: Refused[] = []) {
 export async function requeueRefused(db: Db) {
   await db.tx(async (q) => {
     const m = await metaOf(q);
-    // the latest entry of each row: an older one would be sent as well and could only lose to it
+    // the latest entry of each row: an older one would be sent as well and could only lose to it (abs: refused while
+    // locked, markPlainSent keeps them under -seq)
     await q.query(`INSERT INTO sync_log (user_id, tbl, pk, op, at)
-      SELECT DISTINCT ON (tbl, pk) user_id, tbl, pk, op, at FROM sync_log WHERE seq <= $1 ORDER BY tbl, pk, seq DESC`, [m.pushed]);
+      SELECT DISTINCT ON (tbl, pk) user_id, tbl, pk, op, at FROM sync_log WHERE seq <= $1 ORDER BY tbl, pk, abs(seq) DESC`, [m.pushed]);
     await q.query("DELETE FROM sync_log WHERE seq <= $1", [m.pushed]);
   });
 }

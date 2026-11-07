@@ -8,6 +8,7 @@
 // again (a second merge) lands on the same rows instead of doubling them. It keeps the old id's time part, so rows
 // stay in the order they were made. Sealed values are bound to their row id (table.column.rowId), so this runs on the
 // journal in the clear, before it is sealed for this account.
+import { mergeMark, mergingInto } from "@somnium/shared";
 import { isUuid } from "../ids";
 
 export interface Account { id: string; username?: string | null }
@@ -46,6 +47,14 @@ export async function rekeyForAccount<T extends { tables?: Record<string, unknow
     : Array.isArray(v) ? v.map(swap)
     : plainObject(v) ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, swap(x)]))
     : v;
-  const tables = Object.fromEntries(Object.entries(data.tables).map(([t, rows]) => [t, Array.isArray(rows) ? rows.map(swap) : rows]));
+  // the one id inside a text: a merge cut short marks the merged element's note with the element it goes into
+  // (signs.ts), and finishing it after the restore has to find that element under its new id
+  const remark = (row: any) => {
+    const into = mergingInto(row?.note);
+    const now = into && ids.get(into.toLowerCase());
+    return now ? { ...row, note: mergeMark(now, row.note) } : row;
+  };
+  const tables = Object.fromEntries(Object.entries(data.tables).map(([t, rows]) =>
+    [t, Array.isArray(rows) ? rows.map((r) => { const x = swap(r); return t === "elements" ? remark(x) : x; }) : rows]));
   return { ...data, user: { ...(data.user ?? {}), id: me.id }, tables };
 }

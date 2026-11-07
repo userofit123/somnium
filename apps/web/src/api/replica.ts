@@ -240,10 +240,9 @@ async function run(mineEra: number) {
         const out = await R.plainChanges(db);
         if (!out.changes.length) break;
         const res = await call("POST", "/sync/push", { device: meta.device, changes: out.changes });
-        // refused ones stay in the log ahead of the position here, so a page of nothing but those ends the send
+        // refused ones go behind the sent position, as in the sealed send: tried once per sync, never in the way
         await R.markPlainSent(db, out.upTo, noteRefused(res.failed));
         if (res.rejected.length) { await R.applyRemote(db, userId, res.rejected.filter((c: any) => !needsKey(c.tbl))); changed = true; }
-        if (res.failed?.length && res.failed.length >= out.changes.length) break;
       }
       for (;;) {
         const p = await call("GET", `/sync/pull?since=${await R.plainSince(db)}&device=${encodeURIComponent(meta.device)}`);
