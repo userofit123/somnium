@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 6-11 (fullBackupContent): nothing of the app goes to Google's cloud backup or a device-to-device copy. The
      journal's own backups (Documents/Somnium) are the way to keep it; the device keys must never leave the phone. -->
-<!-- root is the whole app directory (files, databases, preferences, the WebView's storage), device_root the same for
-     storage readable before the first unlock, external the app's folder on shared storage -->
+<!-- root is the whole app directory (files, databases, preferences, the WebView's storage), external the app's folder
+     on shared storage. The app keeps nothing in device-protected storage, and lint rejects device_root here. -->
 <full-backup-content>
     <exclude domain="root" path="." />
-    <exclude domain="device_root" path="." />
     <exclude domain="external" path="." />
 </full-backup-content>
