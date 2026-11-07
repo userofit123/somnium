@@ -16,7 +16,7 @@ import NightSheet from "./NightSheet.vue";
 import DreamMedia from "./DreamMedia.vue";
 import SourceSheet from "../learn/SourceSheet.vue";
 import "../../styles/components/learn.css";
-import { loadLexicons, suggestElements } from "./detect";
+import { loadLexicons, suggestElements, suggestKind } from "./detect";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
 const props = defineProps<{ id: string; date?: string; full?: boolean; fresh?: boolean }>();
@@ -98,6 +98,14 @@ function addEl(id: string) { chosen.value.push(id); linkElement(props.id, id); t
 // a new element's kind is picked in the create row; it starts as a character (what people note most, and the
 // placeholder's first word) and then stays at the kind picked last while this dream is open
 const newKind = ref<(typeof NEW_ELEMENT_KINDS)[number]>("character");
+// until the person picks a kind themselves, the typed name decides it (LDJ-68); no suggestion keeps the current kind
+let kindPicked = false;
+watch(typed, (n) => {
+  if (!n.trim()) { kindPicked = false; return; }
+  if (kindPicked) return;
+  const k = suggestKind(n, own.value);
+  if (k) newKind.value = k as typeof newKind.value;
+});
 function createEl() {
   const name = typed.value.trim();
   if (!name) return;
@@ -106,9 +114,10 @@ function createEl() {
   chosen.value.push(id);
   linkElement(props.id, id, { name, kind });
   typed.value = "";
+  kindPicked = false;
 }
 const onCreate = computed(() => !exact.value && hi.value === matches.value.length);
-function stepKind(by: number) { const i = NEW_ELEMENT_KINDS.indexOf(newKind.value); newKind.value = NEW_ELEMENT_KINDS[(i + by + NEW_ELEMENT_KINDS.length) % NEW_ELEMENT_KINDS.length]!; }
+function stepKind(by: number) { kindPicked = true; const i = NEW_ELEMENT_KINDS.indexOf(newKind.value); newKind.value = NEW_ELEMENT_KINDS[(i + by + NEW_ELEMENT_KINDS.length) % NEW_ELEMENT_KINDS.length]!; }
 function onElKey(e: KeyboardEvent) {
   // on the create row, left and right pick its kind
   if (onCreate.value && (e.key === "ArrowLeft" || e.key === "ArrowRight") && typed.value.trim()) { stepKind(e.key === "ArrowLeft" ? -1 : 1); e.preventDefault(); }
@@ -246,7 +255,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
               <div v-if="!exact" class="jnew" :class="{ hi: onCreate }">
                 <button class="li click" @mousedown.prevent="createEl"><Icon name="plus" :size="14" /><span class="grow">New {{ ELEMENT_KIND_LABEL[newKind].toLowerCase() }}: {{ typed.trim() }}</span></button>
                 <div class="chips jkinds" role="radiogroup" aria-label="Kind of element">
-                  <button v-for="k in NEW_ELEMENT_KINDS" :key="k" class="fchip" :class="{ on: newKind === k }" role="radio" :aria-checked="newKind === k" @mousedown.prevent="newKind = k">{{ ELEMENT_KIND_LABEL[k] }}</button>
+                  <button v-for="k in NEW_ELEMENT_KINDS" :key="k" class="fchip" :class="{ on: newKind === k }" role="radio" :aria-checked="newKind === k" @mousedown.prevent="newKind = k; kindPicked = true">{{ ELEMENT_KIND_LABEL[k] }}</button>
                 </div>
               </div>
             </div>
