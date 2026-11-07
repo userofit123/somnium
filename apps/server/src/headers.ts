@@ -48,24 +48,37 @@ export function cspFor(html: string | null): string {
 export const PERMISSIONS_POLICY = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), display-capture=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()";
 
 /** The headers for every answer. The policy follows index.html: a rebuild while the server runs changes the hashes,
- *  so the file is looked at again whenever it changed (by time and size), not read once at start. */
-export function securityHeaders(webDir?: string): () => Record<string, string> {
+ *  so the file is looked at again when it changed (by time and size), not read once at start. The look is cheap and
+ *  rare: at most once a second, not on every answer. It never throws (it runs inside onSend, where a throw would turn
+ *  the answer into a 500): a file that is missing or half-written during a rebuild keeps the last good policy, and a
+ *  read is only taken when the file did not change while it was being read. */
+export function securityHeaders(webDir?: string, recheckMs = 1000): () => Record<string, string> {
   const file = webDir ? path.join(webDir, "index.html") : null;
-  let seen = "", csp = cspFor(null);
+  let seen = "", checkedAt = -Infinity;
+  let headers = build(cspFor(null));
+  const stamp = (st: fs.Stats) => `${st.mtimeMs}:${st.size}`;
   return () => {
-    if (file) {
-      let st: fs.Stats | null = null;
-      try { st = fs.statSync(file); } catch { /* no build yet: the policy without hashes */ }
-      const stamp = st ? `${st.mtimeMs}:${st.size}` : "";
-      if (stamp !== seen) { seen = stamp; csp = cspFor(st ? fs.readFileSync(file, "utf8") : null); }
+    const now = Date.now();
+    if (file && now - checkedAt >= recheckMs) {
+      checkedAt = now;
+      try {
+        const before = stamp(fs.statSync(file));
+        if (before !== seen) {
+          const html = fs.readFileSync(file, "utf8");
+          if (stamp(fs.statSync(file)) === before) { headers = build(cspFor(html)); seen = before; } // else mid-write: next time
+        }
+      } catch { /* no build yet, or a rebuild is replacing it: keep the last good set */ }
     }
-    return {
-      "content-security-policy": csp,
-      "referrer-policy": "no-referrer",
-      "permissions-policy": PERMISSIONS_POLICY,
-      "cross-origin-opener-policy": "same-origin",
-      // a browser must take every answer as the type it says it is: an uploaded file can never be run as a page or script
-      "x-content-type-options": "nosniff",
-    };
+    return headers;
+  };
+}
+function build(csp: string): Record<string, string> {
+  return {
+    "content-security-policy": csp,
+    "referrer-policy": "no-referrer",
+    "permissions-policy": PERMISSIONS_POLICY,
+    "cross-origin-opener-policy": "same-origin",
+    // a browser must take every answer as the type it says it is: an uploaded file can never be run as a page or script
+    "x-content-type-options": "nosniff",
   };
 }

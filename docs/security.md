@@ -185,16 +185,26 @@ never lands in a plaintext database. See also "Backups".
   encrypted with the **server's own key** (`DATA_DIR/app.key`, made on the first start with mode 600, or `APP_KEY`),
   which is not the journal's key (the server has none). A code is accepted once only. Turning it on and off needs a code,
   and `/2fa/start` is refused while it is on.
-- **Try limits** (`reserveTry`, `apps/server/src/auth.ts`). Two counts over the last 15 minutes:
+- **Try limits** (`reserveTry`, `reserveSessionTry`, `apps/server/src/auth.ts`). Counts over the last 15 minutes:
   - **per address:** after five wrong tries, further tries from that address are refused until the oldest of them is
-    15 minutes old ("Too many tries. Wait 15 minutes.", with `Retry-After`);
-  - **per name:** five tries free, then a growing wait after the latest one: 1 s, 2 s, 4 s, ... at most 30 s ("Too many
-    tries for this name. Wait N seconds."). Never a lockout: a stranger guessing at your name from many addresses
-    slows every try at it to one per half minute or so, but you get in after at most 30 seconds, and from one address
-    the per-address limit stops them first.
+    15 minutes old ("Too many tries. Wait 15 minutes.", with `Retry-After`). This always applies, to every door;
+  - **per name**, only for a device that has never signed in to that account: five tries free, then a growing wait
+    after the latest one: 1 s, 2 s, 4 s, ... at most 30 s ("Too many tries for this name. Wait N seconds."). A refused
+    try is not stored, so a stranger with enough addresses can take every opening the moment it comes and keep the name
+    waiting almost all the time. That is why **a known device skips the name wait** (`knownDevice`): the owner's own
+    browser or app is held only by its per-address limit, so the stranger's guesses cannot keep them out. A device is
+    known by the install's random id the app sends at sign-in (`deviceId`), found in the account's activity-log notes
+    (`account_events.device_id`, never shown) or a live session, or by a long-lived cookie (`somnium_device`, HttpOnly,
+    SameSite=Strict, path `/api/auth`, 400 days) the server sets at every successful sign-in: a random nonce with an
+    HMAC of it and the account id under the server's key, so it names one account, cannot be forged without the key,
+    and holds nothing personal. The cookie covers the doors that send no `deviceId` (recovery key, reset code). No
+    address is ever stored for this: "known" is a property of the device, not of where it is;
+  - **per session**, for the checks made inside a session (the password asked again, a key proof, a two-factor code at
+    `/2fa/disable`): five wrong tries, then refused until the oldest is 15 minutes old. The name wait never applies
+    there, so guesses at your name on the sign-in screen cannot lock you out of your own settings.
 
-  The same counts cover wrong passwords, wrong two-factor codes, wrong reset codes, wrong recovery keys, wrong key
-  proofs and the password asked again for sensitive actions. A burst sent at the same moment cannot all pass: each try
+  The address and name counts cover wrong passwords, wrong two-factor codes at sign-in, wrong reset codes and wrong
+  recovery keys; the address and session counts cover wrong key proofs and the password asked again for sensitive actions. A burst sent at the same moment cannot all pass: each try
   is reserved before the slow hash, in one transaction holding a lock per key, and only a right answer takes it back.
   The tries are kept in the database (table `sign_in_tries`, key and time, migration `013_sign_in_tries`), so a
   restart does not clear them; rows older than 15 minutes are pruned on every try, and a name is cut to 64 characters.
@@ -473,8 +483,21 @@ password first.
     native side, which the policy does not see), and there is no `frame-ancestors` (a `<meta>` policy can't carry it).
   - **Development:** the Vite dev server sends a looser policy (inline scripts and styles, websockets) so hot reload
     works (`apps/web/vite.config.ts`); the strict one is on the built app.
-- **Behind a proxy.** The server trusts proxy headers (`trustProxy: true`) to know the address of a client and whether
-  the request was HTTPS. Run it only behind your own proxy, never directly on the internet, or a caller can fake both.
+- **Behind a proxy.** The try limits count by the client's address, so who may name that address matters. The server
+  trusts `X-Forwarded-For` / `X-Forwarded-Proto` from **one hop** by default: the reverse proxy right in front, so the
+  client is the rightmost address the proxy added, and anything the client wrote in front of it is ignored. A proxy
+  that appends to the header (Caddy, nginx with `$proxy_add_x_forwarded_for`) therefore cannot be used to pick an
+  address. `TRUST_PROXY` changes it: unset or `1` one hop; a number, that many hops (a CDN in front of your proxy:
+  `2`); a comma-separated list of proxy addresses or CIDR ranges (`127.0.0.1,10.0.0.0/8`); `0` none, when the server
+  faces the network itself (then use the socket address; not recommended, the server does not do HTTPS). `true`
+  (trust every hop) is never used: it is read as one hop. Tested in `apps/server/test/auth.test.ts`.
+- **Uploaded files are served with a fixed set of types.** The stored type of a media file comes from the client, so it
+  is never echoed back as sent: `image/jpeg`, `image/png`, `image/webp`, `audio/webm`, `audio/ogg` and `audio/mp4` are
+  served as such (parameters dropped), anything else as `application/octet-stream`, checked on upload and again on
+  every download (sync can write the column too). With `nosniff` on every answer, no upload can be run as a page.
+- **The security headers never fail an answer.** `index.html` is looked at for new hashes at most once a second (by
+  time and size); a file that is missing or being rewritten keeps the last good policy, and nothing in that hook can
+  throw.
 - **The desktop app** runs its own local server on `127.0.0.1` for a local account, one port per account, and opens
   links in the system browser. Server accounts reach their server through the app.
 - **The service worker** caches the app's own built files and, once seen, photos (sealed). It never caches `/api` data.
@@ -516,7 +539,7 @@ Run `./scripts/pnpm.sh -r test`. The tests that carry the claims above:
 | **Crypto: wrap, unwrap, password change, recovery.** Argon2id and HKDF key separation, envelopes, wrong key and tampered byte refused, wrap by password, recovery key and device key, password change re-wraps the same data key, NFC, constant-time compare | `packages/shared/src/crypto/crypto.test.ts` |
 | Crypto for local accounts: round trip, password change, recovery with a new key, damaged record | `packages/shared/src/crypto/localAccount.test.ts` |
 | Crypto against the server: sign-up and sign-in with the authKey, two-factor and backup codes, the wait after wrong tries, password change, admin reset, the server's key | `apps/server/test/auth.test.ts`, `apps/server/test/account.test.ts` |
-| **Try limits in the database**: they survive a restart (a new server on the same database), an address gets five in all, a name slows down (1, 2, 4 ... 30 s) but its owner still gets in from another address; **security headers** with the hashes of `index.html` on every answer | `apps/server/test/auth.test.ts` |
+| **Try limits in the database**: they survive a restart (a new server on the same database), an address gets five in all, a name slows down (1, 2, 4 ... 30 s) for unknown devices but its owner signs in from a known device however many addresses poll it, and session checks never wait on the name; a forged leftmost `X-Forwarded-For` does not change the counted address; **security headers** with the hashes of `index.html` on every answer | `apps/server/test/auth.test.ts` |
 | Recovery flow on the server: the verifier hashed, the same answer for unknown names, the shared limit, one use under a race, two-factor, opening again after an admin reset | `apps/server/test/recovery.test.ts` |
 | Device keys: proof registration, new password without the old, wrong proof counted, two-factor still asked | `apps/server/test/device-key.test.ts` |
 | Backups: sealed, opens with password or recovery key, passphrase wrap, merge and replace | `packages/engine/test/backup.test.ts` |

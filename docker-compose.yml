@@ -27,6 +27,7 @@ services:
     environment:
       DATABASE_URL: postgres://somnium:${DB_PASSWORD}@db:5432/somnium
       LOG: "1"
+      TRUST_PROXY: ${TRUST_PROXY:-1}   # proxies in front that may name the client (docs/self-hosting.md)
     volumes:
       - appdata:/data
     ports:

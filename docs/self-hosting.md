@@ -22,6 +22,37 @@ somnium.example.com {
 }
 ```
 
+### The proxy and the client's address
+
+The sign-in limits count wrong tries per client address, which the server reads from `X-Forwarded-For`. By default it
+trusts **one hop**: the proxy right in front of it. That is what you want with one Caddy or nginx in front:
+
+- **Caddy** sets `X-Forwarded-For` itself (it appends the client's address); `reverse_proxy` above needs nothing more.
+- **nginx**:
+
+  ```
+  location / {
+      proxy_pass http://127.0.0.1:8800;
+      proxy_set_header Host $host;
+      proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header X-Forwarded-Proto $scheme;
+  }
+  ```
+
+  `$proxy_add_x_forwarded_for` appends; with one-hop trust only the address nginx added counts, so a client cannot
+  pick its own by sending the header. (Setting it to `$remote_addr` instead also works.)
+
+Set `TRUST_PROXY` in `.env` only when that is not your setup:
+
+| `TRUST_PROXY` | Meaning |
+|---|---|
+| unset or `1` | one proxy in front (default) |
+| `2`, `3`, ... | that many proxies, e.g. a CDN in front of your own proxy |
+| `127.0.0.1,10.0.0.0/8` | trust exactly these proxy addresses or ranges |
+| `0` | no proxy: the socket's own address (not recommended) |
+
+Never put more hops than you really have: each extra one lets a client choose the address it is counted under.
+
 ## Accounts
 
 - Settings → Server admin: invite people, reset passwords, turn two-factor sign-in off, disable or remove accounts,

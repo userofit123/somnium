@@ -87,41 +87,63 @@ export async function userForToken(db: Db, token: string | undefined): Promise<S
 }
 
 // Wrong sign-in tries (PLAN.md §4.2, LDJ-59), kept in the database (sign_in_tries) so a restart does not forget them.
-// Two counts, over the last 15 minutes:
-// - per address ("ip:"): five wrong tries, then a hard wait until the oldest is 15 minutes old;
-// - per name ("u:"): five free tries, then a growing wait after the latest one (1 s, 2 s, 4 s ... at most 30 s). Never a
-//   lockout: a stranger guessing at your name from many addresses slows it down for everyone, but cannot keep you out
-//   for more than half a minute, and from one address the hard limit above stops them first.
+// Counts over the last 15 minutes:
+// - per address ("ip:"): five wrong tries, then a hard wait until the oldest is 15 minutes old. Always applies.
+// - per name ("u:"): five free tries, then a growing wait after the latest one (1 s, 2 s, 4 s ... at most 30 s). A
+//   refused try is not stored, so a stranger with many addresses can take each opening the moment it comes and keep
+//   the name almost always waiting. That is why the name wait only holds up a device the account has never signed in
+//   from (knownDevice below): the owner's own browser or app goes straight to its per-address limit, and a stranger,
+//   who cannot show such a device, is slowed down.
+// - per session ("s:"): for the checks that need a signed-in session (asking for the password again, the device's key
+//   proof). Five wrong tries, then a hard wait like an address. The name wait never applies there: a session is already
+//   one account on one device, and counting it by name would let a stranger's guesses at the sign-in screen lock the
+//   owner out of their own settings.
 const WINDOW = "15 minutes", WINDOW_S = 15 * 60;
-const ADDRESS_TRIES = 5, NAME_FREE = 5, NAME_MAX_WAIT = 30;
+const ADDRESS_TRIES = 5, SESSION_TRIES = 5, NAME_FREE = 5, NAME_MAX_WAIT = 30;
 // A sign-in may send any username of any length, so a key is cut to size before it is stored.
 const cut = (k: string) => k.slice(0, 64);
-const keysFor = (ip: string, name: string) => ({ a: cut(`ip:${ip}`), u: cut(`u:${name}`) });
 /** Seconds a name waits after its latest try, with n tries in the window (the one about to be made not counted). */
 export const nameWait = (n: number) => (n < NAME_FREE ? 0 : Math.min(NAME_MAX_WAIT, 2 ** (n - NAME_FREE)));
 export type Try = { release: () => Promise<void> } | { wait: number; error: string };
 const prune = (db: Db) => db.admin.query(`DELETE FROM sign_in_tries WHERE at < clock_timestamp() - interval '${WINDOW}'`);
+/** The second count next to the address: a name (waits unless the device is known) or a session (a hard limit). */
+type Scope = { name: string; known?: boolean } | { session: string };
+const secondKey = (s: Scope) => cut("session" in s ? `s:${s.session}` : `u:${s.name}`);
+const plural = (s: number) => `${s} second${s === 1 ? "" : "s"}`;
 
 /**
  * Counts this try before the slow hash, so a burst sent at once can't all pass the check and only then be recorded:
  * the check and the reservation are one transaction, holding a lock per key, so each of the burst sees the ones
  * before it. Answers how long to wait when there have been too many, otherwise `release` to take the try back:
  * call it when the secret was right. Not calling it leaves the try counted as a failure.
+ * `known`: the device has signed in to this name before, so the name wait does not apply (the address limit does).
  */
-export async function reserveTry(db: Db, ip: string, name: string): Promise<Try> {
-  const { a, u } = keysFor(ip, name);
+export async function reserveTry(db: Db, ip: string, name: string, o: { known?: boolean } = {}): Promise<Try> {
+  return reserve(db, ip, { name, known: o.known });
+}
+/** The same for a check that needs a session: counted per session and per address, never per name. */
+export async function reserveSessionTry(db: Db, ip: string, sessionId: string): Promise<Try> {
+  return reserve(db, ip, { session: sessionId });
+}
+async function reserve(db: Db, ip: string, scope: Scope): Promise<Try> {
+  const a = cut(`ip:${ip}`), u = secondKey(scope);
   await prune(db);
   const got = await db.tx(async (q): Promise<{ wait: number; error: string } | { ids: unknown[] }> => {
     for (const k of [a, u].sort()) await q.query("SELECT pg_advisory_xact_lock(hashtext($1))", [k]);
     const r = (await q.query(
       `SELECT count(*) FILTER (WHERE key = $1)::int AS ip_n,
               extract(epoch FROM clock_timestamp() - min(at) FILTER (WHERE key = $1))::float AS ip_age,
-              count(*) FILTER (WHERE key = $2)::int AS name_n,
-              extract(epoch FROM clock_timestamp() - max(at) FILTER (WHERE key = $2))::float AS name_since
+              count(*) FILTER (WHERE key = $2)::int AS n,
+              extract(epoch FROM clock_timestamp() - min(at) FILTER (WHERE key = $2))::float AS age,
+              extract(epoch FROM clock_timestamp() - max(at) FILTER (WHERE key = $2))::float AS since
        FROM sign_in_tries WHERE key IN ($1, $2) AND at > clock_timestamp() - interval '${WINDOW}'`, [a, u])).rows[0] as any;
     if (r.ip_n >= ADDRESS_TRIES) return { wait: Math.max(1, Math.ceil(WINDOW_S - r.ip_age)), error: "Too many tries. Wait 15 minutes." };
-    const left = nameWait(r.name_n) - (r.name_since ?? Infinity);
-    if (left > 0) { const s = Math.ceil(left); return { wait: s, error: `Too many tries for this name. Wait ${s} second${s === 1 ? "" : "s"}.` }; }
+    if ("session" in scope) {
+      if (r.n >= SESSION_TRIES) return { wait: Math.max(1, Math.ceil(WINDOW_S - r.age)), error: "Too many tries. Wait 15 minutes." };
+    } else if (!scope.known) {
+      const left = nameWait(r.n) - (r.since ?? Infinity);
+      if (left > 0) { const s = Math.ceil(left); return { wait: s, error: `Too many tries for this name. Wait ${plural(s)}.` }; }
+    }
     return { ids: (await q.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2) RETURNING id", [a, u])).rows.map((x: any) => x.id) };
   });
   if ("wait" in got) return got;
@@ -136,8 +158,53 @@ export async function reserveTry(db: Db, ip: string, name: string): Promise<Try>
 }
 /** A wrong answer that was not reserved first (a second factor checked after the password): counted the same way. */
 export async function recordFail(db: Db, ip: string, name: string): Promise<void> {
-  const { a, u } = keysFor(ip, name);
-  await db.admin.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2)", [a, u]);
+  await db.admin.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2)", [cut(`ip:${ip}`), secondKey({ name })]);
+}
+/** The same for a wrong answer inside a session (a wrong code at /2fa/disable). */
+export async function recordSessionFail(db: Db, ip: string, sessionId: string): Promise<void> {
+  await db.admin.query("INSERT INTO sign_in_tries (key) VALUES ($1), ($2)", [cut(`ip:${ip}`), secondKey({ session: sessionId })]);
+}
+
+// ---------- known devices: what lets the owner past the name wait ----------
+// Two ways to show it, neither of which a stranger has:
+// - the install's own random id (deviceId), sent at every sign-in by the web app and the apps, which the account's
+//   activity log remembers from the first sign-in on it (account_events.device_id, never shown to anyone) or a live
+//   session still carries;
+// - a long-lived cookie the server signs at every successful sign-in (DEVICE_COOKIE), for the doors that do not send a
+//   deviceId (the recovery key, a reset code). Each mark is a random nonce and an HMAC of it with the account's id
+//   under the server's key, so it names one account, cannot be made without the key, and holds nothing personal.
+//   A browser keeps marks for a few accounts at most.
+export const DEVICE_COOKIE = "somnium_device";
+export const DEVICE_COOKIE_DAYS = 400; // the longest a browser keeps a cookie
+const MARKS_MAX = 5;
+const markMac = (nonce: string, userId: string, key: Buffer) =>
+  crypto.createHmac("sha256", key).update(`known-device|${nonce}|${userId}`).digest("base64url").slice(0, 32);
+const marksOf = (cookie: string | undefined) =>
+  (cookie ?? "").slice(0, 600).split("~").filter((m) => /^[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{32}$/.test(m));
+export function hasDeviceMark(cookie: string | undefined, userId: string, key: Buffer): boolean {
+  return marksOf(cookie).some((m) => {
+    const [nonce, mac] = m.split(".") as [string, string];
+    return crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(markMac(nonce, userId, key)));
+  });
+}
+/** The cookie with a mark for this account added (or kept, if it has one), the newest first. */
+export function addDeviceMark(cookie: string | undefined, userId: string, key: Buffer): string {
+  const marks = marksOf(cookie);
+  if (hasDeviceMark(cookie, userId, key)) return marks.join("~");
+  const nonce = crypto.randomBytes(12).toString("base64url");
+  return [`${nonce}.${markMac(nonce, userId, key)}`, ...marks].slice(0, MARKS_MAX).join("~");
+}
+/** Has this device signed in to the account with this name before? False for a name without an account. */
+export async function knownDevice(db: Db, name: string, deviceId: string | null, cookie: string | undefined, key: Buffer): Promise<boolean> {
+  if (!deviceId && !cookie) return false;
+  const u = (await db.admin.query("SELECT id FROM users WHERE username = $1", [name])).rows[0];
+  if (!u) return false;
+  if (cookie && hasDeviceMark(cookie, u.id, key)) return true;
+  if (!deviceId) return false;
+  const r = await db.admin.query(
+    `SELECT 1 FROM account_events WHERE user_id = $1 AND device_id = $2
+     UNION ALL SELECT 1 FROM sessions WHERE user_id = $1 AND device_id = $2 LIMIT 1`, [u.id, deviceId]);
+  return r.rows.length > 0;
 }
 /** Tests only: forget the failed tries, so one wait does not spill into the next test. */
 export const forgetFails = async (db: Db) => { await db.admin.query("DELETE FROM sign_in_tries"); };

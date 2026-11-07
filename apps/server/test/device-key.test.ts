@@ -93,7 +93,7 @@ describe("device keys", () => {
     let last = 0;
     for (let i = 0; i < 12 && last !== 429; i++) last = (await post("/auth/password/device", { ...body, keyProof: random() }, h)).statusCode;
     expect(last).toBe(429);
-    // the right proof waits too, and so does signing in with that name: one count for every door
+    // the right proof waits too (per session), and so does signing in from that address (per address)
     expect((await post("/auth/password/device", body, h)).statusCode).toBe(429);
     expect((await post("/auth/sign-in", { username: "guesser", authKey: keys.authKey })).statusCode).toBe(429);
   }, 90000);

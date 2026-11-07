@@ -10,7 +10,8 @@ import type { FastifyInstance } from "fastify";
 import { pgliteDb } from "@somnium/engine/pglite";
 import { uuidv7, type Db } from "@somnium/engine";
 import { createAccountKeys, changePassword, openWithPassword, toBase64url, fromBase64url, sealColumn } from "@somnium/shared";
-import { buildApp } from "../src/app";
+import { buildApp, trustProxyFrom, safeMime } from "../src/app";
+import { securityHeaders } from "../src/headers";
 import { totp, forgetFails, failKeyCount, recordFail, reserveTry, nameWait, keyFromFile, makeDataDir, encryptForServer, decryptForServer, loadServerKey } from "../src/auth";
 
 let app: FastifyInstance, db: Db, dir: string;
@@ -312,12 +313,102 @@ describe("sign-in tries kept in the database (LDJ-59)", () => {
     expect((await from("10.4.0.1", "owner", keys.authKey)).statusCode).toBe(200);
   });
 
+  // a stranger with many addresses who polls and takes every opening the moment the name's wait ends
+  async function pollName(name: string, wrongKey: string, tries = 30) {
+    let refused = 0;
+    for (let i = 0; i < tries; i++) {
+      const r = await from(`10.7.${i % 10}.1`, name, wrongKey);
+      if (r.statusCode === 429) { refused++; await later(r.json().retryAfter); } else expect(r.statusCode).toBe(401);
+    }
+    expect(refused).toBeGreaterThan(0);
+    // the last guess lands right now, the moment its opening came: the name is waiting from here
+    let last = await from("10.7.20.1", name, wrongKey);
+    if (last.statusCode === 429) { await later(last.json().retryAfter); last = await from("10.7.20.1", name, wrongKey); }
+    expect(last.statusCode).toBe(401);
+  }
+
+  it("many addresses polling a name can't keep its owner out from a device that signed in before; unknown devices still wait", async () => {
+    const deviceId = "owner-laptop-" + crypto.randomBytes(8).toString("hex");
+    const { keys } = await signUp("polled", "correct horse battery", { invite: await invite(), deviceId });
+    await forgetFails(db);
+    const wrong = await createAccountKeys("not the password at all");
+    await pollName("polled", wrong.authKey);
+    const as = (remoteAddress: string, payload: Record<string, unknown>, cookie?: string) =>
+      app.inject({ method: "POST", url: "/api/auth/sign-in", remoteAddress, payload: { username: "polled", authKey: keys.authKey, wantToken: true, ...payload }, ...(cookie ? { cookies: { somnium_device: cookie } } : {}) });
+    // an unknown device (no id, or an id this account never saw) is slowed down
+    expect((await as("10.8.0.1", {})).statusCode).toBe(429);
+    expect((await as("10.8.0.2", { deviceId: "someone-elses-device-0001" })).statusCode).toBe(429);
+    // the owner's device goes straight in, and is handed the signed mark for the doors that send no device id
+    const ok = await as("10.8.0.3", { deviceId });
+    expect(ok.statusCode).toBe(200);
+    const mark = ok.cookies.find((c) => c.name === "somnium_device");
+    expect(mark?.httpOnly).toBe(true);
+    expect(mark?.sameSite).toBe("Strict");
+    await pollName("polled", wrong.authKey, 8);
+    expect((await as("10.8.0.4", {}, mark!.value)).statusCode).toBe(200); // the mark alone is enough
+    // a forged mark, or one made for another account, is not
+    expect((await as("10.8.0.5", {}, `${"A".repeat(16)}.${"B".repeat(32)}`)).statusCode).toBe(429);
+    const other = (await signIn("ann", ann.authKey, { deviceId: "ann-device-000000001" })).cookies.find((c) => c.name === "somnium_device")!.value;
+    expect((await as("10.8.0.6", {}, other)).statusCode).toBe(429);
+    // the per-address limit still holds for the known device: five wrong tries from its address, then it waits
+    for (let i = 0; i < 5; i++) expect((await as("10.8.0.7", { deviceId, authKey: wrong.authKey })).statusCode).toBe(401);
+    expect((await as("10.8.0.7", { deviceId })).statusCode).toBe(429);
+  });
+
+  it("checks inside a session never wait on the name: guesses at the sign-in screen can't lock the owner out of settings", async () => {
+    const { keys, h } = await signUp("settled", "correct horse battery", { invite: await invite() });
+    await forgetFails(db);
+    const wrong = await createAccountKeys("not the password at all");
+    await pollName("settled", wrong.authKey);
+    expect((await from("10.9.1.1", "settled", keys.authKey)).statusCode).toBe(429); // the name is waiting
+    expect((await post("/auth/2fa/start", { authKey: keys.authKey }, h)).statusCode).toBe(200); // the password asked again
+    // and they have their own limit: five wrong, then the right one waits too (per session)
+    for (let i = 0; i < 5; i++) expect((await app.inject({ method: "POST", url: "/api/auth/2fa/start", remoteAddress: `10.9.2.${i}`, payload: { authKey: wrong.authKey }, headers: h })).statusCode).toBe(403);
+    expect((await app.inject({ method: "POST", url: "/api/auth/2fa/start", remoteAddress: "10.9.3.1", payload: { authKey: keys.authKey }, headers: h })).statusCode).toBe(429);
+  });
+
+  it("with one-hop proxy trust, a forged leftmost X-Forwarded-For does not change the counted address", async () => {
+    expect([undefined, "", "1", "2", "0", "false", "true", "127.0.0.1, 10.0.0.0/8"].map(trustProxyFrom)).toEqual([1, 1, 1, 2, false, false, 1, ["127.0.0.1", "10.0.0.0/8"]]);
+    const proxied = await buildApp({ db, dataDir: dir, trustProxy: "1" });
+    try {
+      const wrong = await createAccountKeys("not the password at all");
+      // the proxy (10.6.0.1) appends the real client (203.0.113.7) to whatever the client sent
+      const via = (forged: string, client: string, username: string, authKey: string) => proxied.app.inject({
+        method: "POST", url: "/api/auth/sign-in", remoteAddress: "10.6.0.1", headers: { "x-forwarded-for": `${forged}, ${client}` }, payload: { username, authKey } });
+      for (let i = 0; i < 5; i++) expect((await via(`198.51.100.${i}`, "203.0.113.7", `forger${i}`, wrong.authKey)).statusCode).toBe(401);
+      const held = await via("198.51.100.99", "203.0.113.7", "ann", ann.authKey);
+      expect(held.statusCode).toBe(429);
+      expect(held.json().error).toBe("Too many tries. Wait 15 minutes.");
+      expect((await via("203.0.113.7", "203.0.113.8", "ann", ann.authKey)).statusCode).toBe(200); // another client is not held up
+    } finally { await proxied.app.close(); }
+  });
+
   it("the wait per name grows 1 s, 2 s, 4 s ... after five tries, and stops at 30 s", () => {
     expect([0, 4, 5, 6, 7, 9, 10, 50].map(nameWait)).toEqual([0, 0, 1, 2, 4, 16, 30, 30]);
   });
 });
 
 describe("security headers (LDJ-59)", () => {
+  it("looks at index.html at most once a second, and keeps the last good policy while a rebuild replaces it", () => {
+    const web = fs.mkdtempSync(path.join(os.tmpdir(), "somnium-web-test-"));
+    const file = path.join(web, "index.html");
+    const page = (js: string) => `<!doctype html><script>${js}</script>`;
+    const hash = (js: string) => `'sha256-${crypto.createHash("sha256").update(js).digest("base64")}'`;
+    try {
+      fs.writeFileSync(file, page("a=1"));
+      const now = securityHeaders(web, 0), slow = securityHeaders(web, 60000);
+      expect(now()["content-security-policy"]).toContain(hash("a=1"));
+      expect(slow()["content-security-policy"]).toContain(hash("a=1"));
+      fs.rmSync(file); fs.mkdirSync(file); // mid-rebuild: the name is there but can't be read as a file
+      expect(() => now()).not.toThrow();
+      expect(now()["content-security-policy"]).toContain(hash("a=1"));
+      fs.rmSync(file, { recursive: true }); // gone altogether
+      expect(now()["content-security-policy"]).toContain(hash("a=1"));
+      fs.writeFileSync(file, page("b=2"));
+      expect(now()["content-security-policy"]).toContain(hash("b=2"));
+      expect(slow()["content-security-policy"]).toContain(hash("a=1")); // not looked at again yet
+    } finally { fs.rmSync(web, { recursive: true, force: true }); }
+  });
   it("every answer carries the strict policy, with the hashes of index.html's inline blocks", async () => {
     const web = fs.mkdtempSync(path.join(os.tmpdir(), "somnium-web-test-"));
     const body = "document.documentElement.dataset.x='1'";
@@ -429,6 +520,20 @@ describe("media", () => {
     const down = await app.inject({ method: "GET", url: up.json().url, headers: h });
     expect(down.statusCode).toBe(200);
     expect(down.headers["x-content-type-options"]).toBe("nosniff");
+    expect(down.headers["content-type"]).toBe("audio/webm");
+  });
+
+  it("serves only allowed types: anything else the client named, or sync wrote, goes out as application/octet-stream", async () => {
+    expect(["image/jpeg", "IMAGE/PNG", "image/webp", "audio/ogg; codecs=opus", "audio/mp4", "text/html", "image/svg+xml", "application/javascript", "image/gif", "", "image/png\r\nx: y"].map(safeMime))
+      .toEqual(["image/jpeg", "image/png", "image/webp", "audio/ogg", "audio/mp4", ...Array(6).fill("application/octet-stream")]);
+    const { keys, h } = await signUp("typed", "correct horse battery", { invite: await invite() });
+    const id = uuidv7();
+    const payload = Buffer.from(await sealColumn(new TextEncoder().encode("a picture"), keys.dataKey, "media", "data", id));
+    const up = await app.inject({ method: "POST", url: `/api/media?id=${id}`, headers: { ...h, "content-type": "image/png" }, payload });
+    expect(up.statusCode).toBe(200);
+    await db.admin.query("UPDATE media SET mime = 'text/html' WHERE id = $1", [id]); // as a sync push could
+    const down = await app.inject({ method: "GET", url: up.json().url, headers: h });
+    expect(down.headers["content-type"]).toBe("application/octet-stream");
   });
 });
 

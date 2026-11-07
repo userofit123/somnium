@@ -10,7 +10,7 @@ import { createEngine, uuidv7, withUser, type Db, type Engine } from "@somnium/e
 import { HttpError, isUuid, visible } from "@somnium/engine"; // the media handlers
 import { COPY_OWNER_HEADER, COPY_OWNER_REFUSED, isSealed } from "@somnium/shared";
 import {
-  hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, reserveTry, recordFail, validUsername, validAuthKey, validSalt, validWrapped,
+  hashSecret, checkSecret, createSession, deviceLabel, noteNewDevice, userForToken, reserveTry, reserveSessionTry, recordSessionFail, knownDevice, addDeviceMark, DEVICE_COOKIE, DEVICE_COOKIE_DAYS, validUsername, validAuthKey, validSalt, validWrapped,
   newInviteCode, loadServerKey, encryptForServer, decryptForServer, standInSalt, standInRecoverySalt, totpOk, newTotpSecret, otpauthUrl, issueBackupCodes, useBackupCode, issueResetCode, plainCode,
   useTotp, noteAccount, validDeviceId, ServerKeyError, RESET_MESSAGE, COOKIE, SESSION_DAYS, type SessionUser,
 } from "./auth";
@@ -19,7 +19,32 @@ import { securityHeaders } from "./headers";
 
 // mode "local": a server that takes the journal in the clear. Nothing uses it any more: the desktop app's own server for
 // a local account runs as "server", since its screens seal the journal like a server account's (LDJ-53).
-export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string; mode?: "server" | "local" }
+export interface Options { db: Db; dataDir: string; webDir?: string; logger?: boolean; host?: string; mode?: "server" | "local"; trustProxy?: string }
+
+/**
+ * Which proxies may say who the client is (X-Forwarded-For), from TRUST_PROXY. The sign-in limits count by that
+ * address, so trusting too much lets a client pick its own: a proxy that appends to the header passes on whatever the
+ * client put in front. Unset or "1": one hop, the reverse proxy in front (the rightmost entry is the client).
+ * A number: that many hops. "0" or "false": none, the socket's own address (the server faces the network directly).
+ * Otherwise a comma-separated list of proxy addresses or CIDR ranges (e.g. "127.0.0.1,10.0.0.0/8").
+ */
+/** The types a media file may be served as. The stored type comes from the client, so it is never echoed as it came:
+ *  anything else (or a type with odd parameters) is served as application/octet-stream, which no browser runs. Only
+ *  the bare type is kept: "audio/webm;codecs=opus" is served as audio/webm. Video is not recorded by the app. */
+const MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "audio/webm", "audio/ogg", "audio/mp4"]);
+export const safeMime = (m: unknown): string => {
+  const bare = String(m ?? "").split(";")[0]!.trim().toLowerCase();
+  return MEDIA_TYPES.has(bare) ? bare : "application/octet-stream";
+};
+
+export function trustProxyFrom(v: string | undefined): boolean | number | string[] {
+  const t = (v ?? "").trim();
+  if (t === "") return 1;
+  if (/^(0|false|no)$/i.test(t)) return false;
+  if (/^\d+$/.test(t)) return Number(t);
+  if (/^true$/i.test(t)) return 1; // "trust every hop" is never what is wanted: read as the one proxy in front
+  return t.split(",").map((x) => x.trim()).filter(Boolean);
+}
 
 /** A local (on-device) account: one person, signed in automatically by the desktop app. Returns a session token for them. */
 export async function localSession(db: Db, name = "Me"): Promise<string> {
@@ -33,7 +58,7 @@ declare module "fastify" { interface FastifyRequest { user: SessionUser | null }
 export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engine: Engine }> {
   const engine = await createEngine(o.db, { mode: o.mode ?? "server" });
   const db = o.db;
-  const app = Fastify({ logger: o.logger ?? false, bodyLimit: 30 * 1024 * 1024, trustProxy: true });
+  const app = Fastify({ logger: o.logger ?? false, bodyLimit: 30 * 1024 * 1024, trustProxy: trustProxyFrom(o.trustProxy ?? process.env.TRUST_PROXY) });
   await app.register(cookie);
   app.decorateRequest("user", null);
   for (const t of ["image/jpeg", "image/png", "image/webp", "image/gif", "image/avif", "image/heic", "image/heif", "video/mp4", "application/octet-stream"])
@@ -55,15 +80,21 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   });
   // the security headers (CSP, nosniff, ...) on every answer, files and errors included (headers.ts)
   const headers = securityHeaders(o.webDir);
-  app.addHook("onSend", async (_req, reply) => { reply.headers(headers()); });
+  app.addHook("onSend", async (_req, reply) => { try { reply.headers(headers()); } catch { /* never turn an answer into a 500 */ } });
   const need = (req: FastifyRequest, reply: FastifyReply) => { if (!req.user) { reply.code(401).send({ error: "Sign in first" }); return false; } return true; };
   const needAdmin = (req: FastifyRequest, reply: FastifyReply) => { if (!need(req, reply)) return false; if (req.user!.role !== "admin") { reply.code(403).send({ error: "Admins only" }); return false; } return true; };
   const setCookie = (req: FastifyRequest, reply: FastifyReply, token: string) =>
     reply.setCookie(COOKIE, token, { httpOnly: true, sameSite: "strict", secure: req.protocol === "https", path: "/", maxAge: SESSION_DAYS * 86400 });
 
   // a try at a secret, counted before the slow hash (reserveTry in auth.ts); null once it was answered with a wait
-  const tryOrWait = async (req: FastifyRequest, reply: FastifyReply, name: string) => {
-    const t = await reserveTry(db, req.ip, name);
+  // `b` is the request body, for the deviceId that shows a device the account has signed in from (knownDevice)
+  const tryOrWait = async (req: FastifyRequest, reply: FastifyReply, name: string, b?: any) => {
+    const known = await knownDevice(db, name, validDeviceId(b?.deviceId) ? b.deviceId : null, req.cookies[DEVICE_COOKIE], serverKey);
+    return answerTry(reply, await reserveTry(db, req.ip, name, { known }));
+  };
+  // the same inside a session: per session and per address, never per name (auth.ts)
+  const sessionTryOrWait = async (req: FastifyRequest, reply: FastifyReply) => answerTry(reply, await reserveSessionTry(db, req.ip, req.user!.sessionId));
+  const answerTry = (reply: FastifyReply, t: Awaited<ReturnType<typeof reserveTry>>) => {
     if ("release" in t) return t.release;
     reply.code(429).header("retry-after", String(t.wait)).send({ error: t.error, retryAfter: t.wait });
     return null;
@@ -100,6 +131,9 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await noteNewDevice(db, id, device, deviceId);
     const token = await createSession(db, id, device, String(b?.platform ?? "web"), deviceId);
     setCookie(req, reply, token);
+    // the mark that lets this device past the per-name wait next time (knownDevice in auth.ts)
+    reply.setCookie(DEVICE_COOKIE, addDeviceMark(req.cookies[DEVICE_COOKIE], id, serverKey),
+      { httpOnly: true, sameSite: "strict", secure: req.protocol === "https", path: "/api/auth", maxAge: DEVICE_COOKIE_DAYS * 86400 });
     return b?.wantToken ? token : undefined;
   };
   // the first account is the admin and needs no invite; after that, who may join is the admin's setting
@@ -130,7 +164,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.post("/api/auth/sign-in", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
-    const release = await tryOrWait(req, reply, name); // a wrong try stays counted; only a right one takes it back
+    const release = await tryOrWait(req, reply, name, b); // a wrong try stays counted; only a right one takes it back
     if (!release) return reply;
     const u = (await db.admin.query("SELECT id, auth_hash, disabled_at, kdf_salt, wrapped_by_password, totp_enabled, totp_secret FROM users WHERE username = $1", [name])).rows[0];
     const ok = await checkSecret(validAuthKey(b?.authKey) ? b.authKey : "", u?.auth_hash ?? null);
@@ -171,7 +205,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // current authKey; the same check and the same wait after too many tries as signing in, so a device left signed
   // in can't be used to guess it. A wrong one is a 403, not a 401: the app signs out on a 401, and a typo shouldn't.
   const recheck = async (req: FastifyRequest, reply: FastifyReply, authKey: unknown) => {
-    const release = await tryOrWait(req, reply, req.user!.username);
+    const release = await sessionTryOrWait(req, reply);
     if (!release) return false;
     const u = (await db.admin.query("SELECT auth_hash FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (await checkSecret(validAuthKey(authKey) ? authKey : "", u?.auth_hash ?? null)) { await release(); return true; }
@@ -198,7 +232,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // a stolen session token alone can never register a proof of its own choosing. Once there it never changes (the data
   // key never does). A wrong proof is counted like a wrong password.
   const proofCheck = async (req: FastifyRequest, reply: FastifyReply, proof: unknown) => {
-    const release = await tryOrWait(req, reply, req.user!.username);
+    const release = await sessionTryOrWait(req, reply);
     if (!release) return null;
     const u = (await db.admin.query("SELECT key_proof_hash, totp_enabled, totp_secret FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (!u?.key_proof_hash) { await release(); reply.code(409).send({ error: "Sign in with your password once on this device first", needsPassword: true }); return null; }
@@ -265,7 +299,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   app.post("/api/auth/reset", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
-    const release = await tryOrWait(req, reply, name);
+    const release = await tryOrWait(req, reply, name, b);
     if (!release) return reply;
     if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt)) { await release(); return reply.code(400).send({ error: badBundle }); }
     const u = (await db.admin.query("SELECT id, reset_code_hash FROM users WHERE username = $1 AND reset_expires_at > now()", [name])).rows[0];
@@ -311,7 +345,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // key, an unknown name and an account without a key all get the same answer after the same slow hash.
   const checkRecovery = async (req: FastifyRequest, reply: FastifyReply, b: any) => {
     const name = String(b?.username ?? "").toLowerCase();
-    const release = await tryOrWait(req, reply, name); // the same count as signing in: a name gets five guesses in all, not five per door;
+    const release = await tryOrWait(req, reply, name, b); // the same count as signing in: a name gets five guesses in all, not five per door;
     if (!release) return null;
     const u = (await db.admin.query("SELECT id, disabled_at, recovery_salt, wrapped_by_recovery, recovery_verifier, totp_enabled, totp_secret, wrapped_by_password FROM users WHERE username = $1", [name])).rows[0];
     const ok = await checkSecret(validAuthKey(b?.recoveryVerifier) ? b.recoveryVerifier : "", u?.recovery_verifier ?? null);
@@ -417,7 +451,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!(await recheck(req, reply, b?.authKey))) return;
     const u = (await db.admin.query("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", [req.user!.id])).rows[0];
     if (u.totp_enabled && !(await useTotp(db, req.user!.id, decryptForServer(u.totp_secret, serverKey), b?.code)) && !(await useBackupCode(db, req.user!.id, b?.code))) {
-      await recordFail(db, req.ip, req.user!.username); // the same count recheck looks at, so five wrong codes wait too
+      await recordSessionFail(db, req.ip, req.user!.sessionId); // the same count recheck looks at, so five wrong codes wait too
       return reply.code(403).send({ error: "That code is not right" });
     }
     await db.admin.query("UPDATE users SET totp_enabled = false, totp_secret = NULL, totp_last_step = NULL WHERE id = $1", [req.user!.id]);
@@ -507,10 +541,11 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     if (!Buffer.isBuffer(buf) || !buf.length) return reply.code(400).send({ error: "Send the file as the request body" });
     const sealedOnly = (o.mode ?? "server") === "server";
     if (sealedOnly && !isSealed(buf.toString("latin1"))) return reply.code(400).send({ error: "This file must be sealed by the app" });
-    const mime = String(req.headers["content-type"]);
+    const sent = String(req.headers["content-type"] ?? "");
+    const mime = safeMime(sent);
     const { dreamId: dreamParam, id: idParam, kind: kindParam, duration: durationParam } = req.query as Record<string, string | undefined>;
     // a drawing is a picture too; ?kind=sketch tells it apart from a photo (anything else is read from the type)
-    const kind = mime.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : kindParam === "sketch" ? "sketch" : "photo";
+    const kind = sent.startsWith("video") ? "video" : mime.startsWith("audio") ? "audio" : kindParam === "sketch" ? "sketch" : "photo";
     const duration = durationParam && /^\d{1,5}$/.test(durationParam) && +durationParam <= 86400 ? +durationParam : null;
     const dreamId = dreamParam || null;
     if (dreamId && !isUuid(dreamId)) return reply.code(400).send({ error: "Invalid dream" });
@@ -542,7 +577,7 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     // sync push can set that column to anything, including a way out of the media folder.
     const file = path.join(mediaDir, req.user!.id, id);
     if (!fs.existsSync(file)) return reply.code(404).send({ error: "Not found" });
-    reply.header("content-type", m.mime).header("cache-control", "private, max-age=31536000, immutable");
+    reply.header("content-type", safeMime(m.mime)) // checked again: sync can write the column too.header("cache-control", "private, max-age=31536000, immutable");
     return reply.send(fs.createReadStream(file));
   });
 
