@@ -46,6 +46,7 @@ The evidence behind the course and the Learn articles: [RESEARCH.md](RESEARCH.md
 - The journal is sealed: dream text and every personal field are encrypted on your device before they are stored or synced.
 - App lock on every device; nothing shows behind the lock screen.
 - Two-factor sign-in and a recovery key.
+- Nothing leaves your own server except an optional check for a newer version. The full audit, with the limits: [docs/security.md](docs/security.md).
 - The honest limit: if you lose the password and the recovery key and have no signed-in device, nobody can read your journal. That is the point.
 
 ## Development
