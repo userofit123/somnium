@@ -13,7 +13,14 @@ export function sql(query: string): string[][] {
 /** Letters and digits only, so a name is safe to put in SQL. */
 const safe = (s: string) => s.replace(/[^a-z0-9-]/gi, "");
 
+/** A fresh database has no users, and then the app shows its first-run "create the admin" screen instead of the sign-in
+ * screen with the invite link. This stand-in admin (no password, so nobody can sign in as it) keeps that screen away;
+ * the sweep never deletes it. Local runs against a used server already have users, so this does nothing there. */
+export function ensureAdmin() {
+  sql(`INSERT INTO users (id, username, role) SELECT gen_random_uuid(), 'harness-admin', 'admin' WHERE NOT EXISTS (SELECT 1 FROM users WHERE username <> 'harness-admin' AND username NOT LIKE 'e2e-%') AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'harness-admin')`);
+}
 export function makeInvite(): string {
+  ensureAdmin();
   const code = "e2e" + Math.random().toString(36).slice(2, 12);
   sql(`INSERT INTO invites (code, expires_at) VALUES ('${safe(code)}', now() + interval '1 hour')`);
   return code;

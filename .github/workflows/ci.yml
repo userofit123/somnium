@@ -50,6 +50,7 @@ jobs:
   # Playwright in desktop and phone viewports. PostgreSQL rather than PGlite because the harness opens its own psql
   # connection to make invites, read what the server stores and delete its test accounts, and PGlite is single-process.
   # The browser tests run on request (Actions → CI → Run workflow) until they pass on GitHub's runner (LDJ-61).
+  # The first run failed because a fresh database has no users, so the app showed its first-run admin screen (e2e/db.ts ensureAdmin).
   e2e:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -79,9 +80,19 @@ jobs:
         run: |
           DATABASE_URL=postgres://somnium:somnium-ci@127.0.0.1:5432/somnium PORT=8801 HOST=127.0.0.1 WEB_DIR=$PWD/apps/web/dist LOG=0 \
             DATA_DIR=$RUNNER_TEMP/somnium-data nohup pnpm --filter @somnium/server exec tsx src/index.ts > $RUNNER_TEMP/server.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8801/api/auth/status >/dev/null && exit 0; sleep 2; done
+          for i in $(seq 1 60); do curl -sf http://127.0.0.1:8801/api/version >/dev/null && exit 0; sleep 2; done
           cat $RUNNER_TEMP/server.log; exit 1
       - run: pnpm e2e
+      - name: Keep the server log
+        if: failure()
+        run: cp "$RUNNER_TEMP/server.log" e2e/server.log || true
       - uses: actions/upload-artifact@v4
         if: failure()
-        with: { name: e2e-report, path: "e2e/report\ne2e/test-results", retention-days: 7 }
+        with:
+          name: e2e-report
+          path: |
+            e2e/report
+            e2e/test-results
+            e2e/server.log
+          retention-days: 7
+          if-no-files-found: warn

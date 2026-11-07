@@ -24,6 +24,8 @@ test("write a dream, confirm a suggestion, find it by search, the server holds o
     expect(v).not.toMatch(/Zebra|grandmother|school|playground/i);
     expect(v!.length).toBeGreaterThan(20);
   }
+  // the elements sync in their own push, a moment after the dream (slower on a shared runner)
+  await expect.poll(() => sql(`SELECT count(*) FROM elements WHERE user_id = '${uid}'`)[0]![0], { timeout: 30_000 }).not.toBe("0");
   const els = sql(`SELECT name FROM elements WHERE user_id = '${uid}'`);
   expect(els.length).toBeGreaterThan(0);
   for (const [n] of els) expect(n).not.toMatch(/grandmother|school|clock|flying|playground/i);
