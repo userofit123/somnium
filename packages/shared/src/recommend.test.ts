@@ -163,6 +163,15 @@ describe("recommend: false awakenings and nightmares", () => {
     const r = all(base({ nights: ns, dreams: nm(1, 2) })).find((x) => x.id === "nightmares")!;
     expect(r.action!.to).toBe("/train?lesson=dream-control");
     expect(r.link!.to).toBe("/learn/safety/when-to-stop");
+    expect(r.sources).toEqual(expect.arrayContaining(["B61", "C18"]));
+    expect(r.reason).toBe("You noted 2 nightmares that woke you in the last 30 days.");
+  });
+  it("bad dreams (they didn't wake you) never bring it up on their own, but the reason names them", () => {
+    const bad = (...is: number[]) => is.map((i) => ({ nightId: `n${i}`, lucid: false, badDream: true }));
+    expect(has(base({ nights: ns, dreams: bad(1, 2, 3, 4) }), "nightmares")).toBe(false);
+    expect(has(base({ nights: ns, dreams: [...nm(1), ...bad(2, 3)] }), "nightmares")).toBe(false);
+    const r = all(base({ nights: ns, dreams: [...nm(1, 2), ...bad(3)] })).find((x) => x.id === "nightmares")!;
+    expect(r.reason).toBe("You noted 2 nightmares that woke you, and 1 bad dream that didn't, in the last 30 days.");
   });
 });
 

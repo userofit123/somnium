@@ -29,6 +29,7 @@ export interface InsightDream {
   lucidityLevel?: number | null;
   emotionOverall?: number | null;
   nightmare?: boolean;
+  badDream?: boolean;
   falseAwakening?: boolean;
   sleepParalysis?: boolean;
   becameLucidHow?: BecameLucidHow | null;
@@ -144,16 +145,20 @@ export function lucidityInsight(nights: InsightNight[], dreams: InsightDream[], 
 
 // ---------- night events and emotions ----------
 
-export interface EventRow { key: string; nightmares: number; falseAwakenings: number; sleepParalysis: number }
-/** Nightmares, false awakenings and sleep paralysis: counts of dreams, so naps' dreams are in. */
+export interface EventRow { key: string; nightmares: number; badDreams: number; falseAwakenings: number; sleepParalysis: number }
+/**
+ * Nightmares, bad dreams, false awakenings and sleep paralysis: counts of dreams, so naps' dreams are in. Nightmares
+ * (they woke you) apart from bad dreams (they didn't), counted from the log rather than from memory: it is nightmare
+ * frequency that goes with poorer well-being, and logs find more of both than estimates do (RESEARCH.md C18).
+ */
 export function eventsInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string, b: Bucket = "month"): { total: Omit<EventRow, "key">; byBucket: EventRow[] } {
   const ns = nightsIn(nights, from, to);
   const { first, last } = span(ns, from, to);
-  const buckets = new Map(ns.length ? bucketRange(first, last, b).map((k) => [k, { key: k, nightmares: 0, falseAwakenings: 0, sleepParalysis: 0 }]) : []);
-  const total = { nightmares: 0, falseAwakenings: 0, sleepParalysis: 0 };
+  const buckets = new Map(ns.length ? bucketRange(first, last, b).map((k) => [k, { key: k, nightmares: 0, badDreams: 0, falseAwakenings: 0, sleepParalysis: 0 }]) : []);
+  const total = { nightmares: 0, badDreams: 0, falseAwakenings: 0, sleepParalysis: 0 };
   for (const d of dreamsOf(ns, dreams)) {
     const r = buckets.get(bucketOf(d.date, b));
-    for (const [k, on] of [["nightmares", d.nightmare], ["falseAwakenings", d.falseAwakening], ["sleepParalysis", d.sleepParalysis]] as const) {
+    for (const [k, on] of [["nightmares", d.nightmare], ["badDreams", !d.nightmare && d.badDream], ["falseAwakenings", d.falseAwakening], ["sleepParalysis", d.sleepParalysis]] as const) {
       if (!on) continue;
       total[k]++;
       if (r) r[k]++;
@@ -335,7 +340,7 @@ export function whatWorks(nights: InsightNight[], dreams: InsightDream[], clock:
     has: (n) => { const m = asleepIn(n); return m != null && m <= ASLEEP_WITHIN; },
     lacks: (n) => { const m = asleepIn(n); return m != null && m > ASLEEP_WITHIN; },
     withNoun: { one: `night asleep within ${ASLEEP_WITHIN} min`, many: `nights asleep within ${ASLEEP_WITHIN} min` },
-    withoutNoun: { one: "night it took longer", many: "nights it took longer" },
+    withoutNoun: { one: `night asleep after more than ${ASLEEP_WITHIN} min`, many: `nights asleep after more than ${ASLEEP_WITHIN} min` },
   });
   return { techniques, wbtb, wbtbBands, sleep, nap, bedtime, asleep };
 }

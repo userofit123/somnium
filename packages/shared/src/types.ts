@@ -88,7 +88,10 @@ export interface Dream extends Owned {
   recallClarity: number | null; // 1-5
   emotionOverall: number | null; // -2..2
   durationEst: number | null; // minutes
+  /** upsetting enough to wake you (Zadra and Donderi 2000, RESEARCH.md C18); never with badDream */
   nightmare: boolean;
+  /** upsetting, but you slept on (C18); never with nightmare */
+  badDream: boolean;
   recurring: boolean;
   falseAwakening: boolean;
   sleepParalysis: boolean;

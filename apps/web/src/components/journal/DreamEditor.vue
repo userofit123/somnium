@@ -3,7 +3,7 @@
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element, type Suggestion } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, type Element, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, endDraft, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
@@ -14,6 +14,8 @@ import Menu from "../Menu.vue";
 import Collapse from "../Collapse.vue";
 import NightSheet from "./NightSheet.vue";
 import DreamMedia from "./DreamMedia.vue";
+import SourceSheet from "../learn/SourceSheet.vue";
+import "../../styles/components/learn.css";
 import { loadLexicons, suggestElements } from "./detect";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
@@ -22,8 +24,8 @@ const emit = defineEmits<{ close: [] }>();
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
 const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
@@ -64,13 +66,22 @@ watch(() => f.lucid, (v) => { if (!v && f.lucidityLevel) f.lucidityLevel = 0; el
 
 const vivid = computed(() => (f.vividness ?? 0) >= 4);
 const CHIPS = [
-  { k: "lucid", label: "Lucid" }, { k: "vivid", label: "Vivid" }, { k: "nightmare", label: "Nightmare" }, { k: "recurring", label: "Recurring" },
+  { k: "lucid", label: "Lucid" }, { k: "vivid", label: "Vivid" }, { k: "badDream", label: "Bad dream" }, { k: "nightmare", label: "Nightmare" }, { k: "recurring", label: "Recurring" },
   { k: "falseAwakening", label: "False awakening" }, { k: "sleepParalysis", label: "Sleep paralysis" },
 ];
 const chipOn = (k: string) => (k === "vivid" ? vivid.value : !!f[k]);
+// Bad dream or Nightmare: whether it woke you (RESEARCH.md C18). One or the other, so marking one clears the
+// other, and while either is on a line under the marks says which is which.
+const UPSET = { nightmare: "badDream", badDream: "nightmare" } as Record<string, string>;
+const upset = computed(() => !!(f.nightmare || f.badDream));
+const sourcesOpen = ref<string[] | null>(null);
 function toggleChip(k: string) {
   if (k === "vivid") f.vividness = vivid.value ? null : 4;
-  else f[k] = !f[k];
+  else {
+    f[k] = !f[k];
+    const other = UPSET[k];
+    if (other && f[k]) f[other] = false;
+  }
 }
 const set = (k: string, v: number) => {
   f[k] = f[k] === v ? (k === "lucidityLevel" ? 0 : null) : v;
@@ -208,6 +219,8 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <div class="chips jchips">
         <button v-for="c in CHIPS" :key="c.k" class="fchip" :class="{ on: chipOn(c.k) }" :aria-pressed="chipOn(c.k)" @click="toggleChip(c.k)">{{ c.label }}</button>
       </div>
+      <div v-if="upset" class="tiny jupset">{{ UPSET_HINT }} <button v-for="sid in UPSET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="sourcesOpen = [sid]">{{ sid }}</button></div>
+      <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
 
       <div class="fld">
         <label>Lucidity</label>
@@ -281,6 +294,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jtext { min-height: 180px; resize: vertical; font-size: 16px; line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
 .jchips { margin: 0; }
+.jupset { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
 /* suggestions: quiet, so they read as an offer and not as part of the dream */
 .jfound { display: flex; flex-wrap: wrap; gap: 6px; margin-top: calc(-1 * var(--hg) / 2); }
 .jsg { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: 13px; max-width: 100%; }

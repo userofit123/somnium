@@ -3,10 +3,11 @@
 // reads a store or sends anything, so the text of a dream never leaves the device through it.
 import type { Dream, Element, Night } from "./types";
 import { DSA_ANCHORS } from "./habits";
+import { minutesToSleep } from "./rates";
 import { CONTROL_ANCHORS, ELEMENT_KIND_LABEL, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, SLEEP_ANCHORS, TECHNIQUES, VIVIDNESS_ANCHORS, clockOf } from "./journal";
 
-export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & { awareness?: number | null };
-export type NightFactsInput = Pick<Night, "bedtime" | "wakeTime" | "sleepQuality" | "wbtbUsed" | "wbtbMinutesAwake" | "nap" | "techniquesDone">;
+export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & { awareness?: number | null; badDream?: boolean };
+export type NightFactsInput = Pick<Night, "bedtime" | "wakeTime" | "sleepQuality" | "wbtbUsed" | "wbtbMinutesAwake" | "nap" | "techniquesDone" | "minutesToSleep">;
 
 /** The marks with their words (older dreams marked lucid without a level read just "Lucid"): lucid level with its anchor, vividness, control, emotion, then the yes-or-no ones. */
 export function dreamMarks(d: DreamMarksInput): { label: string; value: string }[] {
@@ -18,6 +19,7 @@ export function dreamMarks(d: DreamMarksInput): { label: string; value: string }
   if (d.recallClarity) out.push({ label: "Recall", value: `${d.recallClarity} · ${RECALL_ANCHORS[d.recallClarity - 1] ?? ""}`.replace(/ · $/, "") });
   if (d.emotionOverall != null) out.push({ label: "Emotion", value: EMOTION_ANCHORS[d.emotionOverall + 2] ?? "" });
   if (d.nightmare) out.push({ label: "Nightmare", value: "Yes" });
+  if (d.badDream && !d.nightmare) out.push({ label: "Bad dream", value: "Yes" }); // one or the other (RESEARCH.md C18)
   if (d.falseAwakening) out.push({ label: "False awakening", value: "Yes" });
   if (d.sleepParalysis) out.push({ label: "Sleep paralysis", value: "Yes" });
   if (d.recurring) out.push({ label: "Recurring", value: "Yes" });
@@ -35,6 +37,8 @@ export function nightFacts(n: NightFactsInput | null | undefined): { label: stri
   if (n.wbtbUsed) out.push({ label: "WBTB", value: n.wbtbMinutesAwake ? `${n.wbtbMinutesAwake} min awake` : "Yes" });
   const t = (n.techniquesDone ?? []).map((id) => TECHNIQUES.find((x) => x.id === id)?.label ?? id);
   if (t.length) out.push({ label: "Techniques", value: t.join(", ") });
+  const asleep = minutesToSleep(n);
+  if (asleep != null) out.push({ label: "Time to fall asleep", value: `${asleep} min` });
   return out;
 }
 

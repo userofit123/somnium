@@ -33,7 +33,7 @@ export const DISMISS_DAYS = 14;
 export interface RecommendData {
   nights: InsightNight[];
   /** Every dream's plain facts (GET /dream-facts). */
-  dreams: (InsightDream & { nightmare?: boolean; falseAwakening?: boolean })[];
+  dreams: (InsightDream & { nightmare?: boolean; badDream?: boolean; falseAwakening?: boolean })[];
   /** The local day (YYYY-MM-DD) of each reality check. */
   checkDays: string[];
   reminders: { on: boolean; perDay?: number; habits?: number };
@@ -90,13 +90,17 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     sources: ["B69", "B39", "B38"], link: { label: "Sleep first", to: "/learn/safety/sleep-first" },
   });
 
-  // nightmares
-  const nm = dreamsSince(REC.nmDays).filter((d) => d.nightmare).length;
+  // nightmares: only the ones that woke you count towards it. Bad dreams (upsetting, but you slept on) are more
+  // common and go with well-being much less (Zadra and Donderi 2000, RESEARCH.md C18), so they never bring the
+  // lesson up on their own; the reason names them when there were some, so the person sees the whole picture.
+  const upset = dreamsSince(REC.nmDays);
+  const nm = upset.filter((d) => d.nightmare).length;
+  const bad = upset.filter((d) => !d.nightmare && d.badDream).length;
   if (nm >= REC.nmCount) out.push({
     id: "nightmares", title: "Nightmares: a lesson that may help",
     body: "Learning to become lucid has helped some people with recurring nightmares, though the studies are small. If they weigh on you, a therapist who knows imagery rehearsal is the best-tested help.",
-    reason: `You noted ${n(nm, "nightmare")} in the last ${REC.nmDays} days.`,
-    sources: ["B57", "B62", "B63"], action: { label: "Open the lesson", to: "/train?lesson=dream-control" }, link: { label: "When to stop", to: "/learn/safety/when-to-stop" },
+    reason: `You noted ${n(nm, "nightmare")} that woke you${bad ? `, and ${n(bad, "bad dream")} that didn't,` : ""} in the last ${REC.nmDays} days.`,
+    sources: ["B57", "B62", "B63", "B61", "C18"], action: { label: "Open the lesson", to: "/train?lesson=dream-control" }, link: { label: "When to stop", to: "/learn/safety/when-to-stop" },
   });
 
   // keep journaling, and recall before anything else

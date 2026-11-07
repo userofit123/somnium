@@ -21,10 +21,19 @@ const DREAM: Fields = {
   lucid: (v) => bool(v), lucidity_level: (v) => intOrNull(v, 0, 5) ?? 0, awareness: (v) => intOrNull(v, 0, 4),
   control: (v) => intOrNull(v, 0, 5), vividness: (v) => intOrNull(v, 1, 5), recall_clarity: (v) => intOrNull(v, 1, 5),
   emotion_overall: (v) => intOrNull(v, -2, 2), duration_est: (v) => intOrNull(v, 0, 600),
-  nightmare: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
+  nightmare: (v) => bool(v), bad_dream: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
   became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), favourite: (v) => bool(v),
   dismissed: sealed,
 };
+/**
+ * A dream is a nightmare (it woke you) or a bad dream (it didn't), never both (RESEARCH.md C18): marking one clears
+ * the other, so an edit that only sends the new mark still leaves one. Sent both at once, the nightmare stays.
+ */
+function oneUpset(cols: Record<string, unknown>): Record<string, unknown> {
+  if (cols.nightmare === true) cols.bad_dream = false;
+  else if (cols.bad_dream === true) cols.nightmare = false;
+  return cols;
+}
 const ELEMENT: Fields = {
   kind: enumOf(ELEMENT_KINDS, "theme"),
   name: sealed, aliases: sealed, colour: (v) => (v == null || v === "" ? null : str(v, 20)), note: sealed,
@@ -92,8 +101,8 @@ export function journalRoutes(r: Router) {
   // that are never sealed, so the list stays light however long the journal grows and needs no key to open.
   r.get("/dream-facts", async ({ q }) => {
     const { rows } = await q.query(
-      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.emotion_overall, d.nightmare, d.false_awakening,
-              d.sleep_paralysis, d.became_lucid_how, d.favourite
+      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.emotion_overall, d.nightmare, d.bad_dream,
+              d.false_awakening,               d.sleep_paralysis, d.became_lucid_how, d.favourite
        FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
        ORDER BY n.date DESC, d.position, d.created_at`);
     return camels(rows);
@@ -105,10 +114,10 @@ export function journalRoutes(r: Router) {
   r.post("/dreams", async (ctx, _p, b) => {
     const nightId = id(b.nightId, "night");
     await visible(ctx.q, "nights", nightId, "night");
-    return insertRow<Dream>(ctx, "dreams", "dreams", { night_id: nightId, ...columns(DREAM, b, true), ...clientId(b) });
+    return insertRow<Dream>(ctx, "dreams", "dreams", { night_id: nightId, ...oneUpset(columns(DREAM, b, true)), ...clientId(b) });
   });
   r.put("/dreams/:id", async (ctx, p, b) => {
-    const cols = columns(DREAM, b, false);
+    const cols = oneUpset(columns(DREAM, b, false));
     if ("nightId" in b) { cols.night_id = id(b.nightId, "night"); await visible(ctx.q, "nights", cols.night_id as string, "night"); }
     return updateRow<Dream>(ctx, "dreams", "dreams", id(p.id), cols, "dream");
   });

@@ -5,6 +5,7 @@
 .insights .ins-grid > section > .sh:first-child { margin-top: var(--hg); }
 .insights .ins-wide { grid-column: 1 / -1; }
 .insights .ins-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); margin-bottom: var(--hg); }
+.insights .ins-stats.ins-four { grid-template-columns: repeat(4, minmax(0, 1fr)); } /* night events: nightmares, bad dreams, false awakenings, sleep paralysis */
 .insights .ins-stats .v { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
 .insights .ins-sub { font-weight: 600; font-size: var(--fs-sm, 13px); margin: var(--hg) 0 calc(var(--hg) * .5); }
 .insights .ins-note { margin: calc(var(--hg) * .5) 0 0; }

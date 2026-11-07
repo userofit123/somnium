@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, type DreamDraft } from "./journal";
+import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, type DreamDraft } from "./journal";
+import { dreamMarks } from "./exportDream";
 
 const night = (id: string, date: string, nap = false) => ({ id, date, nap });
 const dream = (id: string, nightId: string, o: Partial<{ position: number; title: string; text: string; lucid: boolean; createdAt: string }> = {}) =>
@@ -113,5 +114,20 @@ describe("elements and times", () => {
     expect(new Date(nightClock("2026-03-02", "01:10", "bed")!).getDate()).toBe(2);
     expect(nightClock("2026-03-02", "", "bed")).toBeNull();
     expect(clockOf(null)).toBe("");
+  });
+});
+
+describe("a dream's marks", () => {
+  const d = { lucid: false, nightmare: false, badDream: false, recurring: false, falseAwakening: false };
+  it("lists lucid, nightmare or bad dream, recurring and false awakening, in that order", () => {
+    expect(dreamListMarks(d)).toEqual([]);
+    expect(dreamListMarks({ ...d, lucid: true, lucidityLevel: 3, badDream: true, recurring: true, falseAwakening: true })).toEqual(["Lucid 3", "Bad dream", "Recurring", "False awakening"]);
+    // one or the other: marked both (an old row), it reads as a nightmare
+    expect(dreamListMarks({ ...d, nightmare: true, badDream: true })).toEqual(["Nightmare"]);
+  });
+  it("exports a bad dream as its own mark", () => {
+    const m = { lucid: false, lucidityLevel: 0, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false };
+    expect(dreamMarks({ ...m, badDream: true })).toEqual([{ label: "Bad dream", value: "Yes" }]);
+    expect(dreamMarks({ ...m, nightmare: true })).toEqual([{ label: "Nightmare", value: "Yes" }]);
   });
 });

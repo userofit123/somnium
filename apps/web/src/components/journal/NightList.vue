@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// Nights newest first, each with its dreams: marks for lucid, nightmare and favourite, and how many elements.
+// Nights newest first, each with its dreams: their marks (lucid, nightmare or bad dream, recurring, false awakening,
+// on one line that ends in "..." when it runs out of room), favourite, and how many elements.
 // A night without dreams is a night logged with no recall.
-import type { NightGroup } from "@somnium/shared";
+import { dreamListMarks, type NightGroup } from "@somnium/shared";
 import type { DreamRow, NightRow } from "../../api/journal";
 import { useFmt } from "../../core/format";
 import Icon from "../Icon.vue";
@@ -11,6 +12,7 @@ defineProps<{ groups: NightGroup<NightRow, DreamRow>[]; counts: Map<string, numb
 const emit = defineEmits<{ open: [id: string] }>();
 const fmt = useFmt();
 const label = (d: DreamRow) => d.title?.trim() || d.text?.trim().slice(0, 90) || "Untitled dream";
+const sub = (d: DreamRow, els: number) => [...dreamListMarks(d), els ? `${els} element${els === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || "Dream";
 </script>
 
 <template>
@@ -20,7 +22,7 @@ const label = (d: DreamRow) => d.title?.trim() || d.text?.trim().slice(0, 90) ||
       <div v-if="!g.dreams.length" class="li"><Icon name="moon" :size="18" class="jmut" /><div class="grow"><div class="t jmut">No recall</div></div></div>
       <button v-for="d in g.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="emit('open', d.id)">
         <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" :class="d.lucid ? 'jacc' : 'jmut'" />
-        <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s">{{ [d.lucid ? `Lucid${d.lucidityLevel ? " " + d.lucidityLevel : ""}` : "", d.nightmare ? "Nightmare" : "", (counts.get(d.id) ?? 0) ? `${counts.get(d.id)} element${counts.get(d.id) === 1 ? "" : "s"}` : ""].filter(Boolean).join(" · ") || "Dream" }}</div></div>
+        <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s ellipsis">{{ sub(d, counts.get(d.id) ?? 0) }}</div></div>
         <span class="r jmk"><Icon v-if="d.nightmare" name="flame" :size="16" class="jneg" :aria-label="'Nightmare'" /><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>
       </button>
     </div></div>

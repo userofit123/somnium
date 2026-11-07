@@ -32,7 +32,7 @@ export const DREAM_LIMIT = 2000;
 /** Every dream's plain facts (GET /dream-facts, no limit, nothing sealed): what Signs, Insights and Home sum over. */
 export interface DreamFact {
   id: string; nightId: string; date: string; nap: boolean; lucid: boolean; lucidityLevel: number; awareness: number | null; emotionOverall: number | null;
-  nightmare: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
+  nightmare: boolean; badDream: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
 }
 export { uuidv7 };
 

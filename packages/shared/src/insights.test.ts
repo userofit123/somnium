@@ -74,12 +74,19 @@ describe("insights: lucidity, events, emotions", () => {
   });
   it("counts nightmares, false awakenings and sleep paralysis, and the feeling of the dreams", () => {
     const e = eventsInsight([a, b], dreams, null, "2026-11-07");
-    expect(e.total).toEqual({ nightmares: 1, falseAwakenings: 1, sleepParalysis: 1 });
-    expect(e.byBucket[0]).toEqual({ key: "2026-09", nightmares: 1, falseAwakenings: 1, sleepParalysis: 0 });
+    expect(e.total).toEqual({ nightmares: 1, badDreams: 0, falseAwakenings: 1, sleepParalysis: 1 });
+    expect(e.byBucket[0]).toEqual({ key: "2026-09", nightmares: 1, badDreams: 0, falseAwakenings: 1, sleepParalysis: 0 });
     const m = emotionsInsight([a, b], dreams, null, "2026-11-07");
     expect(m.rated).toBe(3);
     expect(m.byBucket[0]).toMatchObject({ key: "2026-09", rated: 2, avg: -1, unpleasant: 1, neutral: 1, pleasant: 0 });
     expect(m.byBucket[1]!.avg).toBeNull();
+  });
+  it("counts bad dreams apart from nightmares, and a dream marked both only as a nightmare", () => {
+    const n = night("2026-11-02", { dreamCount: 3 });
+    const ds = [dream(n, { badDream: true }), dream(n, { badDream: true }), dream(n, { nightmare: true, badDream: true })];
+    const e = eventsInsight([n], ds, null, "2026-11-07");
+    expect(e.total).toMatchObject({ nightmares: 1, badDreams: 2 });
+    expect(e.byBucket).toEqual([{ key: "2026-11", nightmares: 1, badDreams: 2, falseAwakenings: 0, sleepParalysis: 0 }]);
   });
 });
 
@@ -146,7 +153,7 @@ describe("insights: what works for you", () => {
     const timed = nights.map((n, i) => ({ ...n, minutesToSleep: i < 12 ? String(i % 3 ? 5 : 10) : i < 22 ? "25" : null }));
     const a = whatWorks(timed, dreams, utcClock).asleep;
     expect(a).toMatchObject({ id: "asleep", enough: true, with: { nights: 12, lucid: 3, rate: 0.25 }, without: { nights: 10, lucid: 0, rate: 0 } });
-    expect(a.text).toBe("On your 12 nights asleep within 10 min you were lucid on 3 (25%); on your 10 nights it took longer on 0 (0%).");
+    expect(a.text).toBe("On your 12 nights asleep within 10 min you were lucid on 3 (25%); on your 10 nights asleep after more than 10 min on 0 (0%).");
   });
 
   it("is reusable for any split, and ignores plans and dreams of other nights", () => {

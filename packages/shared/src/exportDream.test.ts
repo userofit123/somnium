@@ -3,7 +3,7 @@ import { buildDreamMarkdown, dreamMarks, nightFacts } from "./exportDream";
 import { dreamSegments, parseSpans, relatedDreams } from "./dreamPage";
 
 const base = { title: "The long hall", text: "I walk down a hall.\nMy mother waits.", lucid: true, lucidityLevel: 3, vividness: 4, control: 2, recallClarity: null, emotionOverall: 1, nightmare: false, recurring: false, falseAwakening: true, sleepParalysis: false, favourite: false };
-const night = { date: "2026-11-06", bedtime: "23:10:00", wakeTime: "07:05:00", sleepQuality: 4, wbtbUsed: true, wbtbMinutesAwake: 20, nap: false, techniquesDone: ["mild"] };
+const night = { date: "2026-11-06", bedtime: "23:10:00", wakeTime: "07:05:00", sleepQuality: 4, wbtbUsed: true, wbtbMinutesAwake: 20, nap: false, techniquesDone: ["mild"], minutesToSleep: "15" };
 
 describe("dream Markdown", () => {
   it("has title, date, marks, night, text and elements, and a file name with the date only", () => {
@@ -14,6 +14,7 @@ describe("dream Markdown", () => {
     expect(markdown).toContain("- Lucid: 3 · Lucid, some control");
     expect(markdown).toContain("- False awakening: Yes");
     expect(markdown).toContain("- WBTB: 20 min awake");
+    expect(markdown).toContain("- Time to fall asleep: 15 min");
     expect(markdown).toContain("I walk down a hall.\nMy mother waits.");
     expect(markdown).toContain("- Mother (Character)");
     expect(markdown).toContain("- Hall \\*1\\* (Place) - dream sign");
@@ -33,7 +34,7 @@ describe("dream Markdown", () => {
   it("lists marks and facts only when noted", () => {
     expect(dreamMarks({ ...base, lucidityLevel: 0 })[0]).toEqual({ label: "Lucid", value: "Yes" });
     expect(dreamMarks({ ...base, lucid: false, vividness: null, control: null, emotionOverall: null, falseAwakening: false })).toEqual([]);
-    expect(nightFacts({ ...night, nap: true, bedtime: null, wakeTime: null, sleepQuality: null, wbtbUsed: false, techniquesDone: [] })).toEqual([{ label: "Sleep", value: "Nap" }]);
+    expect(nightFacts({ ...night, nap: true, bedtime: null, wakeTime: null, sleepQuality: null, wbtbUsed: false, techniquesDone: [], minutesToSleep: null })).toEqual([{ label: "Sleep", value: "Nap" }]);
   });
 });
 

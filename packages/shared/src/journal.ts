@@ -9,6 +9,23 @@ export interface NightRef { id: string; date: string; nap: boolean; dreamCount?:
 export interface DreamRef {
   id: string; nightId: string; position: number; createdAt?: string;
   title: string | null; text: string | null; lucid: boolean; nightmare: boolean; favourite: boolean;
+  badDream?: boolean; recurring?: boolean; falseAwakening?: boolean;
+}
+
+/**
+ * Nightmare or bad dream: the line Zadra and Donderi (2000) drew, whether it woke you (RESEARCH.md C18, C19). A dream
+ * is one or the other, never both (the engine keeps that too). The hint the editor shows under the two marks.
+ */
+export const UPSET_HINT = "A nightmare wakes you up. A bad dream is upsetting too, but you sleep on.";
+export const UPSET_SOURCES = ["C18"] as const;
+/** The marks a dream's line in the Journal shows, in this order (a dream marked both reads as a nightmare). */
+export function dreamListMarks(d: Pick<DreamRef, "lucid" | "nightmare" | "badDream" | "recurring" | "falseAwakening"> & { lucidityLevel?: number | null }): string[] {
+  return [
+    d.lucid ? `Lucid${d.lucidityLevel ? " " + d.lucidityLevel : ""}` : "",
+    d.nightmare ? "Nightmare" : d.badDream ? "Bad dream" : "",
+    d.recurring ? "Recurring" : "",
+    d.falseAwakening ? "False awakening" : "",
+  ].filter(Boolean);
 }
 export interface NightGroup<N extends NightRef, D extends DreamRef> { night: N; dreams: D[] }
 

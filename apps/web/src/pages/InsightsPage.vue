@@ -7,7 +7,7 @@ import { computed, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, periodStart, bucketFor, bucketOf, recallInsight, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, whatWorks, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, type Period, type Bucket, type Comparison, type RealityCheck,
+  checksInsight, whatWorks, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
 import { useJournal } from "../api/journal";
@@ -23,6 +23,8 @@ import LagCard from "../components/insights/LagCard.vue";
 import ThemesCard from "../components/insights/ThemesCard.vue";
 import { useSettings } from "../api/queries";
 import LineChart from "../components/LineChart.vue";
+import SourceSheet from "../components/learn/SourceSheet.vue";
+import "../styles/components/learn.css";
 import "../styles/components/insights.css";
 
 const j = useJournal();
@@ -105,8 +107,11 @@ const kindBars = computed(() => checks.value.byKind.map((k) => ({ label: KIND[k.
 const sourceBars = computed(() => [{ label: "Reminder", value: checks.value.prompted, color: "var(--c3)" }, { label: "My own", value: checks.value.own, color: "var(--c3)" }]);
 
 // ---------- night events ----------
+const sourcesOpen = ref<string[] | null>(null);
+// nightmares (they woke you) apart from bad dreams (they didn't): RESEARCH.md C18
 const eventSets = computed(() => [
   { title: "Nightmares", total: events.value.total.nightmares, color: "var(--c1)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.nightmares, color: "var(--c1)" })) },
+  { title: "Bad dreams", total: events.value.total.badDreams, color: "var(--c6)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.badDreams, color: "var(--c6)" })) },
   { title: "False awakenings", total: events.value.total.falseAwakenings, color: "var(--c2)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.falseAwakenings, color: "var(--c2)" })) },
   { title: "Sleep paralysis", total: events.value.total.sleepParalysis, color: "var(--c5)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.sleepParalysis, color: "var(--c5)" })) },
 ]);
@@ -244,9 +249,9 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <section>
         <div class="sh"><h2>Night events</h2></div>
         <div class="card">
-          <div v-if="!lucid.dreams" class="empty sm"><b>No dreams in this period</b>Mark nightmares, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.</div>
+          <div v-if="!lucid.dreams" class="empty sm"><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.</div>
           <template v-else>
-            <div class="ins-stats">
+            <div class="ins-stats ins-four">
               <div v-for="e in eventSets" :key="e.title"><div class="v num" :style="{ color: e.color }">{{ e.total }}</div><div class="tiny">{{ e.title.toLowerCase() }}</div></div>
             </div>
             <template v-for="e in eventSets" :key="e.title">
@@ -255,6 +260,8 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
                 <BarChart :bars="e.bars" :height="100" />
               </template>
             </template>
+            <div v-if="events.total.nightmares || events.total.badDreams" class="tiny ins-note">{{ UPSET_HINT }} <button v-for="sid in UPSET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="sourcesOpen = [sid]">{{ sid }}</button></div>
+            <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
             <div class="ins-sub">How your dreams felt</div>
             <div v-if="emotionPoints.length < 2" class="tiny ins-note">{{ emotions.rated ? "Rate the feeling of dreams across more than one " + bucket + " to see a trend." : "Rate how each dream felt to see it over time." }}</div>
             <template v-else>

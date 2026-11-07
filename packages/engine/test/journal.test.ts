@@ -86,6 +86,27 @@ describe("journal", () => {
     await expect(call(A, "PUT", `/dreams/${dream.id}`, { awareness: 5 })).rejects.toBeTruthy();
   });
 
+  it("keeps a dream a nightmare or a bad dream, never both, as plain facts", async () => {
+    // someone of their own, so the other tests' counts of A's rows stay as they are
+    const C = uuidv7();
+    await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'c','C')", [C]);
+    const n = await call<Night>(C, "POST", "/nights", { date: "2026-10-02" });
+    const facts = async () => (await call<Record<string, unknown>[]>(C, "GET", "/dream-facts")).find((f) => f.id === d.id)!;
+    const d = await call<Dream>(C, "POST", "/dreams", { nightId: n.id, badDream: true });
+    expect(d).toMatchObject({ badDream: true, nightmare: false });
+    expect(await facts()).toMatchObject({ badDream: true, nightmare: false });
+    // marking it a nightmare (it woke you) clears the bad dream, and back again, even when only one mark is sent
+    expect(await announced(() => call(C, "PUT", `/dreams/${d.id}`, { nightmare: true }))).toContain("dreams");
+    expect(await facts()).toMatchObject({ badDream: false, nightmare: true });
+    await call(C, "PUT", `/dreams/${d.id}`, { badDream: true });
+    expect(await facts()).toMatchObject({ badDream: true, nightmare: false });
+    // both at once: the nightmare stays
+    expect(await call<Dream>(C, "PUT", `/dreams/${d.id}`, { badDream: true, nightmare: true })).toMatchObject({ badDream: false, nightmare: true });
+    // clearing one leaves the other as it is
+    await call(C, "PUT", `/dreams/${d.id}`, { badDream: false });
+    expect(await facts()).toMatchObject({ badDream: false, nightmare: true });
+  });
+
   it("refuses values off the scales and unknown enum words", async () => {
     expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidityLevel: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, control: 6 })).toBe(400);
