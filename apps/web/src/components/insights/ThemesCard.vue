@@ -13,13 +13,15 @@ import "../../styles/components/learn.css";
 
 const j = useJournal();
 // the lexicon is loaded on first use, as the editor's detection does (components/journal/detect.ts)
-const lex = shallowRef<{ themes: readonly (NormTheme & { prevalenceMen: number; prevalenceWomen: number })[]; match: ThemeMatcher } | null>(null);
-import("@somnium/knowledge/lexicons").then((l) => { lex.value = { themes: l.themes, match: l.matchLexicon }; }).catch(() => {});
+const lex = shallowRef<{ themes: readonly NormTheme[]; match: ThemeMatcher } | null>(null);
+// if the lexicon cannot load (an old cached build, a broken chunk) the card says so instead of "Working it out" for ever
+const failed = ref(false);
+import("@somnium/knowledge/lexicons").then((l) => { lex.value = { themes: l.themes, match: { matchLexicon: l.matchLexicon, stem: l.stem } }; }).catch(() => { failed.value = true; });
 
 const result = computed(() => {
   const facts = j.facts.data.value, dreams = j.dreams.data.value, elements = j.elements.data.value, links = j.links.data.value;
   if (!lex.value || !facts || !dreams || !elements || !links) return null;
-  // every dream counts in the total (the facts have no cap); the words are read from the dreams open on this device
+  // the shares are of the dreams whose words are open on this device (the newest DREAM_LIMIT), not of every fact
   return typicalThemeRates(facts.map((f) => f.id), dreams, elements, links, lex.value.themes, lex.value.match);
 });
 const all = ref(false);
@@ -36,11 +38,12 @@ const dreamsText = (n: number) => (n === 1 ? "1 dream" : `${n} dreams`);
   <section class="ins-wide" data-testid="themescard">
     <div class="sh"><h2>Typical dream themes</h2><button v-if="result?.enough" type="button" class="lnk" :aria-pressed="all" @click="all = !all">{{ all ? "Only yours" : "All 55" }}</button></div>
     <div class="card">
-      <div v-if="!result" class="empty sm"><b>Working it out</b>Reading your journal on this device.</div>
-      <div v-else-if="!result.enough" class="empty sm"><b>Not enough yet</b>{{ dreamsText(result.total) }} so far. The shares show from {{ THEMES_MIN_DREAMS }} dreams on.</div>
+      <div v-if="!result && failed" class="empty sm"><b>Not available</b>The theme list could not be loaded on this device. Reload the app to try again.</div>
+      <div v-else-if="!result" class="empty sm"><b>Working it out</b>Reading your journal on this device.</div>
+      <div v-else-if="!result.enough" class="empty sm"><b>Not enough yet</b>{{ dreamsText(result.read) }} so far. The shares show from {{ THEMES_MIN_DREAMS }} dreams on.</div>
       <template v-else>
-        <p class="thsum">You have had {{ result.had }} of the 55 themes in {{ dreamsText(result.total) }} · {{ result.topHad }} of the {{ THEMES_TOP }} most common.</p>
-        <p class="tiny ins-note">The bar is the share of your dreams that touch the theme, found on this device from your words and the themes you added, over your whole journal. The line under it is a different measure: the share of 1,181 Canadian students who said they had ever had the theme at some point in their life. A theme most people have had can still be in few of their dreams, so a share well under theirs is normal. What does compare is the order: the common themes are much the same from one group of people to the next.</p>
+        <p class="thsum">You have had {{ result.had }} of the 55 themes in {{ dreamsText(result.read) }} · {{ result.topHad }} of the {{ THEMES_TOP }} most common.</p>
+        <p class="tiny ins-note">The bar is the share of your dreams that touch the theme, found on this device from your words and the themes you added, {{ result.partial ? `over your newest ${dreamsText(result.read)} only: older ones aren't read here, so they are left out of the shares.` : "over your whole journal." }} The line under it is a different measure: the share of 1,181 Canadian students who said they had ever had the theme at some point in their life. A theme most people have had can still be in few of their dreams, so a share well under theirs is normal. What does compare is the order: the common themes are much the same from one group of people to the next.</p>
         <div v-if="!shown.length" class="empty sm"><b>None found yet</b>None of the 55 themes is in your dreams so far.</div>
         <div v-else class="thlist">
           <div v-for="r in shown" :key="r.theme.id" class="throw" :class="{ few: !r.dreams }" :data-id="r.theme.id">

@@ -10,14 +10,15 @@
 // order of the themes, which is stable from one sample to the next (Schredl et al. 2004, C14). The only per-dream
 // norm in RESEARCH.md that fits a TDQ theme is Hall and Van de Castle's "dreams with at least one sexuality" (C9).
 import { fold } from "./journal";
-import { parseAliases, parseDismissed, suggestionKey } from "./detect";
+import { parseAliases, parseDismissed, present, stemsOf, suggestionKey, type DetectMatchers } from "./detect";
 import type { SignElement, SignLink, SignTheme } from "./signs";
 
 /** A theme from themes.json with what the matching needs. */
 export interface NormTheme extends SignTheme { prevalenceMen: number; prevalenceWomen: number; terms: readonly string[] }
 /** A dream as far as this needs it: its sealed fields, opened on the device. */
 export interface ThemeDream { id: string; title?: string | null; text?: string | null; dismissed?: string | null }
-export type ThemeMatcher = (text: string, entries: readonly { name: string; terms: readonly string[] }[]) => readonly { name: string }[];
+/** matchLexicon and stem from @somnium/knowledge/lexicons, as the editor's detection takes them. */
+export type ThemeMatcher = DetectMatchers;
 
 /** Below this many dreams a share says more about chance than about you. */
 export const THEMES_MIN_DREAMS = 10;
@@ -36,13 +37,17 @@ export interface ThemeRate<T extends NormTheme> {
   rank: number;
   /** your dreams that touch the theme */
   dreams: number;
-  /** dreams / all your dreams, 0..1 */
+  /** dreams / the dreams read, 0..1 */
   share: number;
   perDream?: (typeof THEME_PER_DREAM_NORMS)[string];
 }
 export interface ThemeRates<T extends NormTheme> {
   /** every dream in the journal */
   total: number;
+  /** the dreams whose text is open on this device (the newest ones when the journal is longer than the device loads) */
+  read: number;
+  /** fewer dreams were read than the journal has, so the shares are of the newest `read` only */
+  partial: boolean;
   enough: boolean;
   /** all themes in the published order */
   rows: ThemeRate<T>[];
@@ -67,40 +72,56 @@ export function themeOfElement<T extends SignTheme>(e: SignElement, byName: Read
 /**
  * How many of your dreams touch each typical theme: a dream counts when it is linked to the theme (an element you
  * added or confirmed) or its words match the theme lexicon, unless that theme was dismissed for that dream.
- * `dreamIds` is every dream (the plain facts); `texts` the dreams whose text is open on this device.
+ * `dreamIds` is every dream (the plain facts); `texts` the dreams whose text is open on this device. The shares are
+ * of the dreams read, not of the whole journal: a dream whose words were never read cannot be said to lack a theme.
  */
 export function typicalThemeRates<T extends NormTheme>(dreamIds: readonly string[], texts: readonly ThemeDream[], elements: readonly SignElement[], links: readonly SignLink[], themes: readonly T[], match: ThemeMatcher): ThemeRates<T> {
   const ids = new Set(dreamIds);
+  const read = new Set(texts.filter((d) => ids.has(d.id)).map((d) => d.id));
   const hits = new Map<string, Set<string>>(themes.map((t) => [t.id, new Set<string>()]));
   const byName = themesByName(themes);
   const elementTheme = new Map<string, T>();
   for (const e of elements) { const t = themeOfElement(e, byName); if (t) elementTheme.set(e.id, t); }
   for (const l of links) {
     const t = elementTheme.get(l.elementId);
-    if (t && ids.has(l.dreamId)) hits.get(t.id)!.add(l.dreamId);
+    if (t && read.has(l.dreamId)) hits.get(t.id)!.add(l.dreamId);
   }
-  // the entries are named by index so a hit maps straight back to its theme
-  const entries = themes.map((t, i) => ({ name: String(i), terms: t.terms }));
+  // as the editor's detection does (detect.ts): the terms are stemmed once per theme list, and a dream only hands
+  // the matcher the terms whose every word it has, so a long journal is not 413 terms re-stemmed per dream
+  const entries = preparedThemes(themes, match);
   for (const d of texts) {
-    if (!ids.has(d.id)) continue;
+    if (!read.has(d.id)) continue;
     const text = [d.title, d.text].filter(Boolean).join("\n");
     if (!text.trim()) continue;
+    const have = new Set(stemsOf([text], match)[0]);
+    const candidates = present(entries, have);
+    if (!candidates.length) continue;
     const dismissed = new Set(parseDismissed(d.dismissed));
-    for (const h of match(text, entries)) {
+    for (const h of match.matchLexicon(text, candidates)) {
       const t = themes[Number(h.name)];
       if (!t || dismissed.has(suggestionKey("theme", t.displayName ?? t.name)) || dismissed.has(suggestionKey("theme", t.name))) continue;
       hits.get(t.id)!.add(d.id);
     }
   }
-  const total = ids.size;
+  const n = read.size;
   const rows = themes.map((theme, i) => {
-    const n = hits.get(theme.id)!.size;
+    const c = hits.get(theme.id)!.size;
     const perDream = THEME_PER_DREAM_NORMS[theme.id];
-    return { theme, rank: i + 1, dreams: n, share: total ? n / total : 0, ...(perDream ? { perDream } : {}) };
+    return { theme, rank: i + 1, dreams: c, share: n ? c / n : 0, ...(perDream ? { perDream } : {}) };
   });
   return {
-    total, enough: total >= THEMES_MIN_DREAMS, rows,
+    total: ids.size, read: n, partial: n < ids.size, enough: n >= THEMES_MIN_DREAMS, rows,
     had: rows.filter((r) => r.dreams > 0).length,
     topHad: rows.slice(0, THEMES_TOP).filter((r) => r.dreams > 0).length,
   };
+}
+
+// The theme terms stemmed once per theme list and kept; entries are named by index so a hit maps straight back.
+const preparedCache = new WeakMap<object, { terms: readonly string[]; stems: string[][] }[]>();
+function preparedThemes(themes: readonly NormTheme[], match: ThemeMatcher) {
+  const had = preparedCache.get(themes);
+  if (had) return had;
+  const out = themes.map((t) => ({ terms: t.terms, stems: stemsOf(t.terms, match) }));
+  preparedCache.set(themes, out);
+  return out;
 }

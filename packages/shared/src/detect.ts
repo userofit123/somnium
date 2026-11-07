@@ -100,7 +100,7 @@ interface Prepared {
   stems: string[][];
 }
 const isRegex = (cue: string) => cue.length > 2 && cue.startsWith("/") && cue.endsWith("/");
-const stemsOf = (terms: readonly string[], match: DetectMatchers) => terms.map((t) => words(t).map((w) => match.stem(w)));
+export const stemsOf = (terms: readonly string[], match: DetectMatchers) => terms.map((t) => words(t).map((w) => match.stem(w)));
 const signCategory = (c: string) => c.replace("-", "_") as SignCategory;
 
 // The lexicons as one list, stemmed once per lexicon set and kept: every entry of every lexicon goes through the
@@ -131,8 +131,8 @@ function prepare(lexicons: DetectLexicons, match: DetectMatchers) {
 }
 
 // Only terms whose every word is somewhere in the text are worth handing to the matcher: most of the ~3,000
-// lexicon terms are absent from any one dream.
-function present(entries: readonly Prepared[], have: Set<string>): { name: string; terms: string[] }[] {
+// lexicon terms are absent from any one dream. Also used by the typical themes count (themes.ts).
+export function present(entries: readonly { readonly terms: readonly string[]; readonly stems: readonly (readonly string[])[] }[], have: Set<string>): { name: string; terms: string[] }[] {
   const out: { name: string; terms: string[] }[] = [];
   entries.forEach((e, i) => {
     const terms = e.terms.filter((_, k) => e.stems[k]!.length > 0 && e.stems[k]!.every((st) => have.has(st)));
