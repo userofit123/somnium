@@ -21,17 +21,20 @@ const props = defineProps<{ mode: GuidedMode }>();
 const NAMES: Record<GuidedMode, string> = { wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", drill: "Reality check", cue: "Sound cue", cat: "CAT plan" };
 const router = useRouter();
 const cite = ref<string[] | null>(null);
-const name = computed(() => NAMES[props.mode]);
+// sound cue is an optional feature: absent while off, even by its address (Train sends it back; this never shows another
+// screen under its name meanwhile)
+const settings = useSettings();
+const cueOn = computed(() => !!settings.value.features.soundCue);
+const shown = computed((): GuidedMode | null => (props.mode === "cue" && !cueOn.value ? null : props.mode));
+// the header and the accessible name follow the screen actually shown
+const name = computed(() => (shown.value ? NAMES[shown.value] : ""));
 const close = () => router.push("/train");
 const go = (m: GuidedMode) => router.push({ path: "/train", query: { guided: m } });
 const running = ref(false);
-// sound cue is an optional feature: absent while off, even by its address
-const settings = useSettings();
-const cueOn = computed(() => !!settings.value.features.soundCue);
 </script>
 
 <template>
-  <div class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
+  <div v-if="shown" class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
     <div class="gtop">
       <button type="button" class="gx" @click="close"><Icon name="close" :size="18" /> Close</button>
       <span class="grow" />
@@ -42,9 +45,9 @@ const cueOn = computed(() => !!settings.value.features.soundCue);
     <MildFlow v-else-if="mode === 'mild'" @cite="cite = $event" @done="close" />
     <SsildTimer v-else-if="mode === 'ssild'" @cite="cite = $event" @running="running = $event" @done="close" />
     <WildTimer v-else-if="mode === 'wild'" @cite="cite = $event" @running="running = $event" @done="close" />
-    <SoundCue v-else-if="mode === 'cue' && cueOn" @cite="cite = $event" @running="running = $event" @done="close" />
+    <SoundCue v-else-if="mode === 'cue'" @cite="cite = $event" @running="running = $event" @done="close" />
     <CatPlan v-else-if="mode === 'cat'" @cite="cite = $event" @done="close" />
-    <CheckDrill v-else @done="close" />
+    <CheckDrill v-else-if="mode === 'drill'" @done="close" />
     <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
   </div>
 </template>

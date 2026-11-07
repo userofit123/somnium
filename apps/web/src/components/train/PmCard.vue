@@ -18,6 +18,8 @@ const toggle = useChange((id: string, on: boolean) => setPmTarget(h.today.value,
 const laberge = useChange(async () => { for (const id of PM_LABERGE_DAY) if (!day.value.targets.some((x) => x.id === id) && day.value.targets.length < PM_PER_DAY) await setPmTarget(h.today.value, id, true, h.rows.value); }, ["practice"]);
 const log = useChange((id: string, s: "hit" | "miss") => logPm(h.today.value, id, s, h.rows.value), ["practice"]);
 const full = computed(() => day.value.targets.length >= PM_PER_DAY);
+// one primary button at most: Hit on the next open target; the rest are quiet
+const nextOpen = computed(() => day.value.targets.find((t) => t.state === "open")?.id);
 </script>
 
 <template>
@@ -29,7 +31,7 @@ const full = computed(() => day.value.targets.length >= PM_PER_DAY);
       <div v-for="t in day.targets" :key="t.id" class="pmrow">
         <div class="grow"><div class="t">{{ pmTargetText(t.id) ?? t.id }}</div></div>
         <div v-if="t.state === 'open'" class="pmbtns">
-          <button class="btn pmbig" :disabled="log.busy.value" @click="log.run(t.id, 'hit')">Hit</button>
+          <button class="btn pmbig" :class="{ o: t.id !== nextOpen }" :disabled="log.busy.value" @click="log.run(t.id, 'hit')">Hit</button>
           <button class="btn o pmbig" :disabled="log.busy.value" @click="log.run(t.id, 'miss')">Miss</button>
         </div>
         <button v-else class="lnk tiny" :aria-label="'Undo ' + t.state" @click="log.run(t.id, t.state)"><Icon :name="t.state === 'hit' ? 'check' : 'close'" :size="14" /> {{ t.state === "hit" ? "Hit" : "Miss" }}</button>

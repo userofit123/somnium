@@ -2,7 +2,8 @@
 // Month report and year in review (optional, LDJ-41): counts for one month or one year, summed on this device from the
 // journal (packages/shared/src/report.ts). No dream text: element names, technique names and, for the best night, its
 // title. "Print" uses the browser's print dialog; the print styles below leave only the report on the page.
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 import { monthName, periodSummary, reportPeriods, yearSummary } from "@somnium/shared";
 import { useJournal, type NightRow } from "../api/journal";
 import { loaded, useSettings } from "../api/queries";
@@ -11,6 +12,9 @@ import { useFmt } from "../core/format";
 
 const j = useJournal();
 const settings = useSettings();
+// an optional feature: absent while off, even by its address
+const router = useRouter();
+watch(() => !settings.value.features.reports, (off) => { if (off) void router.replace("/insights"); }, { immediate: true });
 await loaded(j.nights, j.dreams, j.elements, j.links);
 const today = useToday();
 const fmt = useFmt();
@@ -28,8 +32,7 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
 </script>
 
 <template>
-  <div v-if="!settings.features.reports" class="page"><div class="card empty sm">Switch on "Month report and year in review" in Settings → Features to see this page.</div></div>
-  <div v-else class="page report">
+  <div v-if="settings.features.reports" class="page report">
     <div class="ph noprint"><div><h1>Reports</h1><div class="sub">Worked out on this device. No dream text is used.</div></div>
       <button class="btn" type="button" @click="print">Print</button></div>
     <div class="row noprint rep-pick">
@@ -70,10 +73,13 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
 </template>
 
 <style>
-.rep-pick { gap: var(--s2, 8px); align-items: center; }
-.rep-sheet { display: grid; gap: var(--spg, 16px); }
+/* spacing from the density tokens and --spg between blocks, sizes from the type scale */
+.rep-pick { gap: var(--lpy); align-items: center; }
+.rep-sheet { display: grid; gap: var(--spg); }
 .rep-title { margin: 0; }
-.report h3 { margin: 0 0 var(--s1, 4px); font-size: 14px; }
+.report h3 { margin: 0 0 var(--lpy); font-size: var(--fs); }
+/* Print uses the system colours (CanvasText, Canvas, GrayText) on purpose, not the theme's: paper is light whatever the
+   theme on screen, and these are the printer's own black on white. */
 @media print {
   body * { visibility: hidden; }
   .report .rep-sheet, .report .rep-sheet * { visibility: visible; }

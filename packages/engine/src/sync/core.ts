@@ -1,6 +1,6 @@
 // Reading and writing synced rows, the same way on the server and on a device.
 // Rows travel as JSON made by to_jsonb and are written back with jsonb_populate_record, so every column type round-trips.
-import { hkdf, toBase64url } from "@somnium/shared";
+import { hkdf, practiceItemOk, toBase64url } from "@somnium/shared";
 import type { Sql } from "../db";
 import { SYNCED, SYNCED_BY_NAME } from "./tables";
 
@@ -72,7 +72,11 @@ export function overrule(c: Change, here: { row: Record<string, unknown> | null;
 export const NATURAL_KEYS: Readonly<Record<string, readonly string[]>> = {
   course_progress: ["user_id", "lesson_id"],
   dream_elements: ["dream_id", "element_id"],
+  // a day note's loser also says which note stayed (merged_into), so a device holding the key joins its text (joinDayNotes)
+  day_notes: ["user_id", "date"],
 };
+/** Natural-key tables whose loser points at the row that stayed, for its text to be joined there on a device. */
+const JOINED = new Set(["day_notes"]);
 
 const time = (v: unknown) => { const t = Date.parse(String(v ?? "")); return Number.isNaN(t) ? 0 : t; };
 
@@ -90,6 +94,9 @@ const time = (v: unknown) => { const t = Date.parse(String(v ?? "")); return Num
 async function settleDuplicate(q: Sql, c: Change, row: Record<string, unknown>, aside: () => Promise<void>): Promise<{ row: Record<string, unknown>; lost: boolean }> {
   const natural = NATURAL_KEYS[c.tbl];
   if (!natural) return { row, lost: false };
+  const joined = JOINED.has(c.tbl);
+  // a live row is merged into nothing (a restore clears it); a removed one keeps the sender's claim, checked where it is followed
+  if (joined && row.deleted_at == null && row.merged_into != null) row = { ...row, merged_into: null };
   const where = natural.map((k, i) => `${k} = $${i + 2}`).join(" AND ");
   const args = [row.id, ...natural.map((k) => row[k])];
   if (row.deleted_at != null) {
@@ -107,8 +114,13 @@ async function settleDuplicate(q: Sql, c: Change, row: Record<string, unknown>, 
   if (!other) return { row, lost: false };
   const otherAt = time(other.at);
   const wins = mineAt !== otherAt ? mineAt > otherAt : String(row.id) > String(other.id);
-  if (wins) { await q.query(`UPDATE ${c.tbl} SET deleted_at = $2 WHERE id = $1`, [other.id, mine]); return { row, lost: false }; }
-  return { row: { ...row, deleted_at: other.at }, lost: true };
+  if (wins) {
+    // a day note's loser goes to every device, the sender included: whichever holds the key joins its text
+    if (joined) await aside();
+    await q.query(`UPDATE ${c.tbl} SET deleted_at = $2${joined ? ", merged_into = $3" : ""} WHERE id = $1`, joined ? [other.id, mine, row.id] : [other.id, mine]);
+    return { row, lost: false };
+  }
+  return { row: { ...row, deleted_at: other.at, ...(joined ? { merged_into: other.id } : {}) }, lost: true };
 }
 
 type Row = Record<string, unknown>;
@@ -439,6 +451,8 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
         let row: Record<string, unknown> = { ...c.row, ...(all.includes("user_id") ? { user_id: userId } : {}) };
         // each side keeps its own merge_pending (settleMerged): never taken from another
         if (c.tbl === "nights") delete row.merge_pending;
+        // habit and memory-target ids only from their fixed lists, as the API takes them (modules/practice.ts)
+        if (c.tbl === "practice_log" && !practiceItemOk(String(row.item ?? ""))) throw new Error("Unknown practice item");
         const isNew = c.tbl === "dreams" && !(await q.query("SELECT 1 FROM dreams WHERE id = $1", [row.id])).rows.length;
         // what the merge rules write is logged for every device: the one that sent this row has to hear it too
         const aside = async () => { if (opts.origin != null) await q.query("SELECT set_config('somnium.sync_origin', '', true)"); };
@@ -482,10 +496,38 @@ export async function applyChanges(q: Sql, userId: string, changes: Change[],
   const m = await settleMerged(q, nights, opts.apply ? opts.fingerprint ?? null : null, !!opts.apply);
   touched.push(...m.changed);
   mergeFailed += m.failed;
+  if (opts.apply && opts.fingerprint) await joinDayNotes(q, (tbl, id) => touched.push({ tbl, pk: { id } }));
   if (opts.apply) await q.query("SELECT set_config('somnium.sync_apply', '', true)");
   const seen = new Set<string>();
   const changed = opts.apply ? touched.filter((t) => !seen.has(keyOf(t.tbl, t.pk)) && !!seen.add(keyOf(t.tbl, t.pk))) : [];
   return { applied: list.length - failed.length - kept.length, failed, kept, changed, mergeFailed };
+}
+
+/**
+ * Day notes that lost to another note for their date (settleDuplicate, or migration 017) still hold their own text under
+ * their own id, with merged_into pointing at the note that stayed. A device holding the key (it has the plaintext; the
+ * server never opens a sealed value) joins that text into the note that stayed, as the night merge joins notes
+ * (joinText: the survivor's first, and a text already held isn't added again), then clears merged_into so it is joined
+ * once. Sealing on the way out binds the joined text to the survivor's own id. A survivor not here yet: tried again on
+ * the next sync.
+ */
+async function joinDayNotes(q: Sql, changed: (tbl: string, id: unknown) => void) {
+  const losers = (await q.query("SELECT id, merged_into, text FROM day_notes WHERE deleted_at IS NOT NULL AND merged_into IS NOT NULL")).rows as Row[];
+  for (const l of losers) {
+    let to: unknown = l.merged_into, live: Row | undefined;
+    for (let i = 0; i < 20 && to != null && to !== l.id; i++) {
+      const t = (await q.query("SELECT id, merged_into, deleted_at, text FROM day_notes WHERE id = $1", [to])).rows[0] as Row | undefined;
+      if (!t) break;
+      if (t.deleted_at == null) { live = t; break; }
+      to = t.merged_into;
+    }
+    if (!live) continue;
+    const mine = typeof l.text === "string" ? l.text.trim() : "", theirs = typeof live.text === "string" ? live.text.trim() : "";
+    const v = !mine ? theirs : theirs ? joinText(theirs, mine) : mine;
+    if (v !== theirs) { await q.query("UPDATE day_notes SET text = $2, updated_at = greatest(updated_at, now()) WHERE id = $1", [live.id, v]); changed("day_notes", live.id); }
+    await q.query("UPDATE day_notes SET merged_into = NULL, updated_at = greatest(updated_at, now()) WHERE id = $1", [l.id]);
+    changed("day_notes", l.id);
+  }
 }
 
 /** The latest change per row among log entries (oldest first, as they come from the log). */

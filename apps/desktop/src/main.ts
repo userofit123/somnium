@@ -12,15 +12,16 @@ import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import os from "node:os";
 import { securityHeaders } from "@somnium/server/src/headers";
-import { LOCAL_MODEL_PATHS, LOCAL_MODEL_TIMEOUT_MS, backupsPastKeep, checkServerAddress, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
+import { LOCAL_MODEL_PATHS, LOCAL_MODEL_TIMEOUT_MS, backupsPastKeep, checkModelAddress, checkServerAddress, cleanModelName, cleanModelSetting, type LocalModelSetting, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
  *  or the recovery key, kept with the account and gone with it. */
 /** prefs: what the screens keep for this account that must not depend on its address (KEPT_PREFS). */
-interface Account extends AccountEntry { port?: number; keys?: unknown; prefs?: Record<string, string> }
+/** localModel: the optional local text model's address, model and warning tick (localModel:set), this account's own. */
+interface Account extends AccountEntry { port?: number; keys?: unknown; prefs?: Record<string, string>; localModel?: LocalModelSetting }
 type Store = AccountStore<Account>;
 // what the screens may see of an account: never another account's keys
-const shown = ({ keys, prefs, ...a }: Account) => a;
+const shown = ({ keys, prefs, localModel, ...a }: Account) => a;
 const USER = app.getPath("userData");
 const ACCOUNTS = path.join(USER, "accounts.json");
 const RES = app.isPackaged ? process.resourcesPath : path.resolve(__dirname, "../../..");
@@ -309,7 +310,7 @@ ipcMain.handle("accounts:compact", () => running?.compact?.());
 // the lock's settings. Kept in the account's record, beside its keys. Synchronous (sendSync), as the screens read them
 // while starting. Only the open account's own window may ask: it is told apart by its browser partition.
 const KEPT_PREFS = new Set(["somniumLockTries", "somniumLock"]);
-const prefsAccount = (e: Electron.IpcMainEvent) => {
+const prefsAccount = (e: { sender: Electron.WebContents }) => {
   if (!running || e.sender.session !== eSession.fromPartition(`persist:acct-${running.id}`)) return null;
   const a = readAccounts(); const acc = a.list.find((x) => x.id === running!.id);
   return acc ? { a, acc } : null;
@@ -385,23 +386,43 @@ ipcMain.handle("app:busy", (_e, busy: unknown) => {
 let staged: string | null = null;
 autoUpdater.on("update-downloaded", (info) => { staged = info?.version ?? staged; });
 // The optional local text model (LDJ-42). The screens' policy only allows their own origin, so the one call to the person's
-// own Ollama address is made here: only /api/tags and /api/generate, only an address the servers' rules accept (https, or
-// http on this computer or the private network), no redirects, no cookies, a 60 s limit. Only ever on a button press.
-ipcMain.handle("localModel:call", async (_e, url: unknown, apiPath: unknown, body: unknown) => {
-  const a = checkServerAddress(String(url ?? ""));
+// own Ollama address is made here. The address is kept here too, in the open account's record (localModel:set), and the
+// call uses only that one: the screens can't name another. Only this computer or the private LAN (checkModelAddress: no
+// public host, no name that could resolve to one), only /api/tags and /api/generate, only after the warning was ticked,
+// no redirects, no cookies, a 60 s limit. Only ever on a button press. Only the open account's own window may ask.
+ipcMain.handle("localModel:get", (e) => prefsAccount(e)?.acc.localModel ?? null);
+ipcMain.handle("localModel:set", (e, v: unknown) => {
+  const o = prefsAccount(e);
+  if (!o) throw new Error("Not allowed");
+  const url = String((v as { url?: unknown } | null)?.url ?? "").trim();
+  if (url) { const a = checkModelAddress(url); if (!a.ok) throw new Error(a.error); }
+  const clean = cleanModelSetting(v);
+  if (clean) o.acc.localModel = clean; else delete o.acc.localModel;
+  writeAccounts(o.a);
+  return o.acc.localModel ?? null;
+});
+ipcMain.handle("localModel:call", async (e, apiPath: unknown, body: unknown) => {
+  const set = prefsAccount(e)?.acc.localModel;
+  if (!set?.url) throw new Error("Set up the local model in Settings first");
+  if (!set.ack) throw new Error("Tick the warning in Settings first");
+  // checked again: a record written by hand, or by an older version, follows the same rule
+  const a = checkModelAddress(set.url);
   if (!a.ok) throw new Error(a.error);
   if (!(LOCAL_MODEL_PATHS as readonly string[]).includes(String(apiPath))) throw new Error("Not allowed");
   const post = apiPath === "/api/generate";
+  // only the prompt comes from the screens; the model is the one saved, and nothing else is passed on
+  const prompt = typeof (body as { prompt?: unknown } | null)?.prompt === "string" ? String((body as { prompt: string }).prompt).slice(0, 200_000) : "";
+  if (post && (!prompt || !cleanModelName(set.model))) throw new Error("Set up the local model in Settings first");
   try {
     const r = await fetch(a.origin + String(apiPath), {
       method: post ? "POST" : "GET", redirect: "error", credentials: "omit", signal: AbortSignal.timeout(LOCAL_MODEL_TIMEOUT_MS),
-      ...(post ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) } : {}),
+      ...(post ? { headers: { "content-type": "application/json" }, body: JSON.stringify({ model: cleanModelName(set.model), prompt, stream: false }) } : {}),
     });
     if (!r.ok) throw new Error(`The model computer answered ${r.status}`);
     return await r.json();
-  } catch (e) {
-    const m = e instanceof Error ? e.name : "";
-    throw new Error(m === "TimeoutError" ? "No answer within 60 seconds" : e instanceof Error && /^The model/.test(e.message) ? e.message : "Can't reach that address");
+  } catch (err) {
+    const m = err instanceof Error ? err.name : "";
+    throw new Error(m === "TimeoutError" ? "No answer within 60 seconds" : err instanceof Error && /^The model/.test(err.message) ? err.message : "Can't reach that address");
   }
 });
 ipcMain.handle("update:version", () => app.getVersion());

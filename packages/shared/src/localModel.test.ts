@@ -1,11 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { buildGenerateBody, checkModelAddress, parseElementLines, summaryNote } from "./localModel";
+import { buildGenerateBody, checkModelAddress, cleanModelSetting, parseElementLines, summaryNote } from "./localModel";
 
 describe("checkModelAddress", () => {
-  it("follows the server address rules", () => {
+  it("accepts this computer and the private LAN, over http or https", () => {
     expect(checkModelAddress("http://192.168.1.5:11434")).toMatchObject({ ok: true, origin: "http://192.168.1.5:11434", insecure: true });
-    expect(checkModelAddress("https://ollama.home/x")).toMatchObject({ ok: true, origin: "https://ollama.home" });
-    for (const a of ["http://example.com:11434", "http://8.8.8.8", "", "ftp://x", "http://u:p@192.168.1.5"]) expect(checkModelAddress(a).ok, a).toBe(false);
+    expect(checkModelAddress("https://10.0.0.7:8443/x?y")).toMatchObject({ ok: true, origin: "https://10.0.0.7:8443", insecure: false });
+    expect(checkModelAddress("192.168.1.5")).toMatchObject({ ok: true, origin: "http://192.168.1.5:11434" });
+    expect(checkModelAddress("localhost")).toMatchObject({ ok: true, origin: "http://localhost:11434" });
+    for (const a of ["http://127.0.0.1:11434", "http://[::1]:11434", "http://172.16.0.1", "http://172.31.255.1", "http://169.254.1.1", "https://[fd12:3456::1]"]) expect(checkModelAddress(a).ok, a).toBe(true);
+    expect(checkModelAddress("http://localhost:11434")).not.toHaveProperty("warning");
+    expect(checkModelAddress("http://192.168.1.5:11434")).toHaveProperty("warning");
+  });
+  it("never a public host, a name that could resolve to one, or another scheme", () => {
+    for (const a of ["https://example.com", "https://ollama.home/x", "http://example.com:11434", "https://8.8.8.8", "http://172.32.0.1", "http://192.169.0.1",
+      "http://localhost.example.com", "https://[2001:db8::1]", "", "ftp://192.168.1.5", "http://u:p@192.168.1.5", "file:///etc/passwd"]) expect(checkModelAddress(a).ok, a).toBe(false);
+  });
+});
+
+describe("cleanModelSetting", () => {
+  it("keeps only a valid address's origin, the name and the tick", () => {
+    expect(cleanModelSetting({ url: "192.168.1.5", model: " llama3 ", ack: true, x: 1 })).toEqual({ url: "http://192.168.1.5:11434", model: "llama3", ack: true });
+    expect(cleanModelSetting({ url: "https://example.com", model: "m", ack: true })).toBeNull();
+    expect(cleanModelSetting({ url: "", model: "", ack: true })).toBeNull();
+    expect(cleanModelSetting({ url: "http://10.0.0.2:11434", model: "m", ack: "yes" })).toMatchObject({ ack: false });
+    expect(cleanModelSetting(null)).toBeNull();
   });
 });
 

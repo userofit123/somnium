@@ -55,8 +55,9 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
 </template>
 
 <style>
-.goalc { display: grid; gap: var(--s2, 8px); }
-.goalh { display: flex; align-items: center; gap: var(--s2, 8px); }
-.goalbar { height: 8px; border-radius: 99px; background: var(--s2, rgba(128,128,128,.2)); overflow: hidden; }
+/* spacing from the density tokens, colours from the theme's (--s2 is a surface, not a size) */
+.goalc { display: grid; gap: var(--lpy); }
+.goalh { display: flex; align-items: center; gap: var(--lpy); }
+.goalbar { height: var(--lpy); border-radius: var(--pill); background: var(--s2); overflow: hidden; }
 .goalbar > i { display: block; height: 100%; background: var(--acc); border-radius: inherit; }
 </style>

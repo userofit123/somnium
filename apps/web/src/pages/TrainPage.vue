@@ -46,7 +46,10 @@ await loaded(j.nights, t.course, t.practice);
 const today = useToday();
 const technique = computed(() => findTechnique(String(route.query.technique ?? "")));
 const openLesson = computed(() => findLesson(String(route.query.lesson ?? "")));
-const guided = computed(() => (["wbtb", "up", "mild", "ssild", "wild", "drill", "cue", "cat"] as const).find((m) => m === route.query.guided) as GuidedMode | undefined);
+// the sound cue is an optional feature: absent while off, even by its address (it goes back to Train)
+const guided = computed(() => (["wbtb", "up", "mild", "ssild", "wild", "drill", "cue", "cat"] as const)
+  .find((m) => m === route.query.guided && (m !== "cue" || !!useSettingsOn.value.features.soundCue)) as GuidedMode | undefined);
+watch(() => route.query.guided === "cue" && !useSettingsOn.value.features.soundCue, (off) => { if (off) void router.replace("/train"); }, { immediate: true });
 // tonight's WBTB alarm, or, in the small hours and the morning after it, the one of the night now ending
 const wbtbAt = computed(() => tonightNight(j.nights.data.value)?.wbtbWakeAt ?? tonightNight(j.nights.data.value, nightNowDate())?.wbtbWakeAt ?? null);
 

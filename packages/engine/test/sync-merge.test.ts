@@ -631,3 +631,55 @@ describe("a lesson or link deleted on one device while another holds a live dupl
     for (const e of [a.eng, b.eng, server]) expect((await on(e)("GET", `/dreams/${dream.id}`)).elements).toEqual([]);
   });
 });
+
+describe("two devices that write a day note for the same date offline", () => {
+  const notes = (date: string) => async (e: Engine) => ((await on(e)("GET", "/day-notes")) as Rec[]).filter((n) => n.date === date);
+
+  it("keep one note per date everywhere, with both texts joined on the devices, in either push order", async () => {
+    for (const [date, aFirst] of [["2026-08-01", true], ["2026-08-02", false]] as const) {
+      const a = await newDevice(), b = await newDevice();
+      const na = await on(a.eng)("POST", "/day-notes", { id: uuidv7(), date, text: "Lunch with Sam" });
+      await later();
+      const nb = await on(b.eng)("POST", "/day-notes", { id: uuidv7(), date, text: "Walked by the river" });
+      // the device that joins the texts sends the joined note on its next round, and the other takes it on its own
+      const [x, y] = aFirst ? [a, b] : [b, a];
+      for (let i = 0; i < 3; i++) { await sync(x); await sync(y); }
+      // b's is newer, so it stays (under its own id); a's text is joined into it
+      for (const e of [a.eng, b.eng, server]) expect((await notes(date)(e)).map((n) => n.id), date).toEqual([nb.id]);
+      for (const d of [a, b]) {
+        expect((await notes(date)(d.eng))[0]!.text, date).toBe("Walked by the river\n\nLunch with Sam");
+        await settled(d);
+      }
+      // the server never opened anything: what it keeps is sealed, each text under its own row
+      const raw = (await server.db.admin.query("SELECT id, text, deleted_at, merged_into FROM day_notes WHERE date = $1 ORDER BY id", [date])).rows;
+      expect(raw).toHaveLength(2);
+      for (const r of raw) expect(isSealed(r.text)).toBe(true);
+      expect(raw.find((r: any) => r.id === na.id)).toMatchObject({ merged_into: null });
+      expect(raw.find((r: any) => r.id === na.id)!.deleted_at).not.toBeNull();
+    }
+  });
+
+  it("refuses a second live note for a date through the API", async () => {
+    const date = "2026-08-03", d = on((await newDevice()).eng);
+    const first = await d("POST", "/day-notes", { id: uuidv7(), date, text: "x" });
+    await expect(d("POST", "/day-notes", { id: uuidv7(), date, text: "y" })).rejects.toMatchObject({ status: 409 });
+    // the same note sent again is not a second one
+    expect((await d("POST", "/day-notes", { id: first.id, date, text: "x" })).id).toBe(first.id);
+    const other = await d("POST", "/day-notes", { id: uuidv7(), date: "2026-08-04", text: "z" });
+    await expect(d("PUT", `/day-notes/${other.id}`, { date })).rejects.toMatchObject({ status: 409 });
+  });
+
+});
+
+describe("practice items", () => {
+  it("takes habit and memory-target ids only from their fixed lists", async () => {
+    const date = "2026-08-05";
+    for (const item of ["habit:journal", "habit:meditation", "habit:yoga-2", "pm:pet", "pm-hit:mirror", "pm-miss:cup", "lesson-1:0"])
+      expect((await S()("POST", "/practice", { id: uuidv7(), date, item, done: true })).item).toBe(item);
+    for (const item of ["pm:my secret", "pm-hit:", "pm-miss:Pet", "habit:anything", "habit:"])
+      await expect(S()("POST", "/practice", { id: uuidv7(), date, item, done: true }), item).rejects.toMatchObject({ status: 400 });
+    const res = await S()("POST", "/sync/push", { device: "t", changes: [{ tbl: "practice_log", op: "upsert", pk: { id: uuidv7() }, at: new Date().toISOString(),
+      row: { id: uuidv7(), date, item: "pm:typed text", done: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString() } }] });
+    expect(res.failed).toHaveLength(1);
+  });
+});

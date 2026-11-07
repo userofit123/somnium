@@ -7,11 +7,12 @@ import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { buildDreamMarkdown, dreamMarks, dreamSegments, ELEMENT_KIND_LABEL, fold, nightFacts, parseDismissed, relatedDreams, suggestionKey, summaryNote, type ElementKind, type Suggestion } from "@somnium/shared";
 import { send } from "../../api/outbox";
+import { api, ApiError } from "../../api/client";
 import { invalidate } from "../../api/live";
 import { deleteDream, useJournal } from "../../api/journal";
 import { confirmSuggestion, rejectSuggestion, restoreDream, setDreamSign } from "../../api/dreamPage";
 import { isPhone } from "../../core/device";
-import { modelReady, suggestFromModel, summariseDream } from "../../core/localModel";
+import { loadLocalModel, modelReady, suggestFromModel, summariseDream } from "../../core/localModel";
 import { useSettings } from "../../api/queries";
 import { useFmt } from "../../core/format";
 import { toast, toastError } from "../../core/toast";
@@ -26,7 +27,7 @@ const emit = defineEmits<{ edit: []; close: [] }>();
 const router = useRouter();
 const j = useJournal();
 const fmt = useFmt();
-onMounted(() => void loadLexicons());
+onMounted(() => { void loadLexicons(); if (settings.value.features?.localModel) void loadLocalModel(); });
 
 const d = computed(() => j.dreams.data.value?.find((x) => x.id === props.id));
 const night = computed(() => j.nights.data.value?.find((n) => n.id === d.value?.nightId));
@@ -124,7 +125,11 @@ const addModelSug = (s: Suggestion) => act(async () => { await confirmSuggestion
 const keepSummary = () => act(async () => {
   const n = night.value, sm = mdl.value?.summary;
   if (!n || !sm) return;
-  await send("put", `/nights/${n.id}`, { notes: summaryNote(n.notes, sm) }); invalidate(["journal"]);
+  // straight to the api, sealed on the way: the outbox refuses a sealed field (its list waits in the clear). Offline it
+  // isn't kept anywhere: the summary stays on screen to keep again once there is a connection.
+  try { await api.put(`/nights/${n.id}`, { notes: summaryNote(n.notes, sm) }); }
+  catch (e) { if (e instanceof ApiError && e.status === 0) { toast("Needs a connection"); return; } throw e; }
+  invalidate(["journal"]);
   mdl.value = null; toast("Kept in the night's notes");
 });
 

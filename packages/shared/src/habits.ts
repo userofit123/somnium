@@ -122,3 +122,17 @@ export const DSA_ANCHORS = [
   "Lucid: you noticed it was odd and realised therefore that you were dreaming.",
   "Post-lucid: you were already aware you were dreaming when the dreamsign occurred.",
 ] as const;
+
+/** Every habit id there is: the core four, meditation and the dream yoga practices. */
+export const HABIT_IDS: readonly string[] = [...CORE_HABIT_IDS, MEDITATION_HABIT, ...DREAM_YOGA_PRACTICES.map((p) => p.id)];
+const PM_IDS = new Set<string>(PM_TARGETS.map((t) => t.id));
+/**
+ * Whether a practice_log item id may be stored (the server checks it, as reminders check their labels): a habit from the
+ * fixed lists, or a memory target from PM_TARGETS. Other ids (lessons, techniques) follow their own rules.
+ */
+export function practiceItemOk(item: string): boolean {
+  const pm = /^(pm|pm-hit|pm-miss):(.*)$/.exec(item);
+  if (pm) return PM_IDS.has(pm[2]!);
+  if (item.startsWith("habit:")) return HABIT_IDS.includes(item);
+  return true;
+}

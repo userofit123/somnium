@@ -1,15 +1,20 @@
 // Sound cue's sleep session (LDJ-48), kept outside the screen on purpose: the app lock (10 minutes idle by default)
 // takes every screen away, and a person asleep is idle. The session holds nothing from the journal (a tone, times and
 // a count), so it may go on behind the lock: the cues stay on the audio clock, any touch or key (the lock screen's
-// included) stops it, and so does the window's end. Logging "sound-cue" on the night needs the journal key, so when
-// it is locked the log waits on this device (PENDING) and goes on the next open of Train (flushCueLog).
+// included) stops it, and so does the window's end. That touch or key still goes on to what it was for (the lock
+// screen's password field, say): it only also stops the cues. Logging "sound-cue" on the night needs the journal key,
+// so when it is locked the log waits on this device (per account: pendingKey) and goes on the next open of Train
+// (flushCueLog).
 import { ref } from "vue";
 import { cueSchedule, CUE_TONES, type CueAt, type CueTone } from "@somnium/shared";
 import { logTechniqueDone, nightNowDate } from "../../../api/train";
 import { readStr, writeStr } from "../../../core/prefs";
+import { session } from "../../../core/session";
+import { server } from "../../../api/client";
 import { createCuePlayer } from "./useGuided";
 
-const PENDING = "somniumCuePending";
+// the waiting log is this account's own: another account opened on this device never logs it on its nights
+const pendingKey = () => `somniumCuePending:${server.value.base || location.origin}:${session.user?.id ?? ""}`;
 export const cueSession = {
   on: ref(false),
   played: ref(0),
@@ -20,7 +25,7 @@ export const cueSession = {
   scheduled: ref(0),
 };
 let player: ReturnType<typeof createCuePlayer> | null = null, cues: CueAt[] = [], queued = 0, tone: CueTone = "bell";
-let iv: ReturnType<typeof setInterval> | null = null, wl: { release(): Promise<void> } | null = null, onEnd: ((n: number) => void) | null = null;
+let iv: ReturnType<typeof setInterval> | null = null, wl: { release(): Promise<void> } | null = null, onEnd: ((n: number, waiting: boolean) => void) | null = null;
 
 async function grabWake() {
   const w = (navigator as any).wakeLock;
@@ -28,10 +33,11 @@ async function grabWake() {
   try { wl = await w.request("screen"); cueSession.wakeHeld.value = true; (wl as any).addEventListener?.("release", () => { cueSession.wakeHeld.value = false; }); } catch { cueSession.wakeHeld.value = false; }
 }
 const onVis = () => { void grabWake(); };
-const onTouch = (e: Event) => { e.preventDefault(); e.stopPropagation(); void stopCueSession(); };
+// not stopped or prevented: the first key or touch reaches the lock screen's field as well
+const onTouch = () => { void stopCueSession(); };
 
 /** Starts the cues for a window; call inside the tap (the audio needs it). False when this browser can't play sound. */
-export function startCueSession(o: { win: { start: number; end: number }; everySec: number; gain: number; tone: CueTone; ended?: (played: number) => void }): boolean {
+export function startCueSession(o: { win: { start: number; end: number }; everySec: number; gain: number; tone: CueTone; ended?: (played: number, waiting: boolean) => void }): boolean {
   if (cueSession.on.value) return true;
   player = createCuePlayer();
   if (!player.prime()) { player = null; return false; }
@@ -64,13 +70,16 @@ export async function stopCueSession(): Promise<number> {
   cueSession.played.value = n;
   await player?.close(); player = null;
   const x = wl; wl = null; cueSession.wakeHeld.value = false; await x?.release().catch(() => {});
-  if (n > 0) { writeStr(PENDING, nightNowDate()); await flushCueLog(); }
-  onEnd?.(n); onEnd = null;
+  // waiting: logged later, when the journal is unlocked
+  let waiting = false;
+  if (n > 0) { writeStr(pendingKey(), nightNowDate()); waiting = !(await flushCueLog()); }
+  onEnd?.(n, waiting); onEnd = null;
   return n;
 }
 /** Writes a waiting "sound-cue" log (see above); quiet when the journal is still locked. */
 export async function flushCueLog(): Promise<boolean> {
-  const date = readStr(PENDING, "");
+  if (!session.user?.id) return false;
+  const k = pendingKey(), date = readStr(k, "");
   if (!date) return false;
-  try { await logTechniqueDone("sound-cue", date); writeStr(PENDING, ""); return true; } catch { return false; }
+  try { await logTechniqueDone("sound-cue", date); writeStr(k, ""); return true; } catch { return false; }
 }

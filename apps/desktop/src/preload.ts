@@ -73,8 +73,13 @@ const api = {
     setPlan: (items: { at: number; title: string; body: string; url: string }[]) => ipcRenderer.invoke("reminders:setPlan", items),
     onPause: (cb: (on: boolean) => void) => { onPause = cb; },
   },
-  // the optional local text model: the main process makes the one call to the person's own address (main.ts localModel:call)
-  localModel: { call: (url: string, path: string, body?: unknown): Promise<any> => accountCall("localModel:call", url, path, body) },
+  // the optional local text model: the main process keeps the address (per account) and makes the one call to it
+  // (main.ts localModel:set and localModel:call); the screens never name the address in a call
+  localModel: {
+    get: (): Promise<{ url: string; model: string; ack: boolean } | null> => accountCall("localModel:get"),
+    set: (v: { url: string; model: string; ack: boolean }): Promise<{ url: string; model: string; ack: boolean } | null> => accountCall("localModel:set", v),
+    call: (path: string, body?: unknown): Promise<any> => accountCall("localModel:call", path, body),
+  },
   saveBackup: (name: string, bytes: Uint8Array, keep: number) => ipcRenderer.invoke("backup:save", name, bytes, keep),
   backupFolder: () => ipcRenderer.invoke("backup:folder"),
   chooseBackupFolder: () => ipcRenderer.invoke("backup:choose"),

@@ -1,14 +1,16 @@
 // Training: the practice log (a day's lessons, techniques and habits), progress through the course, goals and
 // reminders (PLAN.md §5, §6.4, §8, §9). The course's content and the recommendation rules live elsewhere.
-import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, storableSchedule, type PracticeLog, type CourseProgress, type Goal, type Reminder, type DayNote } from "@somnium/shared";
+import { practiceItemOk, LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, storableSchedule, type PracticeLog, type CourseProgress, type Goal, type Reminder, type DayNote } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, bool, dateStr } from "../util";
 import { clientId, refuseOtherRow, columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
-import { notFound } from "../errors";
+import { bad, conflict, notFound } from "../errors";
 
 const PRACTICE: Fields = {
   date: required(dateStr, "date"),
-  item: required((v) => (v == null || v === "" ? null : str(v, 80)), "item"),
+  // habit and memory-target ids only from their fixed lists (packages/shared/src/habits.ts): a typed target would be
+  // personal text in a plain column
+  item: required((v) => { if (v == null || v === "") return null; const s = str(v, 80); if (!practiceItemOk(s)) throw bad("Unknown practice item"); return s; }, "item"),
   done: (v) => bool(v, true),
   minutes: (v) => intOrNull(v, 0, 1440),
   note: sealed,
@@ -67,8 +69,24 @@ export function practiceRoutes(r: Router) {
     if (to) { params.push(to); w.push(`date <= $${params.length}`); }
     return listLive<DayNote>(q, "day_notes", w.join(" AND "), params, "date DESC", 2000);
   });
-  r.post("/day-notes", async (ctx, _p, b) => insertRow<DayNote>(ctx, "day_notes", "dayNotes", { ...columns(DAY_NOTE, b, true), ...clientId(b) }));
-  r.put("/day-notes/:id", async (ctx, p, b) => updateRow<DayNote>(ctx, "day_notes", "dayNotes", id(p.id), columns(DAY_NOTE, b, false), "day note"));
+  // one live note per date (migration 017): a second one is refused, not merged, since its text is sealed to its own id;
+  // the screens then write to the note that is there
+  const dateTaken = async (q: { query: (s: string, a: unknown[]) => Promise<{ rows: unknown[] }> }, date: unknown, not: string | null) => {
+    if (date == null) return;
+    const r = await q.query("SELECT 1 FROM day_notes WHERE date = $1 AND deleted_at IS NULL AND id IS DISTINCT FROM $2::uuid LIMIT 1", [date, not]);
+    if (r.rows.length) throw conflict("There's already a note for that date");
+  };
+  r.post("/day-notes", async (ctx, _p, b) => {
+    const cols: Record<string, unknown> = { ...columns(DAY_NOTE, b, true), ...clientId(b) };
+    // the same note sent again (the device's id) is insertRow's to answer
+    await dateTaken(ctx.q, cols.date, typeof cols.id === "string" ? cols.id : null);
+    return insertRow<DayNote>(ctx, "day_notes", "dayNotes", cols);
+  });
+  r.put("/day-notes/:id", async (ctx, p, b) => {
+    const cols = columns(DAY_NOTE, b, false);
+    await dateTaken(ctx.q, cols.date, id(p.id));
+    return updateRow<DayNote>(ctx, "day_notes", "dayNotes", id(p.id), cols, "day note");
+  });
   r.del("/day-notes/:id", async (ctx, p) => { await removeRow(ctx, "day_notes", "dayNotes", id(p.id), "day note"); return { ok: true }; });
 
   r.get("/goals", async ({ q }) => listLive<Goal>(q, "goals", "", [], "created_at"));

@@ -75,7 +75,7 @@ function startSleep() {
   keep();
   const w = cueWindow(kind.value, { now: Date.now(), trainedAt: trainedAt.value || Date.now(), wakeAt: wakeAt(), settleMin: settle.value });
   const ok = startCueSession({ win: w, everySec: every.value, gain: CUE_VOLUMES[volume.value], tone: tone.value,
-    ended: (n) => { emit("running", false); toast(n > 0 ? `Sound cue stopped · ${n} cues · logged on the night` : "Sound cue stopped before the first cue"); } });
+    ended: (n, waiting) => { emit("running", false); toast(n > 0 ? `Sound cue stopped · ${n} cues · ${waiting ? "will be logged when you unlock" : "logged on the night"}` : "Sound cue stopped before the first cue"); } });
   if (!ok) { toast("This browser can't play sound"); return; }
   emit("running", true);
 }
