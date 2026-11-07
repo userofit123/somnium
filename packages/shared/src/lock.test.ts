@@ -89,6 +89,25 @@ describe("app lock", () => {
     expect(gone.actions).toEqual(["clearKey"]);
   });
 
+  it("a file picker's answer keeps the hold only while it still runs (LDJ-68)", () => {
+    const c = cfg(0);
+    const picking = run(open(), [{ type: "hold", at: T0, ms: Number.POSITIVE_INFINITY }, { type: "away", at: T0 + 1 }], c).s;
+    // picked within the hold: Android hands over the file before the app resumes, and the "back" right after stays open
+    const picked = run(picking, [{ type: "holdOn", at: T0 + 10_000, ms: 1500 }, { type: "back", at: T0 + 11_000 }], c);
+    expect(picked.s.locked).toBe(false);
+    expect(picked.actions).toEqual([]);
+    // left with the picker open past the hold's limit, then someone picks or cancels: locks before the "back" arrives
+    for (const at of [T0 + LOCK_HOLD_MAX_MS + 1, T0 + 600_000]) {
+      const late = run(picking, [{ type: "holdOn", at, ms: 1500 }, { type: "back", at: at + 200 }], c);
+      expect(late.s.locked).toBe(true);
+      expect(late.actions).toContain("clearKey");
+    }
+    // with a delay, a late answer doesn't restart the time away: it counts from when the hold ended
+    const d = cfg(300_000);
+    const slow = run(open(), [{ type: "hold", at: T0, ms: Number.POSITIVE_INFINITY }, { type: "away", at: T0 + 1 }, { type: "holdOn", at: T0 + 600_000, ms: 1500 }, { type: "back", at: T0 + 600_200 }], d);
+    expect(slow.s.locked).toBe(true);
+  });
+
   it("a hold can't last past its limit", () => {
     const c = cfg(0);
     const { s } = run(open(), [{ type: "hold", at: T0, ms: 99_999_999 }, { type: "away", at: T0 + 1 }, { type: "tick", at: T0 + LOCK_HOLD_MAX_MS - 1 }], c);

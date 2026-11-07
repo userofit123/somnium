@@ -501,6 +501,25 @@ describe("the activity log", () => {
     expect(Number((await db.admin.query("SELECT count(*)::int AS n FROM sessions WHERE user_id = $1", [uid])).rows[0].n)).toBe(2);
   });
 
+  it("signing in again on a device id replaces only that account's session on that platform", async () => {
+    const F = "f".repeat(32);
+    const { keys: mine } = await signUp("sharer", "correct horse battery", { invite: await invite(), deviceName: "Laptop", deviceId: F, platform: "web" });
+    const { keys: theirs } = await signUp("otherone", "correct horse battery", { invite: await invite(), deviceName: "Laptop", deviceId: F, platform: "web" });
+    const myWeb = (await signIn("sharer", mine.authKey, { deviceId: F, platform: "web" })).json().token as string;
+    const myDesktop = (await signIn("sharer", mine.authKey, { deviceId: F, platform: "desktop" })).json().token as string;
+    const theirWeb = (await signIn("otherone", theirs.authKey, { deviceId: F, platform: "web" })).json().token as string;
+    const myWebAgain = (await signIn("sharer", mine.authKey, { deviceId: F, platform: "web" })).json().token as string;
+    // the same account, device and platform: replaced
+    expect(await signedIn(bearer(myWeb))).toBe(false);
+    expect(await signedIn(bearer(myWebAgain))).toBe(true);
+    // the same device id on another platform, and another account's session with the same device id: left alone
+    expect(await signedIn(bearer(myDesktop))).toBe(true);
+    expect(await signedIn(bearer(theirWeb))).toBe(true);
+    const platforms = async (u: string) => (await db.admin.query("SELECT platform FROM sessions WHERE user_id = $1 AND device_id = $2 ORDER BY platform", [await idOf(u), F])).rows.map((r: any) => r.platform);
+    expect(await platforms("sharer")).toEqual(["desktop", "web"]);
+    expect(await platforms("otherone")).toEqual(["web"]);
+  });
+
   it("cuts a long label to 80 characters", async () => {
     await signUp("longname", "correct horse battery", { invite: await invite(), deviceName: "x".repeat(500), deviceId: A });
     expect(await notes("longname")).toEqual(["Signed in on " + "x".repeat(80)]);

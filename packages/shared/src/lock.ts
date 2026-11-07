@@ -98,6 +98,8 @@ export type LockEvent =
   | { type: "lock"; at: number }
   | { type: "hold"; at: number; ms: number }
   | { type: "release"; at: number }
+  // a dialog answered: keep holding for ms more only while its hold still runs; one that ran out ends as a release
+  | { type: "holdOn"; at: number; ms: number }
   | { type: "unlocked"; at: number }  // the person proved it is them
   | { type: "keyOpened"; at: number } // the key opened, and the lock screen has one more step before the journal shows
   | { type: "wrong"; at: number };    // a wrong password; a cancelled dialog or no connection is not one
@@ -145,10 +147,16 @@ export function lockStep(s: LockState, e: LockEvent, cfg: LockSettings): LockSte
     }
     case "hold":
       return { state: { ...s, holdUntil: e.at + Math.min(e.ms, LOCK_HOLD_MAX_MS) }, actions: [] };
+    case "holdOn":
+      // An answer after the hold ran out (a picker left open for ten minutes) must not start a new one: the "back" that
+      // follows would land inside it and count the whole time as never away (LDJ-68).
+      if (held) return { state: { ...s, holdUntil: Math.max(s.holdUntil, e.at + Math.min(e.ms, LOCK_HOLD_MAX_MS)) }, actions: [] };
+      return lockStep(s, { type: "release", at: e.at }, cfg);
     case "release":
-      // still away when the dialog ends: the wait starts now
       if (s.awayAt === null) return { state: { ...s, holdUntil: 0 }, actions: [] };
-      return lockStep({ ...s, holdUntil: 0, awayAt: e.at }, { type: "away", at: e.at }, cfg);
+      // still away when the dialog ends: the wait starts now; from when the hold ended if it ran out before this, so a
+      // late release doesn't give back the time already spent away
+      return lockStep({ ...s, holdUntil: 0, awayAt: held ? e.at : Math.max(s.awayAt, s.holdUntil) }, { type: "away", at: e.at }, cfg);
     case "away": {
       const next = { ...s, awayAt: s.awayAt ?? e.at };
       if (held) return { state: next, actions: [] };
