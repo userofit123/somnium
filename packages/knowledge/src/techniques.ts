@@ -64,7 +64,11 @@ export const techniques: readonly Technique[] = [
 ];
 
 export const findTechnique = (id: string) => techniques.find((x) => x.id === id);
-export const inFamily = (family: Family) => techniques.filter((x) => x.family === family);
+// Strongest first within a family (LDJ-68), so a well-supported technique such as sound cues isn't listed last;
+// ties keep the order above.
+const evidenceRank: Record<Evidence, number> = { strong: 0, some: 1, weak: 2, anecdotal: 3 };
+export const inFamily = (family: Family) =>
+  techniques.filter((x) => x.family === family).sort((a, b) => evidenceRank[a.evidence] - evidenceRank[b.evidence]);
 
 /**
  * The quiet note on the sleep-interrupting and sleep-onset pages (WBTB, WILD, SSILD, FILD, DEILD, re-entry) and

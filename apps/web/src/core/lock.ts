@@ -127,8 +127,11 @@ export function startLock() {
 
   // a file picker or the camera takes the app out of sight; the screen behind it must still be there to get the answer
   document.addEventListener("click", (e) => { if ((e.target as Element | null)?.matches?.('input[type="file"]')) holdForDialog(); }, true);
-  document.addEventListener("change", (e) => { if ((e.target as Element | null)?.matches?.('input[type="file"]')) release(); }, true);
-  document.addEventListener("cancel", (e) => { if ((e.target as Element | null)?.matches?.('input[type="file"]')) release(); }, true);
+  // The answer can come before the app is reported back: Android hands the picked file to the page before the app
+  // resumes, so ending the hold at once counted the picker as time away and, with "lock at once", locked the journal
+  // under the upload (LDJ-68: it then failed with its toast muted). A short hold after it, as after verifying.
+  document.addEventListener("change", (e) => { if ((e.target as Element | null)?.matches?.('input[type="file"]')) hold(1500); }, true);
+  document.addEventListener("cancel", (e) => { if ((e.target as Element | null)?.matches?.('input[type="file"]')) hold(1500); }, true);
 
   let lastActivity = 0;
   const active = () => { const t = now(); if (t - lastActivity > 1000) { lastActivity = t; dispatch({ type: "activity", at: t }); } };

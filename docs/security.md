@@ -173,7 +173,7 @@ never lands in a plaintext database. See also "Backups".
   The server stores a **scrypt** hash of it. An unknown name gets a stand-in salt that is the same every time, so
   nobody can tell by asking whether a name exists (`standInSalt`, an HMAC under the server's key).
 - **Sessions** are 32 random bytes; only their SHA-256 hash is stored. On the web they are an `HttpOnly`,
-  `SameSite=Strict` cookie, `Secure` when the request came over HTTPS (the server trusts the proxy's `X-Forwarded-Proto`); the apps use a bearer token. They last **60 days, sliding** (`SESSION_DAYS` changes it).
+  `SameSite=Strict` cookie, `Secure` when the request came over HTTPS (the server trusts the proxy's `X-Forwarded-Proto`); the apps use a bearer token. They last **60 days, sliding** (`SESSION_DAYS` changes it); a sign-in never used again after its first hour ends after 14 days (`UNUSED_SESSION_DAYS`). A device that signs in again replaces its own older session, and ended sessions are deleted at the next sign-in.
   Settings → Security lists the signed-in devices and ends any of them; "sign out other devices" ends the rest.
   Changing the password, or any recovery, ends every other session.
 - A request using the cookie must also carry the `X-Somnium: 1` header on any change (other sites cannot add it).

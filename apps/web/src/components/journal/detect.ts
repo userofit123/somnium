@@ -3,7 +3,7 @@
 // The lexicons (about 100 kB of terms) load on first use, after the editor has painted, so opening a dream is not
 // slower; until they are here nothing is suggested.
 import { shallowRef } from "vue";
-import { detectElements, type DetectLexicons, type DetectMatchers, type OwnElement, type Suggestion } from "@somnium/shared";
+import { detectElements, kindForName, type DetectLexicons, type DetectMatchers, type OwnElement, type Suggestion } from "@somnium/shared";
 
 export type { Suggestion };
 const loaded = shallowRef<{ lexicons: DetectLexicons; match: DetectMatchers } | null>(null);
@@ -25,4 +25,11 @@ export function suggestElements(text: string, own: readonly OwnElement[], linked
   const l = loaded.value;
   if (!l) return [];
   return detectElements({ text, own, linked, dismissed, lexicons: l.lexicons, match: l.match });
+}
+
+/** The kind to preselect for a typed new element's name (LDJ-68); null until the lexicons are here or with no match. */
+export function suggestKind(name: string, own: readonly OwnElement[]) {
+  const l = loaded.value;
+  if (!l || !name.trim()) return null;
+  return kindForName(name, { own, lexicons: l.lexicons, match: l.match });
 }

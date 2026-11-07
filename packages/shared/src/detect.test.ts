@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as lex from "@somnium/knowledge/lexicons";
-import { addAlias, detectElements, parseAliases, parseDismissed, suggestionKey, type DetectInput, type OwnElement } from "./detect";
+import { addAlias, detectElements, kindForName, parseAliases, parseDismissed, suggestionKey, type DetectInput, type OwnElement } from "./detect";
 
 const lexicons = { characters: lex.characters, places: lex.places, objects: lex.objects, actions: lex.actions, sensations: lex.sensations, emotions: lex.emotions, themes: lex.themes, signs: lex.signs };
 const match = { matchLexicon: lex.matchLexicon, stem: lex.stem };
@@ -128,5 +128,14 @@ describe("aliases and dismissals", () => {
     expect(parseDismissed('["place:home"]')).toEqual(["place:home"]);
     expect(parseDismissed("nope")).toEqual([]);
     expect(parseDismissed(null)).toEqual([]);
+  });
+});
+
+describe("the kind for a typed name (LDJ-68)", () => {
+  it("comes from the lexicons, the person's own element first, and is null when nothing matches", () => {
+    expect(kindForName("beach", { own: [], lexicons, match })).toBe("place");
+    expect(kindForName("grandmother", { own: [], lexicons, match })).toBe("character");
+    expect(kindForName("beach", { own: [{ id: "e1", name: "Beach", kind: "object", aliases: null }], lexicons, match })).toBe("object");
+    expect(kindForName("zqxw", { own: [], lexicons, match })).toBeNull();
   });
 });

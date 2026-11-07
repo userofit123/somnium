@@ -10,7 +10,7 @@ import { addMedia, mediaBlob, mediaObjectUrl, removeMedia, saveOcrText, useDream
 import { saveNow } from "../../api/journal";
 import { useSettings } from "../../api/queries";
 import { confirm } from "../../core/ask";
-import { toastError } from "../../core/toast";
+import { toast, toastError } from "../../core/toast";
 import Icon from "../Icon.vue";
 import Sheet from "../Sheet.vue";
 import SketchPad from "./SketchPad.vue";
@@ -36,15 +36,20 @@ async function upload(file: Blob, extra?: { kind?: "sketch"; duration?: number }
   for (let i = 0; ; i++) {
     try { return await addMedia(props.dreamId, file, extra); }
     catch (e) {
-      if (!(e instanceof ApiError && e.status === 404) || i >= 4) throw e;
+      if (!(e instanceof ApiError && e.status === 404)) throw e;
+      if (i >= 4) throw new Error("The dream hasn't reached the server yet. Try again in a moment.");
       await new Promise((r) => setTimeout(r, 1200));
     }
   }
 }
-async function run(what: string, f: () => Promise<unknown>) {
-  if (busy.value) return;
+/** failed: an upload's own headline. Every way an upload can go wrong says so (LDJ-68: one once failed without a word),
+ *  with the reason the app or server gave, never anything from the file or the dream. */
+async function run(what: string, f: () => Promise<unknown>, failed?: string) {
+  if (busy.value) { if (failed) toast(`${failed}: wait for the one being saved, then try again.`, { kind: "err" }); return; }
   busy.value = what;
-  try { await f(); } catch (e) { toastError(e); } finally { busy.value = ""; }
+  try { await f(); }
+  catch (e) { if (failed) toast(`${failed}. ${e instanceof Error && e.message ? e.message : "Try again."}`, { kind: "err" }); else toastError(e); }
+  finally { busy.value = ""; }
 }
 
 // ----- photos -----
@@ -54,7 +59,7 @@ async function onPhoto(ev: Event) {
   await run("Adding the photo", async () => {
     const { cleanPhoto } = await import("../../core/image");
     for (const f of files) await upload(await cleanPhoto(f));
-  });
+  }, files.length > 1 ? "Not all the photos were added" : "The photo wasn't added");
 }
 
 // ----- reading the text of a photo (OCR) -----
@@ -82,7 +87,7 @@ const useOcr = () => run("Saving", async () => {
 
 // ----- sketches -----
 const sketching = ref(false);
-const saveSketch = (b: Blob) => run("Saving the sketch", async () => { await upload(b, { kind: "sketch" }); sketching.value = false; });
+const saveSketch = (b: Blob) => run("Saving the sketch", async () => { await upload(b, { kind: "sketch" }); sketching.value = false; }, "The sketch wasn't saved");
 
 // ----- voice notes -----
 // MediaRecorder, Opus in WebM where the browser has it (Safari records MP4/AAC). Nothing transcribes it.
@@ -108,7 +113,7 @@ async function record() {
     rec.value = null; dropping = false;
     if (!keep || !parts.length) return;
     const blob = new Blob(parts, { type: (r.mimeType || type || "audio/webm").split(";")[0] });
-    void run("Saving the voice note", () => upload(blob, { duration: secs }));
+    void run("Saving the voice note", () => upload(blob, { duration: secs }), "The voice note wasn't saved");
   };
   r.start(1000);
   rec.value = { r, stream, started, secs: 0 };

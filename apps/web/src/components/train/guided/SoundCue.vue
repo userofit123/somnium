@@ -141,7 +141,7 @@ const limit = computed(() => where === "desktop" ? "Keep Somnium open (the windo
           <div class="t">Cues from {{ hmOf(preview.start) }} to {{ hmOf(preview.end) }}</div>
           <Ev :text="kind === 'night' ? 'At home the app study replayed the cue from 6 hours after training [B43]. The phone can\'t tell when you are in REM, so it plays through the window.' : 'The laboratory played the cue in REM during a morning nap [B42]; the nap studies used a 90-minute nap [D4]. The phone can\'t tell when you are in REM, so it plays through the window.'" @cite="emit('cite', $event)" />
           <p class="gev">The spacing, volume and first-cue delay are this app's own settings: our sources don't give the studies' values. It starts at a whisper and gets no louder than you chose.</p>
-          <p v-if="!trainedToday" class="gev">Train first: the cue only works once it means something to you [D5].</p>
+          <Ev v-if="!trainedToday" text="Train first: the cue only works once it means something to you [D5]." @cite="emit('cite', $event)" />
         </div>
       </template>
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { citationsIn, readAll, techniqueIds } from "./content";
 import { readdir, readFile } from "node:fs/promises";
 import { lessons as bundledLessons, lessonIds, loadLessons, parseLesson } from "./course";
-import { techniques, families, safetyLines } from "./techniques";
+import { techniques, families, safetyLines, inFamily } from "./techniques";
 
 const kb = await readAll();
 // the files on disk, read directly (course.ts stays free of Node imports: it ships in the web bundle)
@@ -83,5 +83,14 @@ describe("techniques library", () => {
     expect(techniques.find((t) => t.id === "reality-testing")?.basis).toMatch(/part of MILD, not alone/);
     expect(safetyLines.join(" ")).toMatch(/grief or PTSD without clinical support \(nightmare work is best done with a therapist\)/);
     expect(techniques.filter((t) => t.safety).map((t) => t.id).sort()).toEqual(["deild", "fild", "re-entry", "ssild", "wbtb", "wild"]);
+  });
+
+  it("lists each family strongest evidence first", () => {
+    const rank = { strong: 0, some: 1, weak: 2, anecdotal: 3 };
+    for (const f of families) {
+      const ranks = inFamily(f.id).map((t) => rank[t.evidence]);
+      expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    }
+    expect(inFamily("support")[0]?.id).toBe("sound-cue");
   });
 });

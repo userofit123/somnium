@@ -2,7 +2,7 @@
 // the text, the person's own elements and the lexicons go in, suggestions come out, nothing is kept or sent.
 // The matchers are passed in (they live with the lexicons in @somnium/knowledge) so this package keeps no
 // dependency on the lexicon data and the web app can load that data lazily.
-import { fold } from "./journal";
+import { fold, NEW_ELEMENT_KINDS } from "./journal";
 import type { ElementKind, SignCategory } from "./types";
 
 export interface DetectEntry { readonly name: string; readonly group?: string; readonly terms: readonly string[] }
@@ -230,4 +230,19 @@ export function detectElements(input: DetectInput): Suggestion[] {
   for (const t of ["theme", "sign"]) { const best = out.find((x) => x.type === t); if (best) take(best); }
   out.forEach(take);
   return out.filter((x) => keep.has(x));
+}
+
+/**
+ * The kind to preselect for a name the person types as a new element (LDJ-68): the same matching as the dream's text,
+ * run on the name alone, so "beach" starts as a place and "grandmother" as a character rather than everything
+ * starting as a character. Their own element of that name wins; otherwise the kind whose match covers most of the
+ * name. null when nothing matches (the editor keeps its default); the person can still change it.
+ */
+export function kindForName(name: string, input: Omit<DetectInput, "text" | "linked" | "dismissed">): (typeof NEW_ELEMENT_KINDS)[number] | null {
+  const allowed = new Set<string>(NEW_ELEMENT_KINDS);
+  const covered = (x: Suggestion) => x.spans.reduce((n, [a, b]) => n + (b - a), 0);
+  const best = detectElements({ ...input, text: name })
+    .filter((x) => allowed.has(x.kind))
+    .sort((a, b) => Number(!!b.existingElementId) - Number(!!a.existingElementId) || covered(b) - covered(a) || b.confidence - a.confidence)[0];
+  return best ? (best.kind as (typeof NEW_ELEMENT_KINDS)[number]) : null;
 }

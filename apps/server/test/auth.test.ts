@@ -462,7 +462,43 @@ describe("the activity log", () => {
     await signIn("ids", keys.authKey, { deviceName: "Laptop", deviceId: B }); // the same label, another device
     expect(await notes("ids")).toEqual(["Signed in on Laptop", "Signed in on Laptop"]);
     const { rows } = await db.admin.query("SELECT device_id FROM sessions WHERE user_id = $1", [await idOf("ids")]);
-    expect(rows.map((x: any) => x.device_id).sort()).toEqual([A, A, B]);
+    expect(rows.map((x: any) => x.device_id).sort()).toEqual([A, B]); // A's sign-in again replaced its own session
+  });
+
+  it("a device signing in again replaces its old session; ended and unused sessions go", async () => {
+    const C = "c".repeat(32), D = "d".repeat(32);
+    const { keys } = await signUp("tidy", "correct horse battery", { invite: await invite(), deviceName: "Laptop", deviceId: C });
+    const uid = await idOf("tidy");
+    const first = await signIn("tidy", keys.authKey, { deviceName: "Laptop", deviceId: C });
+    const second = await signIn("tidy", keys.authKey, { deviceName: "Laptop", deviceId: C });
+    const phone = await signIn("tidy", keys.authKey, { deviceName: "Phone", deviceId: D });
+    // the old token of the same device is gone, the new one and the other device still work, and the list is right
+    expect(await signedIn(bearer(first.json().token))).toBe(false);
+    expect(await signedIn(bearer(second.json().token))).toBe(true);
+    const list = (await app.inject({ method: "GET", url: "/api/auth/sessions", headers: bearer(phone.json().token) })).json();
+    expect(list.map((x: any) => [x.deviceName, x.current])).toEqual(expect.arrayContaining([["Laptop", false], ["Phone", true]]));
+    expect(list).toHaveLength(2);
+    // the device is still known after its old session was replaced
+    expect((await db.admin.query("SELECT count(*)::int AS n FROM account_events WHERE user_id = $1 AND device_id = $2", [uid, C])).rows[0].n).toBe(1);
+
+    // a sign-in only used in its first hour ends after 14 days; one used again later slides to 60
+    const hash = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
+    const days = async (token: string) => Number((await db.admin.query(
+      "SELECT extract(epoch FROM expires_at - now()) / 86400 AS d FROM sessions WHERE token_hash = $1", [hash(token)])).rows[0]?.d);
+    const phoneToken = phone.json().token as string; // used above, within its first hour
+    expect(await days(phoneToken)).toBeGreaterThan(13.9);
+    expect(await days(phoneToken)).toBeLessThan(14.1);
+    const tablet = (await signIn("tidy", keys.authKey, { deviceName: "Tablet", deviceId: "e".repeat(32) })).json().token as string;
+    await db.admin.query("UPDATE sessions SET created_at = now() - interval '2 hours' WHERE token_hash = $1", [hash(tablet)]);
+    expect(await signedIn(bearer(tablet))).toBe(true); // back two hours after signing in
+    expect(await days(tablet)).toBeGreaterThan(59.9);
+
+    // an ended session is deleted at the next sign-in, not only hidden
+    await db.admin.query("UPDATE sessions SET expires_at = now() - interval '1 second' WHERE token_hash = $1", [hash(tablet)]);
+    expect(await signedIn(bearer(tablet))).toBe(false);
+    await signIn("ann", ann.authKey);
+    expect(Number((await db.admin.query("SELECT count(*)::int AS n FROM sessions WHERE expires_at <= now()")).rows[0].n)).toBe(0);
+    expect(Number((await db.admin.query("SELECT count(*)::int AS n FROM sessions WHERE user_id = $1", [uid])).rows[0].n)).toBe(2);
   });
 
   it("cuts a long label to 80 characters", async () => {

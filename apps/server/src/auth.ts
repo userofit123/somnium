@@ -30,15 +30,23 @@ const sha = (t: string) => crypto.createHash("sha256").update(t).digest("hex");
 
 export const COOKIE = "somnium_session";
 export const SESSION_DAYS = Number(process.env.SESSION_DAYS ?? 60);
+/** A sign-in that is never used again after its first hour ends this many days after it began (LDJ-68): scripts and
+ *  one-off browsers otherwise left a session each that lingered the full SESSION_DAYS in the devices list. */
+export const UNUSED_SESSION_DAYS = Math.min(SESSION_DAYS, Number(process.env.UNUSED_SESSION_DAYS ?? 14));
 const DEVICE_LABEL_MAX = 80;
 
 export interface SessionUser { id: string; username: string; role: "admin" | "user"; sessionId: string }
 
 export async function createSession(db: Db, userId: string, device: string, platform: string, deviceId: string | null = null): Promise<string> {
   const token = crypto.randomBytes(32).toString("base64url");
+  // Ended sessions are deleted rather than only hidden (as Money Manager does at sign-in). A device that signs in
+  // again replaces its own older session of the same kind: its cookie or token was just replaced, so the old row
+  // could never be used again and would only count as another device.
+  await db.admin.query("DELETE FROM sessions WHERE expires_at <= now()");
+  if (deviceId) await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND device_id = $2 AND platform = $3", [userId, deviceId, platform.slice(0, 20)]);
   await db.admin.query(
     "INSERT INTO sessions (id, user_id, token_hash, device_name, platform, device_id, expires_at) VALUES ($1,$2,$3,$4,$5,$6, now() + ($7 || ' days')::interval)",
-    [uuidv7(), userId, sha(token), device.slice(0, DEVICE_LABEL_MAX), platform.slice(0, 20), deviceId, String(SESSION_DAYS)]);
+    [uuidv7(), userId, sha(token), device.slice(0, DEVICE_LABEL_MAX), platform.slice(0, 20), deviceId, String(UNUSED_SESSION_DAYS)]);
   return token;
 }
 
@@ -78,10 +86,14 @@ export async function userForToken(db: Db, token: string | undefined): Promise<S
     `SELECT s.id AS sid, u.id, u.username, u.role FROM sessions s JOIN users u ON u.id = s.user_id
      WHERE s.token_hash = $1 AND s.expires_at > now() AND u.disabled_at IS NULL`, [sha(token)])).rows[0];
   if (!r) return null;
-  // sliding expiry, written at most every 10 minutes
+  // sliding expiry, written at most every 10 minutes. The calls made in the first hour after signing in (the first
+  // sync) don't count as coming back: until a later one the session keeps its shorter UNUSED_SESSION_DAYS.
   if ((seen.get(r.sid) ?? 0) < Date.now() - 600000) {
     seen.set(r.sid, Date.now());
-    await db.admin.query("UPDATE sessions SET last_seen_at = now(), expires_at = greatest(expires_at, now() + ($2 || ' days')::interval) WHERE id = $1", [r.sid, String(SESSION_DAYS)]);
+    await db.admin.query(
+      `UPDATE sessions SET last_seen_at = now(),
+         expires_at = CASE WHEN now() > created_at + interval '1 hour' THEN greatest(expires_at, now() + ($2 || ' days')::interval) ELSE expires_at END
+       WHERE id = $1`, [r.sid, String(SESSION_DAYS)]);
   }
   return { id: r.id, username: r.username, role: r.role, sessionId: r.sid };
 }
