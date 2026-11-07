@@ -51,6 +51,8 @@ public class SomniumUpdaterPlugin extends Plugin {
     private static final AtomicLong GEN = new AtomicLong(0);
     // the page a tap on the notification opens, handed to the web app as an "open" event (see openFrom)
     static final String EXTRA_PATH = "somniumPath";
+    // where release files are, and the only place a download may come from (the repository of core/releases.ts REPO)
+    private static final String RELEASES = "https://github.com/userofit123/somnium/releases/download/";
 
     // The app is closed (swiped away) mid-download: the download stops with it, so its ongoing notification would stay
     // forever with a bar that never moves. It goes, and the partial file is thrown away by the download itself.
@@ -181,6 +183,11 @@ public class SomniumUpdaterPlugin extends Plugin {
         String url = call.getString("url");
         String sha = call.getString("sha256");
         if (url == null) { call.reject("No download address"); return; }
+        // only a file of Somnium's own GitHub releases, over https (GitHub then redirects to its download host, https
+        // too), and only with the checksum from its android-latest.json: without one nothing proves the file is the
+        // release's, so nothing is downloaded at all
+        if (!url.regionMatches(true, 0, RELEASES, 0, RELEASES.length()) || url.contains("..") || url.contains("@")) { call.reject("That isn't a Somnium release download"); return; }
+        if (sha == null || !sha.matches("[0-9a-fA-F]{64}")) { call.reject("The release has no checksum for its APK, so it can't be checked. Try again later."); return; }
         channel();
         String version = call.getString("version", "");
         String title = ("Downloading Somnium " + version).trim();
@@ -230,7 +237,7 @@ public class SomniumUpdaterPlugin extends Plugin {
                 StringBuilder hex = new StringBuilder();
                 for (byte b : md.digest()) hex.append(String.format("%02x", b));
                 if (GEN.get() != gen) throw new InterruptedException("closed");
-                if (sha != null && !sha.isEmpty() && !sha.equalsIgnoreCase(hex.toString())) {
+                if (!sha.equalsIgnoreCase(hex.toString())) {
                     out.delete();
                     if (GEN.compareAndSet(gen, gen + 1)) DOWNLOADING.set(false);
                     notice(ctx, "Update failed", "The download was damaged. Tap to try again.", 0, false);
@@ -254,6 +261,26 @@ public class SomniumUpdaterPlugin extends Plugin {
                 call.reject("Download failed: " + e.getMessage());
             }
         }).start();
+    }
+
+    /** Whether Android lets Somnium hand an APK to its installer ("Install unknown apps" for Somnium, Android 8+;
+     *  earlier versions ask nothing per app), so the page can explain it before opening that setting. */
+    @PluginMethod
+    public void canInstall(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("allowed", Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getContext().getPackageManager().canRequestPackageInstalls());
+        call.resolve(r);
+    }
+
+    /** Opens Android's "Install unknown apps" setting for Somnium (after the page has said why). */
+    @PluginMethod
+    public void allowInstall(PluginCall call) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Intent s = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+            s.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(s);
+        }
+        call.resolve();
     }
 
     @PluginMethod

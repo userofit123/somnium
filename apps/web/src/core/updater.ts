@@ -109,6 +109,8 @@ export function useAutoUpdate() {
       }
       if (!pending || !u.autoDownload || updater.downloading || Date.now() - lastFail < RETRY_GAP) return;
       if (u.wifiOnly && (await nat()?.metered?.().catch(() => null))?.metered) return;
+      // a guided timer is running (Android; the desktop holds its own notice and restart in main.ts): try again later
+      if (nat()?.held?.()) return;
       // a ready download of an older release gives way to the newer one
       if (updater.ready && updater.stagedVersion !== pending) updater.forget();
       // pending stays until the file is really downloaded, so a failed download is tried again (after the gap)

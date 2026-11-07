@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Nothing of the app is copied by Android's own backup (cloud or device-to-device): the journal's backups are
+         Somnium's (Documents/Somnium), and the phone's keys must stay on it. allowBackup covers cloud backup up to
+         Android 11, fullBackupContent says the same to Android 6-11, dataExtractionRules to 12+ (where allowBackup
+         alone still lets a device-to-device copy through). Plain http is never allowed (network_security_config.xml
+         says why, and what a server on the home network needs instead). requestLegacyExternalStorage: Android 10 lets
+         the backups into Documents/Somnium with the storage permission below; later versions ignore it. -->
     <application
         android:allowBackup="false"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:usesCleartextTraffic="false"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -64,8 +75,15 @@
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- the reminders' alarms are set again after the phone restarts -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- the alarm reminders' vibration before Android 8 (later the channel's setting) -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- comes with @capacitor/local-notifications (here only for asking the notification permission) in its own
+         manifest; Somnium's reminders never hold the phone awake themselves. Declared so it is on the list. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- backups into Documents/Somnium up to Android 10 (the Filesystem plugin asks for it there); from Android 11 an
+         app writes its own files in Documents without any permission -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <!-- installing updates downloaded from GitHub (sideloaded app; not for a Play Store build) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>

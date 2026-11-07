@@ -33,6 +33,9 @@ android {
     buildTypes {
         release {
             if (System.getenv("SOMNIUM_KEYSTORE")) signingConfig signingConfigs.release
+            // never a debuggable release (the WebView inspector and run-as would open the journal's storage)
+            debuggable false
+            jniDebuggable false
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

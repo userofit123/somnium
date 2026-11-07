@@ -14,12 +14,15 @@
         <item name="windowNoTitle">true</item>
         <item name="android:background">@null</item>
         <!-- until SomniumBarsPlugin clears the bars (or, before Android 6, the page sets the look's colour), they wear the default dark background, not black -->
-        <item name="android:statusBarColor">#17100d</item>
-        <item name="android:navigationBarColor">#17100d</item>
+        <item name="android:statusBarColor">#141233</item>
+        <item name="android:navigationBarColor">#141233</item>
     </style>
 
 
+    <!-- the launch screen: the Somnium icon on the default dark background. Android 12+ draws its own (the launcher
+         icon on windowSplashScreenBackground); earlier versions show splash.png -->
     <style name="AppTheme.NoActionBarLaunch" parent="Theme.SplashScreen">
         <item name="android:background">@drawable/splash</item>
+        <item name="windowSplashScreenBackground">#141233</item>
     </style>
 </resources>

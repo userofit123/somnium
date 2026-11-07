@@ -11,7 +11,13 @@ import fs from "node:fs";
 import path from "node:path";
 const root = path.resolve(import.meta.dirname, "../..");
 fs.rmSync("www", { recursive: true, force: true });
-fs.cpSync(path.join(root, "apps/web/dist"), "www", { recursive: true });
+// Only what the app runs: no source maps (they would ship the source and are of no use on a phone), no dotfiles or
+// editor and OS leftovers, and not the web app's service worker (main.ts never registers it inside the app, which
+// carries its own files). The manifest stays: index.html links it.
+const dist = path.join(root, "apps/web/dist");
+if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("apps/web/dist has no index.html: build the web app first");
+const skip = (name) => name.startsWith(".") || /\.map$/i.test(name) || /~$/.test(name) || /^(sw\.js|thumbs\.db|stats\.html)$/i.test(name);
+fs.cpSync(dist, "www", { recursive: true, filter: (src) => src === dist || !skip(path.basename(src)) });
 
 const file = path.join("www", "index.html");
 const html = fs.readFileSync(file, "utf8");
@@ -36,4 +42,12 @@ const csp = [
 // first thing in <head>, before the inline script it covers
 if (!/<head>/i.test(html)) throw new Error("index.html has no <head>");
 fs.writeFileSync(file, html.replace(/<head>/i, `<head>\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`));
+// and a sourceMappingURL left in a bundle would point at a file that isn't there: drop the comment
+for (const f of fs.readdirSync("www", { recursive: true })) {
+  const p = path.join("www", String(f));
+  if (!/\.(js|css)$/.test(p) || !fs.statSync(p).isFile()) continue;
+  const t = fs.readFileSync(p, "utf8");
+  const u = t.replace(/\n?\/[/*][#@] sourceMappingURL=\S+?(\s*\*\/)?\s*$/, "");
+  if (u !== t) fs.writeFileSync(p, u);
+}
 console.log("www ready (with its Content-Security-Policy)");

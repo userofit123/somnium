@@ -43,3 +43,26 @@ The repository has to be public for the apps to see new releases.
 - Desktop: to `Documents/Somnium Backups` (change it in Settings → Backup & restore).
 - Android: to `Documents/Somnium` on the phone.
 - Backups are encrypted files (`.somniumbackup`); see [import-export.md](import-export.md) for restoring and the other formats.
+
+## Android permissions
+
+Somnium asks only for what it uses:
+
+- **INTERNET**: reaching your own Somnium server, and the optional update check on GitHub's public releases.
+- **ACCESS_NETWORK_STATE**: tells whether the connection is metered, so "Only on Wi-Fi" update downloads can wait.
+- **POST_NOTIFICATIONS** (Android 13 and later, asked): reminders (reality checks, bedtime, WBTB, morning) and the update
+  download's progress. Notifications never contain dream text.
+- **SCHEDULE_EXACT_ALARM** (Android 12) / **USE_EXACT_ALARM** (13 and later): reminders on time while the phone sleeps.
+- **RECEIVE_BOOT_COMPLETED**: sets the reminders again after a restart, an app update or a clock change.
+- **VIBRATE**: the alarm reminders' vibration on older Android versions.
+- **WAKE_LOCK**: comes with the notifications library; Somnium's own reminders never keep the phone awake.
+- **READ/WRITE_EXTERNAL_STORAGE** (Android 10 and earlier only, asked): writing backups to Documents/Somnium.
+- **REQUEST_INSTALL_PACKAGES**: installing downloaded updates. Android asks once, Somnium explains why first, and every
+  install still needs your confirmation.
+
+Not used: location, camera, microphone (photos and voice notes use the system picker and recorder), contacts, accounts.
+Android's own cloud backup and device-to-device transfer copy nothing of the app; use Somnium's backups instead.
+
+**Your server over https only.** The Android app never uses plain http. A server on your home network needs an https
+certificate. If it comes from a private authority (Caddy's internal CA, mkcert), install that CA certificate on the
+phone: Settings → Security → Encryption & credentials → Install a certificate → CA certificate.

@@ -2,10 +2,21 @@
   "appId": "org.somnium.app",
   "appName": "Somnium",
   "webDir": "www",
-  "android": { "backgroundColor": "#141233" },
-  "server": { "androidScheme": "https" },
+  "loggingBehavior": "none",
+  "android": {
+    "backgroundColor": "#141233",
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  },
   "plugins": {
-    "CapacitorHttp": { "enabled": true },
-    "LocalNotifications": { "smallIcon": "ic_stat_somnium", "iconColor": "#a99cff" }
+    "CapacitorHttp": {
+      "enabled": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_somnium",
+      "iconColor": "#a99cff"
+    }
   }
 }

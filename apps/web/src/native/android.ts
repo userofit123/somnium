@@ -8,6 +8,7 @@ import { applyTheme } from "../core/theme";
 import { router } from "../router";
 import { notificationState, askNotificationPermission } from "./notifications";
 import { nativeAway, nativeBack } from "../core/lock";
+import { confirm } from "../core/ask";
 
 const cap = () => (globalThis as any).Capacitor;
 const P = (n: string) => cap()?.Plugins?.[n];
@@ -18,9 +19,11 @@ async function latestApk() {
   if (!r.ok) throw new Error("Could not reach GitHub");
   const j = await r.json();
   const manifest = j.assets?.find((a: any) => a.name === "android-latest.json");
-  const meta = manifest ? await (await fetchWithin(manifest.browser_download_url)).json() : null;
-  const apk = j.assets?.find((a: any) => a.name.endsWith(".apk"));
-  return { version: String(j.tag_name).replace(/^v/, ""), url: meta?.url ?? apk?.browser_download_url, sha256: meta?.sha256 ?? null, notes: j.body ?? "", html: j.html_url };
+  const meta = manifest ? await (await fetchWithin(manifest.browser_download_url)).json().catch(() => null) : null;
+  // the APK is only ever taken with its SHA-256 from android-latest.json (the plugin checks the file against it and
+  // refuses a download without one); a release without that file offers its notes, not a download
+  const sha256 = typeof meta?.sha256 === "string" && /^[0-9a-f]{64}$/i.test(meta.sha256) ? meta.sha256 : null;
+  return { version: String(j.tag_name).replace(/^v/, ""), url: typeof meta?.url === "string" ? meta.url : null, sha256, notes: j.body ?? "", html: j.html_url };
 }
 
 // The phone's own verification (SomniumLockPlugin, LDJ-9): the data key wrapped by a Keystore key that only works after
@@ -60,8 +63,13 @@ export function installAndroidBridge() {
   if (!isAndroid()) return;
   const info = P("App")?.getInfo?.();
   let staged: string | null = null;
+  // a guided timer is running (Train: useClock in useGuided.ts): nothing about an update interrupts it, as on the
+  // desktop. No download starts by itself (nor asks for the notification permission), and Install, which hands the
+  // screen to Android's installer and ends the app, waits until the timer has ended.
+  let guidedBusy = false;
   (globalThis as any).somniumNative = {
     platform: "android",
+    setBusy: async (busy: boolean) => { guidedBusy = busy === true; },
     deviceLock,
     // FLAG_SECURE, on unless allowed here: Android enforces it (screenshots, screen recording and the recents thumbnail)
     privacy: {
@@ -105,9 +113,10 @@ export function installAndroidBridge() {
       // download the APK, check its SHA-256, then hand it to Android's installer (one tap to confirm, Android's rule)
       async download(onProgress: (p: number, bytes?: number) => void) {
         const l = await latestApk();
+        if (!l.url || !l.sha256) throw new Error("This release has no checked Android download yet. Try again later.");
         // Android 13+ shows the download's notification only once allowed: ask now if it was never asked; a "no"
         // changes nothing, the download runs without it
-        if ((await notificationState()) === "prompt") await askNotificationPermission();
+        if (!guidedBusy && (await notificationState()) === "prompt") await askNotificationPermission();
         // p is the share done (0-1), or -1 when the size is unknown
         const h = await P("SomniumUpdater").addListener("progress", ({ loaded, total }: { loaded: number; total: number }) => onProgress(total > 0 ? loaded / total : -1, loaded));
         let res;
@@ -118,7 +127,24 @@ export function installAndroidBridge() {
       },
       // a newer release replaced the one that was ready: its file is deleted
       async forget() { staged = null; await P("SomniumUpdater")?.discard?.().catch(() => {}); },
-      async install() { if (staged) await P("SomniumUpdater").install({ path: staged }); },
+      async install() {
+        if (!staged) return;
+        if (guidedBusy) throw new Error("Install once the timer has ended");
+        // Android 8+ asks once whether Somnium may install apps: say why before its settings screen opens
+        const can = await P("SomniumUpdater").canInstall?.().catch(() => null);
+        if (can && !can.allowed) {
+          const go = await confirm("Allow installing updates", {
+            text: "Somnium is installed from GitHub, not a store, so Android asks whether it may install its own updates. On the next screen, switch on \"Allow from this source\", then come back and tap Install again. Android still asks you to confirm every update.",
+            ok: "Open settings",
+            no: "Not now",
+          });
+          if (go) await P("SomniumUpdater").allowInstall();
+          return;
+        }
+        await P("SomniumUpdater").install({ path: staged });
+      },
+      // a guided timer is running: automatic downloads wait (core/updater.ts)
+      held: () => guidedBusy,
       // mobile data or another metered connection: "Only on Wi-Fi" downloads wait
       // Android can always tell
       async metered(): Promise<{ metered: boolean; known: boolean }> { return { metered: !!(await P("SomniumUpdater")?.metered?.().catch(() => null))?.metered, known: true }; },

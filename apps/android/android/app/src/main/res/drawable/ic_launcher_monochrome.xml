@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 13+ themed icon: the launcher tints this one-colour moon and eye (the notification icon's shape). Inset to
+     54dp of the 108dp adaptive canvas, inside its 66dp safe circle, so no mask cuts it. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/ic_stat_somnium"
+    android:inset="27dp" />

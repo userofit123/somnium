@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Every connection is encrypted: no plain http, to anywhere (a journal's password and sealed data must never cross a
+     network in the clear, not even a home one). A server on the home network (LAN) is reached over https too; its
+     certificate may come from a private authority (Caddy's internal CA, mkcert) that the person installed on the phone
+     (Settings → Security → Encryption → Install a certificate → CA certificate), so user-installed authorities are
+     trusted besides the system's. Nothing else is needed for a LAN server, and nothing else is allowed. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
