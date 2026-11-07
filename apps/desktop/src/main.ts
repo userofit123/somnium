@@ -135,11 +135,13 @@ async function openAccount(id: string) {
 const ALLOW_SCREENSHOTS = path.join(USER, "allow-screenshots.txt");
 const screenshotsAllowed = () => fs.existsSync(ALLOW_SCREENSHOTS);
 
-// LDJ-10: unlocking with the device isn't built here. WebAuthn refuses the app's http://127.0.0.1 address, and
+// LDJ-10, decided: no device verification and no device key here. WebAuthn refuses the app's http://127.0.0.1 address, and
 // safeStorage alone is not verification: it decrypts for anyone using the signed-in computer, without asking for
 // anything (and on Linux it may have no real keyring behind it, see safeStorage.getSelectedStorageBackend). Keeping the data key
 // in it would make the lock screen's button open the journal for whoever clicks. It needs a real prompt in front of it
-// (systemPreferences.promptTouchID on macOS, Windows Hello on Windows). Until then the desktop app unlocks with the password.
+// (systemPreferences.promptTouchID on macOS; Windows Hello has no Electron API, and Linux has nothing to ask), so the
+// desktop app unlocks with the password and never holds a device key: it can't set a new password without the old one
+// (docs/security.md, Settings → Security say so).
 function makeWindow(part?: Electron.Session) {
   const w = new BrowserWindow({
     width: 1400, height: 900, minWidth: 380, minHeight: 600, backgroundColor: "#17100d", show: false, autoHideMenuBar: true, title: "Somnium",
@@ -375,7 +377,7 @@ ipcMain.handle("update:metered", () => new Promise<{ metered: boolean; known: bo
   else done({ metered: false, known: false });
 }));
 
-// ----- reality check reminders (PLAN.md §9) -----
+// ----- reality check and night reminders (PLAN.md §9) -----
 // The page works out the plan (packages/shared/src/reminders.ts, the same for every device) and sends it here with the
 // words; the main process keeps the timers, so a reminder comes while the window is minimised, hidden or behind others.
 // Closing the window quits the app (as Motus does: no tray), and with it the reminders. A tap brings the window back on
@@ -384,6 +386,8 @@ ipcMain.handle("update:metered", () => new Promise<{ metered: boolean; known: bo
 let rcTimers: ReturnType<typeof setTimeout>[] = [];
 const rcShown = new Set<Notification>(); // held: a notification that is garbage-collected loses its click
 const LATE = 15 * 60_000, AHEAD = 3 * 86_400_000;
+// the pages a reminder may open: /check, the WBTB guide, Train (bedtime, practice), the journal's morning entry (LDJ-30)
+const ALLOWED_URL = /^\/(check(\?[\w=&%.-]*)?|train(\?guided=up)?|journal\?(write=1&date=|norecall=)\d{4}-\d{2}-\d{2})$/;
 function showReminder(r: { at: number; title: string; body: string; url: string }) {
   if (!Notification.isSupported() || Date.now() - r.at > LATE) return; // the computer slept through it: skipped, not late
   const n = new Notification({ title: r.title, body: r.body, icon: path.join(__dirname, "icon.png") });
@@ -399,7 +403,7 @@ ipcMain.handle("reminders:setPlan", (_e, items: unknown) => {
   const now = Date.now();
   for (const it of items.slice(0, 200)) {
     if (!it || typeof it.at !== "number" || typeof it.title !== "string" || typeof it.body !== "string" || typeof it.url !== "string") continue;
-    if (!(it.url.startsWith("/check") || it.url === "/train?guided=up") || it.at < now - 60_000 || it.at > now + AHEAD) continue;
+    if (!ALLOWED_URL.test(it.url) || it.at < now - 60_000 || it.at > now + AHEAD) continue;
     const r = { at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url };
     rcTimers.push(setTimeout(() => showReminder(r), Math.max(0, r.at - now)));
   }

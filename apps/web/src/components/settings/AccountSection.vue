@@ -39,7 +39,8 @@ async function saveMe(patch: { displayName?: string; email?: string }) {
 
 // every place this account is signed in; API tokens are listed under Integrations, not here
 const sessions = useQuery({ queryKey: ["settings", "sessions"], queryFn: () => api.get("/auth/sessions"), enabled: computed(() => localAccount.value === false) });
-type Session = { id: string; deviceName?: string; platform?: string; current?: boolean; lastSeenAt?: string; createdAt?: string };
+// holdsKey: that sign-in keeps the journal's key behind its own screen lock (LDJ-10), so it can set a new password
+type Session = { id: string; deviceName?: string; platform?: string; current?: boolean; lastSeenAt?: string; createdAt?: string; holdsKey?: boolean };
 const devices = computed(() => ((sessions.data.value ?? []) as Session[]).filter((x) => x.platform !== "api").sort((a, b) => Number(b.current) - Number(a.current)));
 const others = computed(() => devices.value.filter((x) => !x.current).length);
 const icon = (x: Session) => (x.platform === "android" || /Android|iPhone/.test(x.deviceName ?? "") ? "device" : "server");
@@ -117,7 +118,7 @@ async function deleteAccount() {
     <div class="card flush">
       <div v-for="x in devices" :key="x.id" class="li"><Icon :name="icon(x)" :size="18" class="muted" />
         <div class="grow"><div class="t">{{ x.deviceName || x.platform }}</div>
-          <div class="s">{{ x.current ? "This device · active now" : `Last active ${ago(x.lastSeenAt)} · signed in ${fmt.date(x.createdAt, { day: "numeric", month: "short", year: "numeric" })}` }}</div></div>
+          <div class="s">{{ (x.current ? "This device · active now" : `Last active ${ago(x.lastSeenAt)} · signed in ${fmt.date(x.createdAt, { day: "numeric", month: "short", year: "numeric" })}`) + (x.holdsKey ? " · holds your key" : "") }}</div></div>
         <button v-if="!x.current" class="qb" @click="endSession(x.id)">Sign out</button></div>
     </div>
   </template>

@@ -9,11 +9,12 @@ export interface Settings {
   clock: "24" | "12";
   features: Record<string, boolean>;
   notifications: { updates: boolean };
-  backup: { on: boolean; every: "daily" | "weekly"; at: string; keep: number; encrypt: boolean; media: boolean };
+  backup: { on: boolean; every: "daily" | "weekly"; at: string; keep: number; /** encrypt: the old password-encrypted backups, no longer read; passphrase: wrap backups made by hand with an extra passphrase (LDJ-35) */
+    encrypt?: boolean; passphrase: boolean; media: boolean };
   updates: { autoCheck: boolean; autoDownload: boolean; wifiOnly: boolean };
   layout: "auto" | "desktop" | "phone";
   /** Usual times (HH:MM): reality check reminders run from wake + 1 h to bedtime - 1 h (PLAN.md §9). */
-  sleep: { bedtime: string; wake: string };
+  sleep: { bedtime: string; wake: string; /** Minutes, 60-120. */ cycle: number };
   /** Learn: reading progress and "Where am I" answers. No dream content, so these sync in the clear. */
   learn: {
     /** Article id to the ISO date it was read to the end. */
@@ -33,10 +34,10 @@ export const DEFAULT_SETTINGS: Settings = {
   clock: "24",
   features: FEATURE_DEFAULTS,
   notifications: { updates: true },
-  backup: { on: true, every: "daily", at: "03:00", keep: 14, encrypt: true, media: true },
+  backup: { on: true, every: "daily", at: "03:00", keep: 7, passphrase: false, media: true },
   updates: { autoCheck: true, autoDownload: true, wifiOnly: false },
   layout: "auto",
-  sleep: { bedtime: "23:00", wake: "07:00" },
+  sleep: { bedtime: "23:00", wake: "07:00", cycle: 90 },
   learn: { read: {}, last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
 };

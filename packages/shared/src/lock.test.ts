@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
+import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, devicePath, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
 
 const T0 = 1_000_000;
 const cfg = (delayMs = 0, idleMs = 600_000): LockSettings => ({ delayMs, idleMs });
@@ -252,5 +252,25 @@ describe("app lock", () => {
     it("shows the wait plainly, never as nothing while still waiting", () => {
       expect([1, 999, 60_000, 299_001, 3_600_000, 0].map(formatWait)).toEqual(["0:01", "0:01", "1:00", "5:00", "1:00:00", "0:00"]);
     });
+  });
+});
+
+describe("device verification path (LDJ-9)", () => {
+  it("uses the Keystore in the Android app, WebAuthn in a browser, and the password otherwise", () => {
+    expect(devicePath({ native: true, held: true, hasBlob: true })).toBe("android");
+    // the Android app never falls back to a WebAuthn credential, even one left in storage
+    expect(devicePath({ native: true, cred: true })).toBe("password");
+    // the record says on, but the blob went (the Keystore key ended, or the account signed out): the password
+    expect(devicePath({ native: true, held: true, hasBlob: false })).toBe("password");
+    expect(devicePath({ native: false, cred: true })).toBe("webauthn");
+    expect(devicePath({ native: false, held: true, hasBlob: true })).toBe("password");
+    expect(devicePath({ native: true, held: true, hasBlob: true, off: true })).toBe("password");
+    expect(devicePath({ native: false, cred: true, off: true })).toBe("password");
+    expect(devicePath({ native: false })).toBe("password");
+  });
+  it("counts what the phone answers like the browser: a blob that doesn't open counts, a cancelled prompt or a notice never", () => {
+    const named = (name: string) => Object.assign(new Error(name), { name });
+    expect(deviceFailureCounts(named("SealError"))).toBe(true);
+    for (const n of ["NotAllowedError", "DeviceNotice", "Error"]) expect(deviceFailureCounts(named(n))).toBe(false);
   });
 });

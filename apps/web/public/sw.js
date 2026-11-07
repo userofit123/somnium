@@ -36,14 +36,16 @@ self.addEventListener("activate", (e) => e.waitUntil((async () => {
 // the button in its address, and does it once started.
 self.addEventListener("notificationclick", (e) => {
   e.notification.close();
-  const url = e.notification.data?.url ?? "/";
+  // a button with a page of its own (the morning's "No recall", the WBTB alarm's "I'm up") is opened like a tap
+  const own = e.action ? e.notification.data?.actions?.[e.action] : null;
+  const url = (typeof own === "string" && own.startsWith("/") ? own : null) ?? e.notification.data?.url ?? "/";
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const c = all.find((x) => new URL(x.url).origin === location.origin);
-    if (e.action && c) { c.postMessage({ somniumAction: e.action }); return; }
+    if (e.action && !own && c) { c.postMessage({ somniumAction: e.action }); return; }
     if (c) { await c.focus(); c.navigate?.(url).catch?.(() => {}); return; }
     const open = new URL(url, location.origin);
-    if (e.action) open.searchParams.set("somniumAction", e.action);
+    if (e.action && !own) open.searchParams.set("somniumAction", e.action);
     await self.clients.openWindow(open.pathname + open.search);
   })());
 });

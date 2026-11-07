@@ -1,11 +1,12 @@
 // Inside the Android app (Capacitor): accounts, backups to a folder on the phone, the in-app updater, the system bars'
 // colours, and the back button. Exposed as window.somniumNative, like the desktop app.
-import { accounts, addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser, localKeys, setLocalKeys, compactLocal } from "./accounts";
+import { accounts, addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser, localKeys, setLocalKeys, compactLocal, current, deviceBlob, setDeviceBlob, forgetDeviceBlobsOf } from "./accounts";
 import { sheetIsOpen, closeTopSheet } from "../core/sheets";
 import { REPO, newer, fetchWithin } from "../core/releases";
 import { applyTheme } from "../core/theme";
 import { router } from "../router";
 import { notificationState, askNotificationPermission } from "./notifications";
+import { nativeAway, nativeBack } from "../core/lock";
 
 const cap = () => (globalThis as any).Capacitor;
 const P = (n: string) => cap()?.Plugins?.[n];
@@ -21,16 +22,56 @@ async function latestApk() {
   return { version: String(j.tag_name).replace(/^v/, ""), url: meta?.url ?? apk?.browser_download_url, sha256: meta?.sha256 ?? null, notes: j.body ?? "", html: j.html_url };
 }
 
+// The phone's own verification (SomniumLockPlugin, LDJ-9): the data key wrapped by a Keystore key that only works after
+// the fingerprint, face or screen lock. The wrapped blob is kept in the open account's record. Errors come back named
+// for the lock screen: NotAllowedError for a cancelled prompt (never counted), SealError when the blob didn't open
+// (counted like a wrong password), DeviceNotice with a message to show (locked out for now, or the key ended because
+// the phone's screen lock or fingerprints changed: then the blob is dropped and the password is the way in).
+const LOCK = () => P("SomniumLock");
+const named = (name: string, message: string) => Object.assign(new Error(message), { name });
+function lockError(e: any): Error {
+  const code = e?.code, message = String(e?.message ?? e ?? "");
+  if (code === "cancelled") return named("NotAllowedError", "Verification was cancelled");
+  if (code === "wrong") return named("SealError", "This phone couldn't open your journal");
+  if (code === "invalidated") { try { setDeviceBlob(null); } catch {} return named("DeviceNotice", message); }
+  if (code === "lockout" || code === "unavailable") return named("DeviceNotice", message);
+  return named("Error", message || "This phone couldn't use its key");
+}
+const accountId = () => { const id = current()?.id; if (!id) throw new Error("No account is open"); return id; };
+const deviceLock = {
+  async available(): Promise<boolean> { return !!(await LOCK()?.available?.().catch(() => null))?.available; },
+  has: () => !!deviceBlob(),
+  /** dataKey and the answer: base64url. The data key is only in the plugin's hands for the call. */
+  async wrap(dataKey: string): Promise<void> {
+    let r; try { r = await LOCK().wrap({ id: accountId(), dataKey }); } catch (e) { throw lockError(e); }
+    setDeviceBlob(r.blob);
+  },
+  async unwrap(): Promise<string> {
+    const blob = deviceBlob();
+    if (!blob) throw named("DeviceNotice", "This phone doesn't hold your key any more. Use your password.");
+    try { return (await LOCK().unwrap({ id: accountId(), blob })).dataKey; } catch (e) { throw lockError(e); }
+  },
+  async forget(): Promise<void> { if (current()) setDeviceBlob(null); },
+  forgetFor: forgetDeviceBlobsOf,
+};
+
 export function installAndroidBridge() {
   if (!isAndroid()) return;
   const info = P("App")?.getInfo?.();
   let staged: string | null = null;
   (globalThis as any).somniumNative = {
     platform: "android",
+    deviceLock,
+    // FLAG_SECURE, on unless allowed here: Android enforces it (screenshots, screen recording and the recents thumbnail)
+    privacy: {
+      canAskSystem: true,
+      screenshotsAllowed: async () => !!(await LOCK()?.screenshotsAllowed?.().catch(() => null))?.allowed,
+      setScreenshotsAllowed: async (allowed: boolean) => !!(await LOCK()?.setScreenshotsAllowed?.({ allowed }))?.allowed,
+    },
     accounts: {
       // what the screens may see: never a token or another account's keys
-      list: async () => ({ list: accounts.list.map(({ token, keys, ...a }) => a), active: accounts.active, servers: accounts.servers.map((s) => ({ ...s })) }),
-      current: async () => { const a = accounts.list.find((x) => x.id === accounts.active); if (!a) return null; const { keys, token, ...rest } = a; return rest; },
+      list: async () => ({ list: accounts.list.map(({ token, keys, deviceKey, ...a }) => a), active: accounts.active, servers: accounts.servers.map((s) => ({ ...s })) }),
+      current: async () => { const a = accounts.list.find((x) => x.id === accounts.active); if (!a) return null; const { keys, token, deviceKey, ...rest } = a; return rest; },
       addLocal, addServer, addAccount, open, remove, removeAccount, removeServer, rename, renameServer, setServerAddress, setStatus, chooser,
       device: "phone", insecureAllowed: false,
       keys: localKeys, setKeys: setLocalKeys, compact: compactLocal,
@@ -80,6 +121,10 @@ export function installAndroidBridge() {
   // the hardware back button closes an open sheet, goes back in the app, and leaves it from the home page
   // a tap on the update download's notification names a page (App & Versions): open it
   P("SomniumUpdater")?.addListener?.("open", ({ path }: { path?: string }) => { if (typeof path === "string" && path.startsWith("/")) void router.push(path); });
+  // leaving the app and coming back, from the activity itself (SomniumLockPlugin): the page's lock waits out the delay
+  // from the moment the app began to leave. The page's own visibility events say the same, so nothing is counted twice.
+  P("SomniumLock")?.addListener?.("away", ({ at }: { at?: number }) => nativeAway(typeof at === "number" ? at : Date.now()));
+  P("SomniumLock")?.addListener?.("back", () => nativeBack());
   P("App")?.addListener?.("backButton", ({ canGoBack }: { canGoBack: boolean }) => { if (sheetIsOpen()) closeTopSheet(); else if (canGoBack && location.pathname !== "/") history.back(); else P("App").minimizeApp?.(); });
   // the page runs behind clear status and navigation bars (SomniumBarsPlugin), so its own background shows under the
   // clock and beside a side bar; it pads itself by the bars' sizes (--nst / --nsb / --nsl / --nsr, used by --st / --sb /

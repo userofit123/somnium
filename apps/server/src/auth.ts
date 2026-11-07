@@ -277,9 +277,9 @@ export async function useBackupCode(db: Db, userId: string, typed: unknown): Pro
 
 /** A one-time reset code for an account whose password is lost (PLAN.md §4.4, admin only): valid for a day. The
  *  journal stays sealed: the code only lets the person set a new password (new authKey, no wrapped data key). */
-// It promises only the recovery key: a reset signs out every device and each forgets the data key, so "a device that
-// is still signed in" cannot open it yet. Device-held keys (Keystore / safeStorage) are LDJ-10; when they let a device
-// re-wrap after a reset, widen this sentence and its copies (AuthScreen, AdminSection, cli.ts, LockScreen, docs).
+// It promises only the recovery key: a reset signs out every device, and signing out forgets the key a device held
+// (LDJ-10, by design: a device signed out after a loss must not keep a way in), so no device can re-wrap after a reset.
+// Device keys are the way back while still signed in (Settings → Security → Set a new password).
 export const RESET_MESSAGE = "Your password is set. Your journal stays sealed until you enter your recovery key.";
 export async function issueResetCode(db: Db, userId: string): Promise<string> {
   const code = newCode();

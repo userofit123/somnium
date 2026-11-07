@@ -4,7 +4,7 @@
 // the "Can you get back in?" checklist, each row read from the real state, never assumed. The app lock's rows (PLAN.md §4.3) are here too: its delay can
 // change, but no row turns it off. Device verification wraps the data key when set up; nothing else here touches it.
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
-import { LOCK_DELAYS, LOCK_IDLE_TIMES } from "@somnium/shared";
+import { LOCK_DELAYS, LOCK_IDLE_TIMES, PASSWORD_MIN, passwordProblem } from "@somnium/shared";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
 import { useMe, useSettings } from "../../api/queries";
@@ -12,17 +12,18 @@ import { useRouter } from "vue-router";
 import { keyring } from "../../core/keyring";
 import { lockNow } from "../../core/lock";
 import { downloadRecoveryKey, makeRecoveryKey } from "../../core/recovery";
-import { prompt } from "../../core/ask";
+import { prompt, confirm } from "../../core/ask";
 import { toast, toastError } from "../../core/toast";
 import { useFmt } from "../../core/format";
 import { authKeyFor } from "../../core/auth";
 import { qrPath, keyGroups } from "../../core/qr";
-import { isLocalAccount } from "../../core/session";
+import { isLocalAccount, signOut } from "../../core/session";
 import { checkLocalPassword, localKeys, makeLocalRecoveryKey } from "../../core/localLock";
 import type { LocalKeys } from "@somnium/shared";
 import { backupLog, folderName } from "../../core/backup";
 import { lock, setLockSettings, whileVerifying } from "../../core/lock";
-import { deviceStatus, deviceVerifierExists, setUpDevice, turnDeviceOff } from "../../core/unlock";
+import { deviceStatus, deviceVerifierExists, nativeLock, setUpDevice, turnDeviceOff } from "../../core/unlock";
+import { deviceCanSetPassword, setPasswordFromDevice } from "../../core/deviceKey";
 import AppSelect from "../AppSelect.vue";
 import Icon from "../Icon.vue";
 
@@ -36,7 +37,7 @@ const sec = useQuery({ queryKey: ["settings", "security"], queryFn: () => api.ge
 const totp = computed(() => !!sec.data.value?.totpEnabled);
 const settings = useSettings();
 const router = useRouter();
-type Session = { id: string; platform: string; current: boolean };
+type Session = { id: string; platform: string; current: boolean; holdsKey?: boolean };
 const sessions = useQuery({ queryKey: ["settings", "sessions"], queryFn: () => api.get<Session[]>("/auth/sessions"), enabled: computed(() => localAccount.value === false) });
 
 // ----- the recovery key: made here, shown once, then only its hash and the wrapped key are on the server -----
@@ -67,9 +68,11 @@ async function makeLocalKey() {
 function keySavedDone() { recoveryKey.value = null; toast("Recovery key saved"); }
 
 // ----- "Can you get back in?" (PLAN.md §4.4) -----
-// Other devices are listed but are not a way back in yet: every device locks and asks for the password, none keeps the
-// data key, and recovery signs them out. Once a signed-in device can re-wrap the key (LDJ-10), this row can count.
+// A signed-in device is a way back in only when it holds the data key (LDJ-10: the Android app with device verification
+// on; the server's holds_key flag, set with the key proof). Others lock and ask for the password, so they don't count.
+// A reset or "sign out everywhere" signs them out, and signing out forgets the key, so this is only while signed in.
 const otherDevices = computed(() => (sessions.data.value ?? []).filter((x) => !x.current && x.platform !== "api").length);
+const keyDevices = computed(() => (sessions.data.value ?? []).filter((x) => x.holdsKey).length);
 // The backup row says what actually happened, not what the switch says: automatic backups skip sealed ones (they need
 // the password) and, in a plain browser, run only into a picked folder (core/backup.ts maybeAutoBackup). Reworking
 // backups is LDJ-35; this only reads the log this device keeps.
@@ -84,8 +87,8 @@ const backupRow = computed(() => {
   const last = lastAt ? `Last one ${fmt.value.date(lastAt, { day: "numeric", month: "short", year: "numeric" })}` : "No backup yet";
   if (!b.on) return { ok: recent, s: `${last} · automatic backups are off`, action: "Turn on" };
   if (recent) return { ok: true, s: `${last} · every ${b.every === "weekly" ? "week" : "day"}`, action: "" };
-  const missing = b.encrypt ? "sealed backups need your password, so make one in Backup"
-    : !nativeBackups && !capacitorApp && !backupFolder.value ? "needs a folder" : "";
+  // backups run while the journal is unlocked; in a browser without a picked folder they can't run on their own
+  const missing = !nativeBackups && !capacitorApp && !backupFolder.value ? "needs a folder" : "";
   return { ok: false, s: missing ? `${last} · ${missing}` : last, action: "Backup" };
 });
 const checks = computed(() => {
@@ -94,8 +97,9 @@ const checks = computed(() => {
     { key: "recovery", ok: !!s?.recoveryMadeAt, t: "Recovery key saved",
       s: s?.recoveryMadeAt ? `Made ${fmt.value.date(s.recoveryMadeAt, { day: "numeric", month: "short", year: "numeric" })}` : "Not made yet - without it a forgotten password locks your journal for good",
       action: s?.recoveryMadeAt ? "Replace" : "Make key", run: makeKey, disabled: !journalOpen.value },
-    { key: "devices", ok: false, info: true, t: "Other devices signed in",
-      s: otherDevices.value ? `${otherDevices.value} other ${otherDevices.value === 1 ? "device" : "devices"} · each locks and asks for your password, so they don't help if you forget it` : "Only this one",
+    { key: "devices", ok: keyDevices.value > 0, info: keyDevices.value === 0, t: "A device that holds your key",
+      s: keyDevices.value ? `${keyDevices.value === 1 ? "One device holds" : `${keyDevices.value} devices hold`} your key · it can set a new password if you forget yours`
+        : otherDevices.value ? `${otherDevices.value} other ${otherDevices.value === 1 ? "device" : "devices"} · none holds your key, so they don't help if you forget your password` : "None · the Android app with device verification on holds it",
       action: "Devices", run: () => router.push("/settings/account"), disabled: false },
     { key: "codes", ok: totp.value && left > 0, t: "Backup codes saved",
       s: !totp.value ? "Two-factor sign-in is off, so there are none" : left ? `${left} of 8 left` : "None left - make new ones",
@@ -147,9 +151,13 @@ const device = ref(deviceStatus());
 const deviceExists = ref(false);
 onMounted(async () => { deviceExists.value = await deviceVerifierExists(); });
 const isApp = !!(globalThis as { somniumNative?: unknown }).somniumNative;
+// the Android app (SomniumLock, Keystore); the desktop app has none: safeStorage can't make the computer ask for you
+const nativeDevice = !!nativeLock();
 const deviceText = computed(() => {
-  if (device.value.on) return "On - your fingerprint, face or screen lock opens the app";
-  if (isApp) return "Not available in this app yet - it unlocks with your password";
+  if (device.value.on) return nativeDevice ? "On - your fingerprint, face or screen lock opens the app, and this phone holds your key" : "On - your fingerprint, face or screen lock opens the app";
+  if (nativeDevice && !deviceExists.value) return "This phone has no screen lock, so the app unlocks with your password";
+  if (nativeDevice) return "Off - it unlocks with your password";
+  if (isApp) return "Not in the desktop app: it can't make your computer ask for you, so it unlocks with your password";
   if (!deviceExists.value) return "This device has no verification a browser can use, so it unlocks with your password";
   if (device.value.noPrf) return "This device can confirm it is you but can't keep the key safe, so it unlocks with your password";
   return "Off - it unlocks with your password";
@@ -162,7 +170,26 @@ async function deviceOn() {
   } catch (e) { toastError((e as Error)?.name === "NotAllowedError" ? new Error("Verification was cancelled") : e); }
   finally { busy.value = false; device.value = deviceStatus(); }
 }
-function deviceOff() { turnDeviceOff(); device.value = deviceStatus(); toast("Device verification is off"); }
+function deviceOff() { turnDeviceOff(); device.value = deviceStatus(); toast("Device verification is off"); sessions.refetch(); }
+
+// ----- a new password without the old one (LDJ-10): this phone holds the key and its prompt is the proof -----
+const canSetFromDevice = computed(() => device.value.on && deviceCanSetPassword());
+async function newPasswordFromDevice() {
+  const next = await prompt("Set a new password", { text: `Your phone confirms it is you, so your old password isn't needed. At least ${PASSWORD_MIN} characters.`, secret: true, autocomplete: "new-password" }); if (!next) return;
+  const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
+  if (again !== next) { toastError(new Error("The passwords don't match")); return; }
+  const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
+  // two-factor still applies: the code is asked first, so the phone's prompt comes only once
+  let code: string | undefined;
+  if (!localAccount.value && totp.value) { code = (await prompt("Two-factor code", { text: "The code from your authenticator app, or a backup code.", placeholder: "123456" })) ?? ""; if (!code) return; }
+  busy.value = true;
+  try {
+    await whileVerifying(() => setPasswordFromDevice(next, code));
+    toast(localAccount.value ? "Password set" : "Password set. Other devices were signed out.");
+    if (!localAccount.value) { void sec.refetch(); void sessions.refetch(); }
+  } catch (e) { toastError((e as Error)?.name === "NotAllowedError" ? new Error("Verification was cancelled") : e); }
+  finally { busy.value = false; }
+}
 
 // the desktop app only: asks the system to leave the window out of screenshots, on by default. Linux has no such request
 // (Electron's setContentProtection does nothing there), so the row isn't offered, and a capture tool can ignore it anywhere.
@@ -178,6 +205,11 @@ function download() {
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: "somnium-backup-codes.txt" });
   a.click(); URL.revokeObjectURL(a.href);
 }
+// every device this account is signed in on, this one too; the journal stays sealed on each until it signs in again
+async function signOutEverywhere() {
+  if (!(await confirm("Sign out everywhere?", { text: "Every device signed in to this account, including this one, will need the password again.", ok: "Sign out everywhere", danger: true }))) return;
+  try { await api.post("/auth/logout-others"); await signOut(); } catch (e) { toastError(e); }
+}
 </script>
 
 <template>
@@ -186,10 +218,10 @@ function download() {
   <div class="card flush">
     <div class="li"><div class="grow"><div class="t">Lock after leaving the app</div></div><AppSelect :model-value="lock.settings.delayMs" :options="delays" title="Lock after leaving the app" @change="setLockSettings({ delayMs: $event })" /></div>
     <div class="li"><div class="grow"><div class="t">Lock when idle for</div></div><AppSelect :model-value="lock.settings.idleMs" :options="idles" title="Lock when idle for" @change="setLockSettings({ idleMs: $event })" /></div>
-    <div v-if="localAccount === false" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Device verification</div><div class="s">{{ deviceText }}</div></div>
+    <div v-if="localAccount === false || (localAccount && nativeDevice)" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Device verification</div><div class="s">{{ deviceText }}</div></div>
       <button v-if="device.on" class="qb" @click="deviceOff">Turn off</button>
-      <button v-else-if="!isApp && deviceExists && !device.noPrf" class="qb" :disabled="busy" @click="deviceOn">Turn on</button></div>
-    <div v-if="privacy?.canAskSystem" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : "Asks the system to leave this window out of screenshots and screen sharing. Some capture tools may ignore this." }}</div></div>
+      <button v-else-if="(!isApp || nativeDevice) && deviceExists && !device.noPrf" class="qb" :disabled="busy" @click="deviceOn">Turn on</button></div>
+    <div v-if="privacy?.canAskSystem" class="li"><div class="grow"><div class="t">Screenshots</div><div class="s">{{ screenshots ? "Allowed" : nativeDevice ? "Blocked - screenshots, screen recording and the recent apps preview stay blank" : "Asks the system to leave this window out of screenshots and screen sharing. Some capture tools may ignore this." }}</div></div>
       <button class="qb" @click="toggleScreenshots">{{ screenshots ? "Ask to block" : "Allow" }}</button></div>
   </div>
   <template v-if="localAccount">
@@ -199,6 +231,8 @@ function download() {
       <div class="li"><Icon :name="localInfo?.recoveryMadeAt ? 'check' : 'info'" :size="18" :class="localInfo?.recoveryMadeAt ? 'sec-ok' : 'muted'" />
         <div class="grow"><div class="t">Recovery key saved</div><div class="s">{{ localInfo?.recoveryMadeAt ? `Made ${fmt.date(localInfo.recoveryMadeAt, { day: "numeric", month: "short", year: "numeric" })}` : "Not made yet - without it a forgotten password locks your journal for good" }}</div></div>
         <button class="qb" :class="{ acc: !localInfo?.recoveryMadeAt }" :disabled="!journalOpen || busy" @click="makeLocalKey">{{ localInfo?.recoveryMadeAt ? "Replace" : "Make key" }}</button></div>
+      <div v-if="canSetFromDevice" class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Set a new password</div><div class="s">Forgot it? This phone holds your key, so its screen lock is enough</div></div>
+        <button class="qb" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
     </div>
     <p class="tiny">Your dreams and notes are kept sealed in this device's database: a copy of its files holds no dream text without your password. Dates, counts and ratings stay plain, as on a server. While the journal is open, the key is in the app's memory, and it goes when the app locks.</p>
     <div v-if="recoveryKey" class="card sec-codes">
@@ -267,10 +301,17 @@ function download() {
     <div class="sh"><h2>Password</h2></div>
     <div class="card flush">
       <div class="li"><div class="grow"><div class="t">Last changed</div><div class="s">{{ sec.data.value?.passwordChangedAt ? fmt.date(sec.data.value.passwordChangedAt, { day: "numeric", month: "short", year: "numeric" }) : "-" }} · change it under Account</div></div></div>
+      <div v-if="canSetFromDevice && !sec.data.value?.sealed" class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Set a new password</div><div class="s">Forgot it? This phone holds your key, so its screen lock is enough. Other devices are signed out.</div></div>
+        <button class="qb" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
       <div v-if="sec.data.value?.sealed" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Your journal is sealed</div><div class="s">The password was reset, so this device cannot open your dreams. Your recovery key opens them again.</div></div>
         <button class="qb" :class="{ acc: primary === 'sealed' }" @click="lockNow()">Enter recovery key</button></div>
     </div>
-    <p class="tiny">The server only ever sees a key made from your password, never the password itself. Your dreams are sealed on this device before they go anywhere.</p>
+    <p class="tiny">The server only ever sees a key made from your password, never the password itself. Your dreams are sealed on this device before they go anywhere. A phone with device verification on keeps your journal's key behind its own screen lock; signing it out (or a password reset, which signs out every device) makes it forget the key. The desktop app never holds it: it can't make your computer ask for you.</p>
+    <div class="sh"><h2>Sign out everywhere</h2></div>
+    <div class="card flush">
+      <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too. Use it if a device is lost.</div></div><button class="qb" @click="signOutEverywhere">Sign out everywhere</button></div>
+      <div class="li click" @click="router.push('/settings/log')"><div class="grow"><div class="t">Activity log</div><div class="s">Sign-ins and security changes</div></div><Icon name="right" :size="16" class="muted" /></div>
+    </div>
   </template>
 </template>
 

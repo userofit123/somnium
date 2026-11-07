@@ -7,8 +7,8 @@
 //   this device   Keystore / safeStorage key         → wrappedByDevice     (stays on the device)
 //
 // Changing the password or making a new recovery key re-wraps the data key; the sealed journal is untouched.
-import { fromBase64url, toBase64url } from "./bytes";
-import { deriveKeys, newSalt } from "./kdf";
+import { fromBase64url, toBase64url, utf8 } from "./bytes";
+import { deriveKeys, hkdf, newSalt } from "./kdf";
 import { newDataKey, unwrapKey, wrapKey } from "./keys";
 import { deriveRecoveryKeys, newRecoveryKey } from "./recovery";
 
@@ -64,3 +64,12 @@ export async function openWithRecoveryKey(bundle: RecoveryBundle, typedKey: stri
  *  app can unlock with the device's screen lock and a signed-in device can set a new password (PLAN.md §4.4). */
 export const wrapForDevice = (dataKey: Uint8Array, deviceKek: Uint8Array): Promise<string> => wrapKey(dataKey, deviceKek);
 export const openWithDevice = (wrappedByDevice: string, deviceKek: Uint8Array): Promise<Uint8Array> => unwrapKey(wrappedByDevice, deviceKek);
+
+/** Proof that a device holds the data key (LDJ-10): a one-way value made from it, so the server can check "this device
+ *  can open the journal" without ever seeing the key. The server keeps only a slow hash of it, registered while the
+ *  password is proven (signing up or in), and asks for it before a device sets a new password without the old one.
+ *  It opens nothing: the data key can't be got back from it, and it is the same on every device of the account. */
+export async function keyProof(dataKey: Uint8Array): Promise<string> {
+  const proof = await hkdf(dataKey, utf8("somnium-key-proof"), "somnium-key-proof");
+  try { return toBase64url(proof); } finally { proof.fill(0); }
+}

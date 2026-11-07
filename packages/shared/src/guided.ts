@@ -71,6 +71,9 @@ export function wbtbOptions(bed: Date, cycleMin = CYCLE_MIN, extra: readonly num
   return n.map((c) => wbtbOption(bed, c, cycleMin));
 }
 
+/** A saved cycle length held to the allowed range (60-120 min), 90 when missing. */
+export const cycleOf = (v: unknown): number => { const n = Math.round(Number(v)); return n >= CYCLE_RANGE.min && n <= CYCLE_RANGE.max ? n : CYCLE_MIN; };
+
 /** The cycle count closest to about 6 h of sleep for a cycle length (4 at 90 min) [D13]. */
 export const defaultCycles = (cycleMin = CYCLE_MIN) => Math.max(1, Math.round(360 / cycleMin));
 

@@ -23,3 +23,5 @@ export * from "./guided";
 export * from "./exportDream";
 export * from "./dreamPage";
 export * from "./outbox";
+export * from "./dataFiles";
+export * from "./importText";

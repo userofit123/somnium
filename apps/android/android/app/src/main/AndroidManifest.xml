@@ -35,6 +35,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+
+        <!-- reminders (SomniumRemindersPlugin): an alarm come due, a check logged from a notification's button, and the
+             alarms set again after a restart, an update, a changed clock or exact alarms switched back on -->
+        <receiver android:name=".SomniumRemindersPlugin$Fire" android:exported="false" />
+        <receiver android:name=".SomniumRemindersPlugin$Action" android:exported="false" />
+        <receiver android:name=".SomniumRemindersPlugin$Boot" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Permissions -->
@@ -44,7 +58,12 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- reminders (reality checks, bedtime, morning), on time even when the phone sleeps -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- exact alarms: Android 12 grants this one (it can be switched off, Settings → Notifications says so); from 13 on
+         USE_EXACT_ALARM, which a sideloaded alarm-and-reminder app may hold without asking -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <!-- the reminders' alarms are set again after the phone restarts -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- installing updates downloaded from GitHub (sideloaded app; not for a Play Store build) -->

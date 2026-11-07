@@ -5,7 +5,7 @@
 // §3.4 recommends). 30 minutes up by default (30-60 recommended, RESEARCH.md §3.4 and safety rule 3 [B39]). Saving puts the time on tonight's night (wbtb_wake_at),
 // "wbtb" in the plan, and the alarm in this device's reminder plan (native/reminders.ts), with its limits said plainly.
 import { computed, ref } from "vue";
-import { bedtimeAt, defaultCycles, durationText, wbtbOption, wbtbOptions, CYCLE_MIN, CYCLE_RANGE, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_TOO_EARLY_MIN } from "@somnium/shared";
+import { bedtimeAt, defaultCycles, durationText, wbtbOption, wbtbOptions, CYCLE_RANGE, cycleOf, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_TOO_EARLY_MIN } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
@@ -25,7 +25,7 @@ const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHou
 
 const usual = computed(() => settings.value.sleep.bedtime);
 const bed = ref(night.value?.bedtime ? hm(night.value.bedtime) : usual.value);
-const cycleLen = ref(Number(readStr("somniumWbtbCycle", String(CYCLE_MIN))) || CYCLE_MIN);
+const cycleLen = ref(cycleOf(Number(readStr("somniumWbtbCycle", "")) || settings.value.sleep.cycle));
 const bedAt = computed(() => bedtimeAt(date, bed.value || usual.value));
 // an alarm already planned for tonight opens on its own cycle count
 const known = night.value?.wbtbWakeAt ? Math.round((new Date(night.value.wbtbWakeAt).getTime() - bedAt.value.getTime()) / 60_000 / cycleLen.value) : 0;
@@ -52,7 +52,8 @@ async function save() {
     if (!desktop && perm.value === "default") perm.value = await Notification.requestPermission().catch(() => "default" as NotificationPermission);
     const o = choice.value;
     await planWbtb(o.at, bed.value && bed.value !== usual.value ? bedAt.value : null);
-    writeStr("somniumWbtbCycle", String(cycleLen.value));
+    // kept only when it differs from Settings → Sleep, so that setting stays the default
+    writeStr("somniumWbtbCycle", cycleLen.value === cycleOf(settings.value.sleep.cycle) ? "" : String(cycleLen.value));
     writeStr("somniumWbtbAwake", String(awake.value));
     await setWbtbAlarm(o.at.getTime());
     toast(`WBTB alarm set for ${o.wake}`);
@@ -77,7 +78,7 @@ async function clear() {
         <TimePicker v-model="bed" title="Bedtime tonight" />
       </div>
       <div class="grow2">
-        <div><div class="t">Sleep cycle</div><div class="glabel">90 min for most people</div></div>
+        <div><div class="t">Sleep cycle</div><div class="glabel">{{ cycleOf(settings.sleep.cycle) }} min is your usual (Settings, Sleep)</div></div>
         <NumStep :value="cycleLen" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => (cycleLen = v)" />
       </div>
     </div>

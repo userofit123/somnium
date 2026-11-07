@@ -2,7 +2,7 @@
 //   node --import tsx apps/server/src/cli.ts reset-password <username>   prints a one-time reset code (valid a day)
 //   node --import tsx apps/server/src/cli.ts disable-2fa <username>      turns two-factor sign-in off for them
 // Uses the same DATABASE_URL / DATA_DIR as the server. A reset code only lets the person set a new password: the
-// journal stays sealed until their recovery key re-wraps the data key (a signed-in device cannot yet: LDJ-10).
+// journal stays sealed until their recovery key re-wraps the data key (no device can: the reset signs them out, which forgets their keys, LDJ-10).
 import path from "node:path";
 import { issueResetCode, noteAccount } from "./auth";
 

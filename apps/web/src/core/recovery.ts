@@ -1,7 +1,7 @@
 // The recovery key on this device (PLAN.md §4.1, §4.4). The key is made, typed and used only here: the server gets its
 // salt, the data key wrapped by it, and a verifier (a second HKDF output that cannot unwrap anything). Argon2id runs
 // once per key typed, so a wrong key costs the person about a second and costs a guesser the same.
-import { addRecoveryKey, changePassword, deriveRecoveryKeys, fromBase64url, toBase64url, unwrapKey, type RecoveryKeySet } from "@somnium/shared";
+import { addRecoveryKey, changePassword, keyProof, deriveRecoveryKeys, fromBase64url, toBase64url, unwrapKey, type RecoveryKeySet } from "@somnium/shared";
 import { api } from "../api/client";
 import { keyring } from "./keyring";
 
@@ -39,7 +39,7 @@ export async function finishRecovery(o: OpenedRecovery, newPassword: string, cod
   const next = await addRecoveryKey(o.dataKey);
   const r = await api.post<{ token?: string }>("/auth/recovery/finish", {
     username: o.username, recoveryVerifier: o.verifier, ...(code ? { code } : {}),
-    authKey: pw.authKey, kdfSalt: pw.salt, wrappedByPassword: pw.wrappedByPassword,
+    authKey: pw.authKey, kdfSalt: pw.salt, wrappedByPassword: pw.wrappedByPassword, keyProof: await keyProof(o.dataKey),
     next: { recoverySalt: next.recoverySalt, wrappedByRecovery: next.wrappedByRecovery, recoveryVerifier: next.recoveryVerifier },
     ...device,
   });

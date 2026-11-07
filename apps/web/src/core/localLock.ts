@@ -76,6 +76,14 @@ export async function changeLocalPassword(current: string, next: string): Promis
   return true;
 }
 
+/** A new password without the old one (LDJ-10): the phone's own verification released this key (core/deviceKey.ts,
+ *  which has checked it is the open journal's key). */
+export async function setLocalPasswordFromDevice(dataKey: Uint8Array, next: string): Promise<void> {
+  const keys = await localKeys();
+  if (!keys) throw new Error("This account has no password yet");
+  await store(await rewrapLocalPassword(keys, dataKey, next));
+}
+
 /** Forgot the password: the recovery key opens the journal, sets the new password and is replaced by a new one, which is returned to show once. */
 export async function recoverLocalAccount(typedKey: string, newPassword: string): Promise<string> {
   const keys = await recoverableKeys();

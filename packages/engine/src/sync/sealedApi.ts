@@ -7,7 +7,8 @@ import { SEALED_COLUMNS } from "../sealed";
 import { uuidv7 } from "../ids";
 import { LockedError, needsKey, sealRow, sealRows, unsealRow, unsealRows, type Row } from "./sealing";
 
-export { LockedError, needsKey, uuidv7 };
+export { LockedError, needsKey, uuidv7, sealRows, unsealRows };
+export * from "./backupFile";
 
 /** Reads a raw answer from the server, for the two routes where it picks the row. */
 export type Lookup = (path: string) => Promise<any>;
@@ -202,6 +203,9 @@ export async function openResponse(path: string, data: unknown, key: Uint8Array)
 export function previewImport(body: unknown) {
   const d = (body as { data?: any })?.data;
   if (!d || d.app !== "somnium") return null;
-  const counts = Object.fromEntries(Object.entries(d.tables ?? {}).map(([k, v]) => [k, Array.isArray(v) ? v.length : 0]));
-  return { exportedAt: d.exportedAt, format: d.format, counts, from: null, to: null };
+  const live = (v: unknown) => (Array.isArray(v) ? v.filter((r) => r && typeof r === "object" && !(r as Row).deleted_at) : []);
+  const counts = Object.fromEntries(Object.entries(d.tables ?? {}).map(([k, v]) => [k, live(v).length]));
+  // the date range from the nights' dates, which are plain even in a sealed file
+  const dates = live(d.tables?.nights).map((n) => String((n as Row).date ?? "").slice(0, 10)).filter((x) => /^\d{4}-\d{2}-\d{2}$/.test(x)).sort();
+  return { exportedAt: d.exportedAt, format: d.format, counts, from: dates[0] ?? null, to: dates[dates.length - 1] ?? null };
 }

@@ -2,15 +2,17 @@
 // Settings (PLAN.md §6.7), in sections: a list on the left on a computer, one screen per section on a phone.
 // Security, Notifications and Sleep come with their own tasks; the sections here are the app shell's.
 import { goBack } from "../core/leave";
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { READY_FEATURES } from "@somnium/shared";
+import { READY_FEATURES, CYCLE_RANGE, cycleOf } from "@somnium/shared";
 import { useMe, useSettings, saveSettings, loaded } from "../api/queries";
-import { session, signOut } from "../core/session";
+import { session, signOut, isLocalAccount } from "../core/session";
 import { isPhone, layoutChoice, setLayout } from "../core/device";
 import { appearanceOpen } from "../core/ui";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
+import NumStep from "../components/NumStep.vue";
+import TimePicker from "../components/TimePicker.vue";
 import BackupSection from "../components/settings/BackupSection.vue";
 import AccountSection from "../components/settings/AccountSection.vue";
 import SecuritySection from "../components/settings/SecuritySection.vue";
@@ -28,16 +30,34 @@ const s = useSettings();
 const sec = computed(() => String(route.params.section || (isPhone.value ? "" : "account")));
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
 type Section = [key: string, name: string, icon: string, hint: string];
-const GROUPS = computed<[string, Section[]][]>(() => [
-  ["You", [["account", "Account", "user", "Name, password, devices, sync"], ["security", "Security", "lock", "Two-factor sign-in, backup codes"],
+// local accounts have no server: the server-only sections (admin) stay out of the list
+const local = ref(false);
+isLocalAccount().then((v) => { local.value = v; });
+// order as in PLAN.md §6.7
+const ALL = computed<[string, Section[]][]>(() => [
+  ["You", [["account", "Account", "user", "Name, password, devices, sync"],
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
-    (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host]]],
-  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"], ["features", "Features", "sparkle", "Switch extras on or off"], ["notifications", "Notifications", "bell", "Reality check reminders"]]],
-  ["Your data", [["backup", "Backup & restore", "download", "A copy of everything"], ["data", "Export & import", "upload", "JSON"], ["log", "Activity log", "history", "Everything you changed"]]],
+    (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host],
+    ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
+  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"], ["notifications", "Notifications", "bell", "Reality check reminders"],
+    ["sleep", "Sleep", "moon", "Bedtime, wake time, cycle length"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
+  ["Your data", [["backup", "Backup & restore", "download", "A copy of everything"], ["data", "Export & import", "upload", "JSON, Markdown, CSV"], ["log", "Activity log", "history", "Everything you changed"]]],
   ["About", [["versions", "App & Versions", "refresh", "Installed version, downloads"], ["changelog", "What's new", "sparkle", "Release notes"],
-    ...(session.user?.role === "admin" ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About Somnium", "info", "Version, credits"]]],
+    ...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About Somnium", "info", "Version, credits"]]],
 ]);
-const SECTIONS = computed(() => GROUPS.value.flatMap(([, xs]) => xs));
+// words people look for that the names don't carry
+const KEYWORDS: Record<string, string> = {
+  account: "name username devices signed in sync delete", security: "lock delay idle device verification password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
+  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour", notifications: "reminders reality check quiet hours wbtb morning practice",
+  sleep: "bedtime wake cycle 90 minutes", features: "optional extras", backup: "restore automatic encrypted", data: "export import json delete", log: "activity history", versions: "update download", changelog: "release notes", admin: "invites sign-ups people", about: "licence license credits",
+};
+const q = ref("");
+const GROUPS = computed<[string, Section[]][]>(() => {
+  const t = q.value.trim().toLowerCase();
+  if (!t) return ALL.value;
+  return ALL.value.map(([g, xs]) => [g, xs.filter(([k, n, , h]) => `${n} ${h} ${KEYWORDS[k] ?? ""}`.toLowerCase().includes(t))] as [string, Section[]]).filter(([, xs]) => xs.length);
+});
+const SECTIONS = computed(() => ALL.value.flatMap(([, xs]) => xs));
 const go = (k: string) => router.push(`/settings/${k}`);
 const set = (patch: Record<string, unknown>) => saveSettings(patch);
 const groups = computed(() => { const m = new Map<string, typeof READY_FEATURES>(); for (const f of READY_FEATURES) m.set(f.group, [...(m.get(f.group) ?? []), f]); return [...m]; });
@@ -51,6 +71,8 @@ await loaded(me);
     <div :class="isPhone ? '' : 'grid'" :style="isPhone ? undefined : { gridTemplateColumns: '220px minmax(0,1fr)', alignItems: 'start' }">
       <!-- phone: the groups as short lists, each row saying what's inside -->
       <div v-if="isPhone && !sec">
+        <input v-model="q" type="search" class="sq sqp" placeholder="Search settings" aria-label="Search settings" />
+      <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
         <template v-for="([g, xs], gi) in GROUPS" :key="g">
           <div class="sh" :class="{ first: gi === 0 }"><h2>{{ g }}</h2></div>
           <div class="card flush">
@@ -62,6 +84,8 @@ await loaded(me);
       <!-- computer: the same groups down the side -->
       <!-- a div, not <nav>: the app's <nav> styles are the side rail's -->
       <div v-else-if="!isPhone" class="card snav" role="navigation" aria-label="Settings sections">
+        <input v-model="q" type="search" class="sq" placeholder="Search settings" aria-label="Search settings" />
+      <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
         <template v-for="[g, xs] in GROUPS" :key="g">
           <div class="sng">{{ g }}</div>
           <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span>{{ l }}</span></button>
@@ -79,6 +103,18 @@ await loaded(me);
               <div class="fld"><label>Dates</label><AppSelect :model-value="s.dateFormat" :options="[{ value: 'dmy', label: '31 Dec 2026' }, { value: 'mdy', label: 'Dec 31, 2026' }, { value: 'ymd', label: '2026-12-31' }]" title="Dates" @update:model-value="(v) => set({ dateFormat: v })" /></div>
               <div class="fld"><label>Clock</label><AppSelect :model-value="s.clock" :options="[{ value: '24', label: '24-hour' }, { value: '12', label: '12-hour' }]" title="Clock" @update:model-value="(v) => set({ clock: v })" /></div>
             </div>
+          </div>
+        </template>
+
+        <template v-else-if="sec === 'sleep'">
+          <p class="muted" style="margin:0">Used by the reality check window, the bedtime and WBTB reminders, Home and the WBTB planner.</p>
+          <div class="card">
+            <div class="frow">
+              <div class="fld"><label>I usually go to bed at</label><TimePicker :model-value="s.sleep.bedtime" title="Bedtime" @update:model-value="(v) => set({ sleep: { bedtime: v } })" /></div>
+              <div class="fld"><label>I usually wake at</label><TimePicker :model-value="s.sleep.wake" title="Wake time" @update:model-value="(v) => set({ sleep: { wake: v } })" /></div>
+            </div>
+            <div class="li"><div class="grow"><div class="t">Sleep cycle</div><div class="s">{{ CYCLE_RANGE.min }} to {{ CYCLE_RANGE.max }} min; 90 is usual. The WBTB planner counts alarms in whole cycles.</div></div>
+              <NumStep :value="cycleOf(s.sleep.cycle)" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => set({ sleep: { cycle: v } })" /></div>
           </div>
         </template>
 
@@ -119,6 +155,8 @@ await loaded(me);
 </template>
 
 <style scoped>
+.sq { width: 100%; box-sizing: border-box; margin-bottom: var(--hg); }
+.sqp { margin-bottom: var(--spg); }
 /* the computer's section list: small group names over plain rows, the open one filled */
 .snav { position: sticky; top: calc(24px + var(--st)); padding: calc(var(--cpy) / 2); display: flex; flex-direction: column; gap: 1px; }
 /* the group names and rows share one side inset, and the first group name sits that far below the top too, so the

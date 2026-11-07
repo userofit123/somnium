@@ -1,11 +1,13 @@
 <script setup lang="ts">
-// Settings → Notifications: reality check reminders (PLAN.md §9, LDJ-28). Everything here is the reminders row (kind
+// Settings → Notifications: reality check reminders (PLAN.md §9, LDJ-28) and the night reminders (LDJ-30: bedtime,
+// the WBTB alarm, the morning journal, practice; one reminders row each, made on first use, times from the Sleep
+// settings). Everything here is the reminders row (kind
 // "reality_check", its schedule JSON, enabled), which syncs; the usual sleep times are in the settings document. The
 // plan is packages/shared/src/reminders.ts; native/reminders.ts delivers it. Nothing here is personal: habit labels
 // come from a fixed list, and the dream sign's name stays out of reminders unless switched on.
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { DEFAULT_RC_SCHEDULE, HABIT_LABELS, PER_DAY_MAX, PER_DAY_MIN, planDay, rcSchedule, reminderText, wakingWindow, type RealityCheckSchedule, type Reminder } from "@somnium/shared";
+import { DEFAULT_RC_SCHEDULE, HABIT_LABELS, PER_DAY_MAX, PER_DAY_MIN, TECHNIQUES, nightRow, nightTimes, planDay, rcSchedule, reminderText, wakingWindow, type NightKind, type NightSchedules, type RealityCheckSchedule, type Reminder } from "@somnium/shared";
 import { useSettings, saveSettings } from "../../api/queries";
 import { api } from "../../api/client";
 import { send } from "../../api/outbox";
@@ -13,7 +15,7 @@ import { invalidate, queryClient } from "../../api/live";
 import { toastError, savedToast } from "../../core/toast";
 import { useFmt } from "../../core/format";
 import { isPhone } from "../../core/device";
-import { REMINDERS_KEY, fetchReminders, rcRow, checkCatalog, localDate, showReminder } from "../../native/reminders";
+import { REMINDERS_KEY, fetchReminders, rcRow, checkCatalog, localDate, showReminder, androidReminders, wbtbAlarm } from "../../native/reminders";
 import { askNotificationPermission, notificationState, type NotificationState } from "../../native/notifications";
 import AppSelect from "../AppSelect.vue";
 import NumStep from "../NumStep.vue";
@@ -29,6 +31,15 @@ const on = computed(() => !!row.value?.enabled);
 const catalog = await checkCatalog();
 
 const desktopApp = !!(globalThis as any).somniumNative?.reminders;
+const androidApp = !!androidReminders();
+// Android 12+: exact alarms can be switched off for an app; then reminders still come, a few minutes late at worst
+const exact = ref<{ allowed: boolean; needsAsking: boolean } | null>(null);
+const readExact = async () => { exact.value = androidApp ? await androidReminders()!.exactAlarms().catch(() => null) : null; };
+async function allowExact() { await androidReminders()?.openExactAlarmSettings().catch(() => {}); }
+// back from Android's settings page: read it again
+const onVis = () => { if (document.visibilityState === "visible") { void readExact(); void notificationState().then((p) => { if (!desktopApp) perm.value = p; }); } };
+onMounted(() => { void readExact(); document.addEventListener("visibilitychange", onVis); });
+onUnmounted(() => document.removeEventListener("visibilitychange", onVis));
 const phoneBrowser = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || isPhone.value;
 const installed = matchMedia?.("(display-mode: standalone)").matches;
 const perm = ref<NotificationState>("prompt");
@@ -79,6 +90,26 @@ const nextAt = computed(() => {
   return null;
 });
 const todayCount = computed(() => planDay(s.value, today(), s.value.seed, settings.value.sleep).length);
+// ----- night reminders -----
+const night = <K extends NightKind>(k: K) => nightRow(rows.data.value, k);
+async function saveNight<K extends NightKind>(kind: K, patch: Partial<NightSchedules[K]> = {}, enabled?: boolean) {
+  const r = rows.data.value?.find((x) => x.kind === kind && !x.deletedAt), cur = night(kind);
+  const schedule = { ...cur.s, ...patch }, on = enabled ?? cur.on;
+  if (on && !cur.on && !desktopApp) { await askNotificationPermission(); perm.value = await notificationState(); }
+  try {
+    if (r) {
+      queryClient.setQueryData([...REMINDERS_KEY], (rs: Reminder[] | undefined) => rs?.map((x) => (x.id === r.id ? { ...x, schedule, enabled: on } : x)));
+      await send("put", `/reminders/${r.id}`, { schedule, enabled: on });
+    } else await send("post", "/reminders", { kind, enabled: on, schedule });
+    savedToast();
+  } catch (e) { toastError(e); }
+  invalidate(["reminders"]);
+}
+const clock = (t: number) => fmt.value.time(new Date(t).toISOString());
+const times = computed(() => nightTimes(today(), settings.value.sleep));
+const techniques = TECHNIQUES.filter((t) => ["mild", "ssild", "wild", "wbtb", "vild", "fild", "deild", "reality-testing", "dream-signs", "incubation"].includes(t.id)).map((t) => ({ value: t.id, label: t.label }));
+const wbtbSet = computed(() => { void rows.data.value; return wbtbAlarm(); });
+
 async function tryNow() {
   const c = catalog.find((x) => x.id === s.value.checks[0]) ?? catalog[0]!;
   const ok = await showReminder({ ...reminderText(c), url: `/check?kind=${c.id}&prompted=1` });
@@ -98,9 +129,26 @@ async function tryNow() {
   <div class="card">
     <div class="li"><div class="grow"><div class="t">On this device</div>
       <div v-if="desktopApp" class="s">Reminders come while Somnium is running, minimised or behind other windows too. Closing the window quits Somnium, and the reminders stop until it is opened again.</div>
+      <div v-else-if="androidApp" class="s">Android shows them on time, also with the app closed, and again after the phone restarts. A reality check can be answered from the notification itself; the lock screen shows only "Reality check". Nothing from your journal is in them.</div>
       <div v-else class="s">A browser can't wake a closed page, so reminders come only while Somnium is open in a tab{{ installed ? " or this installed app" : " or as an installed app" }}, also in the background.<template v-if="phoneBrowser"> A phone stops pages in the background, so on a phone use the Android app for reliable reminders.</template><template v-else> On a phone the Android app is needed for reliable reminders.</template></div>
+      <div v-if="androidApp" class="s">Exact alarms: {{ exact == null ? "unknown" : exact.allowed ? "allowed" : "off, so a reminder may come a few minutes late" }}</div>
       <div v-if="!desktopApp" class="s">Notifications: {{ perm === "granted" ? "allowed" : perm === "denied" ? "blocked; allow them in the browser's site settings" : perm === "unsupported" ? "not available in this browser" : "not asked yet" }}<template v-if="!hasWorker && perm !== 'unsupported'"> · no service worker here, so a tap may not open the app</template></div>
-    </div><button v-if="on && perm === 'granted'" class="btn o s" @click="tryNow">Try one</button></div>
+    </div><button v-if="androidApp && exact && !exact.allowed" class="btn o s" @click="allowExact">Allow exact alarms</button><button v-else-if="on && perm === 'granted'" class="btn o s" @click="tryNow">Try one</button></div>
+  </div>
+
+  <!-- the night: each its own row (reminders kind), times from the Sleep settings -->
+  <div class="sh"><h2>Night and morning</h2></div>
+  <div class="card">
+    <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">At {{ clock(times.bedtime - night("bedtime").s.lead * 60_000) }}, {{ night("bedtime").s.lead }} min before bed · "Tonight: {{ techniques.find((t) => t.value === night("bedtime").s.technique)?.label ?? "MILD" }}"</div></div><span class="tg"><input type="checkbox" :checked="night('bedtime').on" @change="saveNight('bedtime', {}, ($event.target as HTMLInputElement).checked)" /></span></label>
+    <div v-if="night('bedtime').on" class="frow">
+      <div class="fld grow"><label>Tonight's technique</label><AppSelect :model-value="night('bedtime').s.technique" :options="techniques" title="Technique" @update:model-value="(v) => saveNight('bedtime', { technique: v })" /></div>
+      <div class="fld"><label>Minutes before bed</label><NumStep :value="night('bedtime').s.lead" :step="5" :min="5" :max="60" unit="min" @set="(v) => saveNight('bedtime', { lead: v })" /></div>
+    </div>
+    <label class="tgl"><div class="grow"><div class="t">WBTB alarm</div><div class="s">Only on nights you plan WBTB in Train<template v-if="wbtbSet"> · set for {{ clock(wbtbSet) }}</template><template v-if="androidApp"> · rings like an alarm</template></div></div><span class="tg"><input type="checkbox" :checked="night('wbtb').on" @change="saveNight('wbtb', {}, ($event.target as HTMLInputElement).checked)" /></span></label>
+    <label class="tgl"><div class="grow"><div class="t">Morning journal</div><div class="s">At {{ clock(times.wake) }}, your wake time · "Write your dream", with No recall</div></div><span class="tg"><input type="checkbox" :checked="night('morning_journal').on" @change="saveNight('morning_journal', {}, ($event.target as HTMLInputElement).checked)" /></span></label>
+    <label class="tgl"><div class="grow"><div class="t">Practice</div><div class="s">Once a day, for the course</div></div><span class="tg"><input type="checkbox" :checked="night('practice').on" @change="saveNight('practice', {}, ($event.target as HTMLInputElement).checked)" /></span></label>
+    <div v-if="night('practice').on" class="frow"><div class="fld"><label>Practice at</label><TimePicker :model-value="night('practice').s.at" title="Practice" @update:model-value="(v) => saveNight('practice', { at: v })" /></div></div>
+    <p class="tiny" style="margin:0">Times follow your sleep times ({{ clock(times.bedtime) }} to {{ clock(times.wake) }}). Nothing from your journal or your intention is shown.</p>
   </div>
 
   <template v-if="on">

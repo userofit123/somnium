@@ -9,7 +9,7 @@ export {
   deriveRecoveryKeys, recoveryKek, recoveryVerifier, type RecoveryKeys,
 } from "./recovery";
 export {
-  createAccountKeys, openWithPassword, openWithEncKey, changePassword, addRecoveryKey, openWithRecoveryKey, wrapForDevice, openWithDevice,
+  createAccountKeys, openWithPassword, openWithEncKey, changePassword, addRecoveryKey, openWithRecoveryKey, wrapForDevice, openWithDevice, keyProof,
   type PasswordBundle, type AccountKeys, type RecoveryBundle, type RecoveryKeySet,
 } from "./envelope";
 export {

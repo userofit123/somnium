@@ -91,6 +91,9 @@ export function setLockSettings(s: Partial<LockSettings>) {
   writeJson(SETTINGS, lock.settings);
 }
 
+/** The Android activity left the screen (onStop), timed from when it began to leave (onPause); and came back. */
+export const nativeAway = (at: number) => dispatch({ type: "away", at: Math.min(at, Date.now()) });
+export const nativeBack = () => dispatch({ type: "back", at: Date.now() });
 const hold = (ms: number) => dispatch({ type: "hold", at: Date.now(), ms });
 /** A system dialog is about to open (the app loses focus, or is hidden on a phone) and the person hasn't left. */
 export const holdForDialog = () => hold(Number.POSITIVE_INFINITY);

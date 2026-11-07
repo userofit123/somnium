@@ -6,6 +6,7 @@
 // knows the zone's DST rules, and the spreading and the minimum gap are measured in real elapsed time, so a DST day is
 // just a day that is an hour shorter or longer.
 import type { CheckKind } from "./types";
+import { TECHNIQUES } from "./journal";
 
 /** A fixed reminder at a time the person picked, tied to something they do then. Labels come from a fixed list: a
  *  free-text label would be personal and would have to be sealed (packages/engine/src/sealed.ts), and the label is
@@ -139,4 +140,88 @@ export function reminderText(check: { name: string; howTo: string }, o: { sign?:
   const lead = o.habit ? `${o.habit}: are you dreaming?` : "Are you dreaming?";
   const sign = o.sign ? ` Watch for ${o.sign}.` : "";
   return { title: `${lead} Really check.`, body: `${check.name}: ${check.howTo}${sign}` };
+}
+
+// ---------- night reminders (PLAN.md §9, LDJ-30): bedtime, the WBTB alarm, the morning journal, practice ----------
+// Each is its own reminders row (kind bedtime / wbtb / morning_journal / practice), so each syncs and switches on its
+// own. Their times come from the Sleep settings, not from the row: change bedtime once and every reminder follows.
+// Nothing personal in any of them: the technique is an id from a fixed list, never the intention (which is sealed).
+
+export type NightKind = "bedtime" | "wbtb" | "morning_journal" | "practice";
+export const NIGHT_KINDS: readonly NightKind[] = ["bedtime", "wbtb", "morning_journal", "practice"];
+export interface NightSchedules {
+  bedtime: { lead: number; technique: string }; // minutes before bedtime (5-60); a TECHNIQUES id
+  wbtb: Record<string, never>; // the time is the one planned for the night (Train → WBTB), never a standing alarm
+  morning_journal: Record<string, never>; // at wake time
+  practice: { at: string };
+}
+/** Switched on or off when the row doesn't exist yet: only the WBTB alarm, which rings only on a night it was planned. */
+export const NIGHT_DEFAULT_ON: Record<NightKind, boolean> = { bedtime: false, wbtb: true, morning_journal: false, practice: false };
+const NIGHT_DEFAULTS: NightSchedules = { bedtime: { lead: 15, technique: "mild" }, wbtb: {}, morning_journal: {}, practice: { at: "19:00" } };
+
+/** A row's stored schedule, checked and defaulted like rcSchedule. */
+export function nightSchedule<K extends NightKind>(kind: K, saved: unknown): NightSchedules[K] {
+  const s = (saved && typeof saved === "object" ? saved : {}) as Record<string, any>;
+  if (kind === "bedtime") return { lead: clampInt(s.lead, 5, 60, 15), technique: TECHNIQUES.some((t) => t.id === s.technique) ? s.technique : "mild" } as NightSchedules[K];
+  if (kind === "practice") return { at: time(s.at, NIGHT_DEFAULTS.practice.at) } as NightSchedules[K];
+  return {} as NightSchedules[K];
+}
+
+/** The rows as the planner needs them (a Reminder, or anything shaped like one). */
+export interface ReminderRowLike { kind: string; enabled: boolean; schedule: unknown; deletedAt?: string | null }
+/** Whether a night reminder is on, and its schedule: the live row of that kind, or the defaults. */
+export function nightRow<K extends NightKind>(rows: readonly ReminderRowLike[] | undefined, kind: K): { on: boolean; s: NightSchedules[K] } {
+  const r = rows?.find((x) => x.kind === kind && !x.deletedAt);
+  return { on: r ? !!r.enabled : NIGHT_DEFAULT_ON[kind], s: nightSchedule(kind, r?.schedule) };
+}
+
+const ymd = (t: number) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+/**
+ * The night that starts on the evening of `evening` ("YYYY-MM-DD"), from the usual sleep times: bedtime on that date,
+ * or after midnight (the next date) when bedtime is before noon; wake at the first wake time after bedtime. `morning`
+ * is the date the night is filed under (the morning's, as Home and the journal file it).
+ */
+export function nightTimes(evening: string, sleep?: { bedtime?: string; wake?: string }): { bedtime: number; wake: number; morning: string } {
+  const b = mins(time(sleep?.bedtime, "23:00")), w = mins(time(sleep?.wake, "07:00"));
+  const bedtime = at(evening, b < 12 * 60 ? 1 : 0, b);
+  const bedDate = ymd(bedtime);
+  let wake = at(bedDate, 0, w);
+  if (wake <= bedtime) wake = at(bedDate, 1, w);
+  return { bedtime, wake, morning: ymd(wake) };
+}
+
+export interface PlannedNightReminder { kind: NightKind; at: number; /** the date the night is filed under */ morning: string; technique?: string }
+
+/**
+ * The night reminders for the evening of `evening`, sorted: bedtime - lead (in real minutes, so across midnight and DST
+ * alike), the WBTB alarm only when one is planned for this night (`wbtbAt`, an instant between noon of `evening` and
+ * noon the next day), the morning journal at wake time, and practice at its own time on `evening`. Off rows give nothing.
+ */
+export function planNight(rows: readonly ReminderRowLike[] | undefined, evening: string, sleep?: { bedtime?: string; wake?: string }, wbtbAt?: number | null): PlannedNightReminder[] {
+  const t = nightTimes(evening, sleep), out: PlannedNightReminder[] = [];
+  const bed = nightRow(rows, "bedtime"), wb = nightRow(rows, "wbtb"), mo = nightRow(rows, "morning_journal"), pr = nightRow(rows, "practice");
+  if (bed.on) out.push({ kind: "bedtime", at: t.bedtime - bed.s.lead * 60_000, morning: t.morning, technique: bed.s.technique });
+  if (wb.on && typeof wbtbAt === "number" && wbtbAt >= at(evening, 0, 12 * 60) && wbtbAt < at(evening, 1, 12 * 60)) out.push({ kind: "wbtb", at: wbtbAt, morning: t.morning });
+  if (mo.on) out.push({ kind: "morning_journal", at: t.wake, morning: t.morning });
+  if (pr.on) out.push({ kind: "practice", at: at(evening, 0, mins(pr.s.at)), morning: t.morning });
+  return out.sort((a, b) => a.at - b.at);
+}
+
+/** A night reminder's words, and the only line a locked screen shows (`lockTitle`). Never the intention or any dream. */
+export function nightText(p: Pick<PlannedNightReminder, "kind" | "technique">, lead = 15): { title: string; body: string; lockTitle: string } {
+  switch (p.kind) {
+    case "bedtime": return { title: `Bed in ${lead} minutes`, body: `Tonight: ${TECHNIQUES.find((x) => x.id === p.technique)?.label ?? "MILD"}`, lockTitle: "Bedtime" };
+    case "wbtb": return { title: "Time for WBTB", body: "Get up for a while, then back to bed. Tap for the guide.", lockTitle: "Alarm" };
+    case "morning_journal": return { title: "Write your dream", body: "Even a fragment counts. Nothing came back? Say no recall.", lockTitle: "Morning" };
+    case "practice": return { title: "Practice", body: "A few minutes on today's lesson.", lockTitle: "Practice" };
+  }
+}
+
+/** Where tapping a night reminder goes. The morning's "No recall" opens the journal too: marking it means finding the
+ *  night, a journal read, which needs the key (packages/engine/src/sync/sealedApi.ts allows only the unsealed check). */
+export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, action?: "norecall"): string {
+  if (p.kind === "wbtb") return "/train?guided=up";
+  if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/journal?write=1&date=${p.morning}`;
+  return "/train";
 }

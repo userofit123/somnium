@@ -14,9 +14,11 @@ import { toast } from "../core/toast";
 import { keyring } from "../core/keyring";
 import { invalidate } from "./live";
 
-export async function logCheck(checkId: string, outcome: CheckOutcome, prompted: boolean): Promise<{ id: string; queued: boolean }> {
-  const id = uuidv7();
-  const body = { id, at: new Date().toISOString(), kind: checkKindOf(checkId), outcome, prompted };
+/** `given`: a check logged earlier from an Android notification's button (native/reminders.ts flushPending), with the
+ *  time it was made at. */
+export async function logCheck(checkId: string, outcome: CheckOutcome, prompted: boolean, given?: { id?: string; at: number }): Promise<{ id: string; queued: boolean }> {
+  const id = given?.id ?? uuidv7();
+  const body = { id, at: new Date(given?.at ?? Date.now()).toISOString(), kind: checkKindOf(checkId), outcome, prompted };
   let queued = false;
   if (!isLocalDevice() && !keyring.isOpen()) {
     // locked: the device's copy can't send a journal table without the key, so this row (nothing sealed in it, the

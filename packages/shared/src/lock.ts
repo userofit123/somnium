@@ -62,6 +62,18 @@ export function formatWait(ms: number): string {
   return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
 }
 
+/**
+ * Which device verification the lock screen uses (PLAN.md §4.3). The Android app has its own (LDJ-9: the Keystore
+ * behind BiometricPrompt), in place of WebAuthn, which it never uses: on when this account's record holds the wrapped
+ * key. A browser uses WebAuthn with PRF when a credential was set up here. Turned off, or nothing set up: the password.
+ */
+export type DevicePath = "android" | "webauthn" | "password";
+export function devicePath(r: { native: boolean; held?: boolean; hasBlob?: boolean; cred?: boolean; off?: boolean }): DevicePath {
+  if (r.off) return "password";
+  if (r.native) return r.held && r.hasBlob ? "android" : "password";
+  return r.cred ? "webauthn" : "password";
+}
+
 /** A failed device verification counts only when the device answered with something that doesn't open the key. */
 export const deviceFailureCounts = (e: unknown): boolean => (e as Error | null | undefined)?.name === "SealError";
 

@@ -80,8 +80,9 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   // without the password. wrappedByPassword is null after an admin reset.
   app.get("/api/auth/bundle", async (req, reply) => {
     if (!need(req, reply)) return;
-    const u = (await db.admin.query("SELECT kdf_salt, wrapped_by_password FROM users WHERE id = $1", [req.user!.id])).rows[0];
-    return { kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password };
+    const u = (await db.admin.query("SELECT kdf_salt, wrapped_by_password, recovery_salt, wrapped_by_recovery FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    // the recovery wrap goes into backups (LDJ-35) so the recovery key opens them too; it is useless without that key
+    return { kdfSalt: u.kdf_salt, wrappedByPassword: u.wrapped_by_password, recoverySalt: u.recovery_salt ?? null, wrappedByRecovery: u.wrapped_by_recovery ?? null };
   });
   const signIn = async (req: FastifyRequest, reply: FastifyReply, id: string, b: any) => {
     const device = deviceLabel(b?.deviceName, req.headers["user-agent"]);
@@ -109,6 +110,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await db.admin.query("INSERT INTO users (id, username, role, display_name, kdf_salt, auth_hash, wrapped_by_password, password_changed_at) VALUES ($1,$2,$3,$4,$5,$6,$7, now())",
       [id, name, first ? "admin" : "user", String(b.displayName ?? b.username).slice(0, 80), b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
     if (mode === "invite") await db.admin.query("UPDATE invites SET used_by = $2 WHERE code = $1", [b.invite, id]);
+    // the device made the data key just now, with the password: its proof is registered with it (LDJ-10)
+    if (validAuthKey(b?.keyProof)) await db.admin.query("UPDATE users SET key_proof_hash = $2 WHERE id = $1", [id, await hashSecret(b.keyProof)]);
     return { ok: true, token: await signIn(req, reply, id, b) };
   });
   // Sign-in answers the wrapped data key with the session, so the device can open the journal with the encKey it
@@ -139,8 +142,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   });
   app.get("/api/auth/sessions", async (req, reply) => {
     if (!need(req, reply)) return;
-    const { rows } = await db.admin.query("SELECT id, device_name, platform, created_at, last_seen_at FROM sessions WHERE user_id = $1 AND expires_at > now() ORDER BY last_seen_at DESC", [req.user!.id]);
-    return rows.map((r: any) => ({ id: r.id, deviceName: r.device_name, platform: r.platform, createdAt: r.created_at, lastSeenAt: r.last_seen_at, current: r.id === req.user!.sessionId }));
+    const { rows } = await db.admin.query("SELECT id, device_name, platform, created_at, last_seen_at, holds_key FROM sessions WHERE user_id = $1 AND expires_at > now() ORDER BY last_seen_at DESC", [req.user!.id]);
+    return rows.map((r: any) => ({ id: r.id, deviceName: r.device_name, platform: r.platform, createdAt: r.created_at, lastSeenAt: r.last_seen_at, current: r.id === req.user!.sessionId, holdsKey: !!r.holds_key }));
   });
   app.delete("/api/auth/sessions/:id", async (req, reply) => {
     if (!need(req, reply)) return;
@@ -177,9 +180,77 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
     await noteAccount(db, req.user!.id, "Password changed");
     return { ok: true };
   });
+  // ----- devices that hold the data key (LDJ-10, PLAN.md §4.4) -----
+  // How a device shows it can open the journal without the server ever seeing the key: keyProof (@somnium/shared) is
+  // a one-way value made from the data key. Its scrypt hash is registered only while the password is proven - at
+  // sign-up, by /auth/key-proof with the authKey (the app sends it right after signing in), or by the recovery key - so
+  // a stolen session token alone can never register a proof of its own choosing. Once there it never changes (the data
+  // key never does). A wrong proof is counted like a wrong password.
+  const proofCheck = async (req: FastifyRequest, reply: FastifyReply, proof: unknown) => {
+    const release = reserveTry([`ip:${req.ip}`, `u:${req.user!.username}`]);
+    if (!release) { reply.code(429).send({ error: "Too many tries. Wait 15 minutes." }); return null; }
+    const u = (await db.admin.query("SELECT key_proof_hash, totp_enabled, totp_secret FROM users WHERE id = $1", [req.user!.id])).rows[0];
+    if (!u?.key_proof_hash) { release(); reply.code(409).send({ error: "Sign in with your password once on this device first", needsPassword: true }); return null; }
+    if (!(await checkSecret(validAuthKey(proof) ? proof : "", u.key_proof_hash))) { reply.code(403).send({ error: "This device doesn't hold your journal's key" }); return null; }
+    return { u, release };
+  };
+  app.post("/api/auth/key-proof", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const b = req.body as any;
+    if (!validAuthKey(b?.keyProof)) return reply.code(400).send({ error: badBundle });
+    if (!(await recheck(req, reply, b?.authKey))) return;
+    // first one wins; a different one later is refused rather than replacing it (the data key never changes)
+    const had = (await db.admin.query("SELECT key_proof_hash FROM users WHERE id = $1", [req.user!.id])).rows[0]?.key_proof_hash;
+    if (!had) await db.admin.query("UPDATE users SET key_proof_hash = $2 WHERE id = $1 AND key_proof_hash IS NULL", [req.user!.id, await hashSecret(b.keyProof)]);
+    else if (!(await checkSecret(b.keyProof, had))) return reply.code(409).send({ error: "That isn't this account's key" });
+    return { ok: true };
+  });
+  // this sign-in now holds the key (the Android app wrapped it in the Keystore), or no longer does: a plain flag for
+  // the devices list, set only with the proof so the list never claims what isn't so
+  app.post("/api/auth/device-key", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const c = await proofCheck(req, reply, (req.body as any)?.keyProof);
+    if (!c) return;
+    c.release();
+    await db.admin.query("UPDATE sessions SET holds_key = true WHERE id = $1", [req.user!.sessionId]);
+    return { ok: true };
+  });
+  app.delete("/api/auth/device-key", async (req, reply) => {
+    if (!need(req, reply)) return;
+    await db.admin.query("UPDATE sessions SET holds_key = false WHERE id = $1", [req.user!.sessionId]);
+    return { ok: true };
+  });
+  // Forgot the password, still signed in on a device that holds the key: a new password without the old one. Three
+  // things are needed together: this session (signed in with the password before), this session having registered a
+  // device key, and the proof (only something holding the data key can make it; a wrong one is counted). With two-factor
+  // on, a code too, as for the recovery key. The device re-wrapped the key under the new password; the other devices
+  // are signed out, as after any password change.
+  app.post("/api/auth/password/device", async (req, reply) => {
+    if (!need(req, reply)) return;
+    const b = req.body as any;
+    if (!validAuthKey(b?.authKey) || !validSalt(b?.kdfSalt) || !validWrapped(b?.wrappedByPassword)) return reply.code(400).send({ error: badBundle });
+    const held = (await db.admin.query("SELECT holds_key FROM sessions WHERE id = $1", [req.user!.sessionId])).rows[0]?.holds_key;
+    if (!held) return reply.code(403).send({ error: "Turn on device verification on this device first" });
+    const c = await proofCheck(req, reply, b?.keyProof);
+    if (!c) return;
+    const { u, release } = c;
+    if (u.totp_enabled) {
+      const code = b?.code;
+      if (code === undefined || code === null || code === "") { release(); return reply.code(403).send({ error: "Type the code from your authenticator app, or a backup code", totpRequired: true }); }
+      const good = (await useTotp(db, req.user!.id, decryptForServer(u.totp_secret, serverKey), code)) || (await useBackupCode(db, req.user!.id, code));
+      if (!good) return reply.code(403).send({ error: "That code is not right", totpRequired: true });
+    }
+    release();
+    await db.admin.query("UPDATE users SET kdf_salt = $2, auth_hash = $3, wrapped_by_password = $4, password_changed_at = now(), reset_code_hash = NULL, reset_expires_at = NULL WHERE id = $1",
+      [req.user!.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword]);
+    await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id <> $2", [req.user!.id, req.user!.sessionId]);
+    await noteAccount(db, req.user!.id, "Password set from a device that holds your key, without the old one. Every other device was signed out.");
+    return { ok: true };
+  });
   // the way back in when the password is lost and the admin gave a reset code (PLAN.md §4.4): a new password, but
   // no wrapped data key - the journal stays sealed until the recovery key re-wraps it (/auth/recovery/finish).
-  // A signed-in device cannot help yet: the reset signs every device out and each forgets the key (LDJ-10).
+  // A device that held the key cannot help here, by design: the reset signs every device out, and signing out forgets
+  // the device's key (a lost phone that was signed out must not keep a way in). Device keys help while still signed in.
   app.post("/api/auth/reset", async (req, reply) => {
     const b = req.body as any;
     const name = String(b?.username ?? "").toLowerCase();
@@ -273,6 +344,8 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
       [u.id, b.kdfSalt, await hashSecret(b.authKey), b.wrappedByPassword, b.next.recoverySalt, b.next.wrappedByRecovery, await hashSecret(b.next.recoveryVerifier), u.recovery_verifier]);
     if (!used.rows.length) return reply.code(403).send({ error: wrongRecovery });
     release();
+    // the recovery key opened the data key, so its proof can be trusted as much as the key (LDJ-10)
+    if (validAuthKey(b?.keyProof)) await db.admin.query("UPDATE users SET key_proof_hash = $2 WHERE id = $1 AND key_proof_hash IS NULL", [u.id, await hashSecret(b.keyProof)]);
     const keep = req.user && req.user.id === u.id ? req.user.sessionId : null;
     await db.admin.query("DELETE FROM sessions WHERE user_id = $1 AND id IS DISTINCT FROM $2", [u.id, keep]);
     await noteAccount(db, u.id, u.wrapped_by_password

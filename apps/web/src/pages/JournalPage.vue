@@ -3,7 +3,7 @@
 // and writing a dream. On a computer the dream opens in a panel beside the list; on the phone it is a step of its
 // own (read, or write full screen). Everything shown and searched is the journal as opened on this device: a
 // search never goes to the server.
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { dayMarks, filterActive, groupByNight, isPlanOnly, journalNights, nightOfDate, searchJournal, type JournalFilter } from "@somnium/shared";
 import { loaded } from "../api/queries";
@@ -12,7 +12,7 @@ import { isPhone } from "../core/device";
 import { useFmt } from "../core/format";
 import { useToday } from "../core/today";
 import { readStr, writeStr } from "../core/prefs";
-import { toastError } from "../core/toast";
+import { toast, toastError } from "../core/toast";
 import Icon from "../components/Icon.vue";
 import Menu from "../components/Menu.vue";
 import Sheet from "../components/Sheet.vue";
@@ -87,6 +87,20 @@ function closeWrite() {
 const closeRead = () => (history.state?.back ? router.back() : router.replace("/journal"));
 
 async function noRecall(d: string) { try { await markNoRecall(d); } catch (e) { toastError(e); } }
+// the morning reminder (PLAN.md §9, LDJ-30): its tap opens /journal?write=1&date=..., its "No recall" button
+// /journal?norecall=... - here, behind the lock, because both need the journal's key. Each is done once, then the
+// address goes back to plain /journal.
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+watch(() => [route.name, route.query.write, route.query.norecall], async () => {
+  if (route.name !== "journal") return;
+  const q = route.query;
+  if (q.write === "1") { router.replace({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", ...(typeof q.date === "string" && DATE.test(q.date) ? { date: q.date } : {}) } }); return; }
+  if (typeof q.norecall === "string" && DATE.test(q.norecall)) {
+    const d = q.norecall;
+    await router.replace("/journal");
+    try { await markNoRecall(d); toast("No recall logged"); } catch (e) { toastError(e); }
+  }
+}, { immediate: true });
 const menu = computed(() => [
   { label: "No recall last night", icon: "moon", run: () => noRecall(today.value), hidden: todayLogged.value },
   { label: "Write a dream", icon: "plus", run: () => write(), hidden: !mode.value || isPhone.value },

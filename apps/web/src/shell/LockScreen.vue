@@ -53,10 +53,13 @@ onMounted(async () => {
   if (await isLocalAccount()) {
     local.value = true;
     await readLocalKeys();
+    // the Android app opens a local journal with the phone's verification too (LDJ-9)
+    if (step.value === "password" && deviceStatus().on && (await deviceVerifierExists())) { canUseDevice.value = true; step.value = "device"; }
     return;
   }
   loaded = freshBundle().then((b) => { bundle.value = b; });
-  canUseDevice.value = deviceStatus().on && (await deviceVerifierExists());
+  // if the check never answers (a stuck authenticator or storage), fall back to the password after 3 s, sign-out in view
+  canUseDevice.value = deviceStatus().on && (await Promise.race([deviceVerifierExists(), new Promise<boolean>((r) => setTimeout(() => r(false), 3000))]));
   if (canUseDevice.value) step.value = "device"; else showPassword();
 });
 // A first password only where there is no record at all. A record that can't be read, or isn't in the expected shape,
@@ -91,6 +94,7 @@ async function unlock() {
       if (!right) { wrongTry(); err.value = waiting.value ? "" : `Wrong password. ${triesText.value}`; await nextTick(); pwInput.value?.focus(); return; }
       keyOpenedOnLockScreen();
       await sealOldJournal();
+      if ((await shouldOfferDevice()) && keyring.isOpen()) { step.value = "offer"; return; }
       openJournal();
       return;
     }
@@ -121,7 +125,8 @@ async function useDevice() {
     openJournal();
   } catch (e) {
     if (deviceFailureCounts(e)) wrongTry();
-    err.value = waiting.value ? "" : (e as Error)?.name === "NotAllowedError" ? "Verification was cancelled or timed out." : "This device couldn't open your journal. Use your password.";
+    err.value = waiting.value ? "" : (e as Error)?.name === "NotAllowedError" ? "Verification was cancelled or timed out."
+      : (e as Error)?.name === "DeviceNotice" ? (e as Error).message : "This device couldn't open your journal. Use your password.";
   } finally { busy.value = false; }
 }
 
@@ -323,7 +328,7 @@ async function leave() {
     <div v-else-if="sealed" class="card">
       <Logo />
       <h1>Your journal is sealed</h1>
-      <!-- only the recovery key is promised: a reset signed every device out, and none keeps the key yet (LDJ-10) -->
+      <!-- only the recovery key is promised: a reset signed every device out, and signing out forgets a device's key (LDJ-10, by design) -->
       <p class="muted auth-lede">Your password was reset, so nothing here can open your dreams until your recovery key is entered.</p>
       <button type="button" class="btn block lg" @click="showRecovery">Enter recovery key</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="askSignOut">Sign out</button></p>

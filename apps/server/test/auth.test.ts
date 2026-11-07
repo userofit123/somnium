@@ -61,7 +61,8 @@ describe("sign-up and sign-in with the auth key", () => {
     const answer = (await signIn("ann", ann.authKey)).json();
     const r = await app.inject({ method: "GET", url: "/api/auth/bundle", headers: bearer(answer.token) });
     expect(r.statusCode).toBe(200);
-    expect(r.json()).toEqual({ kdfSalt: answer.kdfSalt, wrappedByPassword: answer.wrappedByPassword });
+    // the recovery wrap too (null until a recovery key is made), so backups open with the recovery key (LDJ-35)
+    expect(r.json()).toEqual({ kdfSalt: answer.kdfSalt, wrappedByPassword: answer.wrappedByPassword, recoverySalt: null, wrappedByRecovery: null });
     expect(answer.wrappedByPassword).toBeTruthy();
   });
 

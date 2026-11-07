@@ -1,26 +1,26 @@
-// Backups to this device (requirement 20): a .somniumbackup file is gzip-compressed JSON of everything you have,
-// optionally encrypted with a password (AES-GCM, key from PBKDF2). Format: "MOTB" + version byte + flag byte + body.
-// Automatic backups: the desktop and Android apps write to a folder you choose; in a browser that supports it
-// (Chrome, Edge) Somnium writes into a folder you pick once; elsewhere it offers the file to download when one is due.
+// Backups to this device (PLAN.md §12, LDJ-35). A .somniumbackup file is JSON: the journal sealed exactly as on the
+// server (each sealed column an envelope bound to its row, under the data key) plus the account's wrapped data key,
+// so it opens with the password or the recovery key and nothing else (packages/engine/src/sync/backupFile.ts). Plain
+// columns (dates, ratings) are readable in it, as they are on the server; an optional passphrase wraps the whole file.
+//
+// Making one needs the journal open on this device: the device's copy holds plaintext (its replica, a local account
+// opened through the transport), so every row is sealed here with the key, which only exists while unlocked. That is
+// also when the app is in use, so automatic backups run then: the desktop app writes to a folder (Documents/Somnium
+// Backups by default), the Android app to Documents/Somnium, a Chromium browser into a folder picked once; any other
+// browser can't write files on its own, so it offers a download when one is due.
 import { api } from "../api/client";
+import { SealError } from "@somnium/shared";
+import { invalidate } from "../api/live";
+import {
+  BACKUP_LOCKED_FORMAT, lockBackupFile, makeBackupFile, openBackupKey, openExport, parseBackupFile, unlockBackupFile,
+  type BackupAccount, type BackupFile,
+} from "@somnium/engine/sealed-api";
+import { keyring } from "./keyring";
+import { localKeys } from "./localLock";
+import { saved } from "./accounts";
 import { readJson, writeJson } from "./prefs";
 import { toast } from "./toast";
-
-const MAGIC = [0x4d, 0x4f, 0x54, 0x42]; // MOTB
-const enc = new TextEncoder(), dec = new TextDecoder();
-
-async function gzip(data: Uint8Array): Promise<Uint8Array> {
-  const s = new Blob([data]).stream().pipeThrough(new CompressionStream("gzip"));
-  return new Uint8Array(await new Response(s).arrayBuffer());
-}
-async function gunzip(data: Uint8Array): Promise<Uint8Array> {
-  const s = new Blob([data]).stream().pipeThrough(new DecompressionStream("gzip"));
-  return new Uint8Array(await new Response(s).arrayBuffer());
-}
-async function key(password: string, salt: Uint8Array) {
-  const base = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", salt, iterations: 310000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
-}
+import { choose, confirm, prompt } from "./ask";
 
 /** A direct export leaves out rows that didn't open (sealedApi.ts): only the number is said, nothing of what they hold. */
 export function tellLeftOut(data: any) {
@@ -28,29 +28,31 @@ export function tellLeftOut(data: any) {
   if (n) toast(`${n} row${n === 1 ? "" : "s"} couldn't be opened and ${n === 1 ? "was" : "were"} left out`);
 }
 
-export async function makeBackup(password?: string): Promise<Blob> {
-  const data = await api.get("/export");
-  tellLeftOut(data);
-  const body = await gzip(enc.encode(JSON.stringify(data)));
-  if (!password) return new Blob([new Uint8Array([...MAGIC, 1, 0]), body], { type: "application/octet-stream" });
-  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12));
-  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await key(password, salt), body));
-  return new Blob([new Uint8Array([...MAGIC, 1, 1]), salt, iv, ct], { type: "application/octet-stream" });
+/** The account's wrapped keys: a local account's own record, or what the server keeps (the same values it hands out). */
+async function accountBlock(): Promise<BackupAccount> {
+  const local = saved.list.find((a) => a.id === saved.active)?.kind === "local";
+  if (local) {
+    const k = await localKeys();
+    if (!k) throw new Error("This account has no password yet, so a backup couldn't be opened again");
+    return { kdfSalt: k.salt, wrappedByPassword: k.wrappedByPassword, recoverySalt: k.recoverySalt, wrappedByRecovery: k.wrappedByRecovery };
+  }
+  const b = await api.get<{ kdfSalt: string; wrappedByPassword: string | null; recoverySalt?: string | null; wrappedByRecovery?: string | null }>("/auth/bundle");
+  if (!b.wrappedByPassword) throw new Error("Set a new password first: the account's key isn't wrapped by one right now");
+  return { kdfSalt: b.kdfSalt, wrappedByPassword: b.wrappedByPassword, recoverySalt: b.recoverySalt, wrappedByRecovery: b.wrappedByRecovery };
 }
 
-/** Reads a .somniumbackup (or a plain .json export). Asks for the password through the callback when needed. */
-export async function readBackup(file: Blob, askPassword: () => Promise<string | null>): Promise<any> {
-  const b = new Uint8Array(await file.arrayBuffer());
-  if (b[0] === 0x7b) return JSON.parse(dec.decode(b)); // a JSON export
-  if (!MAGIC.every((m, i) => b[i] === m)) throw new Error("This is not a Somnium backup");
-  let body = b.slice(6);
-  if (b[5] === 1) {
-    const pw = await askPassword();
-    if (!pw) throw new Error("A password is needed for this backup");
-    const salt = body.slice(0, 16), iv = body.slice(16, 28), ct = body.slice(28);
-    try { body = new Uint8Array(await crypto.subtle.decrypt({ name: "AES-GCM", iv }, await key(pw, salt), ct)); } catch { throw new Error("Wrong password"); }
-  }
-  return JSON.parse(dec.decode(await gunzip(body)));
+/** The backup file. Needs the journal open here; passphrase: the optional extra wrap of the whole file. */
+export async function makeBackup(passphrase?: string): Promise<Blob> {
+  if (!keyring.isOpen()) throw new Error("Unlock Somnium to make a backup");
+  const plain = await api.get("/export");
+  tellLeftOut(plain);
+  const account = await accountBlock();
+  const key = keyring.get();
+  if (!key) throw new Error("Unlock Somnium to make a backup");
+  let file: object;
+  try { file = await makeBackupFile(plain, key, account); } finally { key.fill(0); }
+  if (passphrase) file = await lockBackupFile(file as BackupFile, passphrase);
+  return new Blob([JSON.stringify(file)], { type: "application/json" });
 }
 
 export const backupName = (d = new Date()) => `somnium-backup-${d.toISOString().slice(0, 16).replace(/[T:]/g, "-")}.somniumbackup`;
@@ -60,9 +62,9 @@ export function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
 
-// ----- automatic backups -----
-export interface BackupLog { lastAt: string | null; lastName: string | null; error: string | null }
-export const backupLog = (): BackupLog => readJson("somniumBackupLog", { lastAt: null, lastName: null, error: null });
+// ----- the log (the Security checklist reads lastAt) -----
+export interface BackupLog { lastAt: string | null; lastName: string | null; size: number | null; where: string | null; error: string | null }
+export const backupLog = (): BackupLog => ({ lastAt: null, lastName: null, size: null, where: null, error: null, ...readJson<Partial<BackupLog>>("somniumBackupLog", {}) });
 const setLog = (l: Partial<BackupLog>) => writeJson("somniumBackupLog", { ...backupLog(), ...l });
 
 /** A folder handle kept in IndexedDB (File System Access API, Chromium browsers). */
@@ -75,6 +77,7 @@ function idb<T>(fn: (s: IDBObjectStore) => IDBRequest<T>, mode: IDBTransactionMo
     o.onerror = () => rej(o.error);
   });
 }
+const nativeSave = () => (globalThis as any).somniumNative?.saveBackup as ((n: string, b: Uint8Array, keep: number) => Promise<unknown>) | undefined;
 export const canPickFolder = () => typeof (window as any).showDirectoryPicker === "function";
 export async function pickFolder(): Promise<string | null> {
   const h = await (window as any).showDirectoryPicker({ id: "somnium-backups", mode: "readwrite" });
@@ -82,26 +85,38 @@ export async function pickFolder(): Promise<string | null> {
   return h.name;
 }
 export async function folderName(): Promise<string | null> { try { return (await idb<any>((s) => s.get("dir")))?.name ?? null; } catch { return null; } }
+/** Whether backups can be written without asking: the apps' folder, or a picked folder still allowed. */
+export async function canBackUpSilently(): Promise<boolean> {
+  if (nativeSave()) return true;
+  const h = await idb<any>((s) => s.get("dir")).catch(() => null);
+  return !!h && (await h.queryPermission?.({ mode: "readwrite" }).catch(() => "denied")) === "granted";
+}
 
-/** Writes a backup now: into the chosen folder (keeping the newest `keep`), or as a download. */
-export async function backupNow(o: { password?: string; keep?: number; interactive?: boolean } = {}): Promise<string> {
-  const blob = await makeBackup(o.password);
-  const name = backupName();
-  const native = (globalThis as any).somniumNative?.saveBackup;
+/** Writes a backup now: into the apps' folder or the chosen one (keeping the newest `keep`), or as a download. */
+export async function backupNow(o: { passphrase?: string; keep?: number; interactive?: boolean } = {}): Promise<string> {
   try {
-    if (native) { await native(name, new Uint8Array(await blob.arrayBuffer()), o.keep ?? 14); }
-    else {
+    const blob = await makeBackup(o.passphrase);
+    const name = backupName();
+    let where: string;
+    const save = nativeSave();
+    if (save) {
+      await save(name, new Uint8Array(await blob.arrayBuffer()), o.keep ?? 7);
+      where = (await (globalThis as any).somniumNative?.backupFolder?.().catch(() => null)) ?? "the app's backup folder";
+    } else {
       const h = await idb<any>((s) => s.get("dir")).catch(() => null);
-      if (h && (await h.queryPermission?.({ mode: "readwrite" })) === "granted") {
+      let perm = h ? await h.queryPermission?.({ mode: "readwrite" }).catch(() => "denied") : "denied";
+      if (h && perm !== "granted" && o.interactive !== false) perm = await h.requestPermission?.({ mode: "readwrite" }).catch(() => "denied");
+      if (h && perm === "granted") {
         const f = await h.getFileHandle(name, { create: true });
         const w = await f.createWritable(); await w.write(blob); await w.close();
         const names: string[] = [];
         for await (const [n] of h.entries()) if (String(n).endsWith(".somniumbackup")) names.push(String(n));
-        for (const old of names.sort().reverse().slice(o.keep ?? 14)) await h.removeEntry(old);
-      } else if (o.interactive !== false) download(blob, name);
-      else throw new Error("Pick a backup folder in Settings → Backup");
+        for (const old of names.sort().reverse().slice(o.keep ?? 7)) await h.removeEntry(old);
+        where = `Folder: ${h.name}`;
+      } else if (o.interactive !== false) { download(blob, name); where = "Downloaded"; }
+      else throw new Error("This browser can't save backups on its own. Pick a folder, or download one.");
     }
-    setLog({ lastAt: new Date().toISOString(), lastName: name, error: null });
+    setLog({ lastAt: new Date().toISOString(), lastName: name, size: blob.size, where, error: null });
     return name;
   } catch (e) { setLog({ error: (e as Error).message }); throw e; }
 }
@@ -114,12 +129,72 @@ export function backupDue(cfg: { on: boolean; every: "daily" | "weekly" }): bool
 }
 
 let offered = false; // the download is offered once per visit
-/** Runs an automatic backup when one is due: silently into the folder (or the app's folder), else offers a download. */
-export async function maybeAutoBackup(cfg: { on: boolean; every: "daily" | "weekly"; keep: number; encrypt: boolean }, offer?: (run: () => void) => void) {
-  if (!backupDue(cfg) || cfg.encrypt) return; // encrypted backups need the password, so they are made by hand
-  const silent = !!(globalThis as any).somniumNative?.saveBackup || ((await idb<any>((s) => s.get("dir")).catch(() => null)) && true);
-  if (silent) { try { await backupNow({ keep: cfg.keep, interactive: false }); } catch { /* shown in Settings → Backup */ } }
-  // in a plain browser the data already lives on the server, so a daily "download your backup" would only nag;
-  // backups there are made by hand (or into a picked folder), and the apps keep theirs on the device
-  else if (!offered && (globalThis as any).Capacitor?.isNativePlatform?.()) { offered = true; offer?.(() => backupNow({ keep: cfg.keep, interactive: true })); }
+let running = false;
+/** Runs an automatic backup when one is due and the journal is open: silently where it can, else offers a download. */
+export async function maybeAutoBackup(cfg: { on: boolean; every: "daily" | "weekly"; keep: number }, offer?: (run: () => void) => void) {
+  if (running || !backupDue(cfg) || !keyring.isOpen()) return;
+  running = true;
+  try {
+    // the extra passphrase can't be asked for unseen, so automatic backups rely on the account's own sealing
+    if (await canBackUpSilently()) await backupNow({ keep: cfg.keep, interactive: false }).catch(() => { /* shown in Settings → Backup */ });
+    else if (!offered) { offered = true; offer?.(() => { backupNow({ keep: cfg.keep, interactive: true }).catch(() => {}); }); }
+  } finally { running = false; }
+}
+
+/** Checks for a due backup now, whenever the journal is unlocked, and every hour while the app is open. */
+let started = false;
+export function startAutoBackups(cfg: () => { on: boolean; every: "daily" | "weekly"; keep: number } | null, offer: (run: () => void) => void) {
+  if (started) return; started = true;
+  const tick = () => { const c = cfg(); if (c) maybeAutoBackup(c, offer); };
+  setTimeout(tick, 4000);
+  keyring.onChange((open) => { if (open) setTimeout(tick, 4000); });
+  setInterval(tick, 3600000);
+}
+
+// ----- restoring -----
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
+
+/**
+ * Restores a .somniumbackup or a Somnium JSON export: a preview answered on the device, the password or recovery key
+ * for a backup, then merge (add what's missing, newest wins) or replace (asked twice; the account and its keys stay).
+ * The rows are opened here with the backup's key and sealed again by the transport under this account's key, so a
+ * backup restores into a local account, a server account or a different account alike.
+ */
+export async function restoreFromFile(file: Blob, fmt: { date: (s: string) => string }): Promise<boolean> {
+  let parsed = parseBackupFile(await file.text());
+  if (parsed.format === BACKUP_LOCKED_FORMAT) {
+    const pass = await prompt("This backup has a passphrase", { text: "Enter the passphrase it was saved with.", secret: true, autocomplete: "current-password" });
+    if (!pass) return false;
+    try { parsed = await unlockBackupFile(parsed, pass); } catch (e) { if (e instanceof SealError) throw new Error("Wrong passphrase"); throw e; }
+  }
+  const sealedData = parsed.format === "export" ? parsed.data : (parsed as BackupFile).data;
+  const pv = await api.post<{ exportedAt: string; counts: Record<string, number>; from: string | null; to: string | null }>("/import/preview", { data: sealedData });
+  const c = pv.counts;
+  const lines = [
+    [c.dreams ? plural(c.dreams, "dream") : "", c.nights ? plural(c.nights, "night") : "", c.reality_checks ? plural(c.reality_checks, "reality check") : "", c.practice_log ? `${c.practice_log} practice` : ""].filter(Boolean).join(" · ") || "Settings only",
+    pv.from ? `${fmt.date(pv.from)} - ${fmt.date(pv.to!)}` : "",
+    pv.exportedAt ? `Made ${fmt.date(pv.exportedAt)}` : "",
+  ].filter(Boolean).join("\n");
+  const mode = await choose("Restore this backup?", [
+    { label: "Merge: add what's missing, the newest version of each entry wins", value: "merge" },
+    { label: "Replace: make the journal exactly like the backup", value: "replace" },
+  ], lines);
+  if (mode !== "merge" && mode !== "replace") return false;
+  let data = sealedData;
+  if (parsed.format !== "export" || sealedData.sealed) {
+    if (parsed.format === "export") throw new Error("This export holds the journal sealed without its key. Restore a .somniumbackup instead.");
+    const secret = await prompt("Password or recovery key", { text: "The account's password when the backup was made, or its recovery key.", secret: true, autocomplete: "current-password" });
+    if (!secret) return false;
+    const key = await openBackupKey(parsed as BackupFile, secret).catch((e) => { throw e instanceof SealError ? new Error(e.message) : e; });
+    try { const o = await openExport(sealedData, key); data = o.data; tellLeftOut({ unopened: o.unopened }); } finally { key.fill(0); }
+  }
+  if (mode === "replace") {
+    if (!(await confirm("Replace your journal?", { text: "Everything in it now is removed and the backup's entries take its place. Your account, password and recovery key stay.", ok: "Continue", danger: true }))) return false;
+    if (!(await confirm("Really replace everything?", { text: "This can't be undone. A backup of what you have now is saved first.", ok: "Replace", danger: true }))) return false;
+    await backupNow({ interactive: true });
+  }
+  const counts = await api.post<Record<string, number>>("/import", { data, mode });
+  invalidate(["*"]);
+  toast(`Restored · ${plural(counts.dreams ?? 0, "dream")} · ${plural(counts.nights ?? 0, "night")}`);
+  return true;
 }

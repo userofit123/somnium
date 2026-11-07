@@ -158,9 +158,27 @@ signs in here. The same holds for the device's copy of the password bundle. **We
 and there would be nothing to open the journal with unless the key were stored unprotected. It never is. On such a
 device the person is told and uses the password. "Use password instead" is always there.
 
-**The desktop and Android apps** unlock with the password for now. WebAuthn refuses the desktop app's
-`http://127.0.0.1` address, and `safeStorage` alone asks for nothing, so keeping the key in it would open the
-journal for whoever clicks (LDJ-10). Android's Keystore and BiometricPrompt are LDJ-9. The desktop window's content
+**The Android app** (LDJ-9) uses the phone's own verification in place of WebAuthn. The data key is wrapped by an
+AES-256-GCM key in the Android Keystore, made with `setUserAuthenticationRequired(true)`: on Android 11 and newer every
+use needs the fingerprint, face or screen lock, carried by a `CryptoObject` through BiometricPrompt (BIOMETRIC_STRONG
+or DEVICE_CREDENTIAL in one window); on Android 6 to 10 a Keystore key can't take the screen lock that way, so it works
+for 15 seconds after a strong biometric or the phone's confirm-your-PIN screen; below Android 6 there is no such key and
+the app unlocks with the password. The wrapped blob is kept in the account's record in the app, never in shared
+preferences; the data key passes through Java only inside the wrap and unwrap calls and is zeroed there (the base64 text
+the bridge carries can't be zeroed). A cancelled prompt never counts as a wrong try; a blob that doesn't open counts
+like a wrong password. A new fingerprint or a removed screen lock ends the Keystore key: the blob is dropped and the
+password is the way in until device verification is turned on again. Signing out forgets the blob and the Keystore key.
+`FLAG_SECURE` is on by default (blank recents thumbnail, no screenshots or screen recording), with a setting in
+Settings → Security to allow screenshots. Leaving the app is reported by the activity once it is out of sight
+(`onStop`), timed from `onPause`, so the lock's delay counts from the moment the app began to leave, while a permission
+dialog or the app's own prompt (which only pause it) doesn't lock it; the page's own visibility events agree with it, so
+nothing is counted or prompted twice.
+
+**The desktop app** unlocks with the password, and holds no device key (LDJ-10, decided): WebAuthn refuses its
+`http://127.0.0.1` address, and Electron's `safeStorage` asks for nothing - it decrypts for anyone using the signed-in
+computer, and on Linux it may have no real keyring behind it and Electron can't ask the system for the person at all.
+Keeping the data key in it would make the lock screen's button open the journal for whoever clicks, and a "device key"
+there would let anyone at the computer set a new password. Settings → Security says so. The desktop window's content
 protection is on by default, with a setting to allow screenshots. It is a request to the system, on Windows and macOS,
 and capture tools may ignore it. On Linux it does nothing, so the setting isn't shown there.
 
@@ -195,8 +213,9 @@ and capture tools may ignore it. On Linux it does nothing, so the setting isn't 
   if something else has taken that port does the account move to another one. A first password is offered only when the
   account has no record at all: a record that can't be read or isn't in the expected shape is never replaced, because
   it may hold the only wrapped copy of the data key. The lock screen says so and offers the recovery key, which opens
-  the journal from the record's recovery part and sets a new password. Device verification is the password in the desktop and Android apps until LDJ-9 and LDJ-10:
-  WebAuthn refuses the desktop app's `http://127.0.0.1` address and the Android app has its own path.
+  the journal from the record's recovery part and sets a new password. In the Android app a local account opens with the phone's
+  verification too (the Keystore blob in the same record), and "Set a new password" re-wraps the record from the key the
+  prompt released, after checking it is the open journal's key. The desktop app uses the password (see above).
 
 **When a session ends without signing out** (it expired, or was ended elsewhere), the tab leaves the device's copy at
 once and goes back to the server, and the copy stays closed on the device for the same person's return. If someone
@@ -233,4 +252,20 @@ two-factor sign-in on. Two-factor still guards the next step: setting a new pass
 every device and none of them keeps the key, so only the recovery key opens it again (on the lock screen, which
 also comes straight after signing in). There it asks for the password just signed in with, sent as `current` and
 checked against the reset's auth hash before anything is stored, so a typo is refused instead of quietly becoming
-the new sign-in password. Device-held keys that would survive this are LDJ-10.
+the new sign-in password. A device that held the key doesn't survive this, by design: the reset signs it out, and
+signing out forgets the key (a phone signed out after a loss must not keep a way in). So the reset message promises
+only the recovery key.
+
+**Device keys (LDJ-10).** A phone signed in with device verification on can set a new password without the old one
+(Settings → Security → Set a new password). The server never sees the data key; the phone proves it holds it with a
+**key proof**: a one-way HKDF value made from the data key (`keyProof` in `@somnium/shared`), the same on every device of
+the account and useless for opening anything. The server keeps only its scrypt hash (`users.key_proof_hash`), and
+registers it only while the password (or recovery key) is proven: at sign-up, right after each sign-in (`/auth/key-proof`
+with the authKey just sent; the first proof stays and a different one is refused), or with the recovery key. A stolen
+session token alone can't register a proof of its own choosing. `/auth/password/device` then needs all of: the current
+session; that session having registered a device key with the proof (`sessions.holds_key`, a plain flag, also shown as
+"holds your key" in the signed-in devices list); the proof itself, checked like a password (a wrong one is counted by
+the same try counter, so it waits the same); and, with two-factor on, an authenticator or backup code. The phone's
+prompt releases the key first, so the person is verified by the phone. The other devices are signed out, as after any
+password change. Accounts signed in before device keys register their proof on their next sign-in; until then turning
+on device verification still unlocks the phone, and the server answers that it needs one sign-in with the password.

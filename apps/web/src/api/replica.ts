@@ -91,6 +91,11 @@ const refusedAsNotOwner = (e: unknown) => e instanceof ApiError && e.status === 
 function sessionMovedOn(mineEra: number) {
   if (mineEra !== era) return; // already given up: whoever is signed in on this tab carries on undisturbed
   leaveCopy();
+  // once only per tab: a proxy that strips the copy-owner header would make every reload fail the same way
+  const mark = "somniumReloadedForOwner";
+  let again = false;
+  try { again = !!sessionStorage.getItem(mark); if (!again) sessionStorage.setItem(mark, "1"); } catch { again = true; }
+  if (again) { sync.error = "This device could not tell which account its copy belongs to. A proxy may be removing a header. Sign out and in again."; return; }
   location.reload();
 }
 /** Work on a copy stopped between two steps: it was given up, or the journal locked. */
@@ -271,6 +276,7 @@ async function run(mineEra: number) {
       unopened ? `${unopened} row${unopened === 1 ? "" : "s"} from the server couldn't be opened` : "",
       heldBack ? `${heldBack} row${heldBack === 1 ? "" : "s"} from the server couldn't be saved yet` : "",
     ].filter(Boolean).join(" · ");
+    try { sessionStorage.removeItem("somniumReloadedForOwner"); } catch { /* a good sync: a later move may reload once again */ }
     Object.assign(sync, { online: true, error: problems, lastAt: Date.now() });
   } catch (e) {
     if (e instanceof Stopped) { if (!keyring.isOpen() && mineEra === era) locked(); }

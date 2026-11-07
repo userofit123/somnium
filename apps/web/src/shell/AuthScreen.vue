@@ -3,10 +3,10 @@
 // turns it into authKey (sent) and encKey (opens the journal's data key from the envelope the server hands back,
 // PLAN.md §4.1). With two-factor on, the server asks for a code before it answers. "Forgot password?" (§4.4) takes the
 // recovery key (opens the journal here, sets a new password, makes a new key) or a reset code from the admin (a new
-// password, with the journal sealed until the recovery key opens it; a signed-in device cannot yet, LDJ-10).
+// password, with the journal sealed until the recovery key opens it; no device can: the reset signed them out, which forgets their keys, LDJ-10).
 // Straight after sign-up it offers to make the recovery key; skipping leaves Settings → Security's checklist warning.
 import { ref, computed, onBeforeUnmount, watch } from "vue";
-import { createAccountKeys, openWithEncKey, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
+import { createAccountKeys, keyProof, openWithEncKey, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
 import { api, newSessionEra } from "../api/client";
 import { session, loadSession } from "../core/session";
 import { deviceId } from "../core/prefs";
@@ -14,6 +14,7 @@ import { keyring } from "../core/keyring";
 import { keysFor, type SignInKeys } from "../core/auth";
 import { lockNow, markUnlocked } from "../core/lock";
 import { rememberBundle } from "../core/unlock";
+import { registerKeyProof } from "../core/deviceKey";
 import { downloadRecoveryKey, finishRecovery, makeRecoveryKey, openRecovery, type OpenedRecovery } from "../core/recovery";
 import Logo from "./Logo.vue";
 import { current, setToken } from "../native/accounts";
@@ -59,8 +60,11 @@ async function finish(r: any, encKey: Uint8Array | null, dataKey?: Uint8Array) {
   // the password was just proven: no lock screen straight after signing in - unless nothing opened the journal, and
   // then the lock screen is where the recovery key brings it back
   if (keyring.isOpen()) markUnlocked(); else lockNow();
+  const proven = keys?.authKeyText ?? null;
   keys = null; f.value.password = ""; code.value = "";
   await loadSession();
+  // the password was just proven: the server learns this account's key proof now (LDJ-10, core/deviceKey.ts)
+  if (proven && keyring.isOpen()) void registerKeyProof(proven);
   // the lock screen opens the journal with this, also without a connection. It is this person's: known only from here on.
   if (r?.kdfSalt && session.user) rememberBundle({ salt: r.kdfSalt, wrappedByPassword: r.wrappedByPassword ?? null });
 }
@@ -76,7 +80,7 @@ async function go() {
       const made = await createAccountKeys(f.value.password);
       try {
         busy.value = "send";
-        const r = await api.post("/auth/sign-up", { username, displayName: f.value.displayName, invite: f.value.invite, authKey: made.authKey, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword, ...device() });
+        const r = await api.post("/auth/sign-up", { username, displayName: f.value.displayName, invite: f.value.invite, authKey: made.authKey, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword, keyProof: await keyProof(made.dataKey), ...device() });
         if (app && r?.token) setToken(r.token); // the recovery key is sent with this account's session
         // hold on until the recovery key is made or skipped: the next step needs the data key and the authKey
         pending = { r: { ...r, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword }, dataKey: new Uint8Array(made.dataKey) };
@@ -154,7 +158,7 @@ async function setPasswordWithKey() {
 const copyKey = async () => { try { await navigator.clipboard.writeText(newKey.value); } catch { err.value = "Could not copy. Write it down instead."; } };
 
 // A new password from a reset code. Only the new authKey and salt are sent: the journal's data key is lost to this
-// device until the recovery key brings it back (a signed-in device cannot yet, LDJ-10), so the fresh one made
+// device until the recovery key brings it back (no device can: the reset signed them out and each forgot its key, LDJ-10), so the fresh one made
 // alongside is never used.
 async function sendReset() {
   err.value = "";

@@ -8,8 +8,10 @@ import { checkServerAddress, cleanName, normaliseStore, removePlan, type Account
 import { server, setTransport, httpTransport, sealingTransport, type Transport, ApiError } from "../api/client";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared), kept with the account.
- *  userId: who is signed in on a server account, so removing it deletes only that person's copy. */
-export interface Account extends AccountEntry { token?: string; keys?: unknown; userId?: string }
+ *  userId: who is signed in on a server account, so removing it deletes only that person's copy.
+ *  deviceKey: the data key wrapped by this phone's Keystore (SomniumLockPlugin, LDJ-9/10); useless off this phone and
+ *  without its fingerprint, face or screen lock. Signing out or removing the account forgets it. */
+export interface Account extends AccountEntry { token?: string; keys?: unknown; userId?: string; deviceKey?: string }
 const KEY = "somniumAccounts";
 // servers: the saved servers, each with the name the person gave it (plain settings, not journal content; PLAN.md §6.7)
 export const accounts = reactive<AccountStore<Account>>(normaliseStore<Account>(readJson(KEY, null), () => crypto.randomUUID()));
@@ -62,6 +64,24 @@ export async function setLocalKeys(keys: unknown) {
   const acc = current();
   if (acc?.kind !== "local") throw new Error("Not a local account");
   acc.keys = keys; save();
+}
+/** The open account's Keystore-wrapped data key, and keeping or dropping it. The Keystore key goes with a dropped one. */
+export const deviceBlob = (): string | null => current()?.deviceKey ?? null;
+export function setDeviceBlob(blob: string | null) {
+  const acc = current();
+  if (!acc) throw new Error("No account is open");
+  if (blob) acc.deviceKey = blob; else { delete acc.deviceKey; forgetKeystoreKey(acc.id); }
+  save();
+}
+const forgetKeystoreKey = (id: string) => { (globalThis as any).Capacitor?.Plugins?.SomniumLock?.forget?.({ id })?.catch?.(() => {}); };
+/** Signing out (here or by the server): every saved account of that person at that place forgets its device key. */
+export function forgetDeviceBlobsOf(userId: string, place: string) {
+  let changed = false;
+  for (const a of accounts.list) {
+    if (a.userId !== userId || (a.kind === "server" ? a.url : location.origin) !== place || !a.deviceKey) continue;
+    delete a.deviceKey; forgetKeystoreKey(a.id); changed = true;
+  }
+  if (changed) save();
 }
 /** After a journal made before passwords was sealed in place: its old plaintext leaves the database files. */
 export async function compactLocal() { await engine?.compact(); }
@@ -171,6 +191,7 @@ async function drop(acc: Account) {
   const userId = acc.userId ?? (accounts.active === acc.id ? session.user?.id : undefined);
   // what it left in this app's storage: sealed drafts, queued changes, what unlocks its journal, its cached session
   if (userId) { forgetStoredDrafts(place, userId); forgetOutbox(place, userId); forgetUnlock(userId, place); }
+  if (acc.deviceKey) { delete acc.deviceKey; forgetKeystoreKey(acc.id); }
   writeJson("somniumSession:" + place + "#" + acc.id, null);
   // the open account's database has to be closed first, or deleting it waits until the app is closed
   if (acc.kind === "local") { if (accounts.active === acc.id) await closeOpen(); await dropDatabase(`/pglite/somnium-${acc.id}`); }

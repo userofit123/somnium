@@ -3,7 +3,7 @@
 // sign up, and invites. The server never sees a password (PLAN.md §4.1), so an admin cannot set one: new people
 // join with an invite link, and a lost password gets a one-time reset code. The journal stays sealed after a
 // reset until the person's recovery key re-wraps the data key (§4.4). A signed-in device cannot: the reset signs
-// every device out and none keeps the key yet (LDJ-10); widen the dialog's promise only when that is built.
+// every device out, and signing out forgets a device's key (LDJ-10, by design), so the dialog promises only the recovery key.
 import { useFmt } from "../../core/format";
 import { useQuery } from "@tanstack/vue-query";
 import { api } from "../../api/client";
