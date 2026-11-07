@@ -58,7 +58,8 @@
       ],
       "category": "Utility",
       "maintainer": "Somnium",
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "artifactName": "Somnium-${version}-${arch}.${ext}"
     },
     "win": {
       "target": "nsis",
@@ -66,7 +67,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Somnium-Setup-${version}.${ext}"
     },
     "mac": {
       "target": "dmg",

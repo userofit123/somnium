@@ -17,24 +17,27 @@ accounts with us, no analytics, nothing sent anywhere else.
 
 ## Install
 
-Not released yet: everything below arrives with 0.1.0.
+Nothing is released yet: every row below is marked "with 0.1.0" until the first release exists. The Docker image is `ghcr.io/userofit123/somnium` (amd64 and arm64).
 
 | | For | How |
 |---|---|---|
-| **Windows app** | One PC | Coming with 0.1.0: download the installer from the [latest release](../../releases/latest) and run it |
-| **Linux app** | One computer | Coming with 0.1.0: download the .rpm, .deb or .AppImage from the [latest release](../../releases/latest) |
-| **Docker** | A home server, always on, for all your devices | Coming with 0.1.0: the commands below |
-| **Android app** | Your phone | Coming with 0.1.0: download the .apk from the [latest release](../../releases/latest), then add your server |
-| **Phone web page (PWA)** | Using it from anywhere | Coming with 0.1.0: open your server's address and choose Add to Home Screen |
-| **Desktop app + your server** | The desktop app, using your server's data | Coming with 0.1.0: choose My server the first time you open the app |
+| **Windows app** | One PC | With 0.1.0: download the installer from the [latest release](../../releases/latest) and run it |
+| **Linux app** | One computer | With 0.1.0: download the .rpm, .deb or .AppImage from the [latest release](../../releases/latest) |
+| **Docker** | A home server, always on, for all your devices | With 0.1.0: the commands below |
+| **Android app** | Your phone | With 0.1.0: download the .apk from the [latest release](../../releases/latest), then add your server |
+| **Phone web page (PWA)** | Using it from anywhere | With 0.1.0: open your server's address and choose Add to Home Screen |
+| **Desktop app + your server** | The desktop app, using your server's data | With 0.1.0: choose My server the first time you open the app |
 
-**Docker in three lines** (coming with 0.1.0; the app is served on port 8800):
+**Docker in three lines** (with 0.1.0; the app is served on port 8800):
 
 ```sh
 git clone https://github.com/userofit123/somnium.git && cd somnium
 cp .env.example .env            # then set the secrets in it
-docker compose up -d            # http://localhost:8800
+docker compose up -d            # http://127.0.0.1:8800 (put HTTPS in front: docs/self-hosting.md)
 ```
+
+Details: [self-hosting](docs/self-hosting.md) · [desktop and Android apps](docs/apps.md) · [backups, export and import](docs/import-export.md).
+Questions about lucid dreaming or the app: the Help / FAQ in **Learn** inside the app (its source: [faq.md](packages/knowledge/content/faq/faq.md)).
 
 ## Status
 

@@ -63,25 +63,40 @@ Never put more hops than you really have: each extra one lets a client choose th
   journal stays sealed until they enter their recovery key, which re-wraps the data key. Without it, their dreams
   cannot be read by anyone, the admin included. (A reset signs out every device, and signing out forgets a phone's device key, by
   design, so no device can open the journal after a reset. While still signed in, a phone with device verification on can set a new password itself.)
-- When nobody can get into the admin panel, the same two things work on the server itself (same `DATABASE_URL`
-  or `DATA_DIR` as the server):
-  `node --import tsx apps/server/src/cli.ts reset-password <username>` and
-  `node --import tsx apps/server/src/cli.ts disable-2fa <username>`.
+- When nobody can get into the admin panel, the same two things work on the server itself (the admin CLI). With Docker:
+  `docker compose exec app node --import tsx src/cli.ts reset-password <username>` and
+  `docker compose exec app node --import tsx src/cli.ts disable-2fa <username>`.
+  Without Docker, from the repository with the same `DATABASE_URL` or `DATA_DIR` as the server:
+  `node --import tsx apps/server/src/cli.ts reset-password <username>` (and `disable-2fa`).
+  `reset-password` prints a one-time reset code; the person still needs their recovery key to read their journal.
 - The server's own key, `DATA_DIR/app.key` (made on first start, or given as `APP_KEY`, 32 bytes base64), encrypts
   two-factor secrets at rest and must stay with the database in backups.
 - Every person's data is kept apart by the database itself (row-level security). Admins cannot see anyone's dreams, and the server could not show them anyway: they are sealed.
 
 ## Updates
 
-- By hand: `docker compose pull && docker compose up -d`
-- Automatically: `docker compose -f docker-compose.yml -f docker-compose.autoupdate.yml up -d` (Watchtower, daily at 04:00).
-- Pin a version with `SOMNIUM_VERSION=0.1.0` in `.env`.
+Images are published at `ghcr.io/userofit123/somnium` (amd64 and arm64) with each release (from 0.1.0). If the pull is
+refused, the package may still be private: the owner makes it public once in the repository's package settings.
+
+- By hand: `docker compose pull && docker compose up -d`. Back up first (below); updates run the database migrations.
+- Automatically: `docker compose -f docker-compose.yml -f docker-compose.autoupdate.yml up -d` (Watchtower, daily at 04:00;
+  it updates only the app container, which carries the Watchtower label, never the database).
+- Pin a version with `SOMNIUM_VERSION=0.1.0` in `.env`. A pinned install (with or without Watchtower) stays on that
+  version until you change the number; with the default `latest`, Watchtower follows every release.
+- Roll back by pinning the earlier version, if the database change allows it: restore the backup taken before the update when in doubt.
 
 ## Backups
 
 - Each person makes their own backups in Settings → Backup & restore (to their device).
-- For the whole server, back up the `db` and `appdata` volumes, e.g.
-  `docker compose exec db pg_dump -U somnium somnium | gzip > somnium-$(date +%F).sql.gz`.
+- For the whole server, back up both volumes, `db` (the database) and `appdata` (`/data`, which holds `app.key`).
+  A database dump alone cannot be used without `app.key` for two-factor sign-in. For example:
+  ```sh
+  docker compose exec -T db pg_dump -U somnium somnium | gzip > somnium-$(date +%F).sql.gz
+  docker compose cp app:/data/app.key ./app.key.backup
+  ```
+  (or stop the stack and copy the volumes' folders). The data in a dump is sealed, but treat the files as private.
+- Restore: start the stack, then `gunzip -c somnium-DATE.sql.gz | docker compose exec -T db psql -U somnium somnium`
+  on an empty database, and put `app.key` back into `/data` before the app starts.
 
 ## Without Docker
 

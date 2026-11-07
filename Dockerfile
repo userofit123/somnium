@@ -10,6 +10,9 @@ COPY packages/engine/package.json packages/engine/
 COPY packages/shared/package.json packages/shared/
 RUN corepack pnpm install --frozen-lockfile --filter @somnium/server... --filter @somnium/web...
 COPY . .
+# the version the web app shows (Settings); the release workflow passes it
+ARG SOMNIUM_VERSION=
+ENV SOMNIUM_VERSION=$SOMNIUM_VERSION
 RUN corepack pnpm --filter @somnium/web exec vite build
 RUN corepack pnpm deploy --filter @somnium/server --prod /out \
  && cp -r apps/web/dist /out/web \

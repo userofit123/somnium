@@ -1,20 +1,28 @@
-# Checks every push and pull request: types, engine tests (including the data-isolation tests) and the web build.
+# Checks every push and pull request: types in every package, all tests (including the data-isolation tests), the web
+# build and the Android compile.
 name: CI
 on:
   push:
-    branches: [main]
   pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @somnium/engine test
-      - run: pnpm --filter @somnium/web exec vue-tsc --noEmit
+      # every package, the web app (vue-tsc) and the desktop app included
+      - run: pnpm -r typecheck
+      # the engine tests run two files at a time (maxForks 2 in its vitest config) so a shared runner keeps enough memory
+      - run: pnpm -r test
       - run: pnpm --filter @somnium/web exec vite build
   # Compiles the Android app (Java plugin included) without signing or publishing, so a broken build shows up before a release.
   android:

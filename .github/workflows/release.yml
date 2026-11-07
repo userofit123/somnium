@@ -1,0 +1,211 @@
+# Publishes a release when CHANGELOG.md gets a new version on main (or when run by hand): the server image (GHCR, amd64
+# and arm64), the desktop apps (Linux AppImage, deb, rpm; Windows installer) with latest-linux.yml / latest.yml and the
+# block maps (read by the desktop updater), the signed Android APK with android-latest.json (read by the Android
+# updater) and SHA256SUMS for every file (PLAN.md section 13).
+# The version is the top `## [x.y.z]` heading in CHANGELOG.md. With no such heading (every commit before 0.1.0) or
+# when its tag already exists, nothing is built or published, so edits to the Unreleased section publish nothing.
+name: Release
+on:
+  push:
+    branches: [main]
+    paths: [CHANGELOG.md]
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Build again for the current version even if its release exists
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: v
+        env: { REBUILD: "${{ inputs.rebuild }}" }
+        run: |
+          V=$(grep -m1 -oP '^## \[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md || true)
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if [ -z "$V" ]; then echo "No released version in CHANGELOG.md yet: nothing to publish."; echo "publish=false" >> "$GITHUB_OUTPUT"
+          elif git rev-parse "v$V" >/dev/null 2>&1 && [ "$REBUILD" != "true" ]; then echo "v$V exists: nothing to publish."; echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            # the notes are the release text: stop before building anything when the section is empty
+            node scripts/release-notes.mjs "$V" | grep -q '[[:alnum:]]' || { echo "::error::CHANGELOG.md has no notes for $V"; exit 1; }
+            echo "Publishing $V."; echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+  test:
+    needs: version
+    if: needs.version.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r typecheck
+      - run: pnpm -r test
+  # Builds the web app once, with the release's version; the desktop and Android apps carry this same build.
+  web:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @somnium/web exec vite build
+        env: { SOMNIUM_VERSION: "${{ needs.version.outputs.version }}" }
+      - uses: actions/upload-artifact@v4
+        with: { name: web, path: apps/web/dist, if-no-files-found: error }
+  # The server image; pushed only after the tests passed. Tags: the version and latest.
+  docker:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ github.token }}" }
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: SOMNIUM_VERSION=${{ needs.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/somnium:${{ needs.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/somnium:latest
+  desktop:
+    needs: [version, web]
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: --linux, files: "release/*.AppImage release/*.deb release/*.rpm", feed: release/latest-linux.yml }
+          - { os: windows-latest, target: --win, files: "release/*.exe", feed: release/latest.yml }
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with: { name: web, path: apps/web/dist }
+      - name: Tools for the rpm package
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+      - name: Build the installers
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          npm pkg set version=${{ needs.version.outputs.version }}
+          node build.mjs
+          npx electron-builder ${{ matrix.target }} --publish never
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          # latest*.yml names each file as electron-builder wrote it; a space in a name would be renamed by GitHub and
+          # break the updater, so stop here (set build.nsis.artifactName in apps/desktop/package.json)
+          for f in ${{ matrix.files }}; do case "$f" in *" "*) echo "::error::$f has a space in its name"; exit 1;; esac; done
+          cp ${{ matrix.files }} "$GITHUB_WORKSPACE/out/"
+          # the updater's feed (version, file name, SHA-512) and block maps for smaller downloads; electron-builder
+          # writes them because of the "publish" setting in apps/desktop/package.json, even with --publish never
+          [ -f "${{ matrix.feed }}" ] || { echo "::error::${{ matrix.feed }} was not made (is build.publish still set?)"; exit 1; }
+          cp "${{ matrix.feed }}" "$GITHUB_WORKSPACE/out/"
+          shopt -s nullglob
+          for f in release/*.blockmap; do cp "$f" "$GITHUB_WORKSPACE/out/"; done
+      - uses: actions/upload-artifact@v4
+        with: { name: "out-desktop-${{ runner.os }}", path: out/*, if-no-files-found: error }
+  android:
+    needs: [version, web]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with: { name: web, path: apps/web/dist }
+      - name: Copy the app into the Android project
+        working-directory: apps/android
+        run: node prepare-web.mjs && npx cap sync android
+      # Every version must be signed with the same key (or phones refuse the update), so a missing key stops the release
+      # instead of publishing an unsigned or differently signed APK.
+      - name: Build the signed APK
+        working-directory: apps/android/android
+        env:
+          SOMNIUM_KEYSTORE_B64: ${{ secrets.SOMNIUM_KEYSTORE_B64 }}
+          SOMNIUM_KEYSTORE_PASSWORD: ${{ secrets.SOMNIUM_KEYSTORE_PASSWORD }}
+          SOMNIUM_KEY_ALIAS: ${{ secrets.SOMNIUM_KEY_ALIAS }}
+          SOMNIUM_KEY_PASSWORD: ${{ secrets.SOMNIUM_KEY_PASSWORD }}
+        run: |
+          if [ -z "$SOMNIUM_KEYSTORE_B64" ] || [ -z "$SOMNIUM_KEYSTORE_PASSWORD" ]; then
+            echo "::error::The Android signing key is missing: add the SOMNIUM_KEYSTORE_B64 and SOMNIUM_KEYSTORE_PASSWORD repository secrets (docs/apps.md)."
+            exit 1
+          fi
+          printf '%s' "$SOMNIUM_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/somnium.jks"
+          export SOMNIUM_KEYSTORE="$RUNNER_TEMP/somnium.jks"
+          # empty optional secrets fall back to the defaults in build.gradle (alias "somnium", key password = store password)
+          [ -n "$SOMNIUM_KEY_ALIAS" ] || unset SOMNIUM_KEY_ALIAS
+          [ -n "$SOMNIUM_KEY_PASSWORD" ] || unset SOMNIUM_KEY_PASSWORD
+          chmod +x gradlew
+          ./gradlew assembleRelease -PappVersion=${{ needs.version.outputs.version }}
+          rm -f "$SOMNIUM_KEYSTORE"
+          APK=app/build/outputs/apk/release/app-release.apk
+          [ -f "$APK" ] || { echo "::error::No signed APK was made (only an unsigned one?)"; exit 1; }
+          "$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 | sort -V | tail -n1)/apksigner" verify "$APK"
+          mkdir -p "$GITHUB_WORKSPACE/out"
+          cp "$APK" "$GITHUB_WORKSPACE/out/somnium-${{ needs.version.outputs.version }}.apk"
+      - uses: actions/upload-artifact@v4
+        with: { name: out-android, path: out/*, if-no-files-found: error }
+  # Publishes only when every build succeeded (the image included), so a release never lacks a file.
+  publish:
+    needs: [version, docker, desktop, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { pattern: out-*, path: out, merge-multiple: true }
+      - name: Update manifest and checksums
+        working-directory: out
+        run: |
+          V=${{ needs.version.outputs.version }}
+          APK=somnium-$V.apk
+          SHA=$(sha256sum "$APK" | cut -d' ' -f1)
+          URL=https://github.com/${{ github.repository }}/releases/download/v$V/$APK
+          printf '{"version":"%s","url":"%s","sha256":"%s","size":%s}\n' "$V" "$URL" "$SHA" "$(stat -c%s "$APK")" > android-latest.json
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
+      - name: Create the GitHub release
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          V=${{ needs.version.outputs.version }}
+          node scripts/release-notes.mjs "$V" > notes.md
+          grep -q '[[:alnum:]]' notes.md || { echo "::error::CHANGELOG.md has no notes for $V"; exit 1; }
+          if gh release view "v$V" >/dev/null 2>&1; then
+            gh release upload "v$V" out/* --clobber
+          else
+            gh release create "v$V" --target "${{ github.sha }}" --title "Somnium $V" --notes-file notes.md out/*
+          fi

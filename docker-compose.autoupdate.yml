@@ -1,5 +1,8 @@
 # Optional: update Somnium by itself when a new version is published.
 #   docker compose -f docker-compose.yml -f docker-compose.autoupdate.yml up -d
+# Watchtower checks daily at 04:00 and only touches containers labelled for it (the app, never the database).
+# It follows the image tag in .env: SOMNIUM_VERSION=latest (the default) takes every new release; a pinned version such
+# as SOMNIUM_VERSION=0.1.0 stays on that version, so remove the pin (or change it) to move on. See docs/self-hosting.md.
 services:
   watchtower:
     image: nickfedor/watchtower:latest

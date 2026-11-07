@@ -71,3 +71,42 @@ serves it on http://127.0.0.1:8801. Tailscale shares that with your devices at `
 and Tailscale keeps it across restarts (`tailscale serve status` shows it, `tailscale serve --https=8444 off` removes it).
 No hot reload there: reopen the app to get the latest build. (The development server with hot reload is on 8800;
 point Tailscale at that instead when you need it on the phone, but it loads slowly over the network.)
+
+## Checks
+
+```sh
+./scripts/pnpm.sh -r typecheck        # every package: engine, shared, knowledge, server, web (vue-tsc), desktop
+./scripts/pnpm.sh -r test             # all tests, including the data-isolation tests
+./scripts/pnpm.sh --filter @somnium/web exec vite build
+```
+
+CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, and compiles the Android app (debug build,
+unsigned). The engine tests run two files at a time (`maxForks: 2` in `packages/engine/vitest.config.ts`) because each
+holds several in-memory PostgreSQL copies; do not raise it on a small machine.
+
+## Releasing (0.1.0 and later)
+
+Nothing is published before 0.1.0 is complete. Until then `CHANGELOG.md` has only an `## Unreleased` section, and
+`.github/workflows/release.yml` reads that as "no version: build nothing". **Never type a `## [x.y.z]` heading by hand
+and never add one to a branch that is not ready:** pushing one to `main` publishes a release.
+
+1. Write what changed under `## Unreleased` in `CHANGELOG.md` while you work (plain words, one bullet per change).
+2. When ready: `node scripts/bump.mjs 0.1.0`. It sets the version in the root, desktop, Android and web
+   `package.json` files and turns Unreleased into `## [0.1.0] - date`, with a fresh empty Unreleased above it.
+   It stops if Unreleased is empty or the version already has a heading. Read the notes once more.
+3. Commit and push to `main`. The workflow (also startable by hand: Actions, Release, with "rebuild" to build a
+   version again) then:
+   - reads the version from the top `## [x.y.z]` heading and skips when its tag `vX.Y.Z` already exists;
+   - runs `pnpm -r typecheck` and `pnpm -r test`;
+   - builds the web app once, the server image (`ghcr.io/userofit123/somnium:x.y.z` and `:latest`, amd64 and arm64),
+     the desktop installers with `latest.yml` / `latest-linux.yml` (Linux AppImage, deb, rpm; Windows installer) and the
+     signed APK;
+   - creates the GitHub release `vX.Y.Z` with the notes from `scripts/release-notes.mjs`, the installers,
+     `android-latest.json` (version, url, sha256, size) and `SHA256SUMS`, only when every build succeeded.
+4. Make the GHCR package public after the first release (once), then check an install from the table in the README.
+
+One-time setup: create the Android signing key outside the repository (`keytool -genkeypair -v -keystore somnium.jks
+-alias somnium -keyalg RSA -keysize 4096 -validity 10000`), keep a safe copy (every later update must be signed with
+the same key), and add the repository secrets `SOMNIUM_KEYSTORE_B64` (`base64 -w0 somnium.jks`) and
+`SOMNIUM_KEYSTORE_PASSWORD`. Optional: `SOMNIUM_KEY_ALIAS` (default `somnium`) and `SOMNIUM_KEY_PASSWORD` (default: the
+store password) are passed to `apps/android/android/app/build.gradle` by the workflow when set. The Android version comes from the workflow (`-PappVersion`).
