@@ -108,6 +108,17 @@ describe("app lock", () => {
     expect(slow.s.locked).toBe(true);
   });
 
+  it("an answer inside the hold ends it after its grace, not at the hold's limit (LDJ-68)", () => {
+    const c = cfg(0);
+    const r = run(open(), [
+      { type: "hold", at: T0, ms: Number.POSITIVE_INFINITY }, { type: "away", at: T0 + 1000 },
+      { type: "holdOn", at: T0 + 5000, ms: 1500 }, { type: "back", at: T0 + 5500 },
+      { type: "away", at: T0 + 20_000 }, { type: "back", at: T0 + 100_000 },
+    ], c);
+    expect(r.s.locked).toBe(true);
+    expect(r.actions).toContain("clearKey");
+  });
+
   it("a hold can't last past its limit", () => {
     const c = cfg(0);
     const { s } = run(open(), [{ type: "hold", at: T0, ms: 99_999_999 }, { type: "away", at: T0 + 1 }, { type: "tick", at: T0 + LOCK_HOLD_MAX_MS - 1 }], c);

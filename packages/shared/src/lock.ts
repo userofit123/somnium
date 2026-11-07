@@ -150,7 +150,8 @@ export function lockStep(s: LockState, e: LockEvent, cfg: LockSettings): LockSte
     case "holdOn":
       // An answer after the hold ran out (a picker left open for ten minutes) must not start a new one: the "back" that
       // follows would land inside it and count the whole time as never away (LDJ-68).
-      if (held) return { state: { ...s, holdUntil: Math.max(s.holdUntil, e.at + Math.min(e.ms, LOCK_HOLD_MAX_MS)) }, actions: [] };
+      // The answer ends the picker's hold: shorten it to the grace after the answer, as hold() would, never keep the rest of it.
+      if (held) return { state: { ...s, holdUntil: e.at + Math.min(e.ms, LOCK_HOLD_MAX_MS) }, actions: [] };
       return lockStep(s, { type: "release", at: e.at }, cfg);
     case "release":
       if (s.awayAt === null) return { state: { ...s, holdUntil: 0 }, actions: [] };
