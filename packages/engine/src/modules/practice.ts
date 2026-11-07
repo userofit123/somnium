@@ -1,6 +1,6 @@
 // Training: the practice log (a day's lessons, techniques and habits), progress through the course, goals and
 // reminders (PLAN.md §5, §6.4, §8, §9). The course's content and the recommendation rules live elsewhere.
-import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, storableSchedule, type PracticeLog, type CourseProgress, type Goal, type Reminder } from "@somnium/shared";
+import { LESSON_STATES, GOAL_KINDS, GOAL_PERIODS, REMINDER_KINDS, storableSchedule, type PracticeLog, type CourseProgress, type Goal, type Reminder, type DayNote } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, bool, dateStr } from "../util";
 import { clientId, refuseOtherRow, columns, sealed, timeOrNull, enumOrNull, enumOf, required, json, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
@@ -22,6 +22,8 @@ const GOAL: Fields = {
 // the table is plain (not sealed): the schedule keeps only times, numbers and values from fixed lists (storableSchedule),
 // so free text sent by any client never lands in it
 const REMINDER: Fields = { kind: required(enumOrNull(REMINDER_KINDS), "kind"), schedule: (v) => json(v && typeof v === "object" && !Array.isArray(v) ? storableSchedule(v as Record<string, unknown>) : v), enabled: (v) => bool(v, true) };
+
+const DAY_NOTE: Fields = { date: required(dateStr, "date"), text: sealed };
 
 export function practiceRoutes(r: Router) {
   r.get("/practice", async ({ q }, _p, _b, qs) => {
@@ -56,6 +58,18 @@ export function practiceRoutes(r: Router) {
     await removeRow(ctx, "course_progress", "course", cur.id, "lesson");
     return { ok: true };
   });
+
+  // day notes (LDJ-41): a sealed line about a day, for the dream-lag analysis
+  r.get("/day-notes", async ({ q }, _p, _b, qs) => {
+    const params: unknown[] = [], w: string[] = [];
+    const from = dateStr(qs.from), to = dateStr(qs.to);
+    if (from) { params.push(from); w.push(`date >= $${params.length}`); }
+    if (to) { params.push(to); w.push(`date <= $${params.length}`); }
+    return listLive<DayNote>(q, "day_notes", w.join(" AND "), params, "date DESC", 2000);
+  });
+  r.post("/day-notes", async (ctx, _p, b) => insertRow<DayNote>(ctx, "day_notes", "dayNotes", { ...columns(DAY_NOTE, b, true), ...clientId(b) }));
+  r.put("/day-notes/:id", async (ctx, p, b) => updateRow<DayNote>(ctx, "day_notes", "dayNotes", id(p.id), columns(DAY_NOTE, b, false), "day note"));
+  r.del("/day-notes/:id", async (ctx, p) => { await removeRow(ctx, "day_notes", "dayNotes", id(p.id), "day note"); return { ok: true }; });
 
   r.get("/goals", async ({ q }) => listLive<Goal>(q, "goals", "", [], "created_at"));
   r.post("/goals", async (ctx, _p, b) => insertRow<Goal>(ctx, "goals", "goals", { ...columns(GOAL, b, true), ...clientId(b) }));

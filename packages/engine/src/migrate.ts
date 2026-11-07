@@ -13,6 +13,9 @@ import m010 from "./migrations/010_plan_and_start";
 import m011 from "./migrations/011_merge_pending";
 import m012 from "./migrations/012_device_keys";
 import m013 from "./migrations/013_sign_in_tries";
+import m014 from "./migrations/014_awareness";
+import m015 from "./migrations/015_day_notes";
+import m016 from "./migrations/016_wbtb_mode";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
@@ -28,6 +31,9 @@ export const MIGRATIONS: [string, string][] = [
   ["011_merge_pending", m011],
   ["012_device_keys", m012],
   ["013_sign_in_tries", m013],
+  ["014_awareness", m014],
+  ["015_day_notes", m015],
+  ["016_wbtb_mode", m016],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

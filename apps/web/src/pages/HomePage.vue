@@ -20,6 +20,8 @@ import TodayCard from "../components/home/TodayCard.vue";
 import TonightCard from "../components/home/TonightCard.vue";
 import RatesCard from "../components/home/RatesCard.vue";
 import ExtraCards from "../components/home/ExtraCards.vue";
+import DayNoteCard from "../components/home/DayNoteCard.vue";
+import GoalCards from "../components/goals/GoalCards.vue";
 import ForYouCard from "../components/ForYouCard.vue";
 import { isPhone } from "../core/device";
 
@@ -109,6 +111,8 @@ const lucid = computed(() => {
         <ForYouCard v-if="!isPhone" />
         <TonightCard :date="when.tonight" :same="when.same" :planned="planned" :intention="tonight?.intention ?? ''" />
         <RatesCard :rates="rates" />
+        <GoalCards v-if="on.goals" :today="today" />
+        <DayNoteCard v-if="on.dayNotes" :today="today" />
         <ExtraCards :lesson="lessonCard" :tip="tip" :lucid="lucid" :signs="signs" />
       </div>
     </div>

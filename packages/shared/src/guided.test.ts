@@ -99,3 +99,60 @@ describe("WILD phases", () => {
   });
   it("formats a clock", () => { expect(clockText(245)).toBe("4:05"); expect(clockText(3725)).toBe("62:05"); });
 });
+
+import { catDay, catSchedule, cueSchedule, cueWindow, trainingPairings, wbtbModePlan, WBTB_MODE_DEFS, CUE_START_GAIN, CUE_VOLUMES } from "./guided";
+describe("WBTB modes", () => {
+  const bed = bedtimeAt("2026-11-08", "23:00");
+  it("short: alarm at 5 h, 10 min up (Aspy)", () => {
+    const p = wbtbModePlan(bed, "short");
+    expect([p.alarm.wake, p.alarm.sleepMin, p.alarm.timing, p.backAt.getHours(), p.backAt.getMinutes(), p.napEnd]).toEqual(["04:00", 300, "ok", 4, 10, null]);
+  });
+  it("long: alarm at 6 h, 60 min up (Erlacher and Stumbrys)", () => {
+    const p = wbtbModePlan(bed, "long");
+    expect([p.alarm.wake, p.backAt.getHours(), p.backAt.getMinutes()]).toEqual(["05:00", 6, 0]);
+  });
+  it("nap: alarm at 6 h, 60 min up, then a 90-minute nap (LaBerge 1994)", () => {
+    const p = wbtbModePlan(bed, "nap");
+    expect([p.alarm.wake, p.backAt.getHours(), p.napEnd!.getHours(), p.napEnd!.getMinutes()]).toEqual(["05:00", 6, 7, 30]);
+    expect(WBTB_MODE_DEFS.nap.napMin).toBe(90);
+  });
+  it("still warns when a mode's alarm is moved to 4.5 h or less", () => {
+    expect(wbtbModePlan(bed, "long", { sleepMin: 270 }).alarm.timing).toBe("too-early");
+    expect(wbtbModePlan(bed, "short", { awakeMin: 5 }).backAt.getMinutes()).toBe(5);
+  });
+});
+
+describe("CAT", () => {
+  it("wakes 90 min early for 7 days, then alternates A (normal) and B (early)", () => {
+    const s = catSchedule("2026-11-09", "07:00", 11);
+    expect(s.map((d) => [d.day, d.stage, d.letter, d.alarm])).toEqual([
+      [1, 1, null, "05:30"], [2, 1, null, "05:30"], [3, 1, null, "05:30"], [4, 1, null, "05:30"], [5, 1, null, "05:30"], [6, 1, null, "05:30"], [7, 1, null, "05:30"],
+      [8, 2, "A", "07:00"], [9, 2, "B", "05:30"], [10, 2, "A", "07:00"], [11, 2, "B", "05:30"],
+    ]);
+  });
+  it("crosses month ends and refuses dates before the start", () => {
+    expect(catDay("2026-11-28", "2026-12-05", "06:00")!.day).toBe(8);
+    expect(catDay("2026-11-28", "2026-11-27", "06:00")).toBeNull();
+    expect(catDay("2026-11-28", "2026-11-28", "01:00")!.alarm).toBe("23:30");
+  });
+});
+
+describe("sound cue", () => {
+  it("cues from 6 h after training until the wake time at night (Konkoly 2024)", () => {
+    const w = cueWindow("night", { now: 0, trainedAt: 0, wakeAt: 8 * 3_600_000 });
+    expect([w.start, w.end]).toEqual([6 * 3_600_000, 8 * 3_600_000]);
+  });
+  it("nap and WBTB: after the settle time, for a 90-minute nap", () => {
+    const w = cueWindow("nap", { now: 1000, settleMin: 20 });
+    expect([w.start - 1000, w.end - w.start]).toEqual([20 * 60_000, 90 * 60_000]);
+  });
+  it("every 30 s, starting at a whisper and rising to the chosen volume", () => {
+    const s = cueSchedule(0, 10 * 60_000, 30, CUE_VOLUMES.soft);
+    expect(s.length).toBe(20);
+    expect(s[0]).toEqual({ at: 0, gain: CUE_START_GAIN });
+    expect(s[1]!.at).toBe(30_000);
+    expect(s[9]!.gain).toBe(CUE_VOLUMES.soft);
+    expect(s.every((c, i) => i === 0 || c.gain >= s[i - 1]!.gain)).toBe(true);
+  });
+  it("training: 20 pairings over 20 minutes (Carr 2023's 20-minute session)", () => expect(trainingPairings()).toBe(20));
+});

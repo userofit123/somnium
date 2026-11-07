@@ -129,11 +129,11 @@ export const journalMarkdown = (tables: Record<string, unknown>): string =>
 // The CSV columns. The sealed ones (the words) only when the person ticks "include dream text".
 const CSV_COLUMNS = {
   dreams: {
-    plain: ["date", "id", "position", "lucid", "lucidity_level", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "wake_method", "favourite", "created_at", "updated_at"],
+    plain: ["date", "id", "position", "lucid", "lucidity_level", "awareness", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "wake_method", "favourite", "created_at", "updated_at"],
     text: ["title", "text", "lucid_trigger"],
   },
   nights: {
-    plain: ["date", "id", "nap", "bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "caffeine_after", "alcohol", "techniques_planned", "techniques_done", "created_at", "updated_at"],
+    plain: ["date", "id", "nap", "bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "caffeine_after", "alcohol", "techniques_planned", "techniques_done", "created_at", "updated_at"],
     text: ["substances", "notes", "intention"],
   },
   reality_checks: { plain: ["at", "id", "kind", "outcome", "prompted", "created_at"], text: ["note"] },

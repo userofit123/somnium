@@ -56,3 +56,32 @@ export function useTone() {
   onBeforeUnmount(() => { void ctx?.close().catch(() => {}); ctx = null; });
   return { prime, play };
 }
+
+/**
+ * Sound cue training's tones (LDJ-48): the three bundled cues made with WebAudio (no audio files), each note a soft
+ * sine or triangle with a slow attack and a long fade, so it never clicks. `at` is a moment (ms); the note is put on
+ * the audio clock, which keeps time even where a background tab's timers are slowed. `scheduled` counts the cues put
+ * on the clock (the screen shows it; a headless check reads it, since nothing can be heard there).
+ */
+export function createCuePlayer() {
+  let ctx: AudioContext | null = null;
+  const scheduled = ref(0);
+  function prime() { try { ctx ??= new AudioContext(); void ctx.resume(); } catch { ctx = null; } return !!ctx; }
+  function cue(tone: { notes: readonly number[]; type: string }, gain: number, at = Date.now()) {
+    if (!ctx) return false;
+    const t0 = ctx.currentTime + Math.max(0, (at - Date.now()) / 1000);
+    tone.notes.forEach((f, i) => {
+      const o = ctx!.createOscillator(), g = ctx!.createGain(), t = t0 + i * 0.45;
+      o.type = tone.type as OscillatorType; o.frequency.value = f;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(gain, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+      o.connect(g).connect(ctx!.destination); o.start(t); o.stop(t + 1.5);
+    });
+    scheduled.value++;
+    return true;
+  }
+  /** Stops every cue still on the clock. */
+  async function close() { const c = ctx; ctx = null; await c?.close().catch(() => {}); }
+  return { prime, cue, close, scheduled, state: () => ctx?.state ?? "closed" };
+}
+/** The same, closed when the screen goes. */
+export function useCuePlayer() { const p = createCuePlayer(); onBeforeUnmount(() => { void p.close(); }); return p; }

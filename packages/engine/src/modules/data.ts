@@ -14,7 +14,7 @@ import { refusePlain } from "./rows";
 import { previewImport } from "../sync/sealedApi";
 
 export const EXPORT_FORMAT = 1;
-const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders"] as const;
+const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders", "day_notes"] as const;
 
 export async function exportAll(q: Sql, userId: string, sealed = false) {
   const tables: Record<string, any[]> = {};

@@ -14,6 +14,7 @@ export const SYNCED: { name: string; pk: string[] }[] = [
   { name: "course_progress", pk: ["id"] },
   { name: "goals", pk: ["id"] },
   { name: "reminders", pk: ["id"] },
+  { name: "day_notes", pk: ["id"] },
 ];
 export const SYNCED_BY_NAME = new Map(SYNCED.map((t, i) => [t.name, { ...t, order: i }]));
 

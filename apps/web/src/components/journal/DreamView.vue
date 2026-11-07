@@ -5,12 +5,14 @@
 // leaves the device from here except the ordinary saves; the Markdown export is built here and saved as a file.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { buildDreamMarkdown, dreamMarks, dreamSegments, ELEMENT_KIND_LABEL, nightFacts, parseDismissed, relatedDreams, type Suggestion } from "@somnium/shared";
+import { buildDreamMarkdown, dreamMarks, dreamSegments, ELEMENT_KIND_LABEL, fold, nightFacts, parseDismissed, relatedDreams, suggestionKey, summaryNote, type ElementKind, type Suggestion } from "@somnium/shared";
 import { send } from "../../api/outbox";
 import { invalidate } from "../../api/live";
 import { deleteDream, useJournal } from "../../api/journal";
 import { confirmSuggestion, rejectSuggestion, restoreDream, setDreamSign } from "../../api/dreamPage";
 import { isPhone } from "../../core/device";
+import { modelReady, suggestFromModel, summariseDream } from "../../core/localModel";
+import { useSettings } from "../../api/queries";
 import { useFmt } from "../../core/format";
 import { toast, toastError } from "../../core/toast";
 import Icon from "../Icon.vue";
@@ -97,10 +99,55 @@ const signOpen = ref(false);
 const signEls = computed(() => [...els.value].sort((a, b) => Number(a.isDreamSign) - Number(b.isDreamSign) || a.name!.localeCompare(b.name!)));
 const toggleSign = (e: (typeof els.value)[number]) => act(() => setDreamSign(e.id, !e.isDreamSign));
 
+// "Summarise with my model" (LDJ-42, optional, desktop app): only this dream's text goes to the person's own address, and only
+// when asked. The summary is shown first; "Keep as a note" adds it to the night's sealed notes (a dream has no notes of its own).
+const settings = useSettings();
+const modelOn = computed(() => !!settings.value.features?.localModel && modelReady());
+const mdl = ref<{ kind: "summary" | "elements"; summary?: string; els?: { kind: ElementKind; name: string }[] } | null>(null);
+const asking = ref(false);
+async function askModel(kind: "summary" | "elements") {
+  const text = d.value?.text?.trim();
+  if (!text) { toast("This dream has no text yet"); return; }
+  if (asking.value) return;
+  asking.value = true; toast("Asking your model…");
+  try { mdl.value = kind === "summary" ? { kind, summary: await summariseDream(text) } : { kind, els: await suggestFromModel(text) }; }
+  catch (e) { toastError(e); } finally { asking.value = false; }
+}
+const modelSugs = computed((): Suggestion[] => {
+  const linked = new Set(links.value.map((l) => l.elementId));
+  return (mdl.value?.els ?? []).map((e) => {
+    const ex = (j.elements.data.value ?? []).find((x) => x.kind === e.kind && x.name && fold(x.name) === fold(e.name));
+    return { key: suggestionKey(e.kind, e.name), type: "element" as const, kind: e.kind, name: ex?.name ?? e.name, existingElementId: ex?.id, spans: [], confidence: 0.5, sources: [] } satisfies Suggestion;
+  }).filter((s) => !s.existingElementId || !linked.has(s.existingElementId));
+});
+const addModelSug = (s: Suggestion) => act(async () => { await confirmSuggestion(props.id, s); if (mdl.value?.els) mdl.value.els = mdl.value.els.filter((e) => suggestionKey(e.kind, e.name) !== s.key); });
+const keepSummary = () => act(async () => {
+  const n = night.value, sm = mdl.value?.summary;
+  if (!n || !sm) return;
+  await send("put", `/nights/${n.id}`, { notes: summaryNote(n.notes, sm) }); invalidate(["journal"]);
+  mdl.value = null; toast("Kept in the night's notes");
+});
+
+// Share as text (optional, LDJ-41): the title and text go to another app only after this confirm, through the browser's
+// share sheet, or onto the clipboard where there is none. Nothing is sent by Somnium itself.
+const shareAsk = ref(false);
+async function shareNow() {
+  const x = d.value; shareAsk.value = false;
+  if (!x) return;
+  const title = x.title?.trim() || "Dream", text = x.text?.trim() || "";
+  try {
+    if (typeof navigator.share === "function") await navigator.share({ title, text });
+    else { await navigator.clipboard.writeText(`${title}\n\n${text}`); toast("Copied"); }
+  } catch (e) { if (!(e instanceof DOMException && e.name === "AbortError")) toastError(e); }
+}
+
 const menu = computed((): MenuItem[] => [
+  { label: "Summarise with my model", icon: "sparkle", hidden: !modelOn.value, run: () => askModel("summary") },
+  { label: "Ask my model for elements", icon: "sparkle", hidden: !modelOn.value, run: () => askModel("elements") },
   { label: "Mark an element as a dream sign", icon: "target", hidden: !els.value.length, run: () => (signOpen.value = true) },
   { label: d.value?.favourite ? "Not a favourite" : "Favourite", icon: "star", run: favourite },
-  { label: "Export as Markdown", icon: "download", run: exportMd },
+  { label: "Export as Markdown", icon: "download", hidden: !settings.value.features?.markdownExport, run: exportMd },
+  { label: "Share as text", icon: "share", hidden: !settings.value.features?.shareText, run: () => (shareAsk.value = true) },
   { label: "Delete dream", icon: "trash", danger: true, sep: true, run: remove },
 ]);
 </script>
@@ -172,6 +219,23 @@ const menu = computed((): MenuItem[] => [
       </section>
     </template>
 
+    <Sheet v-if="shareAsk" title="Share this dream as text?" @close="shareAsk = false">
+      <p class="jtx">This sends the dream's title and text outside Somnium, to the app you pick next (or onto your clipboard if this device has no share sheet). Once it leaves, Somnium can't take it back.</p>
+      <div class="jpick"><button class="btn" data-testid="share-go" @click="shareNow">Share</button><button class="btn o" @click="shareAsk = false">Cancel</button></div>
+    </Sheet>
+    <Sheet v-if="mdl?.kind === 'summary'" title="Summary from my model" @close="mdl = null">
+      <p class="jtx">{{ mdl.summary }}</p>
+      <p class="tiny jmut">Written by the model you run, not checked by Somnium. Keeping it saves it, sealed, in this night's notes.</p>
+      <div class="jpick"><button class="btn" :disabled="busy || !night" @click="keepSummary">Keep as a note</button><button class="btn o" @click="mdl = null">Discard</button></div>
+    </Sheet>
+    <Sheet v-if="mdl?.kind === 'elements'" title="Elements from my model" @close="mdl = null">
+      <p v-if="!modelSugs.length" class="tiny jmut">Nothing new was suggested.</p>
+      <p v-else class="tiny jmut">Suggestions, not yet in your dream. Add the ones that fit.</p>
+      <div class="list">
+        <div v-for="s in modelSugs" :key="s.key" class="li jrel"><div class="grow"><div class="t">{{ s.name }}</div><div class="s">{{ ELEMENT_KIND_LABEL[s.kind] }}</div></div>
+          <button class="btn s" :disabled="busy" @click="addModelSug(s)">Add</button></div>
+      </div>
+    </Sheet>
     <Sheet v-if="signOpen" title="Dream signs" @close="signOpen = false">
       <p class="tiny jmut">Pick an element that keeps showing up. Signs are what you train to notice.</p>
       <div class="list">

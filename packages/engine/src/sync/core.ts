@@ -183,7 +183,7 @@ async function survivorOf(q: Sql, nightId: unknown, device: boolean): Promise<{ 
  */
 const NIGHT_TEXT = ["substances", "notes", "intention"];
 const NIGHT_LISTS = ["techniques_planned", "techniques_done"];
-const NIGHT_PLAIN = ["bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "caffeine_after", "alcohol", "no_recall"];
+const NIGHT_PLAIN = ["bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "caffeine_after", "alcohol", "no_recall"];
 const isSet = (v: unknown) => v != null && v !== false && v !== "" && !(Array.isArray(v) && !v.length);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 export function joinText(survivor: string, other: string): string {

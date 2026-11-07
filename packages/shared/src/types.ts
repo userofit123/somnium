@@ -58,6 +58,8 @@ export interface Night extends Owned {
   wbtbUsed: boolean;
   wbtbWakeAt: string | null;
   wbtbMinutesAwake: number | null;
+  /** the WBTB mode used: "short" | "long" | "nap" | "cat" (guided.ts WBTB_MODE_LOG) */
+  wbtbMode?: string | null;
   nap: boolean;
   substances: string | null; // sealed
   caffeineAfter: string | null; // HH:MM:SS
@@ -77,6 +79,8 @@ export interface Dream extends Owned {
   text: string | null; // sealed
   lucid: boolean;
   lucidityLevel: number; // 0-5 (PLAN.md §7.4)
+  /** Dreamsign Awareness Scale 0-4 (LDJ-50), a plain number */
+  awareness: number | null;
   control: number | null; // 0-5
   vividness: number | null; // 1-5
   recallClarity: number | null; // 1-5
@@ -146,6 +150,12 @@ export interface CourseProgress extends Owned {
   /** When the lesson became the current one; set once, never moved (the move-on rules count from it). */
   startedAt: string | null;
   answers: string | null; // sealed
+}
+
+/** A short note about a day (LDJ-41), sealed; the date is the calendar day it is about. */
+export interface DayNote extends Owned {
+  date: string;
+  text: string | null; // sealed
 }
 
 export interface Goal extends Owned {

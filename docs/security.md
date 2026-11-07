@@ -502,6 +502,23 @@ password first.
   links in the system browser. Server accounts reach their server through the app.
 - **The service worker** caches the app's own built files and, once seen, photos (sealed). It never caches `/api` data.
 
+### The optional local text model
+
+Off by default, in Settings → Features ("Local AI model (advanced)"). When on, the person gives the address of an
+Ollama computer they run themselves and a model name; these are kept on that device only and are never synced. The warning
+("the dream's text is sent to this address; only use a computer you control") must be ticked once.
+
+- **What leaves the device:** only on a button press ("Summarise with my model", "Ask my model for elements" in a dream's
+  ⋮ menu): that one dream's text, decrypted on the device, with a short fixed instruction (`buildGenerateBody` in
+  `packages/shared/src/localModel.ts`; nothing else from the journal), in one non-streaming `POST /api/generate` with a 60 s
+  limit. "Test" calls `GET /api/tags` and sends no dream text. Nothing is ever sent automatically.
+- **Only to that address:** the same address rules as servers (https, or http only for this computer and the private
+  network). There is no cloud service and no key. The reply is shown first; "Keep as a note" seals it in the night's notes.
+- **Why only the desktop app:** the screens' `connect-src 'self'` stays as it is; a policy set by the server cannot know a
+  device's own address. The desktop app makes the call from its main process (`localModel:call` in `apps/desktop/src/main.ts`):
+  only `/api/tags` and `/api/generate`, no redirects, no cookies. The web build and, for now, the Android app do not offer it.
+- **The limit:** the model computer sees the text, and over plain http on a home network so can anyone on that network.
+
 ## Not covered
 
 - **A device that is unlocked, or that someone with the browser profile or the app's storage can read.** The device copy

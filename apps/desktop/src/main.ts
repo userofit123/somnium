@@ -12,7 +12,7 @@ import crypto from "node:crypto";
 import { execFile } from "node:child_process";
 import os from "node:os";
 import { securityHeaders } from "@somnium/server/src/headers";
-import { backupsPastKeep, checkServerAddress, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
+import { LOCAL_MODEL_PATHS, LOCAL_MODEL_TIMEOUT_MS, backupsPastKeep, checkServerAddress, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
 
 /** keys: a local account's password and recovery envelope (LocalKeys in @somnium/shared): useless without the password
  *  or the recovery key, kept with the account and gone with it. */
@@ -384,6 +384,26 @@ ipcMain.handle("app:busy", (_e, busy: unknown) => {
 // file in its cache, so after a restart the next download of the same version is only a check)
 let staged: string | null = null;
 autoUpdater.on("update-downloaded", (info) => { staged = info?.version ?? staged; });
+// The optional local text model (LDJ-42). The screens' policy only allows their own origin, so the one call to the person's
+// own Ollama address is made here: only /api/tags and /api/generate, only an address the servers' rules accept (https, or
+// http on this computer or the private network), no redirects, no cookies, a 60 s limit. Only ever on a button press.
+ipcMain.handle("localModel:call", async (_e, url: unknown, apiPath: unknown, body: unknown) => {
+  const a = checkServerAddress(String(url ?? ""));
+  if (!a.ok) throw new Error(a.error);
+  if (!(LOCAL_MODEL_PATHS as readonly string[]).includes(String(apiPath))) throw new Error("Not allowed");
+  const post = apiPath === "/api/generate";
+  try {
+    const r = await fetch(a.origin + String(apiPath), {
+      method: post ? "POST" : "GET", redirect: "error", credentials: "omit", signal: AbortSignal.timeout(LOCAL_MODEL_TIMEOUT_MS),
+      ...(post ? { headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) } : {}),
+    });
+    if (!r.ok) throw new Error(`The model computer answered ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    const m = e instanceof Error ? e.name : "";
+    throw new Error(m === "TimeoutError" ? "No answer within 60 seconds" : e instanceof Error && /^The model/.test(e.message) ? e.message : "Can't reach that address");
+  }
+});
 ipcMain.handle("update:version", () => app.getVersion());
 ipcMain.handle("update:staged", () => staged);
 ipcMain.handle("update:forget", () => { staged = null; });

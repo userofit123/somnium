@@ -16,7 +16,7 @@
 // Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
 // only when the person switched that on, and only while this device can read it.
 import { QueryObserver } from "@tanstack/vue-query";
-import { planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
+import { catDay, hmToMin, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
@@ -103,7 +103,38 @@ export function upcomingNights(rows: Reminder[] | undefined, settings: Settings,
       out.push(r);
     }
   }
+  out.push(...catAlarms(today, now, days));
   return out.sort((a, b) => a.at - b.at);
+}
+
+// ----- the CAT plan (LDJ-49): Daniel Love's schedule [D24], kept on this device. Each morning's alarm comes from
+// catDay (shared guided.ts): 90 minutes early on Stage 1 days and Day B, the normal time on Day A. It goes out as a
+// "wbtb" kind, so on Android it rings on the alarm channel like the WBTB alarm. -----
+const CAT_KEY = "somniumCatPlan";
+export interface CatPlan { start: string; wake: string }
+export function catPlan(): CatPlan | null {
+  try { const p = JSON.parse(readStr(CAT_KEY, "") || "null"); return p && typeof p.start === "string" && typeof p.wake === "string" ? p : null; } catch { return null; }
+}
+/** Starts (or with null ends) the CAT plan here; the running scheduler picks it up at once. */
+export async function setCatPlan(p: CatPlan | null) {
+  writeStr(CAT_KEY, p ? JSON.stringify(p) : "");
+  if (tick) await replan();
+}
+export const CAT_URL = "/train?guided=cat";
+function catAlarms(today: Date, now: number, days: number): DueReminder[] {
+  const p = catPlan(), out: DueReminder[] = [];
+  if (!p) return out;
+  for (let d = 0; d <= days; d++) {
+    const day = addDays(today, d), c = catDay(p.start, localDate(day), p.wake), m = hmToMin(c?.alarm);
+    if (!c || m == null) continue;
+    const at = new Date(day.getFullYear(), day.getMonth(), day.getDate(), Math.floor(m / 60), m % 60).getTime();
+    if (at < now - 60_000) continue;
+    const early = c.kind === "early";
+    out.push({ at, kind: "wbtb", tag: `somnium-cat-${c.date}`, url: CAT_URL, lockTitle: "Alarm",
+      title: early ? "CAT: time to get up" : "CAT: your normal wake time",
+      body: early ? "Stay up for 90 minutes and do a reality check every few minutes." : "Day A: did you wake early? Check if you are dreaming." });
+  }
+  return out;
 }
 
 /** Shows one reminder now: through the service worker when there is one (a tap opens its page, a button its own),

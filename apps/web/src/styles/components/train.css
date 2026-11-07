@@ -46,3 +46,23 @@
 .tview .tpr ul { margin: 6px 0; padding-inline-start: 18px; }
 html.phone .tview .tuse .btn { width: 100%; }
 .train .lnk.inl.tiny { font-size: var(--fs-xs); }
+
+/* habits, memory targets, meditation (LDJ-26, LDJ-50) */
+.thabits .hrow { align-items: center; }
+.thabits .hl { text-decoration: none; color: inherit; }
+.thabits .hstreak { flex: none; color: var(--acc); }
+.thabits .hall { margin: var(--hg) 0 0; }
+.thabits .hbox { flex: none; width: 20px; height: 20px; border-radius: var(--r-sm); border: 1.5px solid var(--ol); display: grid; place-items: center; color: var(--on); }
+.thabits .hbox.on { background: var(--acc); border-color: var(--acc); }
+.tpm .pmrow { display: flex; align-items: center; gap: 12px; padding: var(--lpy) 0; border-bottom: 1px solid var(--ol); }
+.tpm .pmbtns { display: flex; gap: 8px; flex: none; }
+.tpm .pmbig { min-width: 64px; min-height: 44px; }
+.tpm .pmpick { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; margin-top: var(--hg); }
+.tpm .pmlist { display: flex; flex-wrap: wrap; gap: 6px; }
+.tpm .pmsteps { margin: 0 0 var(--hg); padding-left: 18px; }
+.tpm .pmweek, .tmed p, .tyoga > p { margin: var(--hg) 0 0; }
+.tview .hrv { margin-top: var(--hg); }
+.tmed .tmedrow { display: flex; align-items: center; gap: 12px; margin-top: var(--hg); }
+/* the dim screen: the page's own background with the text turned down, so a dark room stays dark */
+.tdim { position: fixed; inset: 0; z-index: 200; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--spg); }
+.tdimt { font-size: 3rem; color: var(--tx2); opacity: .5; }

@@ -10,6 +10,7 @@ export const TOPICS = {
   practice: ["practice", "train", "home"],
   course: ["course", "train", "learn", "home"],
   goals: ["goals", "insights", "home"],
+  dayNotes: ["dayNotes", "insights", "home", "journal"],
   reminders: ["reminders", "train", "settings"],
   everything: ["*"],
 } as const;

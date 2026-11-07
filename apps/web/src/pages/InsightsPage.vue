@@ -7,27 +7,34 @@ import { computed, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, periodStart, bucketFor, bucketOf, recallInsight, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, whatWorks, localClock, EMOTION_ANCHORS, MIN_NIGHTS, type Period, type Bucket, type Comparison, type RealityCheck,
+  checksInsight, whatWorks, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, type Period, type Bucket, type Comparison, type RealityCheck,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
 import { useJournal } from "../api/journal";
 import { api } from "../api/client";
+import { useHabitLog } from "../api/train";
 import { loaded } from "../api/queries";
 import { useLearn } from "../core/learn";
 import { useToday } from "../core/today";
 import { readJson, writeJson } from "../core/prefs";
 import BarChart from "../components/BarChart.vue";
+import GoalCards from "../components/goals/GoalCards.vue";
+import LagCard from "../components/insights/LagCard.vue";
+import { useSettings } from "../api/queries";
 import LineChart from "../components/LineChart.vue";
 import "../styles/components/insights.css";
 
 const j = useJournal();
 const today = useToday();
+const settings = useSettings();
+const features = computed(() => settings.value.features);
 const PREF = "insights.period";
 const period = ref<Period>((PERIODS as readonly string[]).includes(readJson<string>(PREF, "3m")) ? readJson<Period>(PREF, "3m") : "3m");
 const setPeriod = (p: Period) => { period.value = p; writeJson(PREF, p); };
 const from = computed(() => periodStart(period.value, today.value));
 const bucket = computed<Bucket>(() => bucketFor(period.value));
 // every check of the period (all=1: no limit, so a long habit of checks is never cut short)
+const habitLog = useHabitLog();
 const checksQ = useQuery({
   queryKey: computed(() => ["checks", "insights", from.value ?? "all"]),
   queryFn: () => api.get<RealityCheck[]>("/reality-checks", { ...(from.value ? { from: new Date(from.value + "T00:00:00").toISOString() } : {}), all: 1 }),
@@ -43,6 +50,8 @@ const lucid = computed(() => lucidityInsight(nights.value, dreams.value, from.va
 const events = computed(() => eventsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const emotions = computed(() => emotionsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const checks = computed(() => checksInsight(checksQ.data.value ?? [], from.value, today.value, localClock));
+// memory targets (LDJ-50): the last 7 days, whatever period is chosen above
+const pm = computed(() => pmWeek(habitLog.data.value ?? [], today.value));
 const works = computed(() => {
   const inPeriod = nights.value.filter((n) => (from.value == null || n.date >= from.value) && n.date <= today.value);
   return whatWorks(inPeriod, dreams.value, localClock);
@@ -116,12 +125,14 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
 <template>
   <div class="page insights">
-    <div class="ph"><div><h1>Insights</h1><div class="sub">Worked out on this device from your journal.</div></div></div>
+    <div class="ph"><div><h1>Insights</h1><div class="sub">Worked out on this device from your journal.</div></div><router-link v-if="features.reports" to="/report" class="lnk" data-testid="reportlink">Month and year reports</router-link></div>
     <div class="seg ins-period" role="tablist" aria-label="Period">
       <button v-for="p in PERIODS" :key="p" type="button" role="tab" :class="{ on: period === p }" :aria-selected="period === p" @click="setPeriod(p)">{{ PERIOD_LABEL[p] }}</button>
     </div>
 
     <div class="grid g2 ins-grid">
+      <GoalCards v-if="features.goals" :today="today" />
+      <LagCard v-if="features.dayNotes" :today="today" />
       <!-- Recall -->
       <section>
         <div class="sh"><h2>Recall</h2></div>
@@ -211,6 +222,17 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
               {{ checks.byOutcome.unsure ? ` ${checks.byOutcome.unsure} unsure.` : "" }}
             </p>
           </template>
+        </div>
+      </section>
+
+      <section v-if="pm.set">
+        <div class="sh"><h2>Memory targets</h2></div>
+        <div class="card">
+          <div class="ins-stats">
+            <div><div class="v num">{{ pm.rate == null ? "-" : pct(pm.rate) }}</div><div class="tiny">hit rate, last 7 days</div></div>
+            <div><div class="v num">{{ pm.hit }} of {{ pm.hit + pm.miss }}</div><div class="tiny">targets hit</div></div>
+          </div>
+          <p class="tiny ins-note">A target you set and never logged counts as a miss once its day is over (LaBerge's exercise: hit most of the four before moving on).</p>
         </div>
       </section>
 

@@ -3,7 +3,7 @@
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element, type Suggestion } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, type Element, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, endDraft, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
@@ -22,8 +22,8 @@ const emit = defineEmits<{ close: [] }>();
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
 const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
@@ -243,6 +243,11 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
           <label>Control</label>
           <div class="seg jscale"><button v-for="n in 6" :key="n" :class="{ on: f.control === n - 1 }" @click="set('control', n - 1)">{{ n - 1 }}</button></div>
           <div class="tiny jan">{{ f.control != null ? CONTROL_ANCHORS[f.control] : "Not set" }}</div>
+        </div>
+        <div class="fld">
+          <label>Dreamsign awareness</label>
+          <div class="seg jscale"><button v-for="n in 5" :key="n" :class="{ on: f.awareness === n - 1 }" @click="set('awareness', n - 1)">{{ n - 1 }}</button></div>
+          <div class="tiny jan">{{ f.awareness != null ? DSA_ANCHORS[f.awareness] : "Not set · how aware you were of a dreamsign in this dream" }}</div>
         </div>
         <div class="fld">
           <label>Recall clarity</label>

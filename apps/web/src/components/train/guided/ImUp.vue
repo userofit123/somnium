@@ -26,6 +26,8 @@ void wake.on();
 const minutes = computed(() => Math.floor(clock.sec.value / 60));
 const target = Number(readStr("somniumWbtbAwake", "30")) || 30;
 const date = nightNowDate();
+// the planner's mode (LDJ-49): the LaBerge nap ends with a nap, the others with MILD or SSILD
+const napMode = readStr("somniumWbtbMode", "") === "nap";
 
 const done = ref(false), busy = ref(false), saved = ref(0);
 async function back() {
@@ -61,6 +63,7 @@ const writeDream = () => router.push({ name: "journal-write", params: { id: uuid
     <div class="gbody">
       <h1>Back to bed</h1>
       <p class="glead">Saved: {{ saved }} min awake. Now a technique while you fall asleep.</p>
+      <Ev v-if="napMode" text="The LaBerge nap: lie down for about 90 minutes with a 90-120 minute alarm, and do MILD as you fall asleep [D4][D5]." @cite="emit('cite', $event)" />
       <Ev text="MILD is the best supported; SSILD matched it in the one large study that tested it [D12]." @cite="emit('cite', $event)" />
     </div>
     <div class="gfoot">

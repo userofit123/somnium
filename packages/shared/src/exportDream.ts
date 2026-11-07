@@ -2,15 +2,17 @@
 // (the dream page shows the same ones it exports), and the Markdown file built on the device. Pure: nothing here
 // reads a store or sends anything, so the text of a dream never leaves the device through it.
 import type { Dream, Element, Night } from "./types";
+import { DSA_ANCHORS } from "./habits";
 import { CONTROL_ANCHORS, ELEMENT_KIND_LABEL, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, SLEEP_ANCHORS, TECHNIQUES, VIVIDNESS_ANCHORS, clockOf } from "./journal";
 
-export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite">;
+export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & { awareness?: number | null };
 export type NightFactsInput = Pick<Night, "bedtime" | "wakeTime" | "sleepQuality" | "wbtbUsed" | "wbtbMinutesAwake" | "nap" | "techniquesDone">;
 
 /** The marks with their words: lucid level with its anchor, vividness, control, emotion, then the yes-or-no ones. */
 export function dreamMarks(d: DreamMarksInput): { label: string; value: string }[] {
   const out: { label: string; value: string }[] = [];
   if (d.lucid) out.push({ label: "Lucid", value: `${d.lucidityLevel} · ${LUCIDITY_ANCHORS[d.lucidityLevel] ?? ""}`.replace(/ · $/, "") });
+  if (d.awareness != null) out.push({ label: "Dreamsign awareness", value: `${d.awareness} · ${DSA_ANCHORS[d.awareness] ?? ""}`.replace(/ · $/, "") });
   if (d.vividness) out.push({ label: "Vividness", value: `${d.vividness} · ${VIVIDNESS_ANCHORS[d.vividness - 1] ?? ""}`.replace(/ · $/, "") });
   if (d.control != null && (d.lucid || d.control > 0)) out.push({ label: "Control", value: `${d.control} · ${CONTROL_ANCHORS[d.control] ?? ""}`.replace(/ · $/, "") });
   if (d.recallClarity) out.push({ label: "Recall", value: `${d.recallClarity} · ${RECALL_ANCHORS[d.recallClarity - 1] ?? ""}`.replace(/ · $/, "") });

@@ -21,6 +21,7 @@ import AdminSection from "../components/settings/AdminSection.vue";
 import AppVersionsSection from "../components/settings/AppVersionsSection.vue";
 import ChangelogSection from "../components/settings/ChangelogSection.vue";
 import AccountsSection from "../components/settings/AccountsSection.vue";
+import LocalModelSection from "../components/settings/LocalModelSection.vue";
 import ActivityLogSection from "../components/settings/ActivityLogSection.vue";
 import NotificationsSection from "../components/settings/NotificationsSection.vue";
 
@@ -123,6 +124,7 @@ await loaded(me);
           <p v-if="!groups.length" class="tiny">Nothing to switch on yet: the optional features come with their own tasks.</p>
           <template v-for="[g, fs] in groups" :key="g"><div class="sh"><h2>{{ g }}</h2></div>
             <div class="card"><label v-for="f in fs" :key="f.id" class="tgl"><div class="grow"><div class="t">{{ f.name }}</div><div class="s">{{ f.desc }}</div></div><span class="tg"><input type="checkbox" :checked="!!s.features[f.id]" @change="set({ features: { [f.id]: ($event.target as HTMLInputElement).checked } })" /></span></label></div></template>
+          <LocalModelSection v-if="s.features.localModel" />
         </template>
 
         <template v-else-if="sec === 'appearance'">

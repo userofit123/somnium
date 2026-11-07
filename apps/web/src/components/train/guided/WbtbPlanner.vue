@@ -4,8 +4,11 @@
 // Stumbrys 2020 timing [D13]; 4.5 h or less warns as too early [D14], under 5 h as early (5-6 h is what RESEARCH.md
 // §3.4 recommends). 30 minutes up by default (30-60 recommended, RESEARCH.md §3.4 and safety rule 3 [B39]). Saving puts the time on tonight's night (wbtb_wake_at),
 // "wbtb" in the plan, and the alarm in this device's reminder plan (native/reminders.ts), with its limits said plainly.
+// LDJ-49: a mode switch on top. Short (Aspy: alarm at 5 h, 5-10 minutes up, MILD [D11][D12]), Long (Erlacher and
+// Stumbrys 2020: about 6 h, 60 minutes of dream work and MILD [D13]) and LaBerge nap (about 6 h, 60 minutes up, a
+// 90-minute nap [D4]); each sets the alarm, the time up and the next step, and the mode goes on the night (wbtb_mode).
 import { computed, ref } from "vue";
-import { bedtimeAt, defaultCycles, durationText, wbtbOption, wbtbOptions, CYCLE_RANGE, cycleOf, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_TOO_EARLY_MIN } from "@somnium/shared";
+import { bedtimeAt, durationText, wbtbAfter, wbtbModePlan, isWbtbMode, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
@@ -27,20 +30,39 @@ const usual = computed(() => settings.value.sleep.bedtime);
 const bed = ref(night.value?.bedtime ? hm(night.value.bedtime) : usual.value);
 const cycleLen = ref(cycleOf(Number(readStr("somniumWbtbCycle", "")) || settings.value.sleep.cycle));
 const bedAt = computed(() => bedtimeAt(date, bed.value || usual.value));
-// an alarm already planned for tonight opens on its own cycle count
-const known = night.value?.wbtbWakeAt ? Math.round((new Date(night.value.wbtbWakeAt).getTime() - bedAt.value.getTime()) / 60_000 / cycleLen.value) : 0;
-const cycles = ref(known >= 1 && known <= 6 ? known : defaultCycles(cycleLen.value));
-const keptAwake = Number(readStr("somniumWbtbAwake", String(WBTB_AWAKE_DEFAULT)));
-const awake = ref<number>(WBTB_AWAKE.includes(keptAwake as never) ? keptAwake : WBTB_AWAKE_DEFAULT);
+// the mode: tonight's own when one is planned, else the last one used here, else Long (the tested 6 h timing [D13])
+const keptMode = night.value?.wbtbMode ?? readStr("somniumWbtbMode", "long");
+const mode = ref<WbtbMode>(isWbtbMode(keptMode) ? keptMode : "long");
+const def = computed(() => WBTB_MODE_DEFS[mode.value]);
+// an alarm already planned for tonight opens on its own time
+const known = night.value?.wbtbWakeAt ? Math.round((new Date(night.value.wbtbWakeAt).getTime() - bedAt.value.getTime()) / 60_000) : 0;
+const sleepMin = ref(known >= 60 && known <= 600 ? known : def.value.sleepMin);
+const keptAwake = Number(readStr("somniumWbtbAwake", ""));
+const awake = ref<number>(def.value.awake.includes(keptAwake) ? keptAwake : def.value.awakeDefault);
+function pick(m: WbtbMode) { mode.value = m; sleepMin.value = WBTB_MODE_DEFS[m].sleepMin; awake.value = WBTB_MODE_DEFS[m].awakeDefault; }
 
-const options = computed(() => wbtbOptions(bedAt.value, cycleLen.value, cycles.value < 3 || cycles.value > 5 ? [cycles.value] : []));
-const choice = computed(() => wbtbOption(bedAt.value, cycles.value, cycleLen.value));
+// the mode's own time plus whole cycles (4.5, 6, 7.5 h at 90 min), so a cycle-minded person can still choose
+const options = computed(() => [...new Set([def.value.sleepMin, sleepMin.value, ...WBTB_CYCLES.map((c) => c * cycleLen.value)])].sort((a, b) => a - b).map((m) => wbtbAfter(bedAt.value, m, cycleLen.value)));
+const plan = computed(() => wbtbModePlan(bedAt.value, mode.value, { sleepMin: sleepMin.value, awakeMin: awake.value, cycleMin: cycleLen.value }));
+const choice = computed(() => plan.value.alarm);
 const planned = computed(() => night.value?.wbtbWakeAt ? hm(night.value.wbtbWakeAt) : null);
+const cyclesText = (c: number) => (Number.isInteger(c) ? `${c} cycles` : "");
 
-const AWAKE_EV: Record<number, string> = {
-  10: "Less effective: in the older nap studies, 10 minutes awake worked less well than longer wake periods. 30-60 minutes of quiet dream work is what's recommended [B39].",
-  30: "In the laboratory, 30 minutes of dream work and MILD gave 35.7% lucid dreams; an hour gave about 54% [D13].",
-  60: "About an hour of dream work and MILD was the most efficient in the laboratory; reading or games instead did little [D13]. It costs more sleep.",
+const AWAKE_EV: Record<WbtbMode, Record<number, string>> = {
+  short: {
+    5: "Aspy's MILD groups stayed up only as long as the technique took, and still roughly doubled or tripled their lucid dreams [D11][D12].",
+    10: "Aspy's MILD groups stayed up only as long as the technique took, and still roughly doubled or tripled their lucid dreams [D11][D12]. Fall asleep soon after: within 10 minutes did better [D12].",
+  },
+  long: {
+    30: "In the laboratory, 30 minutes of dream work and MILD gave 35.7% lucid dreams; an hour gave about 54% [D13].",
+    60: "About an hour of dream work and MILD was the most efficient in the laboratory; reading or games instead did little [D13]. It costs more sleep.",
+  },
+  nap: { 60: "Five times as many people had lucid dreams after 60 minutes up as after 10, and nearly half of all lucid dreams came in naps after 60 minutes awake [D4]." },
+};
+const NEXT: Record<WbtbMode, string> = {
+  short: "When the alarm goes: stay in the dim, recall the dream, do MILD for a few minutes, then go straight back to sleep.",
+  long: "When the alarm goes: get up for the hour. Write the dream down, mark its dream signs, rehearse MILD, then back to bed.",
+  nap: "When the alarm goes: get up and stay up for an hour, reading about lucid dreaming and testing reality. Then lie down for a 90-minute nap (set a 90-120 minute alarm [D5]) with MILD as you fall asleep.",
 };
 const desktop = !!(globalThis as any).somniumNative?.reminders;
 const perm = ref(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
@@ -51,7 +73,8 @@ async function save() {
   try {
     if (!desktop && perm.value === "default") perm.value = await Notification.requestPermission().catch(() => "default" as NotificationPermission);
     const o = choice.value;
-    await planWbtb(o.at, bed.value && bed.value !== usual.value ? bedAt.value : null);
+    await planWbtb(o.at, bed.value && bed.value !== usual.value ? bedAt.value : null, mode.value);
+    writeStr("somniumWbtbMode", mode.value);
     // kept only when it differs from Settings → Sleep, so that setting stays the default
     writeStr("somniumWbtbCycle", cycleLen.value === cycleOf(settings.value.sleep.cycle) ? "" : String(cycleLen.value));
     writeStr("somniumWbtbAwake", String(awake.value));
@@ -72,6 +95,14 @@ async function clear() {
     <h1>Wake back to bed</h1>
     <p class="glead">Sleep first, get up for a while, then go back to bed with MILD or SSILD.</p>
 
+    <div class="glabel">Mode</div>
+    <div class="gchips" role="radiogroup" aria-label="Mode">
+      <button v-for="m in WBTB_MODES" :key="m" type="button" class="gchip" :class="{ on: m === mode }" role="radio" :aria-checked="m === mode" :data-mode="m" @click="pick(m)">
+        <b>{{ WBTB_MODE_DEFS[m].label }}</b><small>{{ durationText(WBTB_MODE_DEFS[m].sleepMin) }} · {{ WBTB_MODE_DEFS[m].awake.join("-") }} min up</small>
+      </button>
+    </div>
+    <Ev :text="def.ev" @cite="emit('cite', $event)" />
+
     <div class="gbox">
       <div class="grow2">
         <div><div class="t">Bedtime tonight</div><div class="glabel">{{ bed === usual ? "Your usual bedtime" : `Usual ${usual}` }}</div></div>
@@ -85,8 +116,8 @@ async function clear() {
 
     <div class="glabel">Wake up after</div>
     <div class="gchips" role="radiogroup" aria-label="Wake up after">
-      <button v-for="o in options" :key="o.cycles" type="button" class="gchip" :class="{ on: o.cycles === cycles }" role="radio" :aria-checked="o.cycles === cycles" @click="cycles = o.cycles">
-        <b>{{ o.wake }}</b><small>{{ durationText(o.sleepMin) }} · {{ o.cycles }} cycles</small>
+      <button v-for="o in options" :key="o.sleepMin" type="button" class="gchip" :class="{ on: o.sleepMin === sleepMin }" role="radio" :aria-checked="o.sleepMin === sleepMin" @click="sleepMin = o.sleepMin">
+        <b>{{ o.wake }}</b><small>{{ durationText(o.sleepMin) }}<template v-if="cyclesText(o.cycles)"> · {{ cyclesText(o.cycles) }}</template></small>
       </button>
     </div>
     <Ev v-if="choice.timing === 'ok'" text="About 6 hours of sleep is the tested timing: Erlacher and Stumbrys woke people from REM after about 6 hours [D13]. Later is fine if you can sleep in." @cite="emit('cite', $event)" />
@@ -101,11 +132,17 @@ async function clear() {
 
     <div class="glabel">Time awake</div>
     <div class="gchips" role="radiogroup" aria-label="Time awake">
-      <button v-for="m in WBTB_AWAKE" :key="m" type="button" class="gchip" :class="{ on: m === awake }" role="radio" :aria-checked="m === awake" @click="awake = m">
-        <b>{{ m }} min</b><small>{{ m === 10 ? "less effective" : "recommended" }}</small>
+      <button v-for="m in def.awake" :key="m" type="button" class="gchip" :class="{ on: m === awake }" role="radio" :aria-checked="m === awake" @click="awake = m">
+        <b>{{ m }} min</b><small>back in bed {{ hm(new Date(choice.at.getTime() + m * 60_000).toISOString()) }}</small>
       </button>
     </div>
-    <Ev :text="AWAKE_EV[awake]!" @cite="emit('cite', $event)" />
+    <Ev v-if="AWAKE_EV[mode][awake]" :text="AWAKE_EV[mode][awake]!" @cite="emit('cite', $event)" />
+
+    <div class="gbox">
+      <div class="t">Next</div>
+      <Ev :text="NEXT[mode]" @cite="emit('cite', $event)" />
+      <p v-if="plan.napEnd" class="gev">Nap from about {{ hm(plan.backAt.toISOString()) }} to {{ hm(plan.napEnd.toISOString()) }}.</p>
+    </div>
     <Ev text="Sleep comes first: only on nights when you can sleep in afterwards, two or three nights a week at most [B69][D1]." @cite="emit('cite', $event)" />
 
     <div class="gbox">

@@ -26,6 +26,7 @@ const ROUTES: Route[] = [
   { re: /^\/reality-checks(\/[^/]+)?$/, table: "reality_checks" },
   { re: /^\/practice(\/[^/]+)?$/, table: "practice_log" },
   { re: /^\/course(\/[^/]+)?$/, table: "course_progress" },
+  { re: /^\/day-notes(\/[^/]+)?$/, table: "day_notes" },
   // a dream's files: the list and the text read from a photo (POST /media, the file itself, is sealed apart: isMediaUpload)
   { re: /^\/media(\/[^/]+)?$/, table: "media" },
 ];

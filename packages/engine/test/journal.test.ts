@@ -70,6 +70,15 @@ describe("journal", () => {
     expect(await call<unknown[]>(B, "GET", "/dream-facts")).toEqual([]);
   });
 
+  it("keeps the Dreamsign Awareness Scale rating (0-4) as a plain fact, and refuses 5", async () => {
+    await call(A, "PUT", `/dreams/${dream.id}`, { awareness: 3 });
+    const mine = (await call<Record<string, unknown>[]>(A, "GET", "/dream-facts")).find((f) => f.id === dream.id)!;
+    expect(mine.awareness).toBe(3);
+    await call(A, "PUT", `/dreams/${dream.id}`, { awareness: null });
+    expect((await call<Record<string, unknown>>(A, "GET", `/dreams/${dream.id}`)).awareness).toBeNull();
+    await expect(call(A, "PUT", `/dreams/${dream.id}`, { awareness: 5 })).rejects.toBeTruthy();
+  });
+
   it("refuses values off the scales and unknown enum words", async () => {
     expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidityLevel: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, control: 6 })).toBe(400);
@@ -177,6 +186,7 @@ describe("journal", () => {
       course_progress: ["(id, user_id, lesson_id)", [uuidv7(), A, "lesson-9"]],
       goals: ["(id, user_id, kind, target)", [uuidv7(), A, "recall_per_week", 1]],
       reminders: ["(id, user_id, kind)", [uuidv7(), A, "bedtime"]],
+      day_notes: ["(id, user_id, date)", [uuidv7(), A, "2026-01-01"]],
     };
     for (const [t, [cols, vals]] of Object.entries(inserts)) {
       const ph = vals.map((_, i) => `$${i + 1}`).join(",");

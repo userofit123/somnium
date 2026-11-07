@@ -20,6 +20,7 @@ export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   // ocr_text as text; the file (data) is sealed as bytes (sealBytes) before upload: a text envelope, so the column is text
   media: ["ocr_text", "data"],
   reality_checks: ["note"],
+  day_notes: ["text"],
   practice_log: ["note"],
   course_progress: ["answers"],
   // one JSON document (user_settings.data): flags, units and times stay plain so the device can apply them
