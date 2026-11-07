@@ -18,6 +18,7 @@
 import { QueryObserver } from "@tanstack/vue-query";
 import { planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
+import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
 import { keyring } from "../core/keyring";
 import { readStr, writeStr } from "../core/prefs";
@@ -39,7 +40,7 @@ export interface DueReminder {
   lockTitle?: string;
   actions?: ReminderAction[];
 }
-interface DesktopReminders { setPlan(items: DueReminder[]): Promise<unknown> }
+interface DesktopReminders { setPlan(items: DueReminder[]): Promise<unknown>; onPause?(cb: (on: boolean) => void): void }
 const desktop = (): DesktopReminders | undefined => (globalThis as any).somniumNative?.reminders;
 
 export const localDate = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -242,6 +243,15 @@ export function startReminders() {
   // every start is locked, so the first plan has no dream sign; the key opening brings it in
   const onKey = (open: boolean) => { const row = rcRow(current.rows); if (open && row?.enabled && rcSchedule(row.schedule).showSign) void replan(); };
   stops = [rowsQ.subscribe(update), me.subscribe(update), keyring.onChange(onKey)];
+  // the desktop tray's "Pause reminders today" / "Resume reminders": the same pausedOn as Settings' Pause today, so it
+  // syncs and every device pauses (the reminders row carries nothing sealed, so this works while locked)
+  desktop()?.onPause?.((on) => {
+    const row = rcRow(current.rows);
+    if (!row) return;
+    const schedule = { ...rcSchedule(row.schedule), pausedOn: on ? localDate(new Date()) : null };
+    queryClient.setQueryData([...REMINDERS_KEY], (rs: Reminder[] | undefined) => rs?.map((r) => (r.id === row.id ? { ...r, schedule } : r)));
+    void send("put", `/reminders/${row.id}`, { schedule, enabled: row.enabled }).catch(() => {});
+  });
   // Android: coming back to the app plans again (a new day, a changed clock) and sends checks logged from notifications
   const app = (globalThis as any).Capacitor?.Plugins?.App;
   if (androidReminders() && app?.addListener) {

@@ -118,6 +118,8 @@ export function startLock() {
   addEventListener("pageshow", (e) => { if (e.persisted) lockNow(); });
   // In a browser, focus moves to the address bar or a password manager all the time, so only hiding counts there.
   if (isDesktopApp) addEventListener("blur", () => dispatch({ type: "away", at: now() }));
+  // closed to the tray (LDJ-56): locked at once, whatever the lock's delay, and the key dropped
+  if (isDesktopApp) (globalThis as { somniumNative?: { onHidden?: (cb: () => void) => void } }).somniumNative?.onHidden?.(() => lockNow());
   addEventListener("focus", () => {
     if (visible()) dispatch({ type: "back", at: now() });
     release();

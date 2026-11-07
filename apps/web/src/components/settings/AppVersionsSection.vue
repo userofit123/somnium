@@ -9,6 +9,8 @@ import { session, isLocalAccount } from "../../core/session";
 import { updater } from "../../core/updater";
 import { useFmt } from "../../core/format";
 import { latestRelease, detectPlatform, downloads, newer, REPO, REPO_URL } from "../../core/releases";
+// the desktop app installs by restarting (electron-updater); Android hands the file to its installer
+const desktopApp = !!(globalThis as { somniumDesktop?: boolean }).somniumDesktop;
 
 const s = useSettings();
 const router = useRouter();
@@ -69,7 +71,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
         <div v-else-if="checkedAt" class="s">{{ checkedAt }}</div>
         <div v-if="platform.app && updater.progress !== null" class="pbar" :style="{ marginTop: 'var(--lpy)' }"><i :style="{ width: Math.round(updater.progress * 100) + '%' }"></i></div>
         </template></div>
-        <button v-if="platform.app && (updater.ready || (isNewer && !checking))" class="btn s" :disabled="updater.downloading" @click="updater.install()">{{ updater.ready ? (updater.stagedVersion ? `Install ${updater.stagedVersion}` : "Install") : "Download update" }}</button>
+        <button v-if="platform.app && (updater.ready || (isNewer && !checking))" class="btn s" :disabled="updater.downloading" @click="updater.install()">{{ updater.ready ? (desktopApp ? "Restart to update" : updater.stagedVersion ? `Install ${updater.stagedVersion}` : "Install") : "Download update" }}</button>
 </div>
     </div>
     <div v-if="suggest === 'android'" class="card">

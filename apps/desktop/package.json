@@ -2,28 +2,30 @@
   "name": "somnium-desktop",
   "productName": "Somnium",
   "version": "0.0.0",
-  "description": "Somnium fitness tracker",
+  "description": "Somnium lucid dreaming journal",
   "author": "Somnium",
   "homepage": "https://github.com/userofit123/somnium",
   "private": true,
   "main": "dist/main.cjs",
   "scripts": {
     "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p .",
     "start": "node build.mjs && electron .",
     "dist": "node build.mjs && electron-builder --publish never"
   },
   "dependencies": {
-    "electron-updater": "6.3.9",
-    "@electric-sql/pglite": "0.2.15"
+    "@electric-sql/pglite": "0.2.15",
+    "electron-updater": "6.3.9"
   },
   "devDependencies": {
+    "@somnium/engine": "workspace:*",
     "@somnium/server": "workspace:*",
+    "@somnium/shared": "workspace:*",
+    "@types/node": "22.10.2",
     "electron": "33.2.1",
     "electron-builder": "25.1.8",
     "esbuild": "0.24.2",
-    "typescript": "5.7.2",
-    "@somnium/engine": "workspace:*",
-    "@somnium/shared": "workspace:*"
+    "typescript": "5.7.2"
   },
   "build": {
     "appId": "org.somnium.app",
@@ -68,7 +70,7 @@
     },
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.healthcare-fitness"
+      "category": "public.app-category.lifestyle"
     }
   }
 }

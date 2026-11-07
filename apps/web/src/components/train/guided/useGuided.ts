@@ -26,13 +26,18 @@ export function useWakeLock() {
   return { held, on, off, supported: typeof navigator !== "undefined" && "wakeLock" in navigator };
 }
 
+// How many guided timers are running here: while any is, the desktop app holds back everything about an update (its
+// notification, the restart), as Motus does during a workout (apps/desktop/src/main.ts guidedBusy).
+let runningTimers = 0;
+const tellBusy = () => { try { void (globalThis as any).somniumNative?.setBusy?.(runningTimers > 0)?.catch?.(() => {}); } catch { /* not the desktop app */ } };
+
 /** Seconds since start(), updated twice a second while running. */
 export function useClock() {
   const sec = ref(0), running = ref(false);
   let t0 = 0, iv: ReturnType<typeof setInterval> | null = null;
   const upd = () => { sec.value = Math.floor((Date.now() - t0) / 1000); };
-  function start(from = Date.now()) { t0 = from; running.value = true; upd(); if (iv) clearInterval(iv); iv = setInterval(upd, 500); }
-  function stop() { running.value = false; if (iv) clearInterval(iv); iv = null; }
+  function start(from = Date.now()) { t0 = from; if (!running.value) { runningTimers++; tellBusy(); } running.value = true; upd(); if (iv) clearInterval(iv); iv = setInterval(upd, 500); }
+  function stop() { if (running.value) { runningTimers = Math.max(0, runningTimers - 1); tellBusy(); } running.value = false; if (iv) clearInterval(iv); iv = null; }
   onBeforeUnmount(stop);
   return { sec, running, start, stop };
 }

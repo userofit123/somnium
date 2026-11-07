@@ -31,6 +31,14 @@ const on = computed(() => !!row.value?.enabled);
 const catalog = await checkCatalog();
 
 const desktopApp = !!(globalThis as any).somniumNative?.reminders;
+// the desktop app's own settings for this computer (apps/desktop/src/main.ts): closing to the tray keeps the reminders
+// coming (LDJ-56; unset, it is on while reminders are planned), and starting at login starts it in the tray
+interface DesktopSettings { closeToTray: boolean; trayAvailable: boolean; openAtLogin: boolean }
+const desk = (globalThis as any).somniumNative?.desktop as { settings(): Promise<DesktopSettings>; setCloseToTray(on: boolean): Promise<boolean>; setOpenAtLogin(on: boolean): Promise<boolean> } | undefined;
+const deskSet = ref<DesktopSettings | null>(null);
+onMounted(async () => { deskSet.value = (await desk?.settings().catch(() => null)) ?? null; });
+async function setTray(on: boolean) { try { const v = await desk!.setCloseToTray(on); if (deskSet.value) deskSet.value.closeToTray = v; savedToast(); } catch (e) { toastError(e); } }
+async function setLogin(on: boolean) { try { const v = await desk!.setOpenAtLogin(on); if (deskSet.value) deskSet.value.openAtLogin = v; savedToast(); } catch (e) { toastError(e); } }
 const androidApp = !!androidReminders();
 // Android 12+: exact alarms can be switched off for an app; then reminders still come, a few minutes late at worst
 const exact = ref<{ allowed: boolean; needsAsking: boolean } | null>(null);
@@ -128,12 +136,16 @@ async function tryNow() {
   <!-- what this device can do, said plainly -->
   <div class="card">
     <div class="li"><div class="grow"><div class="t">On this device</div>
-      <div v-if="desktopApp" class="s">Reminders come while Somnium is running, minimised or behind other windows too. Closing the window quits Somnium, and the reminders stop until it is opened again.</div>
+      <div v-if="desktopApp" class="s">Reminders come while Somnium is running, minimised or behind other windows too.{{ deskSet?.trayAvailable && deskSet.closeToTray ? " Closing the window keeps it running in the tray, locked." : " Closing the window quits Somnium, and the reminders stop until it is opened again." }}</div>
       <div v-else-if="androidApp" class="s">Android shows them on time, also with the app closed, and again after the phone restarts. A reality check can be answered from the notification itself; the lock screen shows only "Reality check". Nothing from your journal is in them.</div>
       <div v-else class="s">A browser can't wake a closed page, so reminders come only while Somnium is open in a tab{{ installed ? " or this installed app" : " or as an installed app" }}, also in the background.<template v-if="phoneBrowser"> A phone stops pages in the background, so on a phone use the Android app for reliable reminders.</template><template v-else> On a phone the Android app is needed for reliable reminders.</template></div>
       <div v-if="androidApp" class="s">Exact alarms: {{ exact == null ? "unknown" : exact.allowed ? "allowed" : "off, so a reminder may come a few minutes late" }}</div>
       <div v-if="!desktopApp" class="s">Notifications: {{ perm === "granted" ? "allowed" : perm === "denied" ? "blocked; allow them in the browser's site settings" : perm === "unsupported" ? "not available in this browser" : "not asked yet" }}<template v-if="!hasWorker && perm !== 'unsupported'"> · no service worker here, so a tap may not open the app</template></div>
     </div><button v-if="androidApp && exact && !exact.allowed" class="btn o s" @click="allowExact">Allow exact alarms</button><button v-else-if="on && perm === 'granted'" class="btn o s" @click="tryNow">Try one</button></div>
+    <template v-if="deskSet">
+      <label v-if="deskSet.trayAvailable" class="tgl"><div class="grow"><div class="t">Keep running in the tray</div><div class="s">Closing the window hides it and locks Somnium; open or quit it from the tray icon</div></div><span class="tg"><input type="checkbox" :checked="deskSet.closeToTray" @change="setTray(($event.target as HTMLInputElement).checked)" /></span></label>
+      <label class="tgl"><div class="grow"><div class="t">Start at login</div><div class="s">Starts in the tray, so reminders come from the moment you sign in</div></div><span class="tg"><input type="checkbox" :checked="deskSet.openAtLogin" @change="setLogin(($event.target as HTMLInputElement).checked)" /></span></label>
+    </template>
   </div>
 
   <!-- the night: each its own row (reminders kind), times from the Sleep settings -->

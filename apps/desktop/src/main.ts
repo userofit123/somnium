@@ -2,7 +2,7 @@
 //  - local: Somnium's own server runs inside the app with PGlite, keeping everything on this computer;
 //  - server: the app's own screens, with the data on your Somnium server (its API is proxied).
 // Accounts live side by side, each in its own browser partition (cookies, cache) and, for local ones, its own database.
-import { app, BrowserWindow, ipcMain, dialog, shell, session as eSession, Menu, Notification } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell, session as eSession, Menu, Notification, Tray, nativeImage, powerMonitor } from "electron";
 import { autoUpdater } from "electron-updater";
 import http from "node:http";
 import https from "node:https";
@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { execFile } from "node:child_process";
+import os from "node:os";
 import { securityHeaders } from "@somnium/server/src/headers";
 import { backupsPastKeep, checkServerAddress, cleanName, looksLikeBackup, normaliseStore, type AccountEntry, type AccountStore, type ServerEntry, type SyncNote } from "@somnium/shared";
 
@@ -71,12 +72,12 @@ function startProxy(acc: Account): Promise<{ port: number; close: () => Promise<
   const target = new URL(acc.url!);
   const lib = target.protocol === "https:" ? https : http;
   // the same headers as the server's own answers (CSP, nosniff, ...): the screens come from here, not from the server
-  const headers = securityHeaders(WEB);
+  const security = securityHeaders(WEB);
   const mime: Record<string, string> = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".woff2": "font/woff2", ".webmanifest": "application/manifest+json", ".json": "application/json" };
   const serveFile = (root: string, rel: string, res: http.ServerResponse) => {
     const f = path.join(root, path.normalize(rel).replace(/^(\.\.[/\\])+/, ""));
     if (!f.startsWith(root) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return false;
-    res.writeHead(200, { ...headers(), "content-type": mime[path.extname(f)] ?? "application/octet-stream", "cache-control": rel.startsWith("assets/") ? "max-age=31536000, immutable" : "no-cache" });
+    res.writeHead(200, { ...security(), "content-type": mime[path.extname(f)] ?? "application/octet-stream", "cache-control": rel.startsWith("assets/") ? "max-age=31536000, immutable" : "no-cache" });
     fs.createReadStream(f).pipe(res);
     return true;
   };
@@ -87,13 +88,16 @@ function startProxy(acc: Account): Promise<{ port: number; close: () => Promise<
     if (url.startsWith("/api/")) {
       const headers = { ...req.headers, host: target.host, origin: target.origin };
       const p = lib.request({ protocol: target.protocol, hostname: target.hostname, port: target.port || undefined, path: url, method: req.method, headers }, (r) => {
-        const h = { ...r.headers };
+        const h: http.OutgoingHttpHeaders = { ...r.headers };
+        // the screens' own policy on every answer, the API's too: a server older than LDJ-59 sends /api/media without a CSP,
+        // and whatever it sends, this app's pages are served from here under this app's rules
+        for (const [k, v] of Object.entries(security())) h[k] = v;
         // cookies come back for this app's own address: drop the server's domain and "Secure" (the local address is plain http)
-        if (h["set-cookie"]) h["set-cookie"] = h["set-cookie"].map((c) => c.replace(/;\s*Domain=[^;]+/i, "").replace(/;\s*Secure/i, ""));
+        if (Array.isArray(h["set-cookie"])) h["set-cookie"] = h["set-cookie"].map((c) => c.replace(/;\s*Domain=[^;]+/i, "").replace(/;\s*Secure/i, ""));
         res.writeHead(r.statusCode ?? 502, h);
         r.pipe(res);
       });
-      p.on("error", () => { if (!res.headersSent) res.writeHead(502, { "content-type": "application/json" }); res.end(JSON.stringify({ error: "Can't reach your Somnium server" })); });
+      p.on("error", () => { if (!res.headersSent) res.writeHead(502, { ...security(), "content-type": "application/json" }); res.end(JSON.stringify({ error: "Can't reach your Somnium server" })); });
       req.pipe(p);
       return;
     }
@@ -152,8 +156,22 @@ function makeWindow(part?: Electron.Session) {
     webPreferences: { preload: path.join(__dirname, "preload.cjs"), session: part, contextIsolation: true, sandbox: false },
   });
   w.setContentProtection(!screenshotsAllowed());
-  w.once("ready-to-show", () => w.show());
-  w.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
+  // started at login (--hidden): the window loads, so the reminders get their plan, but stays in the tray
+  w.once("ready-to-show", () => { if (startHidden) startHidden = false; else w.show(); });
+  w.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/i.test(url)) void shell.openExternal(url); return { action: "deny" }; });
+  // the window only ever shows this app's own pages (the local address, the chooser); a link elsewhere opens in the browser
+  w.webContents.on("will-navigate", (e, url) => {
+    const here = new URL(w.webContents.getURL() || "about:blank"), to = new URL(url);
+    if (to.origin === here.origin && to.protocol !== "file:") return;
+    if (here.protocol === "file:" && to.protocol === "file:" && to.pathname === here.pathname) return;
+    e.preventDefault();
+    if (/^https?:$/.test(to.protocol)) void shell.openExternal(url);
+  });
+  w.on("close", (e) => {
+    if (quitting || !closeToTray() || !tray) return;
+    e.preventDefault();
+    hideToTray(w);
+  });
   return w;
 }
 
@@ -343,24 +361,47 @@ autoUpdater.on("download-progress", (p) => {
 });
 // held here: a notification that is garbage-collected loses its click
 let updateNotice: Notification | null = null;
+// A guided timer is running (WBTB, SSILD, WILD... in Train: the screens say so, core/guidedBusy.ts). Nothing about an
+// update interrupts it: the notification waits until it ends, and the restart is refused meanwhile (as Motus does
+// during a workout). The download itself may run, quietly.
+let guidedBusy = false;
+let heldNotice: { title: string; body: string } | null = null;
 /** When it's done or failed, a system notification if Somnium isn't in front (in front, the page already says so); a
- *  click brings the window back on Settings, App & Versions, where Install is. */
+ *  click brings the window back on Settings, App & Versions, where Restart to update is. */
 function updateDone(title: string, body: string) {
   win?.setProgressBar(-1);
-  if (!Notification.isSupported() || win?.isFocused()) return;
+  if (guidedBusy) { heldNotice = { title, body }; return; }
+  if (!Notification.isSupported() || (win?.isVisible() && win.isFocused())) return;
   updateNotice = new Notification({ title, body, icon: path.join(__dirname, "icon.png") });
-  updateNotice.on("click", () => { if (!win) return; if (win.isMinimized()) win.restore(); win.show(); win.focus(); win.webContents.send("app:open", "/settings/versions"); });
+  updateNotice.on("click", () => showWindow("/settings/versions"));
   updateNotice.show();
 }
+ipcMain.handle("app:busy", (_e, busy: unknown) => {
+  guidedBusy = busy === true;
+  if (!guidedBusy && heldNotice) { const n = heldNotice; heldNotice = null; updateDone(n.title, n.body); }
+});
+// the version that is downloaded and waiting for the person's restart (this run of the app: electron-updater keeps the
+// file in its cache, so after a restart the next download of the same version is only a check)
+let staged: string | null = null;
+autoUpdater.on("update-downloaded", (info) => { staged = info?.version ?? staged; });
 ipcMain.handle("update:version", () => app.getVersion());
+ipcMain.handle("update:staged", () => staged);
+ipcMain.handle("update:forget", () => { staged = null; });
 ipcMain.handle("update:check", async () => { try { const r = await autoUpdater.checkForUpdates(); return r?.updateInfo?.version ?? null; } catch { return null; } });
 ipcMain.handle("update:download", async () => {
-  try { await autoUpdater.checkForUpdates(); await autoUpdater.downloadUpdate(); }
+  let version: string | null = null;
+  try { const r = await autoUpdater.checkForUpdates(); version = r?.updateInfo?.version ?? null; await autoUpdater.downloadUpdate(); }
   catch (e) { updateDone("Update failed", "The download didn't finish. Click to try again."); throw e; }
-  updateDone("Update ready to install", "Click to open App & Versions, then Install");
-  return true;
+  staged = version ?? staged;
+  updateDone("Update ready", "Click to open App & Versions, then Restart to update");
+  return staged ?? true;
 });
-ipcMain.handle("update:install", () => autoUpdater.quitAndInstall());
+// only ever from the person's own tap; never on quit (autoInstallOnAppQuit is off) and never during a guided timer
+ipcMain.handle("update:install", () => {
+  if (guidedBusy) throw new Error("Restart to update once the timer has ended");
+  quitting = true;
+  autoUpdater.quitAndInstall();
+});
 // whether the connection is metered, for Only on Wi-Fi: Windows knows it as the network's cost (a connection set as
 // metered, or mobile data), Linux through NetworkManager's own Metered (set or guessed, e.g. a phone's hotspot);
 // macOS can't be asked without native code. `known` says whether the answer means anything, so the app hides the
@@ -384,44 +425,169 @@ ipcMain.handle("update:metered", () => new Promise<{ metered: boolean; known: bo
 
 // ----- reality check and night reminders (PLAN.md §9) -----
 // The page works out the plan (packages/shared/src/reminders.ts, the same for every device) and sends it here with the
-// words; the main process keeps the timers, so a reminder comes while the window is minimised, hidden or behind others.
-// Closing the window quits the app (as Motus does: no tray), and with it the reminders. A tap brings the window back on
-// /check, which opens over the lock screen and logs the check. Only what the page sends is shown: the question and the
-// check's own instruction (plus the top dream sign's name if the person turned that on).
-let rcTimers: ReturnType<typeof setTimeout>[] = [];
+// words; the main process keeps it and shows each one on time, so a reminder comes while the window is minimised,
+// behind others, or closed to the tray (LDJ-56: closing hides the window; the app keeps running). A tap brings the
+// window back on /check, which opens over the lock screen and logs the check. Only what the page sends is shown: the
+// question and the check's own instruction (plus the top dream sign's name if the person turned that on).
+// Looked at against the wall clock every 20 s (and on waking from sleep) rather than one timer each: a timer's clock
+// stands still while the computer sleeps, which would push every later reminder back by the time asleep.
+interface PlannedReminder { at: number; title: string; body: string; url: string }
+let rcPlan: PlannedReminder[] = [];
+let rcFiredUpTo = 0;
+let rcTick: ReturnType<typeof setInterval> | null = null;
 const rcShown = new Set<Notification>(); // held: a notification that is garbage-collected loses its click
 const LATE = 15 * 60_000, AHEAD = 3 * 86_400_000;
 // the pages a reminder may open: /check, the WBTB guide, Train (bedtime, practice), the journal's morning entry (LDJ-30)
 const ALLOWED_URL = /^\/(check(\?[\w=&%.-]*)?|train(\?guided=up)?|journal\?(write=1&date=|norecall=)\d{4}-\d{2}-\d{2})$/;
-function showReminder(r: { at: number; title: string; body: string; url: string }) {
+const isCheck = (r: PlannedReminder) => r.url.startsWith("/check");
+// "Pause reminders today" from the tray: reality checks only, until midnight here. The page is told too (it sets the
+// schedule's pausedOn, which syncs); this copy keeps the pause even while the page can't save it (offline, signed out).
+const PAUSE = path.join(USER, "reminders-paused-until.txt");
+const pausedUntil = () => { try { return Number(fs.readFileSync(PAUSE, "utf8")) || 0; } catch { return 0; } };
+const pausedToday = () => pausedUntil() > Date.now();
+function showReminder(r: PlannedReminder) {
   if (!Notification.isSupported() || Date.now() - r.at > LATE) return; // the computer slept through it: skipped, not late
+  if (isCheck(r) && r.at < pausedUntil()) return;
   const n = new Notification({ title: r.title, body: r.body, icon: path.join(__dirname, "icon.png") });
-  n.on("click", () => { rcShown.delete(n); if (!win) return; if (win.isMinimized()) win.restore(); win.show(); win.focus(); win.webContents.send("app:open", r.url); });
+  n.on("click", () => { rcShown.delete(n); showWindow(r.url); });
   n.on("close", () => rcShown.delete(n));
   rcShown.add(n);
   n.show();
 }
+function rcCheck() {
+  const now = Date.now();
+  const due = rcPlan.filter((r) => r.at <= now && r.at > rcFiredUpTo);
+  if (!due.length) return;
+  rcFiredUpTo = due[due.length - 1]!.at;
+  // the latest of each kind: a night reminder isn't lost behind a reality check due the same minute
+  const latest = new Map<string, PlannedReminder>();
+  for (const r of due) latest.set(r.url.split("?")[0]!, r);
+  for (const r of latest.values()) showReminder(r);
+}
 ipcMain.handle("reminders:setPlan", (_e, items: unknown) => {
-  for (const t of rcTimers) clearTimeout(t);
-  rcTimers = [];
+  rcPlan = [];
   if (!Array.isArray(items)) return 0;
   const now = Date.now();
   for (const it of items.slice(0, 200)) {
     if (!it || typeof it.at !== "number" || typeof it.title !== "string" || typeof it.body !== "string" || typeof it.url !== "string") continue;
     if (!ALLOWED_URL.test(it.url) || it.at < now - 60_000 || it.at > now + AHEAD) continue;
-    const r = { at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url };
-    rcTimers.push(setTimeout(() => showReminder(r), Math.max(0, r.at - now)));
+    rcPlan.push({ at: it.at, title: it.title.slice(0, 200), body: it.body.slice(0, 400), url: it.url });
   }
-  return rcTimers.length;
+  rcPlan.sort((x, y) => x.at - y.at);
+  // a plan sent again (a change, a new day) doesn't show again what was already shown
+  rcFiredUpTo = Math.max(rcFiredUpTo, now - 60_000);
+  rcTick ??= setInterval(rcCheck, 20_000);
+  rcCheck();
+  updateTray();
+  return rcPlan.length;
 });
+function setPausedToday(on: boolean) {
+  if (on) { const m = new Date(); m.setHours(24, 0, 0, 0); fs.writeFileSync(PAUSE, String(m.getTime())); }
+  else fs.rmSync(PAUSE, { force: true });
+  win?.webContents.send("reminders:pause", on);
+  updateTray();
+}
+
+// ----- the tray (LDJ-56): closed, the window hides and Somnium keeps running for the reminders -----
+// Settings for this computer (Settings → Notifications on the desktop): close to the tray (unset: on whenever reminders
+// are planned), start at login, and whether the one-time "still running" notice was shown.
+interface DesktopPrefs { closeToTray?: boolean; trayNoticeShown?: boolean }
+const DESKTOP_PREFS = path.join(USER, "desktop.json");
+const readPrefs = (): DesktopPrefs => { try { const j = JSON.parse(fs.readFileSync(DESKTOP_PREFS, "utf8")); return j && typeof j === "object" ? j : {}; } catch { return {}; } };
+const writePrefs = (p: DesktopPrefs) => { fs.mkdirSync(USER, { recursive: true }); fs.writeFileSync(DESKTOP_PREFS, JSON.stringify(p, null, 2)); };
+const closeToTray = () => readPrefs().closeToTray ?? rcPlan.length > 0;
+let tray: Tray | null = null;
+let quitting = false;
+let startHidden = process.argv.includes("--hidden");
+
+/** Brings the window back (from the tray, minimised or behind others), on a page if one is given. */
+function showWindow(url?: string) {
+  if (!win || win.isDestroyed()) { const a = readAccounts(); void (a.active ? openAccount(a.active).catch(() => showChooser()) : Promise.resolve(showChooser())).then(() => { if (url) win?.webContents.send("app:open", url); }); return; }
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+  if (url) win.webContents.send("app:open", url);
+}
+function hideToTray(w: BrowserWindow) {
+  w.hide();
+  // hidden counts as left, at once and whatever the lock's delay: the screens lock and drop the key (core/lock.ts)
+  w.webContents.send("app:hidden");
+  const p = readPrefs();
+  if (!p.trayNoticeShown && Notification.isSupported()) {
+    writePrefs({ ...p, trayNoticeShown: true });
+    const n = new Notification({ title: "Somnium is still running", body: "Reminders keep coming. Open or quit it from its icon in the tray; Settings → Notifications can turn this off.", icon: path.join(__dirname, "icon.png") });
+    n.on("click", () => showWindow());
+    rcShown.add(n); n.on("close", () => rcShown.delete(n));
+    n.show();
+  }
+}
+function trayIcon() {
+  const img = nativeImage.createFromPath(path.join(__dirname, "icon.png"));
+  // the panels draw tray icons small: Windows 16 px, Linux panels 22 to 24 px
+  return img.isEmpty() ? img : img.resize({ width: process.platform === "win32" ? 16 : 22, quality: "best" });
+}
+function updateTray() {
+  if (!tray) return;
+  const paused = pausedToday();
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Open Somnium", click: () => showWindow() },
+    paused ? { label: "Resume reminders", click: () => setPausedToday(false) } : { label: "Pause reminders today", click: () => setPausedToday(true) },
+    { type: "separator" },
+    { label: "Quit", click: () => { quitting = true; app.quit(); } },
+  ]));
+}
+function makeTray() {
+  try {
+    tray = new Tray(trayIcon());
+    tray.setToolTip("Somnium");
+    tray.on("click", () => showWindow());
+    updateTray();
+  } catch { tray = null; } // no tray on this desktop: closing quits, as before
+}
+
+// Start at login: Windows and macOS through the system; Linux through an autostart entry (XDG), as Electron has none there.
+// It starts hidden in the tray (--hidden) so a sign-in doesn't open a window, and the reminders run.
+const AUTOSTART = path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config"), "autostart", "org.somnium.app.desktop");
+const launchArgs = () => (app.isPackaged ? [] : [app.getAppPath()]).concat("--hidden");
+function loginItem(): boolean {
+  if (process.platform === "linux") return fs.existsSync(AUTOSTART);
+  return app.getLoginItemSettings({ args: launchArgs() }).openAtLogin;
+}
+function setLoginItem(on: boolean) {
+  if (process.platform !== "linux") { app.setLoginItemSettings({ openAtLogin: on, args: launchArgs() }); return; }
+  if (!on) { fs.rmSync(AUTOSTART, { force: true }); return; }
+  // an AppImage runs from a temporary mount: the entry must name the AppImage file itself
+  const exe = process.env.APPIMAGE || process.execPath;
+  // the Desktop Entry spec's quoting: inside double quotes, " ` $ and \ take a backslash
+  const q = (a: string) => '"' + a.replace(/["`$\\]/g, (c) => "\\" + c) + '"';
+  fs.mkdirSync(path.dirname(AUTOSTART), { recursive: true });
+  fs.writeFileSync(AUTOSTART, ["[Desktop Entry]", "Type=Application", "Name=Somnium", `Exec=${[exe, ...launchArgs()].map(q).join(" ")}`, "Terminal=false", "X-GNOME-Autostart-enabled=true", ""].join("\n"));
+}
+ipcMain.handle("desktop:settings", () => ({ closeToTray: closeToTray(), trayAvailable: !!tray, openAtLogin: loginItem() }));
+ipcMain.handle("desktop:setCloseToTray", (_e, on: unknown) => { writePrefs({ ...readPrefs(), closeToTray: on === true }); return closeToTray(); });
+ipcMain.handle("desktop:setOpenAtLogin", (_e, on: unknown) => { setLoginItem(on === true); return loginItem(); });
 
 app.setAppUserModelId("org.somnium.app");
-if (!app.requestSingleInstanceLock()) app.quit();
-app.on("second-instance", () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+// one Somnium at a time: a second start (a launcher click, the login entry) brings this one's window back and ends.
+// Exits at once, before anything below runs: a second copy must never open the same local database.
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on("second-instance", () => { if (app.isReady()) showWindow(); });
+app.on("before-quit", () => { quitting = true; });
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+  makeTray();
+  if (!tray) startHidden = false; // nowhere to bring it back from
+  powerMonitor.on("resume", rcCheck);
   const a = readAccounts();
   if (a.active && a.list.some((x) => x.id === a.active)) await openAccount(a.active).catch(() => showChooser());
   else showChooser();
 });
-app.on("window-all-closed", async () => { if (running) await running.close().catch(() => {}); app.quit(); });
+// Quit from the tray (or an update's restart) closes the windows without "window-all-closed": the open account's
+// database is closed here first, then the quit goes on.
+app.on("will-quit", (e) => {
+  if (!running) return;
+  e.preventDefault();
+  const r = running; running = null;
+  // a few seconds at most: an open live stream (SSE) from a window that is already gone must not hold the quit
+  void Promise.race([r.close().catch(() => {}), new Promise((ok) => setTimeout(ok, 3000))]).finally(() => app.quit());
+});
+app.on("window-all-closed", () => app.quit());
