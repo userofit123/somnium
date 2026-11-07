@@ -8,7 +8,7 @@
 }
 .gd a { color: var(--gacc); }
 .gd .gtop { display: flex; align-items: center; gap: var(--hg); min-height: 44px; }
-.gd .gtop .gx { background: none; border: 0; color: var(--sdimtx2); padding: 8px; margin-inline-start: -8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: var(--fs-sm); }
+.gd .gtop .gx { background: none; border: 0; color: var(--sdimtx2); padding: var(--tdy); margin-inline-start: calc(-1 * var(--tdy)); cursor: pointer; display: inline-flex; align-items: center; gap: var(--tdy); font: inherit; font-size: var(--fs-sm); }
 .gd .gtop .gname { font-size: var(--fs-sm); color: var(--sdimtx2); }
 .gd .gbody { flex: 1; width: min(560px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: var(--hg); padding-top: var(--hg); }
 .gd h1 { font-size: 26px; font-weight: 500; color: var(--sdimtx); margin: 0; line-height: 1.25; }
@@ -16,31 +16,31 @@
 .gd .gp { font-size: var(--fs-lg); line-height: 1.6; margin: 0; }
 .gd .gev { font-size: var(--fs-sm); color: var(--sdimtx2); line-height: 1.5; margin: 0; }
 .gd .gev .cite, .gd .cite { color: var(--sdimtx); }
-.gd .gfoot { width: min(560px, 100%); margin: var(--spg) auto 0; display: flex; flex-direction: column; gap: 10px; }
+.gd .gfoot { width: min(560px, 100%); margin: var(--spg) auto 0; display: flex; flex-direction: column; gap: var(--hg); }
 .gd .gfoot .btn { width: 100%; justify-content: center; min-height: 52px; font-size: var(--fs-lg); }
 .gd .btn { background: var(--gacc); color: var(--sdim); border-color: transparent; }
 .gd .btn.o { background: transparent; color: var(--sdimtx); border: 1px solid var(--sdim2); }
-.gd .glink { background: none; border: 0; color: var(--sdimtx2); font: inherit; font-size: var(--fs-sm); cursor: pointer; padding: 8px; align-self: center; }
-.gd .gbox { background: var(--sdim2); border-radius: var(--r); padding: var(--cpy) var(--cpx); display: flex; flex-direction: column; gap: 8px; }
+.gd .glink { background: none; border: 0; color: var(--sdimtx2); font: inherit; font-size: var(--fs-sm); cursor: pointer; padding: var(--tdy) var(--lpy); align-self: center; }
+.gd .gbox { background: var(--sdim2); border-radius: var(--r); padding: var(--cpy) var(--cpx); display: flex; flex-direction: column; gap: var(--lpy); }
 .gd .gbox .t { color: var(--sdimtx); font-weight: 500; }
 .gd .gwarn { border-inline-start: 3px solid color-mix(in srgb, var(--warn, var(--neg)) 60%, var(--sdim)); }
 .gd .glabel { font-size: var(--fs-sm); color: var(--sdimtx2); }
-.gd .gchips { display: flex; flex-wrap: wrap; gap: 8px; }
-.gd .gchip { flex: 1 1 0; min-width: 88px; background: var(--sdim2); border: 1px solid transparent; color: var(--sdimtx); border-radius: var(--r-sm); padding: 10px 8px; font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.gd .gchips { display: flex; flex-wrap: wrap; gap: var(--tdy); }
+.gd .gchip { flex: 1 1 0; min-width: 88px; background: var(--sdim2); border: 1px solid transparent; color: var(--sdimtx); border-radius: var(--r-sm); padding: var(--lpy) var(--tdy); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: calc(var(--tdy) / 3); }
 .gd .gchip b { font-size: 20px; font-weight: 500; }
 .gd .gchip small { font-size: var(--fs-xs); color: var(--sdimtx2); }
 .gd .gchip.on { border-color: var(--gacc); color: var(--gacc); }
 .gd .grow2 { display: flex; align-items: center; gap: var(--hg); justify-content: space-between; flex-wrap: wrap; }
 .gd .gbig { font-size: 64px; font-weight: 300; letter-spacing: .02em; text-align: center; color: var(--sdimtx); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .gd .gsub { text-align: center; font-size: var(--fs-sm); color: var(--sdimtx2); }
-.gd .gsteps { display: flex; gap: 6px; justify-content: center; }
+.gd .gsteps { display: flex; gap: var(--tdy); justify-content: center; }
 .gd .gsteps i { width: 6px; height: 6px; border-radius: 50%; background: var(--sdim2); }
 .gd .gsteps i.on { background: var(--gacc); }
-.gd .gintent { width: 100%; box-sizing: border-box; background: var(--sdim2); color: var(--sdimtx); border: 1px solid transparent; border-radius: var(--r-sm); padding: 12px; font: inherit; font-size: 18px; line-height: 1.5; resize: vertical; }
+.gd .gintent { width: 100%; box-sizing: border-box; background: var(--sdim2); color: var(--sdimtx); border: 1px solid transparent; border-radius: var(--r-sm); padding: var(--lpy) var(--cpx); font: inherit; font-size: 18px; line-height: 1.5; resize: vertical; }
 .gd .gintent:focus { outline: none; border-color: var(--gacc); }
 .gd .gsign { font-size: 20px; color: var(--sdimtx); }
-.gd ul.glist { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: 6px; }
-.gd .gtgl { display: flex; align-items: center; gap: 10px; font-size: var(--fs-sm); cursor: pointer; }
+.gd ul.glist { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: var(--tdy); }
+.gd .gtgl { display: flex; align-items: center; gap: var(--lpy); font-size: var(--fs-sm); cursor: pointer; }
 
 /* the timers: a soft pulse that changes with each step, and the running screen dims further */
 .gd .gpulse { width: 180px; height: 180px; margin: var(--spg) auto; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--gacc) 22%, transparent), transparent 70%); animation: gpulse 2.4s var(--ease) 1; }

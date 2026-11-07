@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// A note on a reality check just logged from /check. Notes are sealed, so this page is behind the lock like the rest.
+// A note on a reality check just logged from /check. Notes are sealed, so this page is behind the lock like the rest,
+// and a note that can't go at once waits sealed on this device, never in the outbox in the clear (api/checks.ts).
 import { ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { send } from "../api/outbox";
+import { saveCheckNote } from "../api/checks";
 import { invalidate } from "../api/live";
 import { toastError } from "../core/toast";
 
@@ -10,7 +11,7 @@ const route = useRoute(), router = useRouter();
 const note = ref(""), busy = ref(false);
 async function save() {
   busy.value = true;
-  try { await send("put", `/reality-checks/${encodeURIComponent(String(route.params.id))}`, { note: note.value.trim() || null }); invalidate(["checks"]); router.replace("/train"); }
+  try { await saveCheckNote(String(route.params.id), note.value.trim() || null); invalidate(["checks"]); router.replace("/train"); }
   catch (e) { toastError(e); }
   finally { busy.value = false; }
 }

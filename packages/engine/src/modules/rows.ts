@@ -81,11 +81,40 @@ export async function getLive<T extends object>(q: Sql, table: string, id: strin
   return camel<T>(r);
 }
 
+/**
+ * A create sent again with the id it was made with (the outbox resends one whose answer never arrived,
+ * packages/shared/src/outbox.ts): the row it made is answered, as if made now, and nothing is announced again. Only
+ * when it is this person's, still there, and every plain value is the same; a sealed one can only be compared by
+ * being there or not (it is sealed afresh on each send, and the server never reads it). Anything else with that id
+ * is a different row: 409.
+ */
+async function sameCreate<T extends object>(ctx: Ctx, table: string, cols: Record<string, unknown>): Promise<T | null> {
+  const sealedCols = SEALED_COLUMNS[table] ?? [];
+  const params: unknown[] = [cols.id, ctx.userId];
+  const conds: string[] = [];
+  for (const [k, v] of Object.entries(cols)) {
+    if (k === "id") continue;
+    if (sealedCols.includes(k)) { conds.push(`((${k} IS NULL) = ${v == null})`); continue; }
+    params.push(v);
+    conds.push(`${k} IS NOT DISTINCT FROM $${params.length}`);
+  }
+  const r = (await ctx.q.query<Record<string, unknown>>(
+    `SELECT *, (deleted_at IS NULL${conds.length ? ` AND ${conds.join(" AND ")}` : ""}) AS same_as_sent FROM ${table} WHERE id = $1 AND user_id = $2`, params)).rows[0];
+  if (!r) return null;
+  if (!r.same_as_sent) throw conflict("Something else already has this id");
+  const { same_as_sent: _same, ...row } = r;
+  return camel<T>(row);
+}
+
 export async function insertRow<T extends object>(ctx: Ctx, table: string, topic: Change, cols: Record<string, unknown>): Promise<T> {
   if (ctx.mode === "server") {
     refusePlain(table, cols);
     // sealed for a row id the server would then make up: it could never be opened again
     if (!cols.id && (SEALED_COLUMNS[table] ?? []).some((c) => cols[c] != null)) throw bad("This field must be sealed by the app");
+  }
+  if (typeof cols.id === "string") {
+    const same = await sameCreate<T>(ctx, table, cols);
+    if (same) return same;
   }
   const row = { id: uuidv7(), user_id: ctx.userId, ...cols };
   const keys = Object.keys(row);

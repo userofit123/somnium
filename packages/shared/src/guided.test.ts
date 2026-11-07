@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wildPhase, WBTB_EARLY_MIN } from "./guided";
+import { bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wbtbTiming, wildPhase, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_EARLY_MIN, WBTB_TOO_EARLY_MIN } from "./guided";
 
 describe("WBTB times", () => {
   it("files an evening bedtime on the day before the morning, an after-midnight one on the morning", () => {
@@ -11,8 +11,8 @@ describe("WBTB times", () => {
 
   it("offers 4.5, 6 and 7.5 h at 90 min cycles, crossing midnight", () => {
     const o = wbtbOptions(bedtimeAt("2026-11-08", "23:00"));
-    expect(o.map((x) => [x.cycles, x.sleepMin, x.wake, x.nextDay, x.early])).toEqual([
-      [3, 270, "03:30", true, false], [4, 360, "05:00", true, false], [5, 450, "06:30", true, false],
+    expect(o.map((x) => [x.cycles, x.sleepMin, x.wake, x.nextDay, x.timing])).toEqual([
+      [3, 270, "03:30", true, "too-early"], [4, 360, "05:00", true, "ok"], [5, 450, "06:30", true, "ok"],
     ]);
     expect(o[1]!.at.getDate()).toBe(8);
   });
@@ -28,13 +28,21 @@ describe("WBTB times", () => {
     expect(defaultCycles(120)).toBe(3);
   });
 
-  it("warns under 4.5 h", () => {
+  it("warns at 4.5 h and less as too early [D14], under 5 h as early (5-6 h recommended)", () => {
     const bed = bedtimeAt("2026-11-08", "23:00");
-    expect(WBTB_EARLY_MIN).toBe(270);
-    expect(wbtbOption(bed, 3, 90).early).toBe(false);
-    expect(wbtbOption(bed, 3, 85).early).toBe(true);
-    expect(wbtbOption(bed, 2).early).toBe(true);
+    expect([WBTB_TOO_EARLY_MIN, WBTB_EARLY_MIN]).toEqual([270, 300]);
+    expect(wbtbOption(bed, 3, 90).timing).toBe("too-early"); // exactly 4.5 h
+    expect(wbtbOption(bed, 3, 85).timing).toBe("too-early");
+    expect(wbtbOption(bed, 2).timing).toBe("too-early");
+    expect(wbtbOption(bed, 3, 95).timing).toBe("early"); // 4 h 45 min
+    expect(wbtbOption(bed, 3, 100).timing).toBe("ok"); // 5 h
+    expect([wbtbTiming(271), wbtbTiming(299), wbtbTiming(300)]).toEqual(["early", "early", "ok"]);
     expect(wbtbOptions(bed, 90, [2]).map((x) => x.cycles)).toEqual([2, 3, 4, 5]);
+  });
+
+  it("stays up 30 minutes unless chosen otherwise (30-60 recommended [B39])", () => {
+    expect(WBTB_AWAKE_DEFAULT).toBe(30);
+    expect(WBTB_AWAKE).toContain(WBTB_AWAKE_DEFAULT);
   });
 
   it("crosses a month and a year", () => {

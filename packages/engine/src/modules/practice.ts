@@ -56,12 +56,13 @@ export function practiceRoutes(r: Router) {
   });
 
   r.get("/goals", async ({ q }) => listLive<Goal>(q, "goals", "", [], "created_at"));
-  r.post("/goals", async (ctx, _p, b) => insertRow<Goal>(ctx, "goals", "goals", columns(GOAL, b, true)));
+  r.post("/goals", async (ctx, _p, b) => insertRow<Goal>(ctx, "goals", "goals", { ...columns(GOAL, b, true), ...clientId(b) }));
   r.put("/goals/:id", async (ctx, p, b) => updateRow<Goal>(ctx, "goals", "goals", id(p.id), columns(GOAL, b, false), "goal"));
   r.del("/goals/:id", async (ctx, p) => { await removeRow(ctx, "goals", "goals", id(p.id), "goal"); return { ok: true }; });
 
   r.get("/reminders", async ({ q }) => listLive<Reminder>(q, "reminders", "", [], "created_at"));
-  r.post("/reminders", async (ctx, _p, b) => insertRow<Reminder>(ctx, "reminders", "reminders", columns(REMINDER, b, true)));
+  // the device's id is taken, so a reminder sent again from the outbox hits the row it made (rows.ts sameCreate)
+  r.post("/reminders", async (ctx, _p, b) => insertRow<Reminder>(ctx, "reminders", "reminders", { ...columns(REMINDER, b, true), ...clientId(b) }));
   r.put("/reminders/:id", async (ctx, p, b) => updateRow<Reminder>(ctx, "reminders", "reminders", id(p.id), columns(REMINDER, b, false), "reminder"));
   r.del("/reminders/:id", async (ctx, p) => { await removeRow(ctx, "reminders", "reminders", id(p.id), "reminder"); return { ok: true }; });
 }

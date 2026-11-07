@@ -136,6 +136,8 @@ export function journalRoutes(r: Router) {
     await ctx.q.query("UPDATE dream_elements SET deleted_at = NULL, updated_at = now() WHERE dream_id = $1 AND deleted_at >= $2 AND element_id IN (SELECT id FROM elements WHERE deleted_at IS NULL)", [dreamId, at]);
     await ctx.q.query("UPDATE media SET deleted_at = NULL, updated_at = now() WHERE dream_id = $1 AND deleted_at >= $2", [dreamId, at]);
     const row = (await ctx.q.query<Record<string, unknown>>("UPDATE dreams SET deleted_at = NULL, updated_at = now() WHERE id = $1 RETURNING *", [dreamId])).rows[0]!;
+    // there is no media topic (packages/shared/src/live.ts): a dream's photos are read with the dream, so "dreams"
+    // already moves every screen that shows the ones that came back
     ctx.changed("dreams", "elements");
     return camel<Dream>(row);
   });

@@ -9,12 +9,16 @@ export const CYCLE_RANGE = { min: 60, max: 120, step: 5 } as const;
 export const WBTB_CYCLES = [3, 4, 5] as const;
 /** About 6 h of sleep before waking: Erlacher and Stumbrys 2020 woke people from REM after about 6 h [D13]. */
 export const WBTB_DEFAULT_CYCLES = 4;
-/** Under 4.5 h is too early: the follow-up that woke people at 4.5 h found "the earlier sleep interruption seems to
- *  reduce the lucid dream induction rate" (Erlacher et al. 2022) [D14]. */
-export const WBTB_EARLY_MIN = 270;
-/** Minutes up: about 10 is enough for MILD (Aspy's participants stayed up only as long as MILD took [D11][D12]);
- *  30-60 is the longer choice, 60 beat 30 in the laboratory (Erlacher and Stumbrys 2020) [D13]. */
+/** 4.5 h or less is too early: the follow-up that woke people at 4.5 h found "the earlier sleep interruption seems to
+ *  reduce the lucid dream induction rate" (Erlacher et al. 2022) [D14]. 4.5 h itself is the tested time, so it warns. */
+export const WBTB_TOO_EARLY_MIN = 270;
+/** Under 5 h is still early: RESEARCH.md §3.4 recommends WBTB after roughly 5-6 h of sleep [B39][B40]. */
+export const WBTB_EARLY_MIN = 300;
+/** Minutes up. RESEARCH.md §3.4 and safety rule 3 recommend 30-60 minutes of quiet dream work [B39]; 60 beat 30 in
+ *  the laboratory (Erlacher and Stumbrys 2020) [D13]. 10 is offered as the short choice, said plainly to be less
+ *  effective: the LaBerge, Phillips and Levitan nap studies found 10 minutes awake less effective [B39]. */
 export const WBTB_AWAKE = [10, 30, 60] as const;
+export const WBTB_AWAKE_DEFAULT = 30;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** "HH:MM" (or "HH:MM:SS") to minutes after midnight; null when it is not a time. */
@@ -36,6 +40,10 @@ export function bedtimeAt(morning: string, bedtime: string): Date {
   return new Date(y, mo - 1, d - (min >= 12 * 60 ? 1 : 0), Math.floor(min / 60), min % 60);
 }
 
+export type WbtbTiming = "too-early" | "early" | "ok";
+/** How a night's sleep before the alarm compares with the evidence (WBTB_TOO_EARLY_MIN, WBTB_EARLY_MIN). */
+export const wbtbTiming = (sleepMin: number): WbtbTiming => (sleepMin <= WBTB_TOO_EARLY_MIN ? "too-early" : sleepMin < WBTB_EARLY_MIN ? "early" : "ok");
+
 export interface WbtbOption {
   cycles: number;
   sleepMin: number;
@@ -45,8 +53,8 @@ export interface WbtbOption {
   wake: string;
   /** the alarm is on the day after the bedtime (it crossed midnight) */
   nextDay: boolean;
-  /** under 4.5 h of sleep [D14] */
-  early: boolean;
+  /** "too-early": 4.5 h of sleep or less [D14]; "early": under 5 h (5-6 h recommended, RESEARCH.md §3.4); else "ok" */
+  timing: WbtbTiming;
 }
 
 /** One WBTB alarm: bedtime plus whole sleep cycles. */
@@ -54,7 +62,7 @@ export function wbtbOption(bed: Date, cycles: number, cycleMin = CYCLE_MIN): Wbt
   const sleepMin = Math.max(1, Math.round(cycles)) * cycleMin;
   const at = new Date(bed.getFullYear(), bed.getMonth(), bed.getDate(), bed.getHours(), bed.getMinutes() + sleepMin);
   const nextDay = at.getDate() !== bed.getDate() || at.getMonth() !== bed.getMonth() || at.getFullYear() !== bed.getFullYear();
-  return { cycles, sleepMin, at, wake: `${pad(at.getHours())}:${pad(at.getMinutes())}`, nextDay, early: sleepMin < WBTB_EARLY_MIN };
+  return { cycles, sleepMin, at, wake: `${pad(at.getHours())}:${pad(at.getMinutes())}`, nextDay, timing: wbtbTiming(sleepMin) };
 }
 
 /** The planner's choices: 3, 4 and 5 cycles after bedtime (plus `extra` cycle counts, e.g. a chosen 2). */

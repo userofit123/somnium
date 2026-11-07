@@ -51,6 +51,24 @@ const isUnsealedCheck = (method: string, path: string, body: unknown) =>
 export const allowedWithoutKey = (method: string, path: string, body?: unknown): boolean =>
   !isJournalRoute(path) || isUnsealedCheck(method.toUpperCase(), path, body);
 
+/** The sealed columns a request body carries (camelCase, as the body names them). Every body reaching the transport is
+ *  plaintext by definition (it seals whatever is there, see sealRow), so any value here is one in the clear. The outbox refuses any such body (packages/shared/src/outbox.ts): its list sits in this browser's
+ *  storage, shared by every tab and kept through the lock, so nothing sealed may wait there in the clear. */
+export function plaintextSealedFields(method: string, path: string, body: unknown): string[] {
+  if (!body || typeof body !== "object" || Array.isArray(body) || method.toUpperCase() === "GET") return [];
+  const route = routeOf(path);
+  const given = body as Row;
+  const bulk = isBulk(path);
+  if (!route && !bulk) return [];
+  if (bulk) return given.data != null ? ["data"] : [];
+  return (SEALED_COLUMNS[route!.table] ?? []).map(camelOf).filter((k) => given[k] != null && given[k] !== "");
+}
+
+/** Throws when a body carries a sealed column in the clear (see plaintextSealedFields). */
+export function refuseSealedInClear(method: string, path: string, body: unknown): void {
+  if (plaintextSealedFields(method, path, body).length) throw new SealError("A sealed field can't wait on this device in the clear");
+}
+
 /** The id a new row will have, or the row a write is aimed at. */
 async function rowIdFor(method: string, path: string, body: Row, lookup: Lookup): Promise<string | null> {
   const parts = clean(path).split("/").filter(Boolean);

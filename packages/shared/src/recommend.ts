@@ -109,7 +109,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     id: "journal", title: "Keep journaling",
     body: "Write down whatever you remember each morning, even a fragment, or mark \"No recall\". Recall grows with a journal, and the rest of the training builds on it.",
     reason: nights.length ? `You have logged ${n(nights.length, "night")} so far; after ${REC.journalNights} the suggestions here can use your own numbers.` : `Nothing logged yet; after ${REC.journalNights} nights the suggestions here can use your own numbers.`,
-    sources: ["B48", "B33"],
+    sources: ["B48", "C30"],
   });
   else if (last14.length && recall < REC.recallRate) out.push({
     id: "recall", title: "Work on recall first",
@@ -133,7 +133,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   const w = compareLucid(nights, data.dreams, { id: "wbtb", label: "WBTB", has: isWbtb, withNoun: { one: "WBTB night", many: "WBTB nights" }, withoutNoun: { one: "other night", many: "other nights" } });
   if (!ease && w.enough && w.with.rate! - w.without.rate! >= REC.wbtbLead - 1e-9) out.push({
     id: "wbtb-works", title: "WBTB works for you: plan 2-3 a week",
-    body: "Lucid nights went with your WBTB nights more often than with other nights. Two or three a week, on nights you can sleep in, keeps it working without costing sleep.",
+    body: "Lucid nights went with your WBTB nights more often than with other nights. Two or three a week, on nights you can sleep in, is what the sleep-first advice suggests.",
     reason: w.text, sources: ["B38", "B39", "B69"], action: { label: "Plan WBTB", to: "/train?technique=wbtb" },
   });
 

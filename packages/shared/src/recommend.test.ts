@@ -26,7 +26,7 @@ describe("recommend: keep journaling", () => {
     expect(has(base({ nights: nights(7) }), "journal")).toBe(false);
     const r = all(base({ nights: nights(6) })).find((x) => x.id === "journal")!;
     expect(r.reason).toContain("6 nights");
-    expect(r.sources).toEqual(["B48", "B33"]);
+    expect(r.sources).toEqual(["B48", "C30"]);
   });
   it("says so when nothing is logged", () => {
     expect(all(base({ nights: [] })).find((x) => x.id === "journal")!.reason).toContain("Nothing logged yet");
