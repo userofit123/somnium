@@ -140,6 +140,15 @@ describe("insights: what works for you", () => {
     expect(w.nap.text).toBe("Not enough nights yet: 0 naps and 42 nights so far, 10 of each needed.");
   });
 
+  it("compares nights asleep within 10 minutes of the technique with longer ones, only where it was logged", () => {
+    expect(whatWorks(nights, dreams, utcClock).asleep).toMatchObject({ enough: false, with: { nights: 0 }, without: { nights: 0 } });
+    // the sealed column opens as text: 12 nights within 10 minutes (3 lucid), 10 longer (none), the rest not logged
+    const timed = nights.map((n, i) => ({ ...n, minutesToSleep: i < 12 ? String(i % 3 ? 5 : 10) : i < 22 ? "25" : null }));
+    const a = whatWorks(timed, dreams, utcClock).asleep;
+    expect(a).toMatchObject({ id: "asleep", enough: true, with: { nights: 12, lucid: 3, rate: 0.25 }, without: { nights: 10, lucid: 0, rate: 0 } });
+    expect(a.text).toBe("On your 12 nights asleep within 10 min you were lucid on 3 (25%); on your 10 nights it took longer on 0 (0%).");
+  });
+
   it("is reusable for any split, and ignores plans and dreams of other nights", () => {
     const plan = night("2026-12-01", { techniquesPlanned: ["mild"] } as Partial<InsightNight>);
     const c = compareLucid([...nights, plan], [...dreams, dream(night("1999-01-01"), { lucid: true })], {

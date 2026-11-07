@@ -3,7 +3,7 @@
 import { WBTB_MODE_LOG, BECAME_LUCID_HOW, WAKE_METHODS, ELEMENT_KINDS, SIGN_CATEGORIES, ELEMENT_SOURCES, type Night, type Dream, type Element, type DreamElement } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, numOrNull, bool, dateStr, visible, camel, camels } from "../util";
-import { clientId, refuseOtherRow, columns, sealed, timeOrNull, clockOrNull, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
+import { clientId, refuseOtherRow, columns, sealed, timeOrNull, clockOrNull, sealedMinutes, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
 import { conflict, notFound } from "../errors";
 
 const NIGHT: Fields = {
@@ -11,7 +11,7 @@ const NIGHT: Fields = {
   bedtime: timeOrNull, wake_time: timeOrNull,
   sleep_quality: (v) => intOrNull(v, 1, 5),
   wbtb_used: (v) => bool(v), wbtb_wake_at: timeOrNull, wbtb_minutes_awake: (v) => intOrNull(v, 0, 600),
-  wbtb_mode: enumOrNull(WBTB_MODE_LOG),
+  wbtb_mode: enumOrNull(WBTB_MODE_LOG), minutes_to_sleep: sealedMinutes(0, 600),
   nap: (v) => bool(v), substances: sealed, caffeine_after: clockOrNull, alcohol: (v) => bool(v), notes: sealed,
   techniques_planned: idList, techniques_done: idList, intention: sealed, no_recall: (v) => bool(v),
 };

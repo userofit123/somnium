@@ -5,7 +5,7 @@
 export interface NightLog {
   dreamCount?: number; noRecall?: boolean;
   bedtime?: string | null; wakeTime?: string | null; sleepQuality?: number | null;
-  wbtbUsed?: boolean; wbtbWakeAt?: string | null; wbtbMinutesAwake?: number | null;
+  wbtbUsed?: boolean; wbtbWakeAt?: string | null; wbtbMinutesAwake?: number | null; minutesToSleep?: string | number | null;
   substances?: string | null; caffeineAfter?: string | null; alcohol?: boolean; notes?: string | null;
   techniquesDone?: string[];
 }
@@ -19,7 +19,14 @@ export interface NightLog {
 export function isPlanOnly(n: NightLog): boolean {
   if (n.noRecall !== false || (n.dreamCount ?? 0) > 0) return false;
   const set = (v: unknown) => v != null && v !== false && v !== "" && !(Array.isArray(v) && !v.length);
-  return ![n.bedtime, n.wakeTime, n.sleepQuality, n.wbtbUsed, n.wbtbWakeAt, n.wbtbMinutesAwake, n.substances, n.caffeineAfter, n.alcohol, n.notes, n.techniquesDone].some(set);
+  return ![n.bedtime, n.wakeTime, n.sleepQuality, n.wbtbUsed, n.wbtbWakeAt, n.wbtbMinutesAwake, n.minutesToSleep, n.substances, n.caffeineAfter, n.alcohol, n.notes, n.techniquesDone].some(set);
+}
+/** Minutes to fall asleep after the technique as a number: the sealed column opens as text. null when not logged. */
+export function minutesToSleep(n: Pick<NightLog, "minutesToSleep">): number | null {
+  const v = n.minutesToSleep;
+  if (v == null || v === "") return null;
+  const m = Number(v);
+  return Number.isFinite(m) && m >= 0 ? m : null;
 }
 /** The logged nights among nights: plans left out. */
 export const loggedNights = <N extends NightLog>(nights: N[]): N[] => nights.filter((n) => !isPlanOnly(n));

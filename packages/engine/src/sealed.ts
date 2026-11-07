@@ -12,8 +12,10 @@
 // checks and decides merges. Its absorbed (on a survivor, keyed fingerprints of the texts it took in from merged
 // nights; on a merged night, that it handed its plain values over) is sealed: only a device ever reads it.
 // merge_pending (a merge to try again here) is plain bookkeeping that never leaves the side that set it.
+// minutes_to_sleep (how long it took to fall asleep after the technique, LDJ-64) is a count but sealed all the same:
+// it says how the person sleeps, and the server has no use for it (only "What works for you" on the device reads it).
 export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
-  nights: ["substances", "notes", "intention", "absorbed"],
+  nights: ["substances", "notes", "intention", "absorbed", "minutes_to_sleep"],
   dreams: ["title", "text", "lucid_trigger", "dismissed"],
   elements: ["name", "aliases", "note"],
   dream_elements: ["span"],

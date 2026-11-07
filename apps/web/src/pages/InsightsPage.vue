@@ -20,6 +20,7 @@ import { readJson, writeJson } from "../core/prefs";
 import BarChart from "../components/BarChart.vue";
 import GoalCards from "../components/goals/GoalCards.vue";
 import LagCard from "../components/insights/LagCard.vue";
+import ThemesCard from "../components/insights/ThemesCard.vue";
 import { useSettings } from "../api/queries";
 import LineChart from "../components/LineChart.vue";
 import "../styles/components/insights.css";
@@ -82,6 +83,8 @@ const groups = computed(() => {
     { title: "WBTB", rows: [w.wbtb].filter((c) => c.with.nights + c.without.nights > 0) },
     { title: "Minutes awake at WBTB", rows: shown(w.wbtbBands) },
     { title: "Techniques", rows: w.techniques },
+    // shown once any technique or WBTB night is logged, so an empty count says to log the minutes to fall asleep
+    { title: "Falling asleep after the technique", rows: w.techniques.length || w.wbtb.with.nights || w.asleep.with.nights + w.asleep.without.nights ? [w.asleep] : [] },
     { title: "Hours asleep", rows: shown(w.sleep) },
     { title: "Bedtime", rows: shown(w.bedtime) },
     { title: "Naps", rows: w.nap.with.nights ? [w.nap] : [] },
@@ -133,6 +136,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <div class="grid g2 ins-grid">
       <GoalCards v-if="features.goals" :today="today" />
       <LagCard v-if="features.dayNotes" :today="today" />
+      <ThemesCard v-if="features.typicalThemes" />
       <!-- Recall -->
       <section>
         <div class="sh"><h2>Recall</h2></div>
@@ -178,7 +182,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <section class="ins-wide">
         <div class="sh"><h2>What works for you</h2></div>
         <div class="card">
-          <div v-if="!groups.length" class="empty sm"><b>Nothing to compare yet</b>Log your nights with the techniques you did, WBTB and its minutes awake, and your bed and wake times. After {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without something, its lucid rate shows here.</div>
+          <div v-if="!groups.length" class="empty sm"><b>Nothing to compare yet</b>Log your nights with the techniques you did, how long you took to fall asleep after them, WBTB and its minutes awake, and your bed and wake times. After {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without something, its lucid rate shows here.</div>
           <template v-else>
             <p class="tiny ins-note">What went with your lucid nights, from your own nights only: it shows what went together, not what caused what. A rate shows once there are {{ MIN_NIGHTS }} nights on each side.</p>
             <div class="ins-works">

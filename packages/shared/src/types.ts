@@ -60,6 +60,8 @@ export interface Night extends Owned {
   wbtbMinutesAwake: number | null;
   /** the WBTB mode used: "short" | "long" | "nap" | "cat" (guided.ts WBTB_MODE_LOG) */
   wbtbMode?: string | null;
+  /** minutes to fall asleep after the technique, sealed: whole minutes as text once opened (rates.ts minutesToSleep) */
+  minutesToSleep?: string | null;
   nap: boolean;
   substances: string | null; // sealed
   caffeineAfter: string | null; // HH:MM:SS

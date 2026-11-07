@@ -124,7 +124,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   const wbtbLately = nights.some((x) => x.date >= lucidFrom && isWbtb(x));
   if (recallGood && !lucidLately && !wbtbLately) out.push({
     id: "mild-wbtb", title: "Try MILD with WBTB",
-    body: "On your next free night, when you can sleep in, set an alarm about 5 hours after bedtime, stay up 30-60 minutes quietly, then do MILD as you fall back asleep. It is the best-supported combination in the studies.",
+    body: "On your next free night, when you can sleep in, set an alarm about 5 hours after bedtime, stay up 30-60 minutes quietly, then do MILD as you fall back asleep. Aim to be asleep within about 10 minutes of finishing it: in the largest study, falling asleep that quickly went with lucid dreams on 18% of nights against 11%. Log how long it took in the night details. It is the best-supported combination in the studies.",
     reason: `Your recall is good (${pct(recall)} of nights in the last ${REC.recallDays} days), you have had no lucid dream in the last 3 weeks and no WBTB nights.`,
     sources: ["B37", "B38", "B39"], action: { label: "Plan WBTB", to: "/train?technique=wbtb" },
   });

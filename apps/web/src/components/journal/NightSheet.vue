@@ -1,8 +1,8 @@
 <script setup lang="ts">
 // The night a dream belongs to (PLAN.md §6.2): its date (which night), bedtime, wake time, sleep quality, WBTB,
-// whether it was a nap, techniques used, substances and notes. Saved as it changes, with the dream (api/journal.ts).
+// whether it was a nap, techniques used and the minutes to fall asleep after them, substances and notes. Saved as it changes, with the dream (api/journal.ts).
 import { computed, reactive, ref, watch } from "vue";
-import { clockOf, nightClock, nightOfDate, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
+import { clockOf, minutesToSleep, nightClock, nightOfDate, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
 import { changeNight, liveDraft, moveDream, useJournal, uuidv7 } from "../../api/journal";
 import { localYmd } from "../../core/format";
 import Sheet from "../Sheet.vue";
@@ -16,7 +16,7 @@ const emit = defineEmits<{ close: []; moved: [date: string, nap: boolean, nightI
 const j = useJournal();
 const today = localYmd(new Date());
 
-const n = reactive({ date: props.date, nap: props.nap, nightId: props.nightId, bedtime: "", wakeTime: "", sleepQuality: null as number | null, wbtbUsed: false, wbtbMinutesAwake: null as number | null, techniquesDone: [] as string[], substances: "", notes: "" });
+const n = reactive({ date: props.date, nap: props.nap, nightId: props.nightId, bedtime: "", wakeTime: "", sleepQuality: null as number | null, wbtbUsed: false, wbtbMinutesAwake: null as number | null, minutesToSleep: null as number | null, techniquesDone: [] as string[], substances: "", notes: "" });
 const ready = ref(false);
 // the night's values: the row there, with what was changed here and not sent yet on top
 function fill() {
@@ -26,6 +26,7 @@ function fill() {
   const v = { ...(row ?? {}), ...own } as Record<string, any>;
   n.bedtime = clockOf(v.bedtime); n.wakeTime = clockOf(v.wakeTime);
   n.sleepQuality = v.sleepQuality ?? null; n.wbtbUsed = !!v.wbtbUsed; n.wbtbMinutesAwake = v.wbtbMinutesAwake ?? null;
+  n.minutesToSleep = minutesToSleep(v);
   n.techniquesDone = [...(v.techniquesDone ?? [])]; n.substances = v.substances ?? ""; n.notes = v.notes ?? "";
   queueMicrotask(() => (ready.value = true));
 }
@@ -46,6 +47,8 @@ watch(() => n.wakeTime, (v) => put({ wakeTime: v ? nightClock(n.date, v, "wake")
 watch(() => n.sleepQuality, (v) => put({ sleepQuality: v }));
 watch(() => n.wbtbUsed, (v) => put({ wbtbUsed: v }));
 watch(() => n.wbtbMinutesAwake, (v) => put({ wbtbMinutesAwake: v }));
+// sealed on the way out (sealed.ts): sent as a number, it opens again as text
+watch(() => n.minutesToSleep, (v) => put({ minutesToSleep: v }));
 watch(() => n.techniquesDone, (v) => put({ techniquesDone: [...v] }), { deep: true });
 watch(() => n.substances, (v) => put({ substances: v }));
 watch(() => n.notes, (v) => put({ notes: v }));
@@ -70,6 +73,11 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
     <label class="tgl"><div class="grow"><div class="t">Wake back to bed</div><div class="s">Woke up on purpose, stayed up a while, went back to sleep</div></div><span class="tg"><input v-model="n.wbtbUsed" type="checkbox" /></span></label>
     <div v-if="n.wbtbUsed" class="fld"><label>Minutes awake</label><NumStep :value="n.wbtbMinutesAwake" :min="0" :max="600" :step="5" unit="min" @set="(v) => (n.wbtbMinutesAwake = v)" /></div>
     <div class="fld"><label>Techniques used</label><ChoiceTiles v-model="n.techniquesDone" :options="techs" multiple compact /></div>
+    <div v-if="n.techniquesDone.length || n.wbtbUsed" class="fld">
+      <label>Minutes to fall asleep after the technique</label>
+      <NumStep :value="n.minutesToSleep" :min="0" :max="600" :step="5" unit="min" @set="(v) => (n.minutesToSleep = v)" />
+      <div class="tiny jan">A guess is fine. Insights compares nights asleep within 10 minutes with longer ones.</div>
+    </div>
     <div class="fld"><label>Substances</label><input aria-label="Substances" v-model="n.substances" placeholder="Caffeine, alcohol, supplements, medicines" maxlength="500" /></div>
     <div class="fld"><label>Notes</label><textarea aria-label="Notes" v-model="n.notes" rows="3" placeholder="Anything else about the night" /></div>
   </Sheet>

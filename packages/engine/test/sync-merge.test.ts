@@ -93,7 +93,7 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     const na = await on(a.eng)("POST", "/nights", { date, notes: "notes from a", sleepQuality: 2, techniquesPlanned: ["mild"] });
     const da = await on(a.eng)("POST", "/dreams", { nightId: na.id, text: "the dream a wrote" });
     await later();
-    const nb = await on(b.eng)("POST", "/nights", { date, notes: "notes from b", intention: "look at my hands", substances: "coffee", sleepQuality: 4, wbtbUsed: true, techniquesPlanned: ["wbtb", "mild"] });
+    const nb = await on(b.eng)("POST", "/nights", { date, notes: "notes from b", intention: "look at my hands", substances: "coffee", sleepQuality: 4, wbtbUsed: true, minutesToSleep: 12, techniquesPlanned: ["wbtb", "mild"] });
     const db = await on(b.eng)("POST", "/dreams", { nightId: nb.id, text: "the dream b wrote" });
     await later();
     // b goes on writing under its own night while still offline, after the night was made
@@ -114,7 +114,7 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
       // one live night, the one made first, holding every dream with its text readable
       expect(nights.map((n) => n.id)).toEqual([na.id]);
       // both people's words survive, the survivor's first; plain values newest first; technique lists joined
-      expect(nights[0]).toMatchObject({ notes, intention: "look at my hands", substances: "coffee", sleepQuality: 4, wbtbUsed: true, techniquesPlanned: ["mild", "wbtb"] });
+      expect(nights[0]).toMatchObject({ notes, intention: "look at my hands", substances: "coffee", sleepQuality: 4, wbtbUsed: true, minutesToSleep: "12", techniquesPlanned: ["mild", "wbtb"] });
       const night = await on(x.eng)("GET", `/nights/${na.id}`);
       expect((night.dreams as Rec[]).map((d) => d.id).sort()).toEqual(dreams.map((d) => d.id).sort());
       expect((night.dreams as Rec[]).map((d) => d.text).sort()).toEqual(["a second dream on b", "the dream a wrote", "the dream b wrote"]);
@@ -131,6 +131,7 @@ describe("two devices that log the same night offline", { timeout: 30000 }, () =
     expect(await opens("nights", "notes", sv.notes, na.id)).toBe(notes);
     expect(await opens("nights", "intention", sv.intention, na.id)).toBe("look at my hands");
     expect(await opens("nights", "substances", sv.substances, na.id)).toBe("coffee");
+    expect(await opens("nights", "minutes_to_sleep", sv.minutes_to_sleep, na.id)).toBe("12");
     await expect(opens("nights", "notes", sv.notes, nb.id)).rejects.toBeInstanceOf(SealError);
     // the record of what the survivor took in is sealed too, and names b's night
     expect(Object.keys(JSON.parse(await opens("nights", "absorbed", sv.absorbed, na.id)))).toEqual([nb.id]);

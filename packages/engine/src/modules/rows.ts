@@ -36,6 +36,17 @@ export const sealed: Field = (v) => {
   if (v.length > MAX_SEALED) throw bad("That text is too long");
   return v;
 };
+/**
+ * A sealed count (minutes): the device's envelope on the server, whole minutes kept as text on the device (the column
+ * is text, so it can hold either). A screen sends a number or a numeric text; anything else is refused.
+ */
+export const sealedMinutes = (lo: number, hi: number): Field => (v) => {
+  if (v == null || v === "") return null;
+  if (isSealed(v)) return sealed(v);
+  const n = typeof v === "number" ? v : typeof v === "string" && /^\d{1,4}$/.test(v.trim()) ? Number(v) : NaN;
+  if (!Number.isInteger(n) || n < lo || n > hi) throw bad(`Expected whole minutes from ${lo} to ${hi}`);
+  return String(n);
+};
 export const timeOrNull: Field = (v) => (v == null || v === "" ? null : isoTime(v));
 export const clockOrNull: Field = (v) => { if (v == null || v === "") return null; if (typeof v !== "string" || !/^\d{2}:\d{2}(:\d{2})?$/.test(v)) throw bad("Invalid time of day"); return v; };
 export const idList: Field = (v) => (Array.isArray(v) ? v.slice(0, 50).map((x) => str(x, 80)) : []);

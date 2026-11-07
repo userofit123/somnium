@@ -60,6 +60,13 @@ describe("journal", () => {
     expect(nights[0]!.lucidCount).toBe(1);
   });
 
+  it("takes the minutes to fall asleep as whole minutes and keeps them as text (a sealed column)", async () => {
+    expect((await call<Night>(A, "PUT", `/nights/${night.id}`, { minutesToSleep: 15 })).minutesToSleep).toBe("15");
+    expect((await call<Night>(A, "PUT", `/nights/${night.id}`, { minutesToSleep: "5" })).minutesToSleep).toBe("5");
+    for (const v of [-1, 601, 2.5, "soon"]) expect(await status(A, "PUT", `/nights/${night.id}`, { minutesToSleep: v })).toBe(400);
+    expect(await announced(() => call(A, "PUT", `/nights/${night.id}`, { minutesToSleep: null }))).toContain("nights");
+  });
+
   it("lists every dream's plain facts with no limit and nothing sealed", async () => {
     const facts = await call<Record<string, unknown>[]>(A, "GET", "/dream-facts");
     const mine = facts.find((f) => f.id === dream.id)!;

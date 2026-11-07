@@ -123,8 +123,10 @@ describe("the server holds no plaintext", () => {
 
   it("a dream written on a device reaches the server sealed: no plaintext in any table", async () => {
     const D = on(device);
-    const night = await D("POST", "/nights", { date: "2026-11-05", notes: SECRETS.nightNotes, intention: SECRETS.intention, substances: SECRETS.substances });
+    const night = await D("POST", "/nights", { date: "2026-11-05", notes: SECRETS.nightNotes, intention: SECRETS.intention, substances: SECRETS.substances, minutesToSleep: 8 });
     nightId = night.id;
+    // a sealed count (LDJ-64): whole minutes as text on the device
+    expect(night.minutesToSleep).toBe("8");
     const dream = await D("POST", "/dreams", { nightId: night.id, title: SECRETS.title, text: SECRETS.text, lucid: true, lucidityLevel: 3, lucidTrigger: SECRETS.trigger });
     dreamId = dream.id;
     const element = await D("POST", "/elements", { kind: "character", name: SECRETS.element, aliases: SECRETS.aliases, note: SECRETS.elementNote });
@@ -152,6 +154,8 @@ describe("the server holds no plaintext", () => {
     expect(row.lucid).toBe(true);
     expect(row.lucidity_level).toBe(3);
     expect(row.night_id).toBe(night.id);
+    const nightRow = (await server.db.admin.query("SELECT * FROM nights WHERE id = $1", [night.id])).rows[0];
+    expect(isSealed(nightRow.minutes_to_sleep)).toBe(true);
     expect((await S()("GET", "/nights"))[0].dreamCount).toBe(1);
     // the server's export is the ciphertext as it is, and says so
     const exp = await S()("GET", "/export");
@@ -167,6 +171,7 @@ describe("the server holds no plaintext", () => {
     expect(dream.text).toBe(SECRETS.text);
     expect(dream.lucidTrigger).toBe(SECRETS.trigger);
     expect((await D2("GET", `/nights/${nightId}`)).notes).toBe(SECRETS.nightNotes);
+    expect((await D2("GET", `/nights/${nightId}`)).minutesToSleep).toBe("8");
     expect((await D2("GET", "/elements"))[0].name).toBe(SECRETS.element);
     // a device's export is plaintext, and says so
     const exp = await D2("GET", "/export");

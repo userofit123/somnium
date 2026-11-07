@@ -133,7 +133,7 @@ const CSV_COLUMNS = {
     text: ["title", "text", "lucid_trigger"],
   },
   nights: {
-    plain: ["date", "id", "nap", "bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "caffeine_after", "alcohol", "techniques_planned", "techniques_done", "created_at", "updated_at"],
+    plain: ["date", "id", "nap", "bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "minutes_to_sleep", "caffeine_after", "alcohol", "techniques_planned", "techniques_done", "created_at", "updated_at"],
     text: ["substances", "notes", "intention"],
   },
   reality_checks: { plain: ["at", "id", "kind", "outcome", "prompted", "created_at"], text: ["note"] },

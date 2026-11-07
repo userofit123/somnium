@@ -9,7 +9,7 @@
 // shows a rate when either group has fewer than MIN_NIGHTS nights, gives both sample sizes, and says "went with",
 // never "caused": these are the person's own nights, not an experiment. The recommendation rules (PLAN.md §8.2,
 // LDJ-27) read the same Comparison objects, so the threshold and wording stay in one place.
-import { loggedNights, addDays, type NightLog } from "./rates";
+import { loggedNights, addDays, minutesToSleep, type NightLog } from "./rates";
 import { TECHNIQUES } from "./journal";
 import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome } from "./types";
 
@@ -290,7 +290,13 @@ export interface WhatWorks {
   nap: Comparison;
   /** Each band of bedtime against the other nights whose bedtime is known. */
   bedtime: Comparison[];
+  /** Asleep within ASLEEP_WITHIN minutes of the technique against longer, over the nights where it was logged. */
+  asleep: Comparison;
 }
+
+/** The cut-off that predicted success in the largest MILD study: asleep within 10 minutes of the technique, 18.3% of
+ *  nights lucid against 11.1% (RESEARCH.md B38; the 5-minute cut-off was not significant there). */
+export const ASLEEP_WITHIN = 10;
 
 /** "What works for you": every comparison over the logged nights given (pass the period's nights). */
 export function whatWorks(nights: InsightNight[], dreams: InsightDream[], clock: Clock = localClock): WhatWorks {
@@ -323,5 +329,13 @@ export function whatWorks(nights: InsightNight[], dreams: InsightDream[], clock:
   const sleep = banded("sleep", SLEEP_BANDS, sleepHours, (b) => ({ one: `night with ${b.label} sleep`, many: `nights with ${b.label} sleep` }));
   const bedtime = banded("bedtime", BEDTIME_BANDS, (n) => (n.bedtime ? afterNoon(clock.minutes(n.bedtime)) : null), (b) => ({ one: `night in bed ${b.label}`, many: `nights in bed ${b.label}` }));
   const nap = compareLucid(ns, dreams, { id: "nap", label: "Naps", has: (n) => !!n.nap, lacks: main, withNoun: { one: "nap", many: "naps" }, withoutNoun: { one: "night", many: "nights" } });
-  return { techniques, wbtb, wbtbBands, sleep, nap, bedtime };
+  const asleepIn = (n: InsightNight) => (main(n) ? minutesToSleep(n) : null);
+  const asleep = compareLucid(ns, dreams, {
+    id: "asleep", label: `Asleep within ${ASLEEP_WITHIN} min of the technique`,
+    has: (n) => { const m = asleepIn(n); return m != null && m <= ASLEEP_WITHIN; },
+    lacks: (n) => { const m = asleepIn(n); return m != null && m > ASLEEP_WITHIN; },
+    withNoun: { one: `night asleep within ${ASLEEP_WITHIN} min`, many: `nights asleep within ${ASLEEP_WITHIN} min` },
+    withoutNoun: { one: "night it took longer", many: "nights it took longer" },
+  });
+  return { techniques, wbtb, wbtbBands, sleep, nap, bedtime, asleep };
 }
