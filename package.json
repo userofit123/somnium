@@ -1,5 +1,6 @@
 {
   "name": "somnium",
+  "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@9.15.0",
   "scripts": {
@@ -8,7 +9,6 @@
     "typecheck": "pnpm -r typecheck",
     "e2e": "playwright test -c e2e/playwright.config.ts"
   },
-  "version": "0.0.0",
   "devDependencies": {
     "@playwright/test": "1.58.2"
   }

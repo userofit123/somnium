@@ -1,5 +1,6 @@
 {
   "name": "@somnium/android",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "sync": "node prepare-web.mjs && cap sync android"
