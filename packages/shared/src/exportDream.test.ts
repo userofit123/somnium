@@ -31,6 +31,7 @@ describe("dream Markdown", () => {
     expect(buildDreamMarkdown({ dream: { ...base, title: "# x\n[a](b)" }, night, elements: [] }).markdown.split("\n")[0]).toBe("# \\# x \\[a\\](b)");
   });
   it("lists marks and facts only when noted", () => {
+    expect(dreamMarks({ ...base, lucidityLevel: 0 })[0]).toEqual({ label: "Lucid", value: "Yes" });
     expect(dreamMarks({ ...base, lucid: false, vividness: null, control: null, emotionOverall: null, falseAwakening: false })).toEqual([]);
     expect(nightFacts({ ...night, nap: true, bedtime: null, wakeTime: null, sleepQuality: null, wbtbUsed: false, techniquesDone: [] })).toEqual([{ label: "Sleep", value: "Nap" }]);
   });

@@ -57,9 +57,10 @@ async function load() {
 const pick = () => Object.fromEntries(FIELDS.map((k) => [k, f[k]]));
 
 watch(f, () => { if (ready.value) changeDream(props.id, pick()); }, { deep: true });
-// a level of lucidity means it was lucid; not lucid means level 0
+// a level of lucidity means it was lucid; not lucid means level 0; marking lucid takes the lowest lucid step so the
+// two never disagree (a dream marked Lucid with level 0 would read "Not lucid")
 watch(() => f.lucidityLevel, (v) => { if (v > 0 && !f.lucid) f.lucid = true; });
-watch(() => f.lucid, (v) => { if (!v && f.lucidityLevel) f.lucidityLevel = 0; });
+watch(() => f.lucid, (v) => { if (!v && f.lucidityLevel) f.lucidityLevel = 0; else if (v && !f.lucidityLevel) f.lucidityLevel = 1; });
 
 const vivid = computed(() => (f.vividness ?? 0) >= 4);
 const CHIPS = [
@@ -71,7 +72,10 @@ function toggleChip(k: string) {
   if (k === "vivid") f.vividness = vivid.value ? null : 4;
   else f[k] = !f[k];
 }
-const set = (k: string, v: number) => { f[k] = f[k] === v ? (k === "lucidityLevel" ? 0 : null) : v; };
+const set = (k: string, v: number) => {
+  f[k] = f[k] === v ? (k === "lucidityLevel" ? 0 : null) : v;
+  if (k === "lucidityLevel" && !f[k]) f.lucid = false; // level 0 is "Not lucid"
+};
 
 // elements: type-ahead from the person's own, or a new one
 const all = computed(() => [...(j.elements.data.value ?? []), ...made.value.filter((m) => !(j.elements.data.value ?? []).some((e) => e.id === m.id))]);

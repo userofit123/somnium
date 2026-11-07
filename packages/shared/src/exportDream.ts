@@ -8,10 +8,10 @@ import { CONTROL_ANCHORS, ELEMENT_KIND_LABEL, EMOTION_ANCHORS, LUCIDITY_ANCHORS,
 export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & { awareness?: number | null };
 export type NightFactsInput = Pick<Night, "bedtime" | "wakeTime" | "sleepQuality" | "wbtbUsed" | "wbtbMinutesAwake" | "nap" | "techniquesDone">;
 
-/** The marks with their words: lucid level with its anchor, vividness, control, emotion, then the yes-or-no ones. */
+/** The marks with their words (older dreams marked lucid without a level read just "Lucid"): lucid level with its anchor, vividness, control, emotion, then the yes-or-no ones. */
 export function dreamMarks(d: DreamMarksInput): { label: string; value: string }[] {
   const out: { label: string; value: string }[] = [];
-  if (d.lucid) out.push({ label: "Lucid", value: `${d.lucidityLevel} · ${LUCIDITY_ANCHORS[d.lucidityLevel] ?? ""}`.replace(/ · $/, "") });
+  if (d.lucid) out.push({ label: "Lucid", value: d.lucidityLevel > 0 ? `${d.lucidityLevel} · ${LUCIDITY_ANCHORS[d.lucidityLevel] ?? ""}`.replace(/ · $/, "") : "Yes" });
   if (d.awareness != null) out.push({ label: "Dreamsign awareness", value: `${d.awareness} · ${DSA_ANCHORS[d.awareness] ?? ""}`.replace(/ · $/, "") });
   if (d.vividness) out.push({ label: "Vividness", value: `${d.vividness} · ${VIVIDNESS_ANCHORS[d.vividness - 1] ?? ""}`.replace(/ · $/, "") });
   if (d.control != null && (d.lucid || d.control > 0)) out.push({ label: "Control", value: `${d.control} · ${CONTROL_ANCHORS[d.control] ?? ""}`.replace(/ · $/, "") });
