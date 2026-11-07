@@ -29,6 +29,7 @@ export * from "./media";
 export * from "./habits";
 export * from "./localModel";
 export * from "./lag";
+export * from "./themes";
 export * from "./goals";
 export * from "./report";
 export * from "./contrast";

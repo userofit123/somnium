@@ -5,6 +5,7 @@
 import { fold } from "./journal";
 import { parseAliases } from "./detect";
 import { daysBetween } from "./course";
+import { themeOfElement, themesByName } from "./themes";
 import { ELEMENT_KINDS, type ElementKind, type ElementSource, type SignCategory } from "./types";
 
 export interface SignElement {
@@ -244,12 +245,10 @@ export function signsBeforeLucidity<E extends SignElement>(elements: readonly E[
  * different things: yours is a count of written dreams, theirs a lifetime "ever had" percentage.
  */
 export function themeComparison<T extends SignTheme, E extends SignElement>(elements: readonly E[], stats: ReadonlyMap<string, ElementStat>, themes: readonly T[]): { theme: T; element: E; yourDreams: number }[] {
-  const byName = new Map<string, T>();
-  for (const t of themes) { byName.set(fold(t.name), t); if (t.displayName) byName.set(fold(t.displayName), t); }
+  const byName = themesByName(themes);
   const out = new Map<string, { theme: T; element: E; yourDreams: number }>();
   for (const e of elements) {
-    if (e.kind !== "theme") continue;
-    const t = [e.name ?? "", ...parseAliases(e.aliases)].map((n) => byName.get(fold(n.trim()))).find(Boolean);
+    const t = themeOfElement(e, byName);
     const n = stats.get(e.id)?.dreamCount ?? 0;
     if (!t || !n) continue;
     const cur = out.get(t.id);

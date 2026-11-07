@@ -23,7 +23,7 @@ export const FEATURES: FeatureDef[] = [
   { id: "homeLastLucid", group: "Home", name: "Last lucid dream", desc: "The title and date of your latest lucid dream on Home.", on: false },
   // Insights
   { id: "reports", group: "Insights", name: "Month report and year in review", desc: "A summary page for each month and year.", on: false },
-  { id: "typicalThemes", group: "Insights", name: "Typical-dream themes", desc: "How often the common dream themes show up for you, compared with published rates.", on: false, ready: false },
+  { id: "typicalThemes", group: "Insights", name: "Typical dream themes", desc: "How often the common dream themes (being chased, falling, flying...) show up in your dreams, beside how many people say they have ever had them.", on: false },
   // Integrations
   { id: "localModel", group: "Integrations", name: "Local AI model (advanced)", desc: "Summarise a dream, or ask for its elements, with a text model you run yourself on your own network (an Ollama address). Never a cloud service; only on request. Desktop app only for now.", on: false },
   { id: "palette", group: "Integrations", name: "Command palette", desc: "Ctrl+K to jump anywhere (desktop).", on: false },
