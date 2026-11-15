@@ -24,7 +24,7 @@ import { api } from "../api/client";
 import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
 import { keyring } from "../core/keyring";
-import { readJson, readStr, writeJson, writeStr } from "../core/prefs";
+import { readJson, readStr, storedKeys, writeJson, writeStr } from "../core/prefs";
 import { isNativeApp } from "./notifications";
 import { logCheck } from "../api/checks";
 import { session } from "../core/session";
@@ -87,8 +87,31 @@ export async function checkCatalog() {
  *  (allowedWithoutKey), this just doesn't ask. Locked, the ids kept from the last read pair the checks (an id is
  *  plain: it says which row, not what is in it); the key opening makes a new plan (startReminders). */
 const SIGN_IDS = "somniumPairedSigns";
+
+// What this device keeps for one person (the paired signs' ids, tonight's plan, the WBTB alarm) is keyed by the app
+// account and whoever is signed in on it, like the check queue (queueOwner): two accounts on one phone never pair,
+// plan or ring with the other's. With no one signed in nothing is read or kept.
+const owned = (k: string): string | null => {
+  const { account, user } = queueOwner();
+  return account && user ? `${k}:${account}:${user}` : null;
+};
+const readOwned = <T>(k: string, fallback: T): T => { const key = owned(k); return key ? readJson<T>(key, fallback) : fallback; };
+const writeOwned = (k: string, v: unknown) => { const key = owned(k); if (key) writeJson(key, v); };
+// Before LDJ-202 these were one copy for the whole device. Whose they were can't be told, so they are dropped: the
+// signs' ids and the plan come back on the next unlock and nights load; a WBTB alarm still ahead goes to whoever is
+// signed in when it is first read, since it was almost surely theirs and losing it would mean no alarm tonight.
+let legacyDone = false;
+function dropLegacy() {
+  if (legacyDone || !owned(WBTB)) return;
+  legacyDone = true;
+  const wbtb = readJson<number | null>(WBTB, null);
+  if (typeof wbtb === "number" && wbtb > Date.now() && !readOwned<number | null>(WBTB, null)) writeOwned(WBTB, wbtb);
+  for (const k of [SIGN_IDS, PLANS, WBTB]) writeJson(k, null);
+}
+
 async function topSigns(): Promise<PairedSign[]> {
-  const kept = (): PairedSign[] => (readJson<string[]>(SIGN_IDS, []) ?? []).filter((x) => typeof x === "string").map((id) => ({ id }));
+  dropLegacy();
+  const kept = (): PairedSign[] => (readOwned<string[]>(SIGN_IDS, []) ?? []).filter((x) => typeof x === "string").map((id) => ({ id }));
   if (!keyring.isOpen()) return kept();
   try {
     const [els, links] = await Promise.all([api.get<any[]>("/elements", { signs: 1 }), api.get<any[]>("/dream-elements")]);
@@ -97,7 +120,7 @@ async function topSigns(): Promise<PairedSign[]> {
     const top = els.filter((e) => e.isDreamSign && !e.deletedAt && typeof e.name === "string" && e.name)
       .sort((a, b) => (+b.confirmed - +a.confirmed) || (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 3)
       .map((e): PairedSign => ({ id: e.id, name: e.name, triggers: parseTriggers(e.triggers) }));
-    writeJson(SIGN_IDS, top.map((x) => x.id));
+    writeOwned(SIGN_IDS, top.map((x) => x.id));
     return top;
   } catch { return kept(); }
 }
@@ -246,12 +269,14 @@ const WBTB = "somniumWbtbAlarm";
 export const WBTB_URL = "/train/guided/up";
 /** The WBTB alarm set on this device (ms), or null. */
 export function wbtbAlarm(): number | null {
-  const at = Number(readStr(WBTB, "0"));
+  dropLegacy();
+  const at = Number(readOwned<number | null>(WBTB, null) ?? 0);
   return at > Date.now() - 60_000 ? at : null;
 }
 /** Sets (or with null clears) the WBTB alarm here; the running scheduler (web, desktop or Android) picks it up at once. */
 export async function setWbtbAlarm(at: number | null) {
-  writeStr(WBTB, at ? String(at) : "0");
+  dropLegacy();
+  writeOwned(WBTB, at || null);
   if (tick) await replan();
 }
 
@@ -260,7 +285,7 @@ export async function setWbtbAlarm(at: number | null) {
 // technique ids and the night's own bedtime), and kept here so a start while locked, before that list loads, still
 // says it. Ids and a time, nothing personal; only nights from today on. -----
 const PLANS = "somniumNightPlans";
-export const nightPlans = (): NightPlans => readJson<NightPlans>(PLANS, {});
+export const nightPlans = (): NightPlans => { dropLegacy(); return readOwned<NightPlans>(PLANS, {}) ?? {}; };
 function plansOf(nights: readonly Night[] | undefined): NightPlans | null {
   if (!nights) return null;
   const today = localDate(new Date()), out: NightPlans = {};
@@ -322,7 +347,7 @@ export function startReminders() {
     const rows = r?.filter((x) => !x.deletedAt);
     const settings = withDefaults(m?.settings ?? {});
     const plans = plansOf(nightsQ.getCurrentResult().data as Night[] | undefined), was = JSON.stringify(nightPlans());
-    if (plans) writeJson(PLANS, plans);
+    if (plans) writeOwned(PLANS, plans);
     if (JSON.stringify([rows, settings.sleep]) === JSON.stringify([current.rows, current.settings.sleep]) && JSON.stringify(nightPlans()) === was) return;
     current = { rows, settings };
     void replan();
@@ -365,6 +390,8 @@ export const plannedAhead = () => plan.slice();
 
 /** An account removed from this phone: the checks its notifications queued go too (native/accounts.ts drop). */
 export async function forgetQueuedChecks(account: string) {
+  // and what this device kept for it (owned): its paired signs, tonight's plan, its WBTB alarm
+  for (const k of storedKeys()) if ([SIGN_IDS, PLANS, WBTB].some((x) => k.startsWith(`${x}:${account}:`))) writeJson(k, null);
   const p = androidReminders();
   if (!p) return;
   try {

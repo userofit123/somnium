@@ -13,7 +13,7 @@ import { useFmt } from "../../core/format";
 import { useHabits } from "./useHabits";
 import ProgressBar from "../ProgressBar.vue";
 
-const props = defineProps<{ lesson: { id: string; title: string; items: { id: string; text: string }[] } | null; primary?: boolean }>();
+const props = defineProps<{ lesson: { id: string; title: string; items: { id: string; text: string }[] } | null; primary?: boolean; home?: boolean }>();
 const h = useHabits(), router = useRouter(), fmt = useFmt();
 const tickToday = (id: string, on = true) => tickPractice(id, h.today.value, on, h.rowOf(id)).catch(toastError);
 
@@ -57,6 +57,8 @@ const count = computed(() => {
   return `${all.filter(Boolean).length} of ${all.length}`;
 });
 const all = computed(() => allDoneStreak(h.rows.value, h.today.value));
+// the auto-ticked boxes are only a picture (hidden from screen readers, never focused), so each row says its state in words
+const said = (done: boolean) => (done ? "Done: " : "Not done: ");
 </script>
 
 <script lang="ts">
@@ -69,7 +71,7 @@ const sent = new Set<string>();
     <div class="card flush">
       <div class="li">
         <input type="checkbox" class="ro" :checked="on('habit:journal')" tabindex="-1" aria-hidden="true" @click.prevent />
-        <div class="grow"><div class="t">{{ habit("habit:journal").name }}</div><div class="tiny">{{ on("habit:journal") ? "Done for today" : habit("habit:journal").auto }}</div></div>
+        <div class="grow"><div class="t"><span class="sr">{{ said(on("habit:journal")) }}</span>{{ habit("habit:journal").name }}</div><div class="tiny">{{ on("habit:journal") ? "Done for today" : habit("habit:journal").auto }}</div></div>
         <span v-if="streak('habit:journal')" class="tiny tdstreak num">{{ days(streak("habit:journal")) }}</span>
       </div>
 
@@ -77,7 +79,7 @@ const sent = new Set<string>();
         <div class="tdrow">
           <input type="checkbox" class="ro" :checked="on('habit:checks')" tabindex="-1" aria-hidden="true" @click.prevent />
           <div class="grow">
-            <div class="t">Reality checks</div>
+            <div class="t"><span class="sr">{{ said(on("habit:checks")) }}</span>Reality checks</div>
             <div class="tiny"><span class="num">{{ checks.done }} of {{ checks.target }}</span><template v-if="h.remindersOn.value && next"> · next reminder {{ fmt.time(new Date(next).toISOString()) }}</template><template v-else-if="!h.remindersOn.value"> · reminders off</template></div>
           </div>
           <!-- one tap opens /check, which returns here when done -->
@@ -94,20 +96,21 @@ const sent = new Set<string>();
       <div class="li">
         <input type="checkbox" class="ro" :checked="on('habit:sign')" tabindex="-1" aria-hidden="true" @click.prevent />
         <router-link :to="h.topSign.value ? '/signs/' + h.topSign.value.id : '/signs'" class="grow tdl" @click="tickToday('habit:sign')">
-          <div class="t">{{ habit("habit:sign").name }}</div><div class="tiny">{{ h.topSign.value?.name ?? habit("habit:sign").auto }}</div>
+          <div class="t"><span class="sr">{{ said(on("habit:sign")) }}</span>{{ habit("habit:sign").name }}</div><div class="tiny">{{ h.topSign.value?.name ?? habit("habit:sign").auto }}</div>
         </router-link>
         <span v-if="streak('habit:sign')" class="tiny tdstreak num">{{ days(streak("habit:sign")) }}</span>
       </div>
 
-      <router-link v-if="pm" to="/train" class="li tdl">
+      <!-- memory targets live on Train, so only Home's copy links there -->
+      <component :is="home ? 'router-link' : 'div'" v-if="pm" :to="home ? '/train' : undefined" class="li" :class="{ tdl: home }">
         <input type="checkbox" class="ro" :checked="pm.done" tabindex="-1" aria-hidden="true" @click.prevent />
-        <div class="grow"><div class="t">Memory targets</div><div class="tiny">{{ pm.line }}</div></div>
-      </router-link>
+        <div class="grow"><div class="t"><span class="sr">{{ said(pm.done) }}</span>Memory targets</div><div class="tiny">{{ pm.line }}</div></div>
+      </component>
 
       <div class="li">
         <input type="checkbox" class="ro" :checked="on('habit:review')" tabindex="-1" aria-hidden="true" @click.prevent />
-        <router-link v-if="evening" to="/train/review" class="grow tdl"><div class="t">{{ habit("habit:review").name }}</div><div class="tiny">{{ habit("habit:review").auto }}</div></router-link>
-        <div v-else class="grow"><div class="t">{{ habit("habit:review").name }}</div><div class="tiny">From {{ sixPm }}: tomorrow's intention and your top sign.</div></div>
+        <router-link v-if="evening" to="/train/review" class="grow tdl"><div class="t"><span class="sr">{{ said(on("habit:review")) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">{{ habit("habit:review").auto }}</div></router-link>
+        <div v-else class="grow"><div class="t"><span class="sr">{{ said(on("habit:review")) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">From {{ sixPm }}: tomorrow's intention and your top sign.</div></div>
         <span v-if="streak('habit:review')" class="tiny tdstreak num">{{ days(streak("habit:review")) }}</span>
       </div>
     </div>

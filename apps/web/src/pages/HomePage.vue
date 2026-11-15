@@ -161,7 +161,7 @@ async function reset() {
         <ForYouCard v-if="ci === 1" />
         <template v-for="(id, k) in col" :key="id">
           <MorningCard v-if="id === 'morning'" :state="morning" :date="when.lastNight" />
-          <TodayChecklist v-else-if="id === 'today'" :lesson="checklistLesson" :primary="morning.kind !== 'open'" />
+          <TodayChecklist v-else-if="id === 'today'" :lesson="checklistLesson" :primary="morning.kind !== 'open'" home />
           <TonightPlan v-else-if="id === 'tonight'" compact :night="tonight" :date="when.tonight" :same="when.same" :title-of="titleOf" />
           <RatesCard v-else-if="id === 'rates'" :rates="rates" />
           <GoalCards v-else-if="id === 'goals'" :today="today" />

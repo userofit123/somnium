@@ -135,15 +135,8 @@ async function next() {
       keepSafetyAnswers(safe.value);
       void saveSettings({ safety: { checked: true, sleepFirst: safe.value.length > 0 } }, { quiet: true });
     } else if (at.value === "technique") {
-      if (technique.value) {
-        await planTonight(technique.value, true);
-        // the bedtime reminder names tonight's technique; its row was made on the step before
-        const rs = await fetchReminders().catch(() => undefined), b = nightRow(rs, "bedtime");
-        if (rs?.some((r) => r.kind === "bedtime" && !r.deletedAt) && b.on && b.s.technique !== technique.value) {
-          await putNightReminder(rs, "bedtime", { ...b.s, technique: technique.value }, true);
-          invalidate(["reminders"]);
-        }
-      }
+      // tonight's plan is all: the bedtime reminder reads its technique from there (native/reminders.ts nightPlans)
+      if (technique.value) await planTonight(technique.value, true);
     } else if (at.value === "extras") {
       const lessonOn = extras.value.includes("homeLesson");
       void saveSettings({

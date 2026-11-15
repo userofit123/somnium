@@ -26,11 +26,21 @@ const router = useRouter();
 const catalog = await checkCatalog();
 const check = computed(() => catalog.find((c) => c.id === props.kind) ?? catalog[0]!);
 
-// the sign's name: only with the journal open on this device, never over the lock screen
-const signName = ref<string | null>(null);
-if (props.sign && !lock.locked && keyring.isOpen()) {
-  api.get<{ name?: string | null }>(`/elements/${props.sign}`).then((e) => { signName.value = e?.name || null; }).catch(() => {});
-}
+// the sign's name: only with the journal open on this device, never over the lock screen. The screen can stay up
+// while the app locks itself (App.vue renders it ahead of LockScreen), so the name is hidden the moment the lock
+// engages or the key closes, dropped from memory, and read again once the journal is opened again.
+const keyOpen = ref(keyring.isOpen());
+const offKey = keyring.onChange((open) => { keyOpen.value = open; });
+const loaded = ref<string | null>(null);
+const canShow = computed(() => !!props.sign && !lock.locked && keyOpen.value);
+const signName = computed(() => (canShow.value ? loaded.value : null));
+let reads = 0;
+watch(canShow, (ok) => {
+  const n = ++reads;
+  if (!ok) { loaded.value = null; return; }
+  api.get<{ name?: string | null }>(`/elements/${props.sign}`)
+    .then((e) => { if (n === reads && canShow.value) loaded.value = e?.name || null; }).catch(() => {});
+}, { immediate: true });
 
 const STEP_MS = 5000, STEPS = 3;
 const step = ref(0), cite = ref<string[] | null>(null);
@@ -44,7 +54,7 @@ function next() { if (step.value < STEPS) step.value++; }
 const tap = (e: MouseEvent) => { if (!(e.target as HTMLElement).closest("button, a")) next(); };
 // reading a source holds the step; closing it starts the step's 5 s again
 watch([step, cite], arm, { immediate: true });
-onBeforeUnmount(() => { if (timer) clearTimeout(timer); });
+onBeforeUnmount(() => { if (timer) clearTimeout(timer); offKey(); });
 
 const done = ref<{ id: string; outcome: CheckOutcome; queued: boolean } | null>(null);
 const busy = ref(false), err = ref("");
