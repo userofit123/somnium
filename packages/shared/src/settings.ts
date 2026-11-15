@@ -28,7 +28,15 @@ export interface Settings {
   };
   /** Recommendations (recommend.ts): rule ids dismissed for 14 days and the day each was dismissed. No personal data. */
   recommend: { dismissed: Dismissal[] };
+  /**
+   * The first-run setup (LDJ-77): done once it has been finished or skipped, so it shows once. experience is the
+   * answer to "how much lucid dreaming have you done" (it picked the starting lesson); empty when skipped. Plain
+   * choices, nothing personal.
+   */
+  setup: { done: boolean; experience: SetupExperience };
 }
+
+export type SetupExperience = "" | "new" | "some" | "regular";
 
 export const DEFAULT_SETTINGS: Settings = {
   firstDay: 1,
@@ -42,6 +50,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sleep: { bedtime: "23:00", wake: "07:00", cycle: 90 },
   learn: { read: {}, pinned: [], last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
+  setup: { done: false, experience: "" },
 };
 
 /** Deep-merges saved settings over the defaults, so new settings get their default value. */

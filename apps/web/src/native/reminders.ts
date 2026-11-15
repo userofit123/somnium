@@ -16,7 +16,7 @@
 // Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
 // only when the person switched that on, and only while this device can read it.
 import { QueryObserver } from "@tanstack/vue-query";
-import { catDay, hmToMin, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
+import { catDay, hmToMin, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type NightKind, type NightSchedules, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
@@ -52,6 +52,25 @@ const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), 
 export const REMINDERS_KEY = ["reminders", "list"] as const;
 export const fetchReminders = () => api.get<Reminder[]>("/reminders");
 export const rcRow = (rows: Reminder[] | undefined) => rows?.find((r) => r.kind === "reality_check" && !r.deletedAt) ?? null;
+
+// The two writes of a reminders row, shared by Settings → Notifications and the first-run setup. Through the outbox,
+// so they wait for a connection; the list on screen changes at once. The caller says "Saved" and reloads ["reminders"].
+/** The reality check row: one per person, made on first use with its own seed, so every device plans the same times. */
+export async function putRcReminder(rows: Reminder[] | undefined, schedule: RealityCheckSchedule, enabled: boolean) {
+  const row = rcRow(rows);
+  if (row) {
+    queryClient.setQueryData([...REMINDERS_KEY], (rs: Reminder[] | undefined) => rs?.map((r) => (r.id === row.id ? { ...r, schedule, enabled } : r)));
+    await send("put", `/reminders/${row.id}`, { schedule, enabled });
+  } else await send("post", "/reminders", { kind: "reality_check", enabled, schedule: { ...schedule, seed: Math.floor(Math.random() * 2 ** 31) } });
+}
+/** A night reminder's row (bedtime, WBTB, morning journal, practice): one per kind, made on first use. */
+export async function putNightReminder<K extends NightKind>(rows: Reminder[] | undefined, kind: K, schedule: NightSchedules[K], enabled: boolean) {
+  const r = rows?.find((x) => x.kind === kind && !x.deletedAt);
+  if (r) {
+    queryClient.setQueryData([...REMINDERS_KEY], (rs: Reminder[] | undefined) => rs?.map((x) => (x.id === r.id ? { ...x, schedule, enabled } : x)));
+    await send("put", `/reminders/${r.id}`, { schedule, enabled });
+  } else await send("post", "/reminders", { kind, enabled, schedule });
+}
 
 let checksCache: Awaited<typeof import("@somnium/knowledge/lexicons")>["checks"] | null = null;
 export async function checkCatalog() {
