@@ -88,6 +88,8 @@ jobs:
       # finds it there): the same model as the web build
       - uses: actions/cache@v4
         with: { path: apps/web/stt-model, key: "speech-model-${{ hashFiles('scripts/fetch-speech-model.mjs') }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
       - run: node scripts/fetch-speech-model.mjs
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3

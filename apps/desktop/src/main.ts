@@ -88,7 +88,10 @@ function startProxy(acc: Account): Promise<{ port: number; close: () => Promise<
     try { clean = decodeURIComponent(clean); } catch { /* left as it came */ }
     // the speech model (LDJ-176) isn't in this app's own copy of the screens (package.json build.extraResources): it comes
     // from the server, like the API
-    if (url.startsWith("/api/") || clean.startsWith("/assets/stt-model-")) {
+    // (read only: nothing but GET and HEAD goes to the server for it)
+    const model = clean.startsWith("/assets/stt-model-");
+    if (model && req.method !== "GET" && req.method !== "HEAD") { res.writeHead(405, { ...security(), allow: "GET, HEAD" }); res.end(); return; }
+    if (url.startsWith("/api/") || model) {
       const headers = { ...req.headers, host: target.host, origin: target.origin };
       const p = lib.request({ protocol: target.protocol, hostname: target.hostname, port: target.port || undefined, path: url, method: req.method, headers }, (r) => {
         const h: http.OutgoingHttpHeaders = { ...r.headers };

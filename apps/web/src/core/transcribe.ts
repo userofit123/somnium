@@ -75,21 +75,35 @@ function call(msg: Record<string, unknown>, transfer: Transferable[]): Promise<a
   return new Promise((ok, no) => { waiting.set(id, { ok, no }); w.postMessage({ ...msg, id }, transfer); });
 }
 
+// Bumped by stopStt: a run that was loading the model or opening the recording when the editor closed or the journal
+// locked sees it changed and stops there, before a worker starts or the recording is handed over.
+let generation = 0;
+const stopped = () => new Error("Stopped");
+
 function start(onProgress: (p: SttProgress) => void): Promise<void> {
+  const gen = generation;
   ready ??= (async () => {
     const files = await loadFiles(onProgress);
+    if (gen !== generation) throw stopped();
     onProgress({ step: "Getting the speech model ready", progress: null });
-    worker = new Worker(new URL("./stt.worker.ts", import.meta.url), { type: "module" });
-    worker.onmessage = (e: MessageEvent<{ id: number; ok: boolean; text?: string; error?: string }>) => {
-      const w = waiting.get(e.data.id);
-      if (!w) return;
+    // never two: one left from before goes first
+    worker?.terminate();
+    const w = new Worker(new URL("./stt.worker.ts", import.meta.url), { type: "module" });
+    worker = w;
+    w.onmessage = (e: MessageEvent<{ id: number; ok: boolean; text?: string; error?: string }>) => {
+      const p = waiting.get(e.data.id);
+      if (!p) return;
       waiting.delete(e.data.id);
-      if (e.data.ok) w.ok(e.data.text); else w.no(new Error(e.data.error || "The speech model stopped"));
+      if (e.data.ok) p.ok(e.data.text); else p.no(new Error(e.data.error || "The speech model stopped"));
     };
-    worker.onerror = () => fail(new Error("The speech model couldn't start on this device."));
+    w.onerror = () => fail(new Error("The speech model couldn't start on this device."));
     // the engine's loader script comes from the app's own files (a worker resolves addresses against its own script)
     await call({ type: "load", files, glue: new URL(model!.glue, location.href).href }, Object.values(files));
-  })().catch((e) => { stopStt(); throw e; });
+  })().catch((e) => {
+    // a stopped run's failure must not end a newer one
+    if (gen === generation) stopStt();
+    throw e;
+  });
   return ready;
 }
 
@@ -109,9 +123,12 @@ async function decode(audio: Blob): Promise<Float32Array> {
 
 /** The words in a voice note. One at a time; the model is kept for the next one and let go by stopStt. */
 export async function transcribe(audio: Blob, onProgress: (p: SttProgress) => void): Promise<string> {
+  const gen = generation;
   await start(onProgress);
+  if (gen !== generation) throw stopped();
   onProgress({ step: "Opening the recording", progress: null });
   const pcm = await decode(audio);
+  if (gen !== generation) throw stopped();
   onProgress({ step: "Turning speech into text", progress: null });
   const text: string = (await call({ type: "run", audio: pcm }, [pcm.buffer])) ?? "";
   // Whisper marks silence and sounds in brackets ("[BLANK_AUDIO]", "(wind blowing)"): not words of the dream
@@ -120,6 +137,7 @@ export async function transcribe(audio: Blob, onProgress: (p: SttProgress) => vo
 
 /** Lets the worker go (the editor closed, or the journal locked): it holds the recording and its words in memory. */
 export function stopStt() {
+  generation++;
   worker?.terminate();
   worker = null; ready = null;
   fail(new Error("Stopped"));

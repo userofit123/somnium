@@ -10,6 +10,7 @@
 import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const REPO = "Xenova/whisper-tiny.en";
 const REVISION = "79fb389fc764e7c395bd330e9531d9d32ada7049";
@@ -23,9 +24,9 @@ const FILES = {
   "onnx/decoder_model_merged_quantized.onnx": "dbb2e063b7fbc41d9803b9698f93ecb035c50cbb3fb87b56cb131e4a5eb99059",
 };
 
-const out = path.resolve(import.meta.dirname, "../apps/web/stt-model");
-const ci = process.argv.indexOf("--cache");
-const cache = ci > 0 && process.argv[ci + 1] ? path.resolve(process.argv[ci + 1]) : null;
+// set inside the try: even working out the paths must not fail the build (import.meta.dirname is missing before Node 20.11)
+let out = null;
+let cache = null;
 const sha = (f) => createHash("sha256").update(fs.readFileSync(f)).digest("hex");
 const good = (f, want) => { try { return fs.statSync(f).isFile() && sha(f) === want; } catch { return false; } };
 const put = (dest, bytes) => { fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest + ".part", bytes); fs.renameSync(dest + ".part", dest); };
@@ -46,12 +47,15 @@ async function fetchOne(name, want) {
 }
 
 try {
+  out = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../apps/web/stt-model");
+  const ci = process.argv.indexOf("--cache");
+  cache = ci > 0 && process.argv[ci + 1] ? path.resolve(process.argv[ci + 1]) : null;
   for (const [name, want] of Object.entries(FILES)) console.log(`speech model: ${name} ${await fetchOne(name, want)}`);
   // last, once every file is there and checked: the build reads it (apps/web/vite.config.ts sttModel)
   put(path.join(out, "manifest.json"), JSON.stringify({ repo: REPO, revision: REVISION, files: FILES }, null, 2) + "\n");
   console.log(`speech model ready in ${path.relative(process.cwd(), out) || out}`);
 } catch (e) {
   // nothing half-there: vite.config.ts offers the feature only when every file is present
-  fs.rmSync(out, { recursive: true, force: true });
+  try { if (out) fs.rmSync(out, { recursive: true, force: true }); } catch { /* nothing to clear */ }
   console.warn(`speech model not fetched (${e instanceof Error ? e.message : e}); building without "Transcribe voice notes"`);
 }

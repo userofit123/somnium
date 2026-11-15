@@ -150,6 +150,12 @@ async function transcribeNote(m: MediaRow) {
     if (!text) o.error = "No words were heard in this voice note.";
   } catch (e) { if (stt.value === o) o.error = e instanceof Error && e.message !== "Stopped" ? e.message : "This voice note couldn't be transcribed"; }
 }
+// Closing the sheet mid-way stops the run (the next one would otherwise wait behind it, or two would overlap); a model
+// that finished stays loaded for the next voice note.
+function closeStt() {
+  if (stt.value && !stt.value.done && !stt.value.error) stopStt();
+  stt.value = null;
+}
 function addTranscript() {
   const text = stt.value?.text.trim();
   if (text) emit("text", text);
@@ -227,7 +233,7 @@ onBeforeUnmount(() => {
       </template>
     </Sheet>
 
-    <Sheet v-if="stt" title="Words in the voice note" @close="stt = null">
+    <Sheet v-if="stt" title="Words in the voice note" @close="closeStt">
       <div v-if="!stt.done && !stt.error" class="jocrp" aria-live="polite">
         <div class="tiny">{{ stt.step }}{{ stt.progress !== null ? " · " + Math.round(stt.progress * 100) + "%" : "..." }}</div>
         <div class="jbar2" :class="{ jbusy: stt.progress === null }"><div :style="stt.progress !== null ? { width: Math.round(stt.progress * 100) + '%' } : undefined" /></div>
@@ -239,7 +245,7 @@ onBeforeUnmount(() => {
         <textarea v-model="stt.text" class="jocrt" aria-label="Words heard in the voice note" />
       </template>
       <template #foot>
-        <button class="btn o" @click="stt = null">Cancel</button>
+        <button class="btn o" @click="closeStt">Cancel</button>
         <button class="btn" :disabled="!stt.done || !stt.text.trim()" @click="addTranscript">Add to dream</button>
       </template>
     </Sheet>
