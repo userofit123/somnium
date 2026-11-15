@@ -66,3 +66,14 @@ export function addAnswer(list: readonly AssessmentAnswer[], a: AssessmentAnswer
 export function optionFor(id: AssessmentId, value: number) {
   return assessments[id].options.find((o) => o.value === value);
 }
+
+/**
+ * The setup's dream recall answer as a starting point for Progress · Recall (LDJ-180; shared/insights.ts RecallBaseline):
+ * MADRE counts mornings a week with a dream remembered, so rate / 7 is the share of mornings with one. That is a floor
+ * on dreams a night (a morning can hold several), the closest the answer comes to what the journal counts. The label
+ * is the answer as the person picked it. Null when the setup did not ask or it was skipped.
+ */
+export function recallBaseline(value: number | null | undefined): { perNight: number; label: string } | null {
+  const o = value == null ? undefined : optionFor("madre", value);
+  return o ? { perNight: o.rate / 7, label: o.label } : null;
+}

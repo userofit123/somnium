@@ -38,9 +38,11 @@ export interface Settings {
   /**
    * The first-run setup (LDJ-77): done once it has been finished or skipped, so it shows once. experience is the
    * answer to "how much lucid dreaming have you done" (it picked the starting lesson); empty when skipped. Plain
-   * choices, nothing personal.
+   * choices, nothing personal. goal is "what do you want from it" (LDJ-180), empty when skipped. recall is the setup's
+   * "Where am I" dream recall answer (a MADRE value, @somnium/knowledge/assessments), the baseline Progress · Recall
+   * and Home set today's recall against (recallProgress's `said`); null when not answered in the setup.
    */
-  setup: { done: boolean; experience: SetupExperience };
+  setup: { done: boolean; experience: SetupExperience; goal: SetupGoal; recall: number | null };
   /** blocks: Home's blocks in the order shown, each shown or hidden (Edit home, from Home's ⋮ menu). Plain ids. */
   home: { blocks: HomeBlock[] };
   /** The morning capture (LDJ-80): dim, whether it opens on the still moment ("lie still and rewind") before the key
@@ -54,6 +56,9 @@ export interface Settings {
    * sealed: they stay on the device (apps/web/src/components/setup/safety.ts).
    */
   safety: { checked: boolean; sleepFirst: boolean };
+  /** The weekly review's choice (LDJ-155): sign is this week's target dream sign, an element id ("" for none). The id
+   *  is opaque (the sign's name stays sealed), so it syncs in the clear like the other plain choices. */
+  week: { sign: string };
 }
 
 export interface HomeBlock { id: string; on: boolean }
@@ -93,6 +98,7 @@ export function cleanHomeBlocks(saved: unknown, features: Record<string, boolean
 }
 
 export type SetupExperience = "" | "new" | "some" | "regular";
+export type SetupGoal = "" | "first" | "often" | "longer" | "recall";
 
 export const DEFAULT_SETTINGS: Settings = {
   firstDay: "auto",
@@ -107,10 +113,11 @@ export const DEFAULT_SETTINGS: Settings = {
   learn: { read: {}, pinned: [], last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
   milestones: {},
-  setup: { done: false, experience: "" },
+  setup: { done: false, experience: "", goal: "", recall: null },
   home: { blocks: HOME_BLOCKS },
   capture: { dim: true },
   safety: { checked: false, sleepFirst: false },
+  week: { sign: "" },
 };
 
 /** Deep-merges saved settings over the defaults, so new settings get their default value. */

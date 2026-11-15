@@ -55,6 +55,7 @@ export const router = createRouter({
     { path: "/train/lesson/:id", name: "train-lesson", component: TrainPage },
     { path: "/train/guided/:mode", name: "train-guided", component: TrainPage },
     { path: "/train/review", name: "train-review", component: TrainPage },
+    { path: "/train/week", name: "train-week", component: TrainPage },
     { path: "/progress", name: "progress", component: () => import("./pages/InsightsPage.vue") },
     // the page was called Insights; old links and bookmarks still land on it
     { path: "/insights", redirect: "/progress" },

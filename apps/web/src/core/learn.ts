@@ -24,9 +24,9 @@ export function recordOpened(current: string, id: string) {
   if (current !== id) void saveSettings({ learn: { last: id } }, { quiet: true });
 }
 
-export function saveAnswer(id: AssessmentId, list: { date: string; value: number }[], value: number) {
+export function saveAnswer(id: AssessmentId, list: { date: string; value: number }[], value: number, o: { quiet?: boolean } = {}) {
   const next = addAnswer(list, { date: localYmd(new Date()), value });
-  return saveSettings({ learn: { assessments: { [id]: next } } });
+  return saveSettings({ learn: { assessments: { [id]: next } } }, o);
 }
 
 /** Marks an article read (today) or unread by hand. Unread is stored as "" because the settings merge cannot delete a key. */

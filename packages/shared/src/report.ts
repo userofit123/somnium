@@ -17,7 +17,7 @@ export interface MonthSummary {
   /** null with no logged night */
   recallRate: number | null;
   lucid: number;
-  topSigns: { name: string; dreams: number }[];
+  topSigns: { id: string; name: string; dreams: number }[];
   /** elements whose first dream is in the period */
   newElements: { name: string; kind: string }[];
   newElementCount: number;
@@ -41,7 +41,7 @@ export function periodSummary(period: string, inp: ReportInput, topN = 5): Month
   const counts = new Map<string, number>();
   for (const l of inp.links) if (inDreams.has(l.dreamId)) counts.set(l.elementId, (counts.get(l.elementId) ?? 0) + 1);
   const topSigns = [...counts].map(([id, n]) => ({ e: byId.get(id), n })).filter((x): x is { e: SignElement; n: number } => !!x.e?.name && (x.e.isDreamSign || x.e.signCategory != null || x.e.kind === "dream_sign"))
-    .sort((a, b) => b.n - a.n || a.e.name!.localeCompare(b.e.name!)).slice(0, topN).map((x) => ({ name: x.e.name!, dreams: x.n }));
+    .sort((a, b) => b.n - a.n || a.e.name!.localeCompare(b.e.name!)).slice(0, topN).map((x) => ({ id: x.e.id, name: x.e.name!, dreams: x.n }));
   const fresh = inp.elements.filter((e) => e.name && stats.get(e.id)?.firstSeen && inPeriod(stats.get(e.id)!.firstSeen!, period));
   const tech = new Map<string, number>();
   for (const n of real) for (const t of new Set(n.techniquesDone ?? [])) tech.set(t, (tech.get(t) ?? 0) + 1);

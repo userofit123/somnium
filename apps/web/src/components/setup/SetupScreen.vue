@@ -7,7 +7,8 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
-import { DEFAULT_RC_SCHEDULE, PER_DAY_MAX, PER_DAY_MIN, nightRow, rcSchedule, type CourseLesson, type CourseProgress, type SetupExperience } from "@somnium/shared";
+import { DEFAULT_RC_SCHEDULE, PER_DAY_MAX, PER_DAY_MIN, nightRow, rcSchedule, type CourseLesson, type CourseProgress, type SetupExperience, type SetupGoal } from "@somnium/shared";
+import { assessments } from "@somnium/knowledge/assessments";
 import { useSettings, saveSettings } from "../../api/queries";
 import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
@@ -15,6 +16,8 @@ import { setLesson, planTonight } from "../../api/train";
 import { REMINDERS_KEY, fetchReminders, rcRow, putRcReminder, putNightReminder, androidReminders } from "../../native/reminders";
 import { askNotificationPermission } from "../../native/notifications";
 import { toastError } from "../../core/toast";
+import { useFmt, localYmd } from "../../core/format";
+import { saveAnswer } from "../../core/learn";
 import { setupOnly, setupRun, setupStep as step } from "./useSetup";
 import { SAFETY_ITEMS, keepSafetyAnswers, safetyAnswers, type SafetyItem } from "./safety";
 import { parseInline } from "@somnium/knowledge/markdown";
@@ -24,6 +27,7 @@ import Logo from "../../shell/Logo.vue";
 import ChoiceTiles from "../ChoiceTiles.vue";
 import TimePicker from "../TimePicker.vue";
 import NumStep from "../NumStep.vue";
+import FreeNights from "../settings/FreeNights.vue";
 
 const router = useRouter();
 const settings = useSettings();
@@ -33,7 +37,7 @@ const course = useQuery({ queryKey: ["course"], queryFn: () => api.get<CoursePro
 onMounted(() => { setupRun.value = true; });
 
 // The steps in order. The safety check comes before "technique", so tonight's suggestion already follows it.
-const STEPS = ["experience", "sleep", "reminders", "safety", "technique", "extras"] as const;
+const STEPS = ["experience", "goal", "recall", "sleep", "freeNights", "reminders", "safety", "technique", "extras"] as const;
 type StepId = (typeof STEPS)[number] | "done";
 const at = computed<StepId>(() => STEPS[step.value] ?? "done");
 const busy = ref(false);
@@ -51,10 +55,26 @@ const EXPERIENCES = [
 // someone already on the course (setup run again) keeps their place
 const onCourse = computed(() => !!course.data.value?.length);
 
-// 2. usual sleep times
+// 2. the goal (LDJ-180): what the person wants from it, kept in settings.setup.goal. A plain choice; nothing preset.
+const goal = ref<SetupGoal>(settings.value.setup.goal);
+const GOALS = [
+  { value: "first", label: "My first lucid dream", icon: "sparkle" },
+  { value: "often", label: "Lucid dreams more often", icon: "moon" },
+  { value: "longer", label: "Longer, clearer lucid dreams", icon: "star" },
+  { value: "recall", label: "Remember more of my dreams", icon: "book" },
+];
+
+// 3. where recall starts (LDJ-180): Learn's "Where am I" dream recall question (MADRE [B50]), kept as a dated answer
+// like any other and in settings.setup.recall, the starting point Progress · Recall and Home set today against
+const MADRE = assessments.madre;
+const recall = ref<number | null>(settings.value.setup.recall);
+const RECALLS = [...MADRE.options].reverse().map((o) => ({ value: o.value, label: o.label }));
+const recallNote = "The dream recall question of the Mannheim Dream Questionnaire [B50]. Progress · Recall sets what your journal shows against it; Learn · Where am I keeps it with the date.";
+
+// 4. usual sleep times
 const bedtime = ref(settings.value.sleep.bedtime), wake = ref(settings.value.sleep.wake);
 
-// 3. reminders: on by default here when nothing is saved, so the first morning has its prompt (NIGHT_DEFAULT_ON keeps
+// 6. reminders: on by default here when nothing is saved, so the first morning has its prompt (NIGHT_DEFAULT_ON keeps
 // them off elsewhere). Saved rows win, so running setup again never overwrites what the person chose.
 const rc = computed(() => rcSchedule(rcRow(rows.data.value)?.schedule ?? DEFAULT_RC_SCHEDULE));
 const rcOn = ref(true), perDay = ref(DEFAULT_RC_SCHEDULE.perDay), morning = ref(true), bed = ref(true);
@@ -72,7 +92,7 @@ const limits = desktopApp ? "They come while Somnium is running, in the tray too
   : androidReminders() ? "Android shows them on time, also with the app closed."
   : "A browser shows them only while Somnium is open in a tab or as an installed app; on a phone, the Android app is reliable.";
 
-// 4. the safety check (LDJ-116, Learn's "Who should be careful" and "Sleep first"): plain yes/no items. A yes keeps
+// 7. the safety check (LDJ-116, Learn's "Who should be careful" and "Sleep first"): plain yes/no items. A yes keeps
 // WBTB, the CAT alarm and naps out of suggestions (settings.safety.sleepFirst, synced) and shows the matching safety
 // page once in "For you". The answers themselves stay on this device (safety.ts). Calm wording: advice, not a verdict.
 const safe = ref<SafetyItem[]>([...safetyAnswers.value]);
@@ -95,7 +115,7 @@ const safetyNote = computed(() => {
 const techniqueNote = computed(() => "In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020) [B38]."
   + (sleepFirst.value ? " With sleep first, do it as you fall asleep at bedtime, without an alarm in the night." : ""));
 
-// 5. tonight's technique
+// 8. tonight's technique
 const technique = ref("mild");
 const TECHS = [
   { value: "mild", label: "MILD", hint: "Suggested: rehearse becoming lucid as you fall asleep" },
@@ -103,10 +123,11 @@ const TECHS = [
   { value: "", label: "Nothing yet", hint: "Just the journal tomorrow morning" },
 ];
 
-// 6. extras: the optional features most people want, switched on here instead of in Settings → Features, and the
+// 9. extras: the optional features most people want, switched on here instead of in Settings → Features, and the
 // Next lesson block on Home (Edit home's switch, settings.home.blocks; not a feature)
 const EXTRAS = [
   { value: "goals", label: "Goals", hint: "A lucid dream a week, a full journal month" },
+  { value: "weekReview", label: "Weekly review", hint: "Two minutes on the last evening of your week, to plan the next" },
   { value: "dayNotes", label: "Day notes", hint: "A line about your day, to spot it in dreams later" },
   { value: "photos", label: "Photos", hint: "Add photos, read a paper journal page" },
   { value: "homeLesson", label: "Next lesson on Home", hint: "The lesson you are on, on Home" },
@@ -121,6 +142,14 @@ async function next() {
     if (at.value === "experience") {
       void saveSettings({ setup: { experience: experience.value } }, { quiet: true });
       if (!onCourse.value && experience.value) await setLesson(LESSON[experience.value], "active");
+    } else if (at.value === "goal") {
+      void saveSettings({ setup: { goal: goal.value } }, { quiet: true });
+    } else if (at.value === "recall") {
+      if (recall.value != null) {
+        // one answer a day: running the setup again the same day replaces it instead of adding another
+        void saveSettings({ setup: { recall: recall.value } }, { quiet: true });
+        void saveAnswer("madre", settings.value.learn.assessments.madre, recall.value, { quiet: true });
+      }
     } else if (at.value === "sleep") {
       void saveSettings({ sleep: { bedtime: bedtime.value, wake: wake.value } }, { quiet: true });
     } else if (at.value === "reminders") {
@@ -152,6 +181,17 @@ function skip() {
   step.value++;
   if (at.value === "done") void saveSettings({ setup: { done: true } }, { quiet: true });
 }
+// 5. the nights a lie-in is possible save on every tap (FreeNights, the Settings · Sleep row), so Next only moves on
+const FREE_NIGHTS_LEDE = "The evenings before a morning without an early alarm. Tonight's plan suggests wake back to bed only on these, since it breaks up sleep [B69].";
+
+// The done screen says once what "Automatic" formats became on this device (LDJ-193), with a way to change them
+const fmt = useFmt();
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const formats = computed(() => {
+  const f = fmt.value;
+  return `${f.date(localYmd(new Date()), { weekday: "long", day: "numeric", month: "short", year: "numeric" })} · ${f.s.clock}-hour clock · weeks start on ${DAYS[f.s.firstDay]}`;
+});
+
 function skipAll() { step.value = STEPS.length; void saveSettings({ setup: { done: true } }, { quiet: true }); }
 function back() { if (step.value > 0) step.value--; }
 function close() { setupRun.value = false; setupOnly.value = null; step.value = 0; }
@@ -171,6 +211,19 @@ function finish(to: string) { close(); void router.push(to); }
         <p v-if="onCourse" class="tiny su-gap">You are on the course already; your lesson stays as it is.</p>
       </template>
 
+      <template v-else-if="at === 'goal'">
+        <h1>Your goal</h1>
+        <p class="muted su-lede">What would you most like from lucid dreaming?</p>
+        <ChoiceTiles v-model="goal" :options="GOALS" :cols="1" label="Goal" />
+      </template>
+
+      <template v-else-if="at === 'recall'">
+        <h1>Where you start</h1>
+        <p class="muted su-lede">How often do you wake remembering a dream?</p>
+        <ChoiceTiles v-model="recall" :options="RECALLS" :cols="1" label="Dream recall" />
+        <p class="tiny su-gap"><LearnInline :nodes="parseInline(recallNote)" @cite="cite = $event" /></p>
+      </template>
+
       <template v-else-if="at === 'sleep'">
         <h1>Your sleep</h1>
         <p class="muted su-lede">Reminders, tonight's plan and the WBTB alarm follow these. Change them any time in Settings · Sleep.</p>
@@ -178,6 +231,13 @@ function finish(to: string) { close(); void router.push(to); }
           <div class="fld"><label>I usually go to bed at</label><TimePicker v-model="bedtime" title="Bedtime" /></div>
           <div class="fld"><label>I usually wake at</label><TimePicker v-model="wake" title="Wake time" /></div>
         </div>
+      </template>
+
+      <template v-else-if="at === 'freeNights'">
+        <h1>Nights you can sleep in</h1>
+        <p class="muted su-lede"><LearnInline :nodes="parseInline(FREE_NIGHTS_LEDE)" @cite="cite = $event" /></p>
+        <FreeNights />
+        <p class="tiny su-gap">None picked: no WBTB suggestions. Change them any time in Settings · Sleep.</p>
       </template>
 
       <template v-else-if="at === 'reminders'">
@@ -216,6 +276,7 @@ function finish(to: string) { close(); void router.push(to); }
         <p class="muted su-lede">Tomorrow morning, before anything else, open Journal and write what you remember - a scrap is enough. Home shows what to do each day.</p>
         <button type="button" class="btn block lg" @click="finish('/')">Open Home</button>
         <p class="center tiny su-link"><a class="acc click" href="#" role="button" @click.prevent="finish('/journal')">Go to Journal</a></p>
+        <p class="center tiny su-gap">Dates and times: {{ formats }} · <a class="acc click" href="#" role="button" @click.prevent="finish('/settings/formats')">Change</a></p>
       </template>
 
       <template v-if="at !== 'done'">

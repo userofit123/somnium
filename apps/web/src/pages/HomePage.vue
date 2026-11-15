@@ -15,6 +15,7 @@ import { useTrain, tonightNight } from "../api/train";
 import { useHabits } from "../components/train/useHabits";
 import { useLesson } from "../components/train/useLesson";
 import { useFmt } from "../core/format";
+import { recallBaseline } from "@somnium/knowledge/assessments";
 import { loaded, saveSettings, useSettings } from "../api/queries";
 import { confirm } from "../core/ask";
 import { useToday } from "../core/today";
@@ -22,6 +23,7 @@ import "../styles/components/train.css";
 import "../styles/components/home.css";
 import MorningCard from "../components/home/MorningCard.vue";
 import StepCard from "../components/home/StepCard.vue";
+import WeekReviewCard from "../components/train/WeekReviewCard.vue";
 import TodayChecklist from "../components/train/TodayChecklist.vue";
 import TonightPlan from "../components/train/TonightPlan.vue";
 import RatesCard from "../components/home/RatesCard.vue";
@@ -93,7 +95,8 @@ const step = computed(() => {
   });
 });
 
-const rates = computed(() => homeRates(nights.value, dreams.value, today.value));
+// set against the setup's recall answer when there is one (LDJ-180), as Progress · Recall does
+const rates = computed(() => homeRates(nights.value, dreams.value, today.value, undefined, recallBaseline(settings.value.setup.recall)));
 
 // ---- the blocks: name and what it shows (Edit home)
 const META: Record<string, { name: string; desc: string }> = {
@@ -194,6 +197,8 @@ async function reset() {
     <!-- the step and the cards wait for every list the step reads, so it never names a wrong step for a moment and
          never pushes the cards down when it comes in -->
     <StepCard v-if="!editing && h.ready.value" :step="step" :lesson="stepLesson" :of="lessons.length" :date="when.lastNight" :moving="course.moving.value" @move-on="course.next" />
+    <!-- the weekly review, on the review evening only (optional feature, LDJ-155) -->
+    <WeekReviewCard v-if="!editing && h.ready.value" home />
     <div v-if="!editing && h.ready.value" class="grid hgrid" :class="{ g2: !isPhone }">
       <div v-for="(col, ci) in columns" :key="ci" class="hcol">
         <ForYouCard v-if="ci === 1" />

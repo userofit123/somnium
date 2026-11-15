@@ -2,7 +2,7 @@
 // Train (PLAN.md §6.3) in three tabs, each its own address: Today (/train: the course lesson, today's checklist, memory
 // targets, meditation and dream yoga when on), Tonight (/train/tonight: the one place to plan the night, LDJ-96, then the bedtime starts and the evening review)
 // and Techniques (/train/techniques: the library and the guided tools). The sub-screens have addresses too:
-// /train/technique/:id (a technique article's "Try it" in Learn leads there), /train/lesson/:id, /train/guided/:mode and /train/review; their
+// /train/technique/:id (a technique article's "Try it" in Learn leads there), /train/lesson/:id, /train/guided/:mode, /train/review and /train/week (the weekly review, when on); their
 // Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
 // switching tabs doesn't reload it; the underline (.tabs) simply moves to the active tab, it doesn't animate. Everything
 // Train shows (the lesson and article texts) loads with this page only: it is a lazy route, so the first screen stays small.
@@ -31,6 +31,8 @@ const GuidedView = defineAsyncComponent(() => import("../components/train/guided
 import TodayChecklist from "../components/train/TodayChecklist.vue";
 import PmCard from "../components/train/PmCard.vue";
 import ReviewView from "../components/train/ReviewView.vue";
+import WeekReview from "../components/train/WeekReview.vue";
+import WeekReviewCard from "../components/train/WeekReviewCard.vue";
 import MeditationCard from "../components/train/MeditationCard.vue";
 import DreamYogaCard from "../components/train/DreamYogaCard.vue";
 import { useSettings } from "../api/queries";
@@ -61,7 +63,8 @@ const guided = computed(() => (here.value.name !== "train-guided" ? undefined : 
 const lost = computed(() => {
   const n = here.value.name;
   if ((n === "train-technique" && !technique.value) || (n === "train-guided" && !guided.value)) return "/train/techniques";
-  return n === "train-lesson" && !openLesson.value ? "/train" : "";
+  // the weekly review is an optional feature: absent while off, even by its address
+  return (n === "train-lesson" && !openLesson.value) || (n === "train-week" && !features.value.weekReview) ? "/train" : "";
 });
 watch(lost, (to) => { if (to && route.path === here.value.path) void router.replace(to); }, { immediate: true });
 // tonight's WBTB alarm, or, in the small hours and the morning after it, the one of the night now ending
@@ -84,6 +87,7 @@ const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, ti
     <GuidedView v-if="guided" :key="guided" :mode="guided" />
     <TechniqueView v-else-if="technique" :key="technique.id" :technique="technique" :planned="planned.includes(technique.id)" />
     <ReviewView v-else-if="here.name === 'train-review'" />
+    <WeekReview v-else-if="here.name === 'train-week' && features.weekReview" />
     <LessonView v-else-if="openLesson" :key="openLesson.id" :lesson="openLesson" />
     <template v-else-if="tab">
       <div class="ph"><div><h1>Train</h1></div></div>
@@ -95,6 +99,7 @@ const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, ti
             <TodayChecklist :lesson="checklistLesson" />
           </div>
           <div class="tcol">
+            <WeekReviewCard />
             <PmCard />
             <MeditationCard v-if="features.meditationTimer" />
             <DreamYogaCard v-if="features.dreamYoga" />

@@ -3,7 +3,7 @@
 // in); the clock only comes in as an hour or a timestamp passed by the caller.
 import { tonightOf } from "./course";
 import { addDays, journalStreak, loggedNights, recallRate, type NightLog } from "./rates";
-import { recallChangeText, recallProgress } from "./insights";
+import { recallChangeText, recallProgress, type RecallBaseline } from "./insights";
 
 /** The day turns over for the journal at 05:00, the same cut-off Train uses for tonight's plan. */
 export const NIGHT_CUTOFF = 5;
@@ -86,7 +86,8 @@ export interface HomeRates {
   recallChange: string;
 }
 
-export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[], today: string, days = 14): HomeRates {
+/** `said` is the setup's recall answer (LDJ-180), the same starting point Progress · Recall uses. */
+export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[], today: string, days = 14, said: RecallBaseline | null = null): HomeRates {
   const from = addDays(today, -(days - 1));
   const inRange = nights.filter((n) => !n.nap && n.date >= from && n.date <= today).map((n) => ({ ...n, dreamCount: n.dreamCount ?? 0 }));
   const logged = loggedNights(inRange);
@@ -97,7 +98,7 @@ export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[],
     lucidThisMonth: nights.length && nights.every((n) => n.lucidCount != null)
       ? nights.filter((n) => n.date.slice(0, 7) === month).reduce((a, n) => a + (n.lucidCount ?? 0), 0)
       : dreams.filter((d) => d.lucid && !d.deletedAt && d.date.slice(0, 7) === month).length,
-    recallChange: recallChangeText(recallProgress(nights, [], today)),
+    recallChange: recallChangeText(recallProgress(nights, [], today, said)),
   };
 }
 

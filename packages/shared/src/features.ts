@@ -18,6 +18,7 @@ export const FEATURES: FeatureDef[] = [
   { id: "meditationTimer", group: "Training", name: "Meditation timer", desc: "A quiet timer (5 to 20 minutes) with a soft end tone and a dim screen, logged as a daily habit.", where: "Train", to: "/train", on: false },
   { id: "soundCue", group: "Training", name: "Sound cue training", desc: "Pair a soft tone with reality checks while awake, then play it quietly during a nap or after waking in the night (wake back to bed, targeted lucidity reactivation). On Android the cues play with the screen off; elsewhere keep the app open with the screen on.", where: "Train", to: "/train", on: false },
   { id: "dreamYoga", group: "Training", name: "Dream yoga practices", desc: "Wangyal's four daytime practices as daily habits, shown as a tradition, with their source.", where: "Train", to: "/train", on: false },
+  { id: "weekReview", group: "Training", name: "Weekly review", desc: "On the last evening of your week, two minutes: this week against last, what went with your lucid nights, and next week's WBTB nights and target dream sign.", where: "Train · Home on the review evening", to: "/train/week", on: false },
   { id: "goals", group: "Training", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", where: "Home · Train", to: "/", on: false },
   // Insights
   { id: "reports", group: "Progress", name: "Month report and year in review", desc: "A summary page for each month and year.", where: "Progress", to: "/progress", on: false },

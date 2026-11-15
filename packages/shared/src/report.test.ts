@@ -20,7 +20,7 @@ describe("report", () => {
   it("summarises a month", () => {
     const s = periodSummary("2026-03", inp);
     expect(s).toMatchObject({ dreams: 1, nightsLogged: 2, nightsWithRecall: 1, recallRate: 0.5, lucid: 1 });
-    expect(s.topSigns).toEqual([{ name: "Stairs", dreams: 1 }]);
+    expect(s.topSigns).toEqual([{ id: expect.any(String), name: "Stairs", dreams: 1 }]);
     expect(s.newElementCount).toBe(2);
     expect(s.techniques).toEqual([{ id: "mild", label: "MILD", nights: 2 }, { id: "wbtb", label: "WBTB", nights: 1 }]);
     expect(s.best).toMatchObject({ date: "2026-03-02", title: "The flight" });

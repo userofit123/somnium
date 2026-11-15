@@ -16,6 +16,8 @@ export const CORE_HABIT_IDS: readonly string[] = CORE_HABITS.map((h) => h.id);
 
 /** Optional habits (Settings → Features, off by default). */
 export const MEDITATION_HABIT = "habit:meditation";
+/** The weekly review (LDJ-155), ticked on the day it is done. */
+export const WEEK_REVIEW_HABIT = "habit:week";
 export const MEDITATION_MINUTES = [5, 10, 15, 20] as const;
 // Wangyal's four foundational practices (RESEARCH.md Part D, 5.2): a tradition, not a scientific claim.
 export const DREAM_YOGA_PRACTICES = [
@@ -124,7 +126,7 @@ export const DSA_ANCHORS = [
 ] as const;
 
 /** Every habit id there is: the core four, meditation and the dream yoga practices. */
-export const HABIT_IDS: readonly string[] = [...CORE_HABIT_IDS, MEDITATION_HABIT, ...DREAM_YOGA_PRACTICES.map((p) => p.id)];
+export const HABIT_IDS: readonly string[] = [...CORE_HABIT_IDS, MEDITATION_HABIT, WEEK_REVIEW_HABIT, ...DREAM_YOGA_PRACTICES.map((p) => p.id)];
 const PM_IDS = new Set<string>(PM_TARGETS.map((t) => t.id));
 /**
  * Whether a practice_log item id may be stored (the server checks it, as reminders check their labels): a habit from the
