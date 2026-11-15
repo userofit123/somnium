@@ -147,6 +147,9 @@ export interface DreamDraft {
   linkMeta?: Record<string, { source: "detected" | "ocr"; confidence: number | null; span: string | null }>;
   /** new aliases of the person's existing elements, learned from confirmed suggestions, not yet sent */
   aliases?: Record<string, string>;
+  /** dream sign marks the person set on elements from this editor, not yet sent: sent after the new elements are made,
+   * and kept until they have gone, so a save cut short between making an element and saving the dream loses none */
+  flags?: Record<string, { isDreamSign: boolean }>;
   /** when the person last changed it (ms) */
   savedAt: number;
 }

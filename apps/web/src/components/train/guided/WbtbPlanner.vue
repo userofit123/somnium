@@ -11,11 +11,12 @@
 // when it said so, "Can you sleep in tomorrow?" (WBTB only on nights you can [B69][D1]) and a note when tonight would
 // be the third WBTB night or more in 7 days (two or three a week at most [B69]). Advice only: nothing is blocked.
 import { computed, ref } from "vue";
-import { addDays, bedtimeAt, durationText, wbtbAfter, wbtbModePlan, isWbtbMode, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
+import { addDays, bedtimeAt, durationText, wbtbAfter, wbtbModePlan, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
 import { setWbtbAlarm } from "../../../native/reminders";
+import { alarmPermission, askAlarmPermission, keptWbtbCycle, keptWbtbMode } from "../wbtbDefaults";
 import { readStr, writeStr } from "../../../core/prefs";
 import { toast, toastError } from "../../../core/toast";
 import TimePicker from "../../TimePicker.vue";
@@ -32,11 +33,10 @@ const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHou
 
 const usual = computed(() => settings.value.sleep.bedtime);
 const bed = ref(night.value?.bedtime ? hm(night.value.bedtime) : usual.value);
-const cycleLen = ref(cycleOf(Number(readStr("somniumWbtbCycle", "")) || settings.value.sleep.cycle));
+const cycleLen = ref(keptWbtbCycle(settings.value.sleep.cycle));
 const bedAt = computed(() => bedtimeAt(date, bed.value || usual.value));
-// the mode: tonight's own when one is planned, else the last one used here, else Long (the tested 6 h timing [D13])
-const keptMode = night.value?.wbtbMode ?? readStr("somniumWbtbMode", "long");
-const mode = ref<WbtbMode>(isWbtbMode(keptMode) ? keptMode : "long");
+// the mode: tonight's own when one is planned, else the last one used here, else Long (wbtbDefaults.ts)
+const mode = ref<WbtbMode>(keptWbtbMode(night.value?.wbtbMode));
 const def = computed(() => WBTB_MODE_DEFS[mode.value]);
 // an alarm already planned for tonight opens on its own time
 const known = night.value?.wbtbWakeAt ? Math.round((new Date(night.value.wbtbWakeAt).getTime() - bedAt.value.getTime()) / 60_000) : 0;
@@ -80,13 +80,13 @@ const weekCount = computed(() => {
 });
 
 const desktop = !!(globalThis as any).somniumNative?.reminders;
-const perm = ref(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+const perm = ref(alarmPermission());
 
 const busy = ref(false);
 async function save() {
   busy.value = true;
   try {
-    if (!desktop && perm.value === "default") perm.value = await Notification.requestPermission().catch(() => "default" as NotificationPermission);
+    perm.value = await askAlarmPermission();
     const o = choice.value;
     await planWbtb(o.at, bed.value && bed.value !== usual.value ? bedAt.value : null, mode.value);
     writeStr("somniumWbtbMode", mode.value);

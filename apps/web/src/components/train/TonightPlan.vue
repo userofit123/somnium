@@ -12,12 +12,12 @@
 // the WBTB alarm as the planner would set it, and the intention when none is set; "Change" opens the picker. On Home
 // (`compact`) only its name, under the button to Train > Tonight.
 import { computed, defineAsyncComponent, ref, watch } from "vue";
-import { bedtimeAt, currentLesson, cycleOf, freeNightsOf, isWbtbMode, suggestTonight, wbtbModePlan, type TonightIdea } from "@somnium/shared";
+import { bedtimeAt, currentLesson, freeNightsOf, suggestTonight, type TonightIdea } from "@somnium/shared";
 import { parseInline } from "@somnium/knowledge/markdown";
 import { applyTonightPlan, planTonight, setTonightBedtime, useCourse } from "../../api/train";
 import { useJournal } from "../../api/journal";
 import { setWbtbAlarm } from "../../native/reminders";
-import { readStr } from "../../core/prefs";
+import { askAlarmPermission, wbtbForMild } from "./wbtbDefaults";
 import LearnInline from "../learn/LearnInline.vue";
 import { saveIntention } from "../../api/home";
 import type { NightRow } from "../../api/journal";
@@ -69,14 +69,16 @@ const suggestion = computed(() => {
     && (n.wbtbUsed || !!n.wbtbWakeAt || n.techniquesDone?.includes("wbtb") || n.techniquesPlanned?.includes("wbtb"))).map((n) => n.date);
   return suggestTonight({ lesson: currentLesson(rows), date: props.date, freeNights: freeNightsOf(s.sleep.freeNights), sleepFirst: s.safety.sleepFirst, safetyChecked: s.safety.checked, wbtbNights });
 });
-// the alarm the WBTB planner would set: its last-used mode (Short, Aspy's 5 h with MILD [D11], when none yet)
-const wbtbMode = computed(() => { const m = readStr("somniumWbtbMode", "short"); return isWbtbMode(m) ? m : "short"; });
-const wbtbAt = computed(() => wbtbModePlan(new Date(bedIso.value), wbtbMode.value, { cycleMin: cycleOf(settings.value.sleep.cycle) }).alarm.at);
+// the alarm the WBTB planner would set (its kept mode and cycle length, wbtbDefaults.ts), never its nap mode
+const wbtb = computed(() => wbtbForMild(new Date(bedIso.value), settings.value.sleep.cycle));
+const wbtbAt = computed(() => wbtb.value.at);
 const ideaTitle = (i: TonightIdea) => (i.wbtb ? `${i.title} · alarm ${fmt.value.time(wbtbAt.value.toISOString())}` : i.title);
 const cite = ref<string[] | null>(null);
 const use = useChange(async (i: TonightIdea) => {
-  const at = i.wbtb ? wbtbAt.value : null;
-  await applyTonightPlan(i.techniques, at ? { at, mode: wbtbMode.value } : null);
+  const w = i.wbtb ? wbtb.value : null, at = w?.at ?? null;
+  // asked first, while the tap still counts as the person's own (as the planner does before setting its alarm)
+  if (at) await askAlarmPermission();
+  await applyTonightPlan(i.techniques, w ? { at: w.at, mode: w.mode } : null);
   if (at) await setWbtbAlarm(at.getTime());
   if (!props.night?.intention && suggestion.value) { await saveIntention(props.date, suggestion.value.intention); text.value = suggestion.value.intention; }
 }, ["journal", "train", "home"]);

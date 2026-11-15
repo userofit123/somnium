@@ -8,9 +8,10 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, dueMilestones, milestonesSeen, MILESTONE_HOW, nightRecipe, pairedCheck, signsInDream, IN_DREAM_MAX, type Element, type MilestoneId, type SignCategory, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
-import { beginDraft, changeDream, deleteDream, draftBusy, endDraft, flagNewElement, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
+import { beginDraft, changeDream, deleteDream, draftBusy, endDraft, flagElement, linkElement, madeInDraft, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { confirm } from "../../core/ask";
+import { readJson, writeJson } from "../../core/prefs";
 import { toastError } from "../../core/toast";
 import { saveSettings, useSettings } from "../../api/queries";
 import { loadSignLexicons, setElementFlags, signLexicons } from "../../api/signs";
@@ -50,7 +51,8 @@ async function load() {
   loadError.value = "";
   existed.value = !!row;
   // a dream written now, or the morning's key words being written out, is new to the person's sign list
-  signsDue.value = !row || !!row.unfinished;
+  // (and only once per dream: a new dream reopened while it is still a draft kept here has no row either)
+  signsDue.value = (!row || !!row.unfinished) && !signsShown().includes(props.id);
   const m = mergeDraft(row as any, draft);
   for (const k of FIELDS) if (m[k] !== undefined && m[k] !== null) f[k] = m[k];
   chosen.value = mergeLinks((row?.elements ?? []).map((l) => l.elementId), draft);
@@ -199,6 +201,10 @@ const checkFor = (c: SignCategory | null | undefined) => pairedCheck(c ?? null, 
 const night = computed(() => (j.nights.data.value ?? []).find((n) => n.id === where.nightId));
 const howLabel = computed(() => (f.becameLucidHow ? MILESTONE_HOW[f.becameLucidHow] ?? null : null));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+// the dreams "In this dream" was shown for, on this device: ids only, nothing of what they say; the newest few hundred
+const SHOWN = "somniumSignsShown";
+const signsShown = () => { const v = readJson<unknown>(SHOWN, []); return Array.isArray(v) ? (v as string[]) : []; };
+const rememberShown = (id: string) => writeJson(SHOWN, [...signsShown().filter((x) => x !== id), id].slice(-300));
 
 /** The milestone this dream reaches, recorded as seen at once so no other screen or device shows it again. */
 function findMilestone() {
@@ -237,9 +243,10 @@ async function markSign(key: string) {
     if (s && !s.existingElementId) { confirmSug(s); return; }
     if (s) confirmSug(s);
     const id = s?.existingElementId ?? key.slice(2);
-    // a save on its way may be creating it: wait for it, so the mark goes with the element or after it
-    for (let i = 0; i < 30 && draftBusy(props.id); i++) await wait(100);
-    if (!flagNewElement(props.id, id, { isDreamSign: true })) await setElementFlags(id, { isDreamSign: true, confirmed: true });
+    // only an element the server is known to have takes the mark straight away (queued when offline); one that may
+    // still be on its way goes with the draft, which sends the mark after making it, so the two never race
+    const onServer = (j.elements.data.value ?? []).some((e) => e.id === id) && !madeInDraft(props.id, id);
+    if (onServer || !flagElement(props.id, id, { isDreamSign: true })) await setElementFlags(id, { isDreamSign: true, confirmed: true });
   } catch (e) { row.marked = false; toastError(e); }
 }
 
@@ -252,6 +259,7 @@ async function done() {
   // what was just written goes first, so a sign marked next is made after it (or with it)
   for (let i = 0; i < 20 && draftBusy(props.id); i++) await wait(100);
   after.value = true;
+  if (signRows.value.length) rememberShown(props.id);
   await nextTick();
   (document.querySelector(".jed.jfull") as HTMLElement | null)?.scrollTo({ top: 0 });
 }
@@ -402,31 +410,31 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 <style scoped>
 .jed { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
 .jfull { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--st) + var(--hg)) calc(var(--sr) + var(--hg)) calc(var(--sb) + var(--spg)) calc(var(--sl) + var(--hg)); }
-.jbar { display: flex; align-items: center; gap: 8px; }
+.jbar { display: flex; align-items: center; gap: calc(var(--hg) * .8); }
 .jfull .jbar { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); z-index: 2; }
 .jst { color: var(--tx2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jst.err { color: var(--neg); }
 .jnight { align-self: flex-start; padding-left: 0; }
-.jtitle { font-size: 18px; font-weight: 600; }
-.jtext { min-height: 180px; resize: vertical; font-size: 16px; line-height: 1.55; }
+.jtitle { font-size: calc(18px * var(--fsc)); font-weight: 600; }
+.jtext { min-height: 180px; resize: vertical; font-size: var(--fs-lg); line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
 .jchips { margin: 0; }
 .jupset { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
 /* suggestions: quiet, so they read as an offer and not as part of the dream */
-.jfound { display: flex; flex-wrap: wrap; gap: 6px; margin-top: calc(-1 * var(--hg) / 2); }
-.jsg { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: 13px; max-width: 100%; }
-.jsgo { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jfound { display: flex; flex-wrap: wrap; gap: calc(var(--hg) * .6); margin-top: calc(-1 * var(--hg) / 2); }
+.jsg { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
+.jsgo { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
 .jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
-.jkind { color: var(--tx2); font-size: 11px; margin-left: 2px; }
+.jkind { color: var(--tx2); font-size: var(--fs-xs); margin-left: 2px; }
 .jsg .jx { color: var(--tx2); padding: 2px; }
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
-.jan { margin-top: 6px; color: var(--tx2); }
-.jels { margin-bottom: 8px; }
-.jels .fchip { gap: 6px; }
+.jan { margin-top: calc(var(--hg) * .6); color: var(--tx2); }
+.jels { margin-bottom: calc(var(--hg) * .8); }
+.jels .fchip { gap: calc(var(--hg) * .6); }
 .jx { border: 0; background: none; color: inherit; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
 .jta { position: relative; }
-.jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: 4px var(--cpx); }
+.jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: calc(var(--hg) * .4) var(--cpx); }
 .jsug .li { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: var(--tx); text-align: start; font: inherit; }
 .jsug .li.hi, .jnew.hi { background: var(--s2); }
 .jnew .li { background: none; }
@@ -436,7 +444,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jlh { font-weight: 600; }
 .jan0 { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
 .jopts { margin: 0; }
-.jtrig { margin-top: 8px; width: 100%; }
+.jtrig { margin-top: calc(var(--hg) * .8); width: 100%; }
 .jmore { align-self: flex-start; padding-left: 0; }
 .fld { margin-bottom: 0; }
 </style>

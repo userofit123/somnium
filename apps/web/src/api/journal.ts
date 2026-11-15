@@ -230,17 +230,22 @@ export function teachAlias(dreamId: string, elementId: string, aliases: string) 
   touch(d);
 }
 /**
- * Marks an element made in this draft and not sent yet as a dream sign, so it is created with the mark (the outbox's
- * PUT could reach the server before the element does). False when it was sent already: then it is the person's
- * element like any other, and api/signs.ts setElementFlags marks it.
+ * Marks an element as a dream sign through the dream's draft: an element made here gets the mark when it is created,
+ * and the mark is also sent on its own after the draft's new elements (and again on the next save if that one is cut
+ * short), so it can never reach the server before the element does, nor be lost when the element went but the dream
+ * did not. False when there is no draft of this dream open here.
  */
-export function flagNewElement(dreamId: string, elementId: string, flags: { isDreamSign: boolean }): boolean {
-  const d = drafts.get(dreamId), made = d?.newElements.find((e) => e.id === elementId);
-  if (!d || !made || pushing.has(dreamId)) return false;
-  Object.assign(made, flags);
+export function flagElement(dreamId: string, elementId: string, flags: { isDreamSign: boolean }): boolean {
+  const d = drafts.get(dreamId);
+  if (!d) return false;
+  const made = d.newElements.find((e) => e.id === elementId);
+  if (made) Object.assign(made, flags);
+  d.flags = { ...d.flags, [elementId]: flags };
   touch(d);
   return true;
 }
+/** Whether an element is still waiting in a dream's draft to be made on the server. */
+export const madeInDraft = (dreamId: string, elementId: string) => !!drafts.get(dreamId)?.newElements.some((e) => e.id === elementId);
 /** A save of this dream is waiting to go or on its way. */
 export const draftBusy = (dreamId: string) => pushTimers.has(dreamId) || pushing.has(dreamId);
 export function unlinkElement(dreamId: string, elementId: string) {
@@ -279,6 +284,7 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
       mine(); if (!there) await api.post("/elements", e);
     }
     for (const [id, aliases] of Object.entries(snap.aliases ?? {})) { mine(); await api.put(`/elements/${id}`, { aliases }).catch((e) => { if (status(e) !== 404) throw e; }); }
+    for (const [id, flags] of Object.entries(snap.flags ?? {})) { mine(); await api.put(`/elements/${id}`, { ...flags, confirmed: true }).catch((e) => { if (status(e) !== 404) throw e; }); }
     const body = { ...snap.dream, nightId };
     mine();
     try { await api.put(`/dreams/${dreamId}`, body); }
@@ -293,6 +299,7 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
     d.link = d.link.filter((x) => !snap.link.includes(x));
     if (d.linkMeta) for (const id of snap.link) if (!d.link.includes(id)) delete d.linkMeta[id];
     if (d.aliases) for (const [id, a] of Object.entries(snap.aliases ?? {})) if (d.aliases[id] === a) delete d.aliases[id];
+    if (d.flags) for (const [id, fl] of Object.entries(snap.flags ?? {})) if (d.flags[id]?.isDreamSign === fl.isDreamSign) delete d.flags[id];
     d.unlink = d.unlink.filter((x) => !snap.unlink.includes(x));
     sentUpTo.set(dreamId, snap.savedAt);
     if (d.savedAt === snap.savedAt) { dropStored(dreamId, snap.savedAt); saveState[dreamId] = "saved"; }
