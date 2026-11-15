@@ -5,17 +5,21 @@
 // short one; on a phone one column in that order.
 // Above the blocks, always: Today's step (LDJ-107), the one thing to do now from the lesson, the hour and what is
 // logged (pure: packages/shared/src/nextStep.ts). It holds the page's primary button, so the cards below stay quiet.
+// The header is Motus's: the greeting on a phone ("Home" on a computer, where the rail already names the page) and
+// today's date under it (LDJ-121). The day's three blocks (This morning, Today, Tonight) lead with the one that fits
+// the hour, in the places they hold in your order, and only while you keep them in their first order among themselves:
+// once you move one past another in Edit home, your order wins at every hour. For you comes once, under them.
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, weekTarget, homeNights, homeRates, morningState, lastLucid, pastDream, tipIndex, type PastSign } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, NIGHT_CUTOFF, retakeDue, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, weekTarget, homeNights, homeRates, morningState, lastLucid, pastDream, tipIndex, type PastSign } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
 import { useHabits } from "../components/train/useHabits";
 import { useLesson } from "../components/train/useLesson";
 import { useFmt } from "../core/format";
-import { recallBaseline } from "@somnium/knowledge/assessments";
+import { assessmentIds, recallBaseline } from "@somnium/knowledge/assessments";
 import { loaded, saveSettings, useSettings } from "../api/queries";
 import { confirm } from "../core/ask";
 import { useToday } from "../core/today";
@@ -28,6 +32,7 @@ import TodayChecklist from "../components/train/TodayChecklist.vue";
 import TonightPlan from "../components/train/TonightPlan.vue";
 import RatesCard from "../components/home/RatesCard.vue";
 import ExtraCards from "../components/home/ExtraCards.vue";
+import PathCard from "../components/insights/PathCard.vue";
 import PastDreamCard from "../components/home/PastDreamCard.vue";
 import { pastDreamPutAway, putPastDreamAway } from "../components/home/pastDream";
 import DayNoteCard from "../components/home/DayNoteCard.vue";
@@ -113,6 +118,7 @@ const META: Record<string, { name: string; desc: string }> = {
   tip: { name: "A tip from Learn", desc: "A short article summary, a different one each day" },
   lastLucid: { name: "Last lucid dream", desc: "The title and date of your latest lucid dream" },
   pastDream: { name: "From your journal", desc: "A past dream to re-read, a different one each day" },
+  path: { name: "Your path", desc: "Your latest milestone and the next one" },
 };
 // a block whose feature is off is absent everywhere, Edit home included
 const FEATURE: Record<string, string> = { goals: "goals", dayNote: "dayNotes" };
@@ -157,8 +163,35 @@ const past = computed(() => {
   return p ? { id: p.dream.id, date: p.dream.date, title: p.dream.title!.trim(), why: p.why } : null;
 });
 const empty: Record<string, () => boolean> = { lesson: () => !lessonCard.value, tip: () => !tip.value, lastLucid: () => !lucid.value, pastDream: () => !past.value };
-const shown = computed(() => listed.value.filter((x) => x.on && !empty[x.id]?.()).map((x) => x.id));
-// two columns on a computer, filled in turn; For you leads the second (on a phone it follows the first block)
+
+// ---- the time of day (LDJ-121), Motus's greeting, on the same hour as the page's other clocks
+const greeting = computed(() => { const hr = hour.value; return hr < NIGHT_CUTOFF ? "Good night" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening"; });
+// the day's blocks in their first order, and the order that fits the hour: the morning's write-down first until noon,
+// the day's checklist in the afternoon, tonight's plan from 18:00 until the 05:00 turn (the night is still on)
+const DAY = ["morning", "today", "tonight"];
+const dayOrder = computed(() => {
+  const hr = hour.value;
+  return hr >= NIGHT_CUTOFF && hr < 12 ? DAY : hr >= 12 && hr < 18 ? ["today", "tonight", "morning"] : ["tonight", "today", "morning"];
+});
+// four weeks after the newest self-assessment answer, one quiet row asks for the two questions again (as Progress ·
+// Self-assessment works it out); never a block in Edit home, and gone once answered
+const retake = computed(() => retakeDue(assessmentIds.map((id) => settings.value.learn.assessments[id]?.at(-1)?.date), today.value));
+const visible = computed(() => listed.value.filter((x) => x.on && !empty[x.id]?.()).map((x) => x.id));
+// the day's blocks swap among the places they hold, so every other block stays where you put it; a person who has
+// put them in an order of their own keeps it
+const shown = computed(() => {
+  const ids = [...visible.value], at = ids.flatMap((id, i) => (DAY.includes(id) ? [i] : []));
+  const mine = at.map((i) => ids[i]!);
+  const first = mine.every((id, k) => k === 0 || DAY.indexOf(id) > DAY.indexOf(mine[k - 1]!));
+  if (first) {
+    const timed = dayOrder.value.filter((id) => mine.includes(id));
+    at.forEach((i, k) => { ids[i] = timed[k]!; });
+  }
+  // For you once, under the day's blocks (at the top when none of them shows), and under it the retake line when due
+  ids.splice(at.length ? at[at.length - 1]! + 1 : 0, 0, ...(retake.value ? ["forYou", "retake"] : ["forYou"]));
+  return ids;
+});
+// two columns on a computer, filled in turn; on a phone one column
 const columns = computed(() => isPhone.value ? [shown.value] : [shown.value.filter((_, i) => i % 2 === 0), shown.value.filter((_, i) => i % 2 === 1)]);
 
 // ---- the recovery key reminder (LDJ-151): above the blocks while there is none, "Later" puts it away for a week.
@@ -186,8 +219,8 @@ async function reset() {
 <template>
   <div class="page home">
     <div class="ph">
-      <div v-if="editing"><h1>Edit home</h1><div class="sub">Move blocks and choose which show. Changes save as you go.</div></div>
-      <div v-else><h1>Home</h1></div>
+      <div v-if="editing"><h1>Edit home</h1><div class="sub">Move blocks and choose which show. Changes save as you go. Until you move This morning, Today or Tonight past one another, they follow the time of day.</div></div>
+      <div v-else><h1>{{ isPhone ? greeting : "Home" }}</h1><div class="sub">{{ fmt.dateLong(today) }}</div></div>
       <div class="acts">
         <template v-if="editing">
           <Menu :items="[{ label: 'Reset to default', icon: 'refresh', run: reset }]" />
@@ -209,7 +242,7 @@ async function reset() {
     <div v-if="!editing && keyNudge" class="card hkey" role="status">
       <div class="li"><Icon name="key" :size="20" class="muted" />
         <div class="grow"><div class="t">Make your recovery key</div><div class="s">Nobody can send you your password. Without the key, a forgotten one locks your journal for good.</div></div></div>
-      <div class="hkey-acts"><button class="qb" @click="hideNudgeForAWeek">Later</button><button class="qb acc" @click="router.push('/settings/security')">Make key</button></div>
+      <div class="hkey-acts"><button class="btn tonal s" @click="hideNudgeForAWeek">Later</button><button class="btn tonal s" @click="router.push('/settings/security')">Make key</button></div>
     </div>
     <!-- the step and the cards wait for every list the step reads, so it never names a wrong step for a moment and
          never pushes the cards down when it comes in -->
@@ -218,9 +251,14 @@ async function reset() {
     <WeekReviewCard v-if="!editing && h.ready.value" home />
     <div v-if="!editing && h.ready.value" class="grid hgrid" :class="{ g2: !isPhone }">
       <div v-for="(col, ci) in columns" :key="ci" class="hcol">
-        <ForYouCard v-if="ci === 1" />
-        <template v-for="(id, k) in col" :key="id">
-          <MorningCard v-if="id === 'morning'" :state="morning" :date="when.lastNight" />
+        <template v-for="id in col" :key="id">
+          <ForYouCard v-if="id === 'forYou'" />
+          <div v-else-if="id === 'retake'" class="card flush hretake"><router-link to="/progress/self-assessment" class="li click">
+            <span class="bi"><Icon name="refresh" :size="18" /></span>
+            <div class="grow"><div class="t">Four weeks on: answer two questions again</div></div>
+            <Icon name="right" :size="16" class="muted" />
+          </router-link></div>
+          <MorningCard v-else-if="id === 'morning'" :state="morning" :date="when.lastNight" />
           <TodayChecklist v-else-if="id === 'today'" :lesson="checklistLesson" home />
           <TonightPlan v-else-if="id === 'tonight'" compact :night="tonight" :date="when.tonight" :same="when.same" :title-of="titleOf" />
           <RatesCard v-else-if="id === 'rates'" :rates="rates" />
@@ -230,8 +268,8 @@ async function reset() {
           <ExtraCards v-else-if="id === 'lesson'" :lesson="lessonCard" />
           <ExtraCards v-else-if="id === 'tip'" :tip="tip" />
           <ExtraCards v-else-if="id === 'lastLucid'" :lucid="lucid" />
+          <PathCard v-else-if="id === 'path'" home />
           <PastDreamCard v-else-if="id === 'pastDream' && past" :past="past" @not-now="putPastDreamAway(today)" />
-          <ForYouCard v-if="isPhone && k === 0" />
         </template>
       </div>
     </div>

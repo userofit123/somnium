@@ -17,7 +17,6 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hfoot .lnk { padding: 0; }
 
 /* today */
-.home .lnk.inl.tiny { font-size: var(--fs-xs); }
 .hli { text-decoration: none; color: inherit; padding-inline: 0; }
 
 /* optional cards */
@@ -46,3 +45,6 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hst-foot .lnk { padding: 0; }
 html.phone .hst-foot .btn { width: 100%; justify-content: center; }
 .hpast > p { margin: calc(var(--tdy) / 2) 0 0; }
+
+/* the self-assessment retake line, under For you: a bare card, so it keeps the gap the sections get from their titles */
+.hretake:not(:first-child) { margin-top: var(--spg); }
