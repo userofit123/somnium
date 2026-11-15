@@ -220,11 +220,14 @@ export function nightText(p: Pick<PlannedNightReminder, "kind" | "technique">, l
   }
 }
 
-/** Where tapping a night reminder goes. The morning's "No recall" opens the journal too: marking it means finding the
- *  night, a journal read, which needs the key (packages/engine/src/sync/sealedApi.ts allows only the unsealed check). */
-export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, action?: "norecall"): string {
-  if (p.kind === "wbtb") return "/train?guided=up";
-  if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/journal?write=1&date=${p.morning}`;
+/** Where tapping a night reminder goes. The morning one and the WBTB alarm open the capture (LDJ-80): you are waking
+ *  from a dream, so first lie still and get it back, then a few key words [C1][C2]. After a WBTB alarm it goes on to
+ *  the "I'm up" guide (then=up), which the alarm's own "I'm up" button opens straight away.
+ *  The morning's "No recall" opens the journal too: marking it means finding the night, a journal read, which needs
+ *  the key (packages/engine/src/sync/sealedApi.ts allows only the unsealed check). */
+export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, action?: "norecall" | "up"): string {
+  if (p.kind === "wbtb") return action === "up" ? "/train/guided/up" : `/capture?date=${p.morning}&then=up`;
+  if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/capture?date=${p.morning}`;
   return "/train";
 }
 

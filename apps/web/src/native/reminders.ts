@@ -12,7 +12,7 @@
 //   last plan it was given. A week ahead, so a phone left alone for days still reminds; every open plans again.
 // - Night reminders (LDJ-30): bedtime, the WBTB alarm, the morning journal and practice, one reminders row each, from
 //   planNight (shared). The WBTB alarm's time is the one planned for the night on this device (setWbtbAlarm, LDJ-25),
-//   opening /train?guided=up; on Android it is a real alarm with sound.
+//   opening /train/guided/up; on Android it is a real alarm with sound.
 // Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
 // only when the person switched that on, and only while this device can read it.
 import { QueryObserver } from "@tanstack/vue-query";
@@ -119,7 +119,7 @@ export function upcomingNights(rows: Reminder[] | undefined, settings: Settings,
       if (p.at < now - 60_000) continue;
       const { title, body, lockTitle } = nightText(p, lead);
       const r: DueReminder = { at: p.at, title, body, lockTitle, url: nightUrl(p), kind: p.kind, tag: `somnium-${p.kind}` };
-      if (p.kind === "wbtb") r.actions = [{ id: "up", title: "I'm up", url: nightUrl(p) }];
+      if (p.kind === "wbtb") r.actions = [{ id: "up", title: "I'm up", url: nightUrl(p, "up") }];
       if (p.kind === "morning_journal") r.actions = [{ id: "norecall", title: "No recall", url: nightUrl(p, "norecall") }];
       out.push(r);
     }
@@ -141,7 +141,7 @@ export async function setCatPlan(p: CatPlan | null) {
   writeStr(CAT_KEY, p ? JSON.stringify(p) : "");
   if (tick) await replan();
 }
-export const CAT_URL = "/train?guided=cat";
+export const CAT_URL = "/train/guided/cat";
 function catAlarms(today: Date, now: number, days: number): DueReminder[] {
   const p = catPlan(), out: DueReminder[] = [];
   if (!p) return out;
@@ -228,7 +228,7 @@ let current: { rows: Reminder[] | undefined; settings: Settings } = { rows: unde
 
 // ----- the WBTB alarm (LDJ-25): one time, kept on this device; nothing personal in its words -----
 const WBTB = "somniumWbtbAlarm";
-export const WBTB_URL = "/train?guided=up";
+export const WBTB_URL = "/train/guided/up";
 /** The WBTB alarm set on this device (ms), or null. */
 export function wbtbAlarm(): number | null {
   const at = Number(readStr(WBTB, "0"));

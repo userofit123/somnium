@@ -82,8 +82,9 @@ describe("rows, words and links", () => {
     expect(nightText({ kind: "morning_journal" }).title).toBe("Write your dream");
   });
   it("links each to its screen", () => {
-    expect(nightUrl({ kind: "wbtb", morning: "2026-06-11" })).toBe("/train?guided=up");
-    expect(nightUrl({ kind: "morning_journal", morning: "2026-06-11" })).toBe("/journal?write=1&date=2026-06-11");
+    expect(nightUrl({ kind: "wbtb", morning: "2026-06-11" })).toBe("/capture?date=2026-06-11&then=up");
+    expect(nightUrl({ kind: "wbtb", morning: "2026-06-11" }, "up")).toBe("/train/guided/up");
+    expect(nightUrl({ kind: "morning_journal", morning: "2026-06-11" })).toBe("/capture?date=2026-06-11");
     expect(nightUrl({ kind: "morning_journal", morning: "2026-06-11" }, "norecall")).toBe("/journal?norecall=2026-06-11");
   });
 });
