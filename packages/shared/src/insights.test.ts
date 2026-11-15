@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bucketOf, bucketRange, periodStart, recallInsight, lucidityInsight, eventsInsight, emotionsInsight, checksInsight,
-  compareLucid, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, MIN_NIGHTS, type InsightNight, type InsightDream,
+  compareLucid, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, MIN_NIGHTS, type InsightNight, type InsightDream,
 } from "./insights";
 import { addDays } from "./rates";
 
@@ -246,5 +246,43 @@ describe("insights: recall progress (LDJ-113)", () => {
     const r = recallInsight(all, [], addDays(today, -13), today);
     expect([r.nights, r.withRecall, r.dreams, r.napDreams]).toEqual([p.now.nights, 2, p.now.dreams, 0]);
     expect(p.weekly.reduce((a, w) => a + w.nights, 0)).toBe(2);
+  });
+});
+
+describe("insights: early results per technique (LDJ-109)", () => {
+  const a = night("2026-11-02", { dreamCount: 1, wbtbUsed: true, wbtbMinutesAwake: 45, techniquesDone: ["mild"], minutesToSleep: "5", bedtime: "2026-11-01T23:10:00Z" });
+  const b = night("2026-11-03", { dreamCount: 1, techniquesDone: ["mild"] });
+  const c = night("2026-11-04", { dreamCount: 1, techniquesDone: ["ssild", "wbtb"] });
+  const d = night("2026-11-05", { dreamCount: 1 });
+  const nap = night("2026-11-05", { nap: true, dreamCount: 1, techniquesDone: ["mild"] });
+  const plan = night("2026-11-06", { techniquesPlanned: ["mild"] } as Partial<InsightNight>);
+  const dreams = [dream(a, { id: "da", lucid: true }), dream(a, { id: "da2", lucid: true }), dream(b), dream(c), dream(d, { id: "dd", lucid: true }), dream(nap, { id: "dn", lucid: true })];
+
+  it("gives each lucid night its recipe in one line, newest first, naps included", () => {
+    const r = lucidRecipes([a, b, c, d, nap, plan], dreams, utcClock);
+    expect(r.map((x) => [x.date, x.nap, x.lucid, x.dreamId])).toEqual([["2026-11-05", false, 1, "dd"], ["2026-11-05", true, 1, "dn"], ["2026-11-02", false, 2, "da"]]);
+    expect(r[2]!.text).toBe("WBTB 45 min · MILD · asleep in 5 min · in bed 23:10");
+    expect(r[0]!.text).toBe("Nothing logged before it");
+    expect(r[1]!.text).toBe("MILD");
+  });
+
+  it("takes the engine's lucid count when the dreams are not given", () => {
+    const r = lucidRecipes([{ ...b, lucidCount: 1 }], [], utcClock);
+    expect(r).toMatchObject([{ date: "2026-11-03", lucid: 1, dreamId: null, text: "MILD" }]);
+  });
+
+  it("counts each technique's nights and lucid nights plainly, WBTB from either field, naps and plans left out", () => {
+    const t = techniqueTally([a, b, c, d, nap, plan], dreams, utcClock);
+    expect(t.map((x) => [x.id, x.nights, x.lucid, x.early])).toEqual([["mild", 2, 1, true], ["wbtb", 2, 1, true], ["ssild", 1, 0, true]]);
+    expect(t[0]!.text).toBe("1 lucid night of 2 tried");
+    expect(t[2]!.text).toBe("0 lucid nights of 1 tried");
+    expect(t[0]!.list.map((r) => r.date)).toEqual(["2026-11-03", "2026-11-02"]);
+    expect(t.map((x) => x.text).join(" ")).not.toMatch(/%|caus/i);
+  });
+
+  it("stops calling the numbers early once a technique has MIN_NIGHTS nights", () => {
+    const ns = Array.from({ length: MIN_NIGHTS }, (_, i) => night(addDays("2026-10-01", i), { dreamCount: 1, techniquesDone: ["mild"] }));
+    expect(techniqueTally(ns, [], utcClock)[0]).toMatchObject({ id: "mild", nights: MIN_NIGHTS, lucid: 0, early: false });
+    expect(techniqueTally(ns.slice(1), [], utcClock)[0]!.early).toBe(true);
   });
 });

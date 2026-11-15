@@ -12,3 +12,5 @@
 .insights .ins-pair .row { gap: 8px; }
 .insights .ins-pair .row > .tiny:first-child { width: 52px; flex: none; }
 .insights .ins-pair .num { width: 36px; text-align: end; color: var(--tx); }
+/* early results (LDJ-109): the lucid nights' recipes and the per-technique counts sit above the rates */
+.insights .ins-early { margin-bottom: var(--spg); }

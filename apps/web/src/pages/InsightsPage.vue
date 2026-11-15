@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
   RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_WINDOW, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, RECALL_FIRST_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, whatWorks, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck,
+  checksInsight, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
 import { useJournal } from "../api/journal";
@@ -74,10 +74,11 @@ const emotions = computed(() => emotionsInsight(nights.value, dreams.value, from
 const checks = computed(() => checksInsight(checksQ.data.value ?? [], from.value, today.value, localClock));
 // memory targets (LDJ-50): the last 7 days, whatever period is chosen above
 const pm = computed(() => pmWeek(habitLog.data.value ?? [], today.value));
-const works = computed(() => {
-  const inPeriod = nights.value.filter((n) => (from.value == null || n.date >= from.value) && n.date <= today.value);
-  return whatWorks(inPeriod, dreams.value, localClock);
-});
+const inPeriod = computed(() => nights.value.filter((n) => (from.value == null || n.date >= from.value) && n.date <= today.value));
+const works = computed(() => whatWorks(inPeriod.value, dreams.value, localClock));
+// early results (LDJ-109): what each lucid night came after, and plain counts per technique before any rate shows
+const recipes = computed(() => lucidRecipes(inPeriod.value, dreams.value, localClock));
+const tally = computed(() => techniqueTally(inPeriod.value, dreams.value, localClock));
 
 // ---------- labels ----------
 const mon = (ymd: string, o: Intl.DateTimeFormatOptions) => new Date(ymd.length === 7 ? ymd + "-01T12:00:00" : ymd + "T12:00:00").toLocaleDateString(undefined, o);
@@ -126,6 +127,14 @@ const groups = computed(() => {
   ].filter((g) => g.rows.length);
 });
 const anyEnough = computed(() => groups.value.some((g) => g.rows.some((r) => r.enough)));
+// the newest few lucid nights, the rest one tap away
+const RECIPES_SHOWN = 5;
+const allRecipes = ref(false);
+const recipesShown = computed(() => (allRecipes.value ? recipes.value : recipes.value.slice(0, RECIPES_SHOWN)));
+const anyEarly = computed(() => tally.value.some((t) => t.early));
+// a technique's nights, opened from its count
+const tallyOpen = ref<TechniqueTally | null>(null);
+const nightLabel = (r: { date: string; nap: boolean }) => dateShort(r.date) + (r.nap ? " · nap" : "");
 
 // ---------- checks ----------
 // per day for 4 weeks; per week beyond, so a year isn't 365 hair-thin bars
@@ -198,6 +207,27 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <!-- What works for you -->
     <section>
       <div class="sh"><h2>What works for you</h2><button class="ib sm plain" type="button" aria-label="About these rates" @click="info = 'works'"><Icon name="info" :size="17" /></button></div>
+      <div v-if="recipes.length || tally.length" class="grid g2" :class="{ 'ins-early': groups.length }" data-testid="early">
+        <div v-if="recipes.length" class="card">
+          <div class="lbl hgap">Your lucid dreams came after</div>
+          <div class="list">
+            <component :is="r.dreamId ? 'router-link' : 'div'" v-for="r in recipesShown" :key="r.id" :to="r.dreamId ? '/journal/dream/' + r.dreamId : undefined" class="li" :class="{ click: r.dreamId }">
+              <div class="grow"><div class="t">{{ r.text }}</div><div class="tiny">{{ nightLabel(r) }}{{ r.lucid > 1 ? ` · ${r.lucid} lucid dreams` : "" }}</div></div>
+            </component>
+          </div>
+          <button v-if="recipes.length > RECIPES_SHOWN" type="button" class="lnk inl tiny" @click="allRecipes = !allRecipes">{{ allRecipes ? "Show fewer" : `Show all ${recipes.length}` }}</button>
+        </div>
+        <div v-if="tally.length" class="card">
+          <div class="lbl hgap">Techniques you tried</div>
+          <div class="list">
+            <button v-for="t in tally" :key="t.id" type="button" class="li click" :data-id="t.id" @click="tallyOpen = t">
+              <div class="grow"><div class="t">{{ t.label }}</div><div class="tiny">{{ t.text }}</div></div>
+              <span v-if="t.early" class="tag">early</span>
+            </button>
+          </div>
+          <p v-if="anyEarly" class="tiny ins-note">Early numbers, not a rate yet: a few nights can go either way by chance, and even the best techniques gave a lucid dream on about 1 night in 6 in the largest study. A rate shows once there are {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without. <CiteChips :ids="EARLY_SOURCES" @cite="cite($event[0]!)" /></p>
+        </div>
+      </div>
       <div v-if="!groups.length" class="card empty sm"><b>Nothing to compare yet</b>Log your nights with the techniques you did, how long you took to fall asleep after them, WBTB and its minutes awake, and your bed and wake times. After {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without something, its lucid rate shows here.</div>
       <template v-else>
         <p v-if="!anyEnough" class="tiny">Not enough nights yet for any rate: keep logging.</p>
@@ -322,6 +352,16 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <Sheet v-if="info === 'works'" title="What works for you" @close="info = null">
       <p>What went with your lucid nights, from your own nights only: it shows what went together, not what caused what.</p>
       <p>A rate shows once there are {{ MIN_NIGHTS }} nights on each side. The grey bar is the nights without it.</p>
+      <p>Until then, what each lucid night came after and how many nights you tried each technique show as plain counts: early numbers, not a rate. <CiteChips :ids="EARLY_SOURCES" @cite="cite($event[0]!)" /></p>
+    </Sheet>
+    <Sheet v-if="tallyOpen" :title="tallyOpen.label" @close="tallyOpen = null">
+      <p class="tiny">{{ tallyOpen.text }}, {{ SINCE[period] }}. The nights you did it, lucid or not: they show what went with your lucid nights, not what caused them.</p>
+      <div class="list">
+        <component :is="r.dreamId ? 'router-link' : 'div'" v-for="r in tallyOpen.list" :key="r.id" :to="r.dreamId ? '/journal/dream/' + r.dreamId : undefined" class="li" :class="{ click: r.dreamId }">
+          <div class="grow"><div class="t">{{ nightLabel(r) }}</div><div class="tiny">{{ r.text }}</div></div>
+          <span v-if="r.lucid" class="tag">Lucid</span>
+        </component>
+      </div>
     </Sheet>
     <Sheet v-if="info === 'recall'" title="Your recall" @close="info = null">
       <p>Dreams a night over the last two weeks, set against your first {{ RECALL_WINDOW }} logged nights, once each side has {{ RECALL_MIN_NIGHTS }} nights. In the international induction study, people with better dream recall had more success with the techniques <CiteChips :ids="RECALL_WHY_SOURCES" @cite="cite($event[0]!)" />; the course puts recall first <CiteChips :ids="RECALL_FIRST_SOURCES" @cite="cite($event[0]!)" />.</p>

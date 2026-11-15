@@ -24,6 +24,8 @@ export interface InsightNight extends NightLog {
   lucidCount?: number;
 }
 export interface InsightDream {
+  /** the dream's id, when known: early results link a lucid night to its dream */
+  id?: string;
   nightId: string;
   lucid: boolean;
   lucidityLevel?: number | null;
@@ -435,4 +437,109 @@ export function whatWorks(nights: InsightNight[], dreams: InsightDream[], clock:
     withoutNoun: { one: `night it took more than ${ASLEEP_WITHIN} min to fall asleep`, many: `nights it took more than ${ASLEEP_WITHIN} min to fall asleep` },
   });
   return { techniques, wbtb, wbtbBands, sleep, nap, bedtime, asleep };
+}
+
+// ---------- early results per technique (LDJ-109) ----------
+// The rates above wait for MIN_NIGHTS on each side, which takes weeks for WBTB or SSILD. Until then the person still
+// sees what their own lucid nights came after, as plain counts ("3 lucid nights of 8 tried"), never a rate, and labelled
+// early: a few nights swing either way by chance (RESEARCH.md Part C §5.2), and even the best techniques gave a lucid
+// dream on about 1 night in 6 in the largest study (B38), so 0 of 2 says little. Same wording rule: "came after",
+// "went with", never "caused".
+
+/** Sources for the early-numbers note: small samples mislead (C12a, §5.2); lucid nights are rare even with the best techniques (B38). */
+export const EARLY_SOURCES = ["C12a", "B38"] as const;
+
+/** One logged night with what was done before it, in one line: "WBTB 45 min · MILD · asleep in 5 min · in bed 23:10". */
+export interface NightRecipe {
+  id: string;
+  date: string;
+  nap: boolean;
+  /** lucid dreams in the night */
+  lucid: number;
+  /** the first lucid dream's id, when the dreams carry ids */
+  dreamId: string | null;
+  /** technique ids done, WBTB included when logged as wbtbUsed; in TECHNIQUES order */
+  techniques: string[];
+  parts: string[];
+  /** the parts joined with " · ", or "Nothing logged before it" */
+  text: string;
+}
+
+const hhmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+function lucidByNight(ns: InsightNight[], dreams: InsightDream[]): Map<string, { count: number; dreamId: string | null }> {
+  const ids = new Set(ns.map((n) => n.id));
+  const by = new Map<string, { count: number; dreamId: string | null }>();
+  for (const d of dreams) {
+    if (!d.lucid || !ids.has(d.nightId)) continue;
+    const e = by.get(d.nightId) ?? { count: 0, dreamId: null };
+    e.count++; e.dreamId ??= d.id ?? null;
+    by.set(d.nightId, e);
+  }
+  // the engine's count stands in when the night's dreams are not in the list given
+  for (const n of ns) if ((n.lucidCount ?? 0) > (by.get(n.id)?.count ?? 0)) by.set(n.id, { count: n.lucidCount!, dreamId: by.get(n.id)?.dreamId ?? null });
+  return by;
+}
+
+const techniquesOf = (n: InsightNight): string[] => {
+  const done = new Set(n.techniquesDone ?? []);
+  if (isWbtb(n)) done.add("wbtb");
+  const order = TECHNIQUES.map((t) => t.id);
+  return [...done].sort((a, b) => (order.indexOf(a) + 1 || 999) - (order.indexOf(b) + 1 || 999));
+};
+
+/** One night's recipe. `lucid` and `dreamId` come from the caller (see lucidRecipes / techniqueTally). */
+function recipeOf(n: InsightNight, lucid: number, dreamId: string | null, clock: Clock): NightRecipe {
+  const techniques = techniquesOf(n);
+  const parts: string[] = [];
+  if (techniques.includes("wbtb")) parts.push(n.wbtbMinutesAwake != null ? `WBTB ${n.wbtbMinutesAwake} min` : "WBTB");
+  for (const t of techniques) if (t !== "wbtb") parts.push(TECHNIQUES.find((x) => x.id === t)?.label ?? t);
+  const m = minutesToSleep(n);
+  if (m != null) parts.push(`asleep in ${m} min`);
+  if (n.bedtime) parts.push(`in bed ${hhmm(clock.minutes(n.bedtime))}`);
+  return { id: n.id, date: n.date, nap: !!n.nap, lucid, dreamId, techniques, parts, text: parts.length ? parts.join(" · ") : "Nothing logged before it" };
+}
+
+/** Every logged night with a lucid dream (naps too: a lucid nap is still one), newest first, with what came before it. */
+export function lucidRecipes(nights: InsightNight[], dreams: InsightDream[], clock: Clock = localClock): NightRecipe[] {
+  const ns = loggedNights(nights);
+  const by = lucidByNight(ns, dreams);
+  return ns.filter((n) => by.has(n.id))
+    .map((n) => recipeOf(n, by.get(n.id)!.count, by.get(n.id)!.dreamId, clock))
+    .sort((a, b) => (a.date === b.date ? Number(a.nap) - Number(b.nap) : b.date.localeCompare(a.date)));
+}
+
+export interface TechniqueTally {
+  /** technique id, "wbtb" included */
+  id: string;
+  label: string;
+  /** nights (naps left out, as in the rates) the technique was done */
+  nights: number;
+  /** of those, nights with a lucid dream */
+  lucid: number;
+  /** fewer than MIN_NIGHTS nights with it: counts only, no rate */
+  early: boolean;
+  /** "3 lucid nights of 8 tried" */
+  text: string;
+  /** the nights it was done, newest first */
+  list: NightRecipe[];
+}
+
+/** The plain count of each technique tried: nights done and how many were lucid, most tried first. */
+export function techniqueTally(nights: InsightNight[], dreams: InsightDream[], clock: Clock = localClock): TechniqueTally[] {
+  const ns = loggedNights(nights).filter((n) => !n.nap);
+  const by = lucidByNight(ns, dreams);
+  const tally = new Map<string, NightRecipe[]>();
+  for (const n of ns) {
+    const r = recipeOf(n, by.get(n.id)?.count ?? 0, by.get(n.id)?.dreamId ?? null, clock);
+    for (const t of r.techniques) tally.set(t, [...(tally.get(t) ?? []), r]);
+  }
+  return [...tally].map(([id, list]) => {
+    const lucid = list.filter((r) => r.lucid > 0).length;
+    return {
+      id, label: TECHNIQUES.find((x) => x.id === id)?.label ?? id, nights: list.length, lucid, early: list.length < MIN_NIGHTS,
+      text: `${lucid} lucid ${lucid === 1 ? "night" : "nights"} of ${list.length} tried`,
+      list: list.sort((a, b) => b.date.localeCompare(a.date)),
+    };
+  }).sort((a, b) => b.nights - a.nights || b.lucid - a.lucid || a.label.localeCompare(b.label));
 }
