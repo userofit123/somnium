@@ -292,7 +292,9 @@ async function run(mineEra: number) {
     else {
       // the server answered (with an error), so it is reachable: a later network failure gets its own grace
       failingSince = 0;
-      sync.error = (e as Error).message;
+      // the cause stays in the console (the device log); the status line gets a plain message, since the text can carry paths or ids
+      console.warn("sync failed", e instanceof ApiError ? `status ${e.status}` : (e as Error)?.name ?? "error");
+      sync.error = "Couldn't sync this device. It will try again";
     }
   } finally {
     sync.waiting = await R.waitingCount(db).catch(() => sync.waiting);
