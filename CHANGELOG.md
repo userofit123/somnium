@@ -5,7 +5,7 @@
 A rework of the whole app: every screen has one clear place, one look and one main action, and new help for each
 step of learning to dream lucidly.
 
-- **A clearer app.** New phone tabs (Home, Journal, +, Train, Progress, More) and a matching desktop sidebar. One +
+- **A clearer app.** New phone tabs (Home, Journal, Train, +, Dream signs, Progress, More) and a matching desktop sidebar. One +
   button adds a dream, No recall, a reality check, tonight's plan or a day note. Insights is now Progress, and Train
   has three tabs: Today, Tonight and Techniques. Every page shares one header, Back button, empty state, loading state
   and button set, and Journal, Dream signs, Learn and Settings use one list-and-detail layout on a computer.
