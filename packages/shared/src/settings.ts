@@ -140,7 +140,11 @@ export function withDefaults(saved: unknown): Settings {
 }
 
 /** The three formats as concrete values: what "Automatic" means on one device. */
-export interface DeviceFormats { firstDay: 0 | 1; dateFormat: "dmy" | "mdy" | "ymd"; clock: "24" | "12" }
+export interface DeviceFormats {
+  firstDay: 0 | 1; dateFormat: "dmy" | "mdy" | "ymd"; clock: "24" | "12";
+  /** True for a value the device did not tell us (a fallback), so the UI can say it is a guess. Absent means all known. */
+  guessed?: { firstDay: boolean; dateFormat: boolean; clock: boolean };
+}
 export type ResolvedSettings = Omit<Settings, "firstDay" | "dateFormat" | "clock"> & DeviceFormats;
 
 /**
@@ -148,17 +152,18 @@ export type ResolvedSettings = Omit<Settings, "firstDay" | "dateFormat" | "clock
  * omitted). Anything Intl cannot tell falls back to Monday, day-month-year and 24 hours, the old fixed defaults.
  */
 export function deviceFormats(locale?: string): DeviceFormats {
-  const out: DeviceFormats = { firstDay: 1, dateFormat: "dmy", clock: "24" };
+  const guessed = { firstDay: true, dateFormat: true, clock: true };
+  const out: DeviceFormats = { firstDay: 1, dateFormat: "dmy", clock: "24", guessed };
   try {
     const loc = locale ?? (typeof navigator !== "undefined" ? navigator.language : undefined);
     const l = new Intl.Locale(loc || "en-GB") as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
     const w = l.getWeekInfo?.() ?? l.weekInfo; // 1 Monday ... 7 Sunday; the picker offers Sunday or Monday
-    if (w) out.firstDay = w.firstDay === 7 ? 0 : 1;
+    if (w) { out.firstDay = w.firstDay === 7 ? 0 : 1; guessed.firstDay = false; } // Firefox has no week info
     const cycle = new Intl.DateTimeFormat(l.toString(), { hour: "numeric" }).resolvedOptions().hourCycle;
-    if (cycle) out.clock = cycle === "h11" || cycle === "h12" ? "12" : "24";
+    if (cycle) { out.clock = cycle === "h11" || cycle === "h12" ? "12" : "24"; guessed.clock = false; }
     const order = new Intl.DateTimeFormat(l.toString(), { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" }).formatToParts(Date.UTC(2026, 11, 31))
       .map((p) => p.type).filter((x) => x === "year" || x === "month" || x === "day");
-    out.dateFormat = order[0] === "year" ? "ymd" : order[0] === "month" ? "mdy" : "dmy";
+    if (order.length === 3) { out.dateFormat = order[0] === "year" ? "ymd" : order[0] === "month" ? "mdy" : "dmy"; guessed.dateFormat = false; }
   } catch { /* keep the fallbacks */ }
   return out;
 }

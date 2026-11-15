@@ -54,6 +54,8 @@ const KEYWORDS: Record<string, string> = {
 };
 // what "Automatic" means here, said under the formats
 const device = deviceFormats();
+// a value the device didn't report is a fallback: say so rather than state it as fact
+const guess = Object.fromEntries((["firstDay", "dateFormat", "clock"] as const).map((k) => [k, device.guessed?.[k] ? " (your device doesn't say)" : ""])) as Record<"firstDay" | "dateFormat" | "clock", string>;
 const DAY = ["Sunday", "Monday"], DATES = { dmy: "31 Dec 2026", mdy: "Dec 31, 2026", ymd: "2026-12-31" };
 const q = ref("");
 const GROUPS = computed<[string, Section[]][]>(() => {
@@ -110,7 +112,7 @@ await loaded(me);
               <div class="fld"><label>Dates</label><AppSelect :model-value="s.dateFormat" :options="[{ value: 'auto', label: 'Automatic (from this device)' }, { value: 'dmy', label: '31 Dec 2026' }, { value: 'mdy', label: 'Dec 31, 2026' }, { value: 'ymd', label: '2026-12-31' }]" title="Dates" @update:model-value="(v) => set({ dateFormat: v })" /></div>
               <div class="fld"><label>Clock</label><AppSelect :model-value="s.clock" :options="[{ value: 'auto', label: 'Automatic (from this device)' }, { value: '24', label: '24-hour' }, { value: '12', label: '12-hour' }]" title="Clock" @update:model-value="(v) => set({ clock: v })" /></div>
             </div>
-            <div v-if="[s.firstDay, s.dateFormat, s.clock].includes('auto')" class="s">On this device, Automatic means {{ DAY[device.firstDay] }}, {{ DATES[device.dateFormat] }} and the {{ device.clock }}-hour clock.</div>
+            <div v-if="[s.firstDay, s.dateFormat, s.clock].includes('auto')" class="s">On this device, Automatic means {{ DAY[device.firstDay] }}{{ guess.firstDay }}, {{ DATES[device.dateFormat] }}{{ guess.dateFormat }} and the {{ device.clock }}-hour clock{{ guess.clock }}.</div>
           </div>
         </template>
 

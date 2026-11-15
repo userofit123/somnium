@@ -16,11 +16,19 @@ describe("settings", () => {
     expect(s.clock).toBe("auto");
   });
   it("reads the formats from the language", () => {
-    expect(deviceFormats("en-US")).toEqual({ firstDay: 0, dateFormat: "mdy", clock: "12" });
-    expect(deviceFormats("de-DE")).toEqual({ firstDay: 1, dateFormat: "dmy", clock: "24" });
+    const { guessed: _g, ...us } = deviceFormats("en-US");
+    expect(us).toEqual({ firstDay: 0, dateFormat: "mdy", clock: "12" });
+    const { guessed: _h, ...de } = deviceFormats("de-DE");
+    expect(de).toEqual({ firstDay: 1, dateFormat: "dmy", clock: "24" });
     expect(deviceFormats("sv-SE").dateFormat).toBe("ymd");
     const s = resolveFormats(withDefaults({ clock: "12" }), { firstDay: 0, dateFormat: "mdy", clock: "24" });
     expect([s.firstDay, s.dateFormat, s.clock]).toEqual([0, "mdy", "12"]);
+  });
+  it("says which formats were only guessed", () => {
+    const g = deviceFormats("de-DE").guessed!;
+    expect(g.dateFormat).toBe(false);
+    expect(g.clock).toBe(false);
+    expect(typeof g.firstDay).toBe("boolean"); // true on a runtime without week info (Firefox)
   });
   it("gives Home its blocks in the default order", () => {
     expect(withDefaults({}).home.blocks).toEqual(HOME_BLOCKS);
