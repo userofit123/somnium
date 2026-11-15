@@ -110,7 +110,7 @@ const META: Record<string, { name: string; desc: string }> = {
   morning: { name: "This morning", desc: "Last night's dreams, or a nudge to write them down" },
   today: { name: "Today", desc: "Your checklist for today: journal, reality checks, practice, dream sign" },
   tonight: { name: "Tonight", desc: "Tonight's techniques, intention, bedtime and WBTB alarm" },
-  rates: { name: "Streaks and rates", desc: "Your journal streak, recall and lucid rate" },
+  rates: { name: "Your streaks", desc: "Your journal streak, recall and lucid rate" },
   goals: { name: "Goals", desc: "Your goals and how close you are" },
   dayNote: { name: "Day note", desc: "A line about your day" },
   signs: { name: "Top dream signs", desc: "Your most frequent dream signs" },

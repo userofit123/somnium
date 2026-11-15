@@ -1,6 +1,6 @@
 <script setup lang="ts">
-// "This morning" (PLAN.md §6.1): a button to write last night's dream (outlined: Today's step above holds Home's
-// primary button, LDJ-107) and a quiet "No recall", until the night has a dream or the mark; then its summary.
+// "This morning" (PLAN.md §6.1): a hero card (as Motus's TodayHero) with a button to write last night's dream (tonal on the hero: Today's step above
+// holds Home's one filled button, LDJ-107) and a quiet "No recall", until the night has a dream or the mark; then it shrinks to a one-line summary (LDJ-230).
 // Titles only: Home never shows dream text. Under the summary, once, the night's question: did you do last night's
 // techniques (NightCheckIn, LDJ-79). Dreams the capture saved as key words show as a quiet "Finish writing: 2 dreams"
 // until written out or until evening, when little of the dream is left to add (LDJ-162, RESEARCH.md C1, C2).
@@ -26,16 +26,19 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
 
 <template>
   <section class="hmorning">
-    <div v-if="state.kind === 'open'" class="card hwrite">
+    <div v-if="state.kind === 'open'" class="card hero hwrite">
       <div class="lbl"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
-      <div class="tiny">Write it down before it fades - even a fragment counts.</div>
-      <button class="btn o" @click="write"><Icon name="plus" :size="18" />Write last night's dream</button>
-      <button type="button" class="lnk inl" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
+      <div class="hw-t">Write last night's dream</div>
+      <div class="hw-s">Write it down before it fades - even a fragment counts.</div>
+      <div class="hw-acts">
+        <button class="btn hw-btn" @click="write"><Icon name="plus" :size="18" />Write it down</button>
+        <button type="button" class="lnk inl" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
+      </div>
     </div>
     <div v-else class="card">
-      <div class="lbl hgap"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
       <div class="hsum">
-        <div class="grow"><div class="t">Last night</div><div class="tiny">{{ line }}</div></div>
+        <span class="bi"><Icon name="moon" :size="16" /></span>
+        <div class="grow"><div class="t">This morning · last night</div><div class="tiny">{{ line }}</div></div>
         <span v-if="state.kind === 'logged' && state.nightmare" class="mchip nightmare">Nightmare</span>
         <span v-else-if="state.kind === 'logged' && state.lucid" class="mchip lucid">Lucid</span>
       </div>

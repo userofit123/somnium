@@ -10,7 +10,7 @@ const recall = computed(() => recallLine(props.rates.recall));
 
 <template>
   <section class="hrates">
-    <div class="sh"><h2>Your streaks</h2></div>
+    <div class="sh"><h2>Your streaks</h2><router-link to="/progress" class="lnk">Progress<Icon name="right" :size="14" /></router-link></div>
     <div class="grid g3 keep">
       <div class="card hero stat"><div class="lbl"><span class="bi"><Icon name="flame" :size="15" /></span>Streak</div><div class="val num">{{ rates.streak }}</div><div class="sub">{{ rates.streak === 1 ? "morning" : "mornings" }} logged</div></div>
       <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Recall</div><div class="val num">{{ recall.value }}</div><div class="sub">{{ recall.sub }}, {{ rates.recall.days }} days</div></div>
