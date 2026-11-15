@@ -22,6 +22,7 @@ import Menu, { type MenuItem } from "../Menu.vue";
 import Sheet from "../Sheet.vue";
 import DreamMedia from "./DreamMedia.vue";
 import NightSheet from "./NightSheet.vue";
+import HardNightNote, { type HardKind } from "./HardNightNote.vue";
 import { lexiconsReady, loadLexicons, suggestElements } from "./detect";
 
 const props = defineProps<{ id: string; back?: boolean }>();
@@ -41,6 +42,12 @@ const els = computed(() => links.value.map((l) => byId.value.get(l.elementId)).f
 
 const marks = computed(() => (d.value ? dreamMarks(d.value) : []));
 const flags = computed(() => (d.value?.favourite ? ["Favourite"] : []));
+// a dream marked sleep paralysis, false awakening or frightening keeps one calm line each on what helps (LDJ-158)
+const hard = computed<HardKind[]>(() => {
+  const x = d.value;
+  if (!x) return [];
+  return [x.sleepParalysis && "sleepParalysis", x.falseAwakening && "falseAwakening", (x.nightmare || x.badDream) && "nightmare"].filter((k): k is HardKind => !!k);
+});
 const facts = computed(() => nightFacts(night.value));
 // the night's details are edited here too, without opening the dream to write (LDJ-99)
 const nightOpen = ref(false);
@@ -177,7 +184,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
       <Menu v-if="d" :items="menu" />
       <button v-if="d" class="btn" @click="emit('edit')">Edit</button>
     </div>
-    <div v-if="!d" class="card empty sm">This dream isn't here any more.</div>
+    <div v-if="!d" class="card empty"><Icon name="book" :size="34" /><b>This dream isn't here any more</b>It may have been deleted, here or on another device.<br /><button class="btn tonal" type="button" @click="emit('close')">Back to the journal</button></div>
     <template v-else>
       <h2 v-if="!back" class="ttl jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
       <div v-if="flags.length" class="chips"><span v-for="m in flags" :key="m" class="fchip on">{{ m }}</span></div>
@@ -218,6 +225,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
       <section v-if="marks.length" class="jsec">
         <div class="tiny jmut">This dream</div>
         <div class="card"><div class="list"><div v-for="m in marks" :key="m.label" class="li"><div class="grow"><div class="s">{{ m.label }}</div><div class="t">{{ m.value }}</div></div></div></div></div>
+        <HardNightNote v-if="hard.length" :kinds="hard" short />
       </section>
 
       <section v-if="night" class="jsec">

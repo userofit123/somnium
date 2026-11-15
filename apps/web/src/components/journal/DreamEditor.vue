@@ -28,6 +28,7 @@ import "../../styles/components/learn.css";
 import { loadLexicons, suggestElements, suggestKind } from "./detect";
 import InThisDream, { type InDreamRow } from "./InThisDream.vue";
 import Milestone from "./Milestone.vue";
+import HardNightNote, { HARD_NOTES, type HardKind } from "./HardNightNote.vue";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
 const props = defineProps<{ id: string; date?: string; full?: boolean; fresh?: boolean }>();
@@ -98,8 +99,24 @@ function toggleChip(k: string) {
     f[k] = !f[k];
     const other = UPSET[k];
     if (other && f[k]) f[other] = false;
+    if (f[k]) offerHardNote(k === "badDream" ? "nightmare" : (k as HardKind));
   }
 }
+// Marking sleep paralysis, a false awakening or a frightening dream brings a calm note under the marks (LDJ-158):
+// the first time, then at most once a month for each, and for the same dream again however often it is toggled.
+// Kept on this device: the kind, when, and the dream's id, nothing of what it says.
+const HARD_SEEN = "somniumHardNoteSeen", MONTH = 30 * 864e5;
+const hardOffered = ref<HardKind[]>([]);
+function offerHardNote(k: HardKind) {
+  if (!(k in HARD_NOTES) || hardOffered.value.includes(k)) return;
+  const seen = readJson<Record<string, { at: number; dream: string } | undefined>>(HARD_SEEN, {}) ?? {};
+  const last = seen[k];
+  if (last && last.dream !== props.id && Date.now() - last.at < MONTH) return;
+  hardOffered.value.push(k);
+  writeJson(HARD_SEEN, { ...seen, [k]: { at: last?.dream === props.id ? last.at : Date.now(), dream: props.id } });
+}
+const hardOn = (k: HardKind) => (k === "nightmare" ? upset.value : !!f[k]);
+const hardShown = computed(() => hardOffered.value.filter(hardOn));
 // a lucid dream's own questions (LDJ-78): one tap picks, a second tap on the same chip clears
 const pickOne = (k: string, v: string | number) => { f[k] = f[k] === v ? null : v; };
 const lucidLen = computed(() => lucidLength(f.durationEst));
@@ -332,6 +349,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
         <button v-for="c in CHIPS" :key="c.k" class="fchip" :class="{ on: chipOn(c.k) }" :aria-pressed="chipOn(c.k)" @click="toggleChip(c.k)">{{ c.label }}</button>
       </div>
       <div v-if="upset" class="tiny jupset">{{ UPSET_HINT }} <CiteChips :ids="UPSET_SOURCES" @cite="sourcesOpen = $event" /></div>
+      <HardNightNote v-if="hardShown.length" :kinds="hardShown" @learn="close" />
       <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
 
       <div class="fld">
