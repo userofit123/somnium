@@ -24,8 +24,8 @@ const nextOpen = computed(() => day.value.targets.find((t) => t.state === "open"
 
 <template>
   <section class="tpm">
-    <div class="sh"><h2>Memory targets: catch the moment</h2><button class="lnk tiny" @click="how = !how">{{ how ? "Hide" : "How it works" }}</button></div>
     <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="target" :size="16" /></span><span class="grow">Memory targets: catch the moment</span><button type="button" class="lnk" @click="how = !how">{{ how ? "Hide" : "How it works" }}</button></div>
       <ol v-if="how" class="tiny pmsteps"><li v-for="s in PM_STEPS" :key="s">{{ s }}</li><li class="tiny">Source: LaBerge, Exercise in prospective memory (RESEARCH.md 1.6). No isolated test of it exists.</li></ol>
       <div v-if="!day.targets.length" class="tiny">Choose four events for today. Each time one of them next happens, do a reality check.</div>
       <div v-for="t in day.targets" :key="t.id" class="pmrow">

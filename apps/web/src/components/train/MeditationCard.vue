@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "../Icon.vue";
 // Meditation timer (optional feature, LDJ-26): 5, 10, 15 or 20 minutes, a dimmed screen while it runs and a soft tone
 // at the end; a finished sit is logged as the day's meditation habit. The evidence line is the honest one from
 // RESEARCH.md 3.9 (Baird et al. 2019): the trial was negative, the trait correlates.
@@ -42,8 +43,8 @@ onBeforeUnmount(stop);
 
 <template>
   <section class="tmed">
-    <div class="sh"><h3 class="lbl">Meditation</h3><span v-if="habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value)" class="tiny num">{{ habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value) }} days</span></div>
     <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="sparkle" :size="16" /></span><span class="grow">Meditation</span><span v-if="habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value)" class="tiny num">{{ habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value) }} days</span></div>
       <div class="seg"><button v-for="m in MEDITATION_MINUTES" :key="m" type="button" :class="{ on: picked === m }" :aria-pressed="picked === m" @click="picked = m">{{ m }} min</button></div>
       <div class="tmedrow"><button class="btn tonal s" @click="start()">Start</button><span v-if="finished" class="tiny">Done. Logged for today.</span><span v-else-if="row" class="tiny">Today: {{ row.minutes ?? 0 }} min</span></div>
       <p class="tiny">Long-term meditators report more lucid dreams, but an 8-week mindfulness course did not raise lucid dreaming in a randomised trial: the trait correlates, the course did not cause it (Baird et al. 2019).</p>

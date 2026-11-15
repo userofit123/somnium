@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "../Icon.vue";
 // "From your journal" (LDJ-161): one past dream a day on Home, so you re-read it and notice your dream signs. The pick is
 // pure (packages/shared/src/home.ts pastDream); Home shows its title, date and why it came back, never a word of the
 // dream itself. "Re-read" opens the dream; "Not now" puts it away until tomorrow (pastDream.ts).
@@ -20,8 +21,8 @@ const open = ref<string[] | null>(null);
 
 <template>
   <section class="hextra">
-    <div class="sh"><h2>From your journal</h2></div>
     <div class="card hpast">
+      <div class="lbl hgap"><span class="bi"><Icon name="book" :size="16" /></span>From your journal</div>
       <router-link :to="{ name: 'journal-dream', params: { id: past.id } }" class="hcard">
         <div class="t">{{ past.title }}</div>
         <div class="tiny">{{ fmt.date(past.date, { day: "numeric", month: "long", year: "numeric" }) }} · {{ past.why }}</div>

@@ -49,18 +49,18 @@ const sub = (d: DreamRow, els: number) => [...dreamListMarks(d), els ? `${els} e
     <div class="card jnc" :class="{ b: bare }"><div class="list">
       <template v-if="day.group">
         <button class="li click jrow" :aria-label="`${day.group.dreams.length ? '' : 'No recall · '}Night details: ${details(day.group.night)}`" @click="emit('night', day.group.night.id)">
-          <Icon name="moon" :size="18" class="jmut" />
-          <div class="grow jmin"><div v-if="!day.group.dreams.length" class="t jmut">No recall</div><div class="s ellipsis" :class="{ jacc: !nightLine(day.group.night) }">{{ details(day.group.night) }}</div></div>
+          <span class="bi sg mut"><Icon name="moon" :size="18" /></span>
+          <div class="grow jmin"><div v-if="!day.group.dreams.length" class="t jmut">No recall</div><div class="s ellipsis" :class="{ jacc: !nightLine(day.group.night) }">{{ details(day.group.night) }}</div></div><Icon name="right" :size="16" class="muted" />
         </button>
         <button v-for="d in day.group.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="d.unfinished ? emit('finish', d.id) : emit('open', d.id)">
-          <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" :class="d.lucid ? 'jacc' : 'jmut'" />
+          <span class="bi sg" :class="{ mut: !d.lucid }"><Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" /></span>
           <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s ellipsis"><span v-if="d.unfinished" class="jacc">Finish writing · </span>{{ sub(d, counts.get(d.id) ?? 0) }}</div></div>
-          <span class="r jmk"><span v-if="d.nightmare" class="mchip nightmare">Nightmare</span><span v-else-if="d.lucid" class="mchip lucid">Lucid</span><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>
+          <span class="r jmk"><span v-if="d.nightmare" class="mchip nightmare">Nightmare</span><span v-else-if="d.lucid" class="mchip lucid">Lucid</span><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span><Icon name="right" :size="16" class="muted" />
         </button>
       </template>
       <button v-if="day.note" class="li click jrow" :aria-label="`Day note: ${noteLine(day.note)}`" @click="emit('note', day.date)">
-        <Icon name="note" :size="18" class="jmut" />
-        <div class="grow jmin"><div class="t">Day note</div><div class="s ellipsis">{{ noteLine(day.note) }}</div></div>
+        <span class="bi sg mut"><Icon name="note" :size="18" /></span>
+        <div class="grow jmin"><div class="t">Day note</div><div class="s ellipsis">{{ noteLine(day.note) }}</div></div><Icon name="right" :size="16" class="muted" />
       </button>
     </div></div>
   </section>

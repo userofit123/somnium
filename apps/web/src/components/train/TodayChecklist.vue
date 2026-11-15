@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "../Icon.vue";
 // "Today" (PLAN.md §6.1 and §6.3, LDJ-97): the one checklist of what to do today, the same on Home and on Train > Today.
 // Journal and reality checks tick themselves from the day's own data (a row is written once, when the condition is
 // first true; the checks row also links to the reminder settings, LDJ-119); the course practice items are ticked by hand; the top sign ticks when its page is opened; the evening
@@ -69,8 +70,8 @@ const sent = new Set<string>();
 
 <template>
   <section class="tday">
-    <div class="sh"><h2>Today</h2><span class="tiny">{{ count }}</span></div>
-    <div class="card flush">
+    <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="check" :size="16" /></span><span class="grow">Today</span><span class="tiny">{{ count }}</span></div>
       <div class="li">
         <input type="checkbox" class="ro" :checked="on('habit:journal')" tabindex="-1" aria-hidden="true" @click.prevent />
         <div class="grow"><div class="t"><span class="sr">{{ said(on("habit:journal")) }}</span>{{ habit("habit:journal").name }}</div><div class="tiny">{{ on("habit:journal") ? "Done for today" : habit("habit:journal").auto }}</div></div>

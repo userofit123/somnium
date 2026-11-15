@@ -26,15 +26,15 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
 
 <template>
   <section class="hmorning">
-    <div class="sh"><h2>This morning</h2></div>
     <div v-if="state.kind === 'open'" class="card hwrite">
+      <div class="lbl"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
       <div class="tiny">Write it down before it fades - even a fragment counts.</div>
       <button class="btn o" @click="write"><Icon name="plus" :size="18" />Write last night's dream</button>
       <button type="button" class="lnk inl tiny" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
     </div>
     <div v-else class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
       <div class="hsum">
-        <Icon name="moon" :size="18" />
         <div class="grow"><div class="t">Last night</div><div class="tiny">{{ line }}</div></div>
         <span v-if="state.kind === 'logged' && state.nightmare" class="mchip nightmare">Nightmare</span>
         <span v-else-if="state.kind === 'logged' && state.lucid" class="mchip lucid">Lucid</span>

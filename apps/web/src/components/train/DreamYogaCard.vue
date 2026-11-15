@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "../Icon.vue";
 // Dream yoga daytime practices (optional feature, LDJ-26): Wangyal's four foundational practices, each a tickable daily
 // habit. Shown as a tradition, not a scientific claim (RESEARCH.md Part D, 5.2; source [28]).
 import { DREAM_YOGA_PRACTICES, habitStreak } from "@somnium/shared";
@@ -12,8 +13,8 @@ const toggle = (id: string) => tickPractice(id, h.today.value, !h.rowOf(id), h.r
 
 <template>
   <section class="tyoga">
-    <div class="sh"><h3 class="lbl">Dream yoga</h3></div>
-    <div class="card flush">
+    <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="moon" :size="16" /></span>Dream yoga</div>
       <label v-for="p in DREAM_YOGA_PRACTICES" :key="p.id" class="li tdtick">
         <!-- the box follows the stored tick, so a failed write never leaves it showing the wrong state -->
         <input type="checkbox" :checked="!!h.rowOf(p.id)" @click.prevent="toggle(p.id)" />

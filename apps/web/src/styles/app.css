@@ -102,7 +102,11 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 .stat { overflow: hidden; min-height: 118px; display: flex; flex-direction: column; }
 .stat .lbl { display: flex; align-items: center; gap: 8px; }
 .stat .bi { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+/* in-card title chip (Motus .lbl + .bi): the same tile as a stat card carries, for any card */
+.card > .lbl > .bi { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+.card > .lbl > .lnk { font-size: var(--fs-sm); font-weight: 600; color: var(--acc); background: none; border: 0; cursor: pointer; }
 .bi.sg { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+.bi.sg.mut { color: var(--tx2); }
 .stat.hero .bi { background: color-mix(in srgb, var(--onc) 14%, transparent); color: var(--onc); }
 .stat .val { margin-top: 8px; }
 .stat .val small { font-size: calc(15px * var(--fsc)); font-weight: 500; margin-inline-start: 4px; color: var(--tx2); letter-spacing: 0; }

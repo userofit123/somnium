@@ -5,6 +5,7 @@
 
 /* this morning (the titles and links line up with the text beside the summary's icon) */
 .hwrite { display: flex; flex-direction: column; align-items: flex-start; gap: var(--lpy); }
+.hwrite > .lbl { align-self: stretch; }
 .hwrite .lnk { padding: 0; }
 html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hsum { display: flex; align-items: center; gap: var(--lpy); color: var(--tx); }

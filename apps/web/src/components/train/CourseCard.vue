@@ -15,9 +15,9 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
 
 <template>
   <section class="tcourse">
-    <div class="sh"><h2>Your course</h2><span v-if="lesson" class="tiny">Lesson {{ lesson.number }} of {{ lessons.length }}</span></div>
     <div v-if="!lesson" class="card empty"><Icon name="graduation" :size="34" /><b>Course finished</b>All eight lessons are done. The techniques are yours to use whenever you like.<br /><router-link to="/train/techniques" class="btn tonal">See the techniques</router-link></div>
     <div v-else class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="graduation" :size="16" /></span><span class="grow">Your course</span><span class="tiny">Lesson {{ lesson.number }} of {{ lessons.length }}</span></div>
       <div class="tlh">
         <div class="t">{{ lesson.title }}</div>
         <div class="tiny">{{ lesson.summary }}</div>

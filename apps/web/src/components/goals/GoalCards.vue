@@ -48,14 +48,17 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
 
 <template>
   <section v-if="compact" class="hextra" data-testid="goals-pinned">
-    <div class="sh"><h2>Goals</h2><button class="lnk tiny" type="button" @click="router.push('/progress')">{{ rows.length ? "All goals" : "Set a goal" }}</button></div>
     <div v-if="rows.length" class="card goalc click" role="link" tabindex="0" @click="router.push('/progress')" @keydown.enter="router.push('/progress')">
+      <div class="lbl hgap"><span class="bi"><Icon name="trophy" :size="16" /></span><span class="grow">Goals</span><span class="tiny">All goals</span><Icon name="right" :size="16" class="muted" /></div>
       <div v-for="r in rows" :key="r.g.id" class="goalc">
         <div class="goalh"><div class="grow t">{{ GOAL_KIND_INFO[r.g.kind].label }}</div><div class="tiny num">{{ r.p.line }}<template v-if="r.p.done"> · reached</template></div></div>
         <ProgressBar :percent="r.p.ratio * 100" :label="GOAL_KIND_INFO[r.g.kind].label" />
       </div>
     </div>
-    <div v-else class="card tiny">No goals yet. Add one in Progress.</div>
+    <div v-else class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="trophy" :size="16" /></span><span class="grow">Goals</span><button class="lnk" type="button" @click="router.push('/progress')">Set a goal</button></div>
+      <div class="tiny">No goals yet. Add one in Progress.</div>
+    </div>
   </section>
   <section v-else class="hextra" data-testid="goals">
     <!-- the header's link only once there is a goal: an empty list has its own button -->

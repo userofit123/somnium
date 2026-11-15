@@ -28,8 +28,8 @@ const ICON: Record<string, string> = { write: "plus", moveOn: "up", finish: "che
 
 <template>
   <section class="hstep">
-    <div class="sh"><h2>Today's step</h2><span v-if="lesson" class="tiny">Lesson {{ lesson.number }} of {{ of }} · {{ lesson.title }}</span></div>
     <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="target" :size="16" /></span><span class="grow">Today's step</span><span v-if="lesson" class="tiny">Lesson {{ lesson.number }} of {{ of }} · {{ lesson.title }}</span></div>
       <div class="hst-head">
         <Icon :name="ICON[step.kind] ?? 'check'" :size="20" />
         <div class="grow"><div class="hst-t">{{ step.title }}</div><div v-if="step.line" class="tiny num">{{ step.line }}</div></div>
