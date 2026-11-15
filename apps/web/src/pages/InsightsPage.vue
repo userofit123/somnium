@@ -345,7 +345,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card"><div class="lbl hgap">Dreams a night, by {{ bucket }}, {{ SINCE[period] }}</div><BarChart :bars="recallBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">Nights with a dream, by weekday</div><BarChart :bars="weekdayBars" :fmt="pct" :height="150" /></div>
         </div>
-        <div v-if="wakes.timed" class="card spt" data-testid="wake-hours"><div class="lbl hgap">Hours after bedtime you woke from a dream</div><BarChart :bars="wakeBars" :height="130" />
+        <div v-if="wakes.timed" class="card spt" data-testid="wake-hours"><div class="lbl hgap">Hours after bedtime you woke from a dream, {{ SINCE[period] }}</div><BarChart :bars="wakeBars" :height="130" />
           <p class="tiny ins-note">{{ plural(wakes.timed, "timed dream") }}, {{ wakes.hours.reduce((a, h) => a + h.lucid, 0) }} lucid. Dreams written up later have no time and are left out. <CiteChips :ids="WAKE_HOURS_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>

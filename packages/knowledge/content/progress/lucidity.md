@@ -12,7 +12,7 @@ The level (1 to 5) and the control are your own ratings. Lucidity is a range, no
 
 The lower tiles and the two lines read every lucid dream since your first, whatever the period: the last 3 months against the 3 months before, once {QUALITY_MIN} lucid dreams on a side have a rating.
 
-**Did your plan** is, over lucid dreams on nights where you planned something for once lucid, how many you carried out, partly or not. It shows as a share from 5 such dreams; fewer are only counted. Practising a task in a lucid dream has been found to improve it afterwards [B64].
+**Did your plan** is, over lucid dreams on nights where you planned something for once lucid, how many you carried out, partly or not. It shows as a share from 5 such dreams; fewer are only counted. In a small pilot study, practising a task in a lucid dream improved it afterwards [B64].
 
 ## How to read it
 

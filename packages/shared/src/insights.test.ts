@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bucketOf, bucketRange, periodStart, recallInsight, lucidityInsight, eventsInsight, emotionsInsight, checksInsight,
-  compareLucid, checksBySign, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, lucidQuality, qualityText, sleepInsight, sleepWbtbText, retakeDue, loggedRates, RETAKE_DAYS, QUALITY_MIN, SLEEP_MIN_NIGHTS, MIN_NIGHTS, type InsightNight, type InsightDream,
+  compareLucid, checksBySign, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, lucidQuality, qualityText, sleepInsight, sleepWbtbText, wakeHoursInsight, planDoneInsight, PLAN_SHARE_MIN, retakeDue, loggedRates, RETAKE_DAYS, QUALITY_MIN, SLEEP_MIN_NIGHTS, MIN_NIGHTS, type InsightNight, type InsightDream,
 } from "./insights";
 import { addDays } from "./rates";
 
@@ -413,5 +413,31 @@ describe("insights: self-assessment retake (LDJ-175)", () => {
     expect(r.recallPerWeek).toBeCloseTo(3.5);
     expect(r.lucidPerMonth).toBeCloseTo((2 / 14) * 30.4);
     expect(loggedRates(ns.slice(0, 3), ds, to)).toEqual({ nights: 3, lucidPerMonth: null, recallPerWeek: null });
+  });
+});
+
+describe("insights: hours after bedtime and plans carried out", () => {
+  it("counts timed dreams by hour after bedtime, leaving out naps and untimed dreams", () => {
+    const a = night("2026-11-10", { bedtime: "2026-11-09T23:00:00Z" } as Partial<InsightNight>);
+    const nap = night("2026-11-10", { nap: true, bedtime: "2026-11-10T13:00:00Z" } as Partial<InsightNight>);
+    const dreams = [
+      dream(a, { wokeAt: "2026-11-10T00:30:00Z" } as Partial<InsightDream>), // hour 1
+      dream(a, { lucid: true, wokeAt: "2026-11-10T03:10:00Z" } as Partial<InsightDream>), // hour 4
+      dream(a), // untimed
+      dream(nap, { wokeAt: "2026-11-10T14:00:00Z" } as Partial<InsightDream>),
+    ];
+    const r = wakeHoursInsight([a, nap], dreams, null, "2026-11-12");
+    expect(r.timed).toBe(2);
+    expect(r.hours.map((h) => h.dreams)).toEqual([0, 1, 0, 0, 1]);
+    expect(r.hours[4]!.lucid).toBe(1);
+  });
+
+  it("counts plans carried out over lucid dreams only, and shows a share from 5", () => {
+    const a = night("2026-11-10", { dreamCount: 6 });
+    const mk = (planDone: "yes" | "partly" | "no", lucid = true) => dream(a, { lucid, planDone } as Partial<InsightDream>);
+    const few = planDoneInsight([a], [mk("yes"), mk("no"), mk("partly"), mk("yes"), mk("yes", false), dream(a, { lucid: true })], null, "2026-11-12");
+    expect(few).toMatchObject({ yes: 2, partly: 1, no: 1, total: 4, enough: false });
+    const five = planDoneInsight([a], [mk("yes"), mk("yes"), mk("no"), mk("partly"), mk("no")], null, "2026-11-12");
+    expect(five).toMatchObject({ total: PLAN_SHARE_MIN, enough: true });
   });
 });
