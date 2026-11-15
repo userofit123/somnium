@@ -50,7 +50,7 @@ async function doneToday() {
 
 <template>
   <div class="gbody">
-    <h1>CAT plan</h1>
+    <h1>Shifted wake-up (CAT)</h1>
     <p class="glead">Daniel Love's Cycle Adjustment Technique: train your body to expect waking early, then let it sleep through the extra REM.</p>
     <div class="gbox">
       <div class="t">{{ evidenceLabel.anecdotal }}</div>

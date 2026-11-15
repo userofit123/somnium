@@ -2,6 +2,10 @@
    density tokens only. */
 .train .tcol > section:first-child > .sh:first-child { margin-top: 0; }
 .train .tgrid { align-items: start; }
+/* Extra practice (LDJ-169): one section head, each practice under it with a small in-section title */
+.textra > section > .sh { margin: var(--spg) 0 var(--hg); }
+.textra > section:first-of-type > .sh { margin-top: 0; }
+.textra .sh h3 { margin: 0; }
 
 /* evidence badge: strong, some, weak or negative, anecdotal */
 .tev { display: inline-flex; align-items: center; border-radius: var(--pill, 99px); padding: 2px 9px; font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; border: 1px solid var(--ol); color: var(--tx2); }

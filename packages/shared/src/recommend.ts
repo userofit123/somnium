@@ -320,7 +320,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
         ? "Raise the number of reminders, or add habit moments (walking through a door, after a meal) so checking becomes automatic. Checks on their own do little; the habit is what carries into dreams."
         : "Reminders spread checks over your day so you don't have to remember. Checks on their own do little; the habit is what carries into dreams.",
       reason: `You did ${n(checks, "reality check")} in the last ${REC.checkDays} days, about ${round1(perDay)} a day${r.on && r.perDay ? `, with ${n(r.perDay, "reminder")} a day` : ""}${r.on ? "" : ", and reminders are off"}.`,
-      sources: ["B36", "B37"], action: { label: r.on ? "Reminder settings" : "Turn on reminders", to: "/settings/reminders" },
+      sources: ["B36", "B37"], action: { label: r.on ? "Reminder settings" : "Turn on reminders", to: "/settings/reality-checks" },
     });
   }
 

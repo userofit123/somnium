@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Train (PLAN.md §6.3) in three tabs, each its own address: Today (/train: the course lesson, today's checklist, memory
-// targets, meditation and dream yoga when on), Tonight (/train/tonight: the one place to plan the night, LDJ-96, then the bedtime starts and the evening review)
+// targets, and Extra practice with meditation and dream yoga when on), Tonight (/train/tonight: the one place to plan the night, LDJ-96, then the bedtime starts and the evening review)
 // and Techniques (/train/techniques: the library and the guided tools). The sub-screens have addresses too:
 // /train/technique/:id (a technique article's "Try it" in Learn leads there), /train/lesson/:id, /train/guided/:mode, /train/review and /train/week (the weekly review, when on); their
 // Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
@@ -101,8 +101,13 @@ const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, ti
           <div class="tcol">
             <WeekReviewCard />
             <PmCard />
-            <MeditationCard v-if="features.meditationTimer" />
-            <DreamYogaCard v-if="features.dreamYoga" />
+            <!-- the optional practices in one place (LDJ-169), absent while none is switched on; the sound cue is a
+                 guided tool, on the Techniques tab -->
+            <section v-if="features.meditationTimer || features.dreamYoga" class="textra">
+              <div class="sh"><h2>Extra practice</h2></div>
+              <MeditationCard v-if="features.meditationTimer" />
+              <DreamYogaCard v-if="features.dreamYoga" />
+            </section>
           </div>
         </div>
         <div v-else-if="tab === 'train-tonight'" key="tonight" class="grid g2 tgrid">

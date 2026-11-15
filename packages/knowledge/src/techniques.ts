@@ -10,11 +10,11 @@ export const evidenceLabel: Record<Evidence, string> = {
 };
 
 export const families = [
-  { id: "daytime", title: "Day-time and recall" },
-  { id: "dream", title: "Dream-initiated" },
-  { id: "wake", title: "Wake-initiated" },
-  { id: "support", title: "Supporting" },
-  { id: "in-dream", title: "In the dream" },
+  { id: "daytime", title: "Daytime habits and dream recall" },
+  { id: "dream", title: "Noticing you are dreaming (DILD)" },
+  { id: "wake", title: "Falling asleep aware (WILD)" },
+  { id: "support", title: "Boosters" },
+  { id: "in-dream", title: "Once you are lucid" },
 ] as const;
 export type Family = (typeof families)[number]["id"];
 

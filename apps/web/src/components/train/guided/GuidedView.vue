@@ -21,7 +21,7 @@ import BedtimeRoutine from "./BedtimeRoutine.vue";
 
 export type GuidedMode = "bedtime" | "wbtb" | "up" | "mild" | "ssild" | "wild" | "cue" | "cat";
 const props = defineProps<{ mode: GuidedMode }>();
-const NAMES: Record<GuidedMode, string> = { bedtime: "Bedtime", wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", cue: "Sound cue", cat: "CAT plan" };
+const NAMES: Record<GuidedMode, string> = { bedtime: "Bedtime", wbtb: "Wake back to bed (WBTB)", up: "I'm awake at the alarm", mild: "Remember to notice (MILD)", ssild: "Senses cycle (SSILD)", wild: "Fall asleep aware (WILD)", cue: "Sound cue", cat: "Shifted wake-up (CAT)" };
 const router = useRouter();
 const cite = ref<string[] | null>(null);
 // sound cue is an optional feature: absent while off, even by its address (Train sends it back; this never shows another

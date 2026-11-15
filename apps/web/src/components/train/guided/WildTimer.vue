@@ -41,7 +41,7 @@ async function finish(stopped = true) { clock.stop(); state.value = "end"; emit(
 <template>
   <template v-if="state === 'setup'">
     <div class="gbody">
-      <h1>WILD</h1>
+      <h1>Fall asleep aware (WILD)</h1>
       <p class="glead">Fall asleep while staying a little aware. Best after WBTB or in a morning nap, lying still with your eyes closed.</p>
       <div class="glabel">Length</div>
       <div class="gchips" role="radiogroup" aria-label="Length">

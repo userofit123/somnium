@@ -42,7 +42,7 @@ onBeforeUnmount(stop);
 
 <template>
   <section class="tmed">
-    <div class="sh"><h2>Meditation</h2><span v-if="habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value)" class="tiny num">{{ habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value) }} days</span></div>
+    <div class="sh"><h3 class="lbl">Meditation</h3><span v-if="habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value)" class="tiny num">{{ habitStreak(h.rows.value, MEDITATION_HABIT, h.today.value) }} days</span></div>
     <div class="card">
       <div class="seg"><button v-for="m in MEDITATION_MINUTES" :key="m" type="button" :class="{ on: picked === m }" :aria-pressed="picked === m" @click="picked = m">{{ m }} min</button></div>
       <div class="tmedrow"><button class="btn tonal s" @click="start()">Start</button><span v-if="finished" class="tiny">Done. Logged for today.</span><span v-else-if="row" class="tiny">Today: {{ row.minutes ?? 0 }} min</span></div>

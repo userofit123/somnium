@@ -150,7 +150,7 @@ describe("recommend: reality checks", () => {
     expect(on.reason).toBe("You did 7 reality checks in the last 7 days, about 1 a day, with 8 reminders a day.");
     const off = all(base({ checkDays: [], reminders: { on: false } })).find((x) => x.id === "checks")!;
     expect(off.title).toBe("Turn on reality check reminders");
-    expect(off.action).toEqual({ label: "Turn on reminders", to: "/settings/reminders" });
+    expect(off.action).toEqual({ label: "Turn on reminders", to: "/settings/reality-checks" });
     expect(off.reason).toContain("reminders are off");
   });
 });

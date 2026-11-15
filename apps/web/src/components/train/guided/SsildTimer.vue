@@ -52,7 +52,7 @@ async function finish(to: "end" | "stopped") {
 <template>
   <template v-if="state === 'setup' || state === 'stopped'">
     <div class="gbody">
-      <h1>SSILD</h1>
+      <h1>Senses cycle (SSILD)</h1>
       <p class="glead">Lie back in bed, eyes closed. Move your attention through sight, sound and body: first a few quick rounds, then slow ones.</p>
       <p v-if="state === 'stopped'" class="gp">Stopped. Start again when you like, or just sleep.</p>
       <div class="gbox">

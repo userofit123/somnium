@@ -12,7 +12,7 @@ const toggle = (id: string) => tickPractice(id, h.today.value, !h.rowOf(id), h.r
 
 <template>
   <section class="tyoga">
-    <div class="sh"><h2>Dream yoga</h2></div>
+    <div class="sh"><h3 class="lbl">Dream yoga</h3></div>
     <div class="card flush">
       <label v-for="p in DREAM_YOGA_PRACTICES" :key="p.id" class="li tdtick">
         <!-- the box follows the stored tick, so a failed write never leaves it showing the wrong state -->

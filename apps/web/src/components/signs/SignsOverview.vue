@@ -115,7 +115,7 @@ async function dismissOne(e: Element) {
     </template>
 
     <template v-if="suggestions.length">
-      <div class="sh"><h2>To confirm<span class="ncnt sgcnt" :aria-label="`${suggestions.length} to confirm`">{{ suggestions.length }}</span></h2><span class="tiny">Found by the app in more than one dream</span></div>
+      <div class="sh"><h2>Suggested from your dreams<span class="ncnt sgcnt" :aria-label="`${suggestions.length} to confirm`">{{ suggestions.length }}</span></h2><span class="tiny">Found by the app in more than one dream · confirm to keep them</span></div>
       <div class="card"><div class="list">
         <div v-for="s in suggestions" :key="s.element.id" class="li sgrow" :class="{ on: selected === s.element.id }">
           <button type="button" class="grow sgmin sgopen sgcol" @click="emit('open', s.element.id)"><span class="t ellipsis">{{ s.element.name }}</span><span class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</span></button>

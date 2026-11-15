@@ -1,9 +1,9 @@
 <script setup lang="ts">
 // Train's entry points to the guided modes (LDJ-25), in two groups (PLAN.md §6.3): the bedtime starts on the Tonight tab
-// (the bedtime routine, LDJ-167, then MILD, SSILD, WILD relaxation, I'm up for the WBTB wake, then the Evening review as the closing step, LDJ-96) and the
+// (the bedtime routine, LDJ-167, then MILD, SSILD, WILD, "I'm awake at the alarm" for the WBTB wake, then the Evening review as the closing step, LDJ-96) and the
 // tools on the Techniques tab (the WBTB planner among them; a reality check is logged from the + sheet and the Today
 // checklist (/check), LDJ-118, not from here; Tonight's plan shows its alarm with Change). The WBTB row
-// shows tonight's alarm when one is planned, and "I'm up" comes first while that alarm is near (from an hour before
+// shows tonight's alarm when one is planned, and "I'm awake at the alarm" comes first while that alarm is near (from an hour before
 // it to four hours after).
 import { computed } from "vue";
 import Icon from "../../Icon.vue";
@@ -23,12 +23,13 @@ const hm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.get
 const rows = computed(() => {
   const r: { mode: GuidedMode; t: string; s: string; icon: string }[] = [
     { mode: "bedtime", t: "Bedtime routine", s: "Intention, dream sign and plan, about 2 minutes", icon: "moon" },
-    { mode: "wbtb", t: "WBTB planner", s: alarm.value ? `Alarm at ${hm(alarm.value)}` : "Bedtime and sleep cycles give the alarm", icon: "clock" },
-    { mode: "up", t: "I'm up", s: "Minutes awake, then back to bed", icon: "refresh" },
-    { mode: "mild", t: "MILD at bedtime", s: "Your dream sign and the intention", icon: "moon" },
-    { mode: "ssild", t: "SSILD timer", s: "Sight, sound, body cycles", icon: "layers" },
-    { mode: "wild", t: "WILD relaxation", s: "A soft timer", icon: "target" },
-    { mode: "cat", t: "CAT plan", s: catPlan() ? "Running · the morning alarms" : "Wake 90 minutes early, then alternate days", icon: "clock" },
+    // plain names first, the acronym second (LDJ-168): a newcomer knows what each opens without reading Learn
+    { mode: "wbtb", t: "Wake back to bed (WBTB)", s: alarm.value ? `Alarm at ${hm(alarm.value)}` : "An alarm for a short wake late in the night", icon: "clock" },
+    { mode: "up", t: "I'm awake at the alarm", s: "Minutes awake, then back to bed", icon: "refresh" },
+    { mode: "mild", t: "Remember to notice (MILD)", s: "Your dream sign and the intention, as you fall asleep", icon: "moon" },
+    { mode: "ssild", t: "Senses cycle (SSILD)", s: "Short cycles through sight, sound and body", icon: "layers" },
+    { mode: "wild", t: "Fall asleep aware (WILD)", s: "A soft timer to relax while staying a little aware", icon: "target" },
+    { mode: "cat", t: "Shifted wake-up (CAT)", s: catPlan() ? "Running · the morning alarms" : "Wake 90 minutes early, then alternate days", icon: "clock" },
   ];
   // LDJ-48: only while switched on in Settings → Features
   if (settings.value.features.soundCue) r.push({ mode: "cue", t: "Sound cue", s: "Train a tone, then hear it while you sleep", icon: "moon" });
