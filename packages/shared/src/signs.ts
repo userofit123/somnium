@@ -352,3 +352,16 @@ export function recurringGroups<E extends SignElement>(elements: readonly E[], l
 }
 /** The elements at the heart of recurring dreams, for the shortlist's ranking (signShortlist). */
 export const recurringSignIds = (groups: readonly RecurringGroup[]): Set<string> => new Set(groups.flatMap((g) => g.core.map((c) => c.element.id)));
+
+// ---------- top signs (LDJ-211) ----------
+/**
+ * The dream sign shortlist as every screen shows it (Signs, Home, MILD, the habits): stats over every dream, ranked
+ * with the recurring-dream boost (recurringSignIds), so the top sign is the same everywhere. A screen that already
+ * worked out the stats or the recurring groups passes them in `pre`.
+ */
+export function topSigns<C extends SignCheck, E extends SignElement>(elements: readonly E[], links: readonly SignLink[], dreams: readonly SignDream[], checks: readonly C[], today: string, size = SHORTLIST_SIZE,
+  pre: { stats?: ReadonlyMap<string, ElementStat>; groups?: readonly RecurringGroup[] } = {}): ShortlistEntry<C, E>[] {
+  const stats = pre.stats ?? elementStats(elements, links, dreams, today);
+  const groups = pre.groups ?? recurringGroups(elements, links, dreams);
+  return signShortlist(elements, stats, dreams, checks, today, size, recurringSignIds(groups));
+}

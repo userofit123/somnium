@@ -8,7 +8,7 @@
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
@@ -124,11 +124,11 @@ const tip = computed(() => {
   return a ? { id: a.id, title: a.title, summary: a.summary } : null;
 });
 watch(() => isOn("signs"), (v) => { if (v) void loadSignLexicons(); }, { immediate: true });
-// top dream signs: the same shortlist as Signs, over every dream's facts (never the capped list)
+// top dream signs: the same shortlist as Signs (recurring dreams first), over every dream's facts (never the capped list)
 const signs = computed(() => {
   if (!isOn("signs")) return null;
   const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
-  const list = signShortlist(els, elementStats(els, j.links.data.value ?? [], facts, today.value), facts, signLexicons.value?.checks ?? [], today.value, 3);
+  const list = topSigns(els, j.links.data.value ?? [], facts, signLexicons.value?.checks ?? [], today.value, 3);
   return list.map((x) => ({ id: x.element.id, name: x.element.name ?? "", line: [x.check ? `Check: ${x.check.name}` : "", frequencyText(x.frequency)].filter(Boolean).join(" · ") }));
 });
 const lucid = computed(() => {

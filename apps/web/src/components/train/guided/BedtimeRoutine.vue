@@ -9,7 +9,7 @@
 // The intention is sealed (saved through api/home.ts like MildFlow's); the sign's name shows only here, behind the app
 // lock like all of Train, never in the reminder.
 import { computed, ref } from "vue";
-import { COURSE_LESSONS, currentLesson, freeNightsOf, signShortlist, suggestTonight, wbtbNightsOf, TECHNIQUES } from "@somnium/shared";
+import { COURSE_LESSONS, currentLesson, freeNightsOf, suggestTonight, topSigns, wbtbNightsOf, TECHNIQUES } from "@somnium/shared";
 import { useSigns } from "../../signs/useSigns";
 import { useJournal } from "../../../api/journal";
 import { saveIntention } from "../../../api/home";
@@ -26,7 +26,7 @@ const settings = useSettings();
 const fmt = useFmt();
 const j = useJournal();
 const course = useCourse();
-const { elements, stats, dreams, today } = useSigns();
+const { elements, links, stats, dreams, today } = useSigns();
 const date = tonightDate();
 const night = computed(() => j.nights.data.value?.find((n) => n.date === date && !n.nap));
 
@@ -41,7 +41,7 @@ const saved = computed(() => night.value?.intention?.trim() || "");
 const edited = ref<string | null>(null);
 const text = computed({ get: () => edited.value ?? (saved.value || suggested.value), set: (v: string) => { edited.value = v; } });
 const withSign = computed(() => lessonAt.value >= 2);
-const top = computed(() => signShortlist(elements.value, stats.value, dreams.value, [], today.value, 1)[0]?.element.name ?? null);
+const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value })[0]?.element.name ?? null);
 
 // tonight's plan: WBTB is the alarm row, the rest the techniques; the first with a guided screen takes over at the end
 const GUIDED: Record<string, GuidedMode> = { mild: "mild", ssild: "ssild", wild: "wild" };

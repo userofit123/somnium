@@ -2,7 +2,7 @@
 // today's reality checks against their target. Worked out on the device from the lists already loaded.
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { elementStats, signShortlist, rcSchedule, planDay, checksOn } from "@somnium/shared";
+import { topSigns, rcSchedule, planDay, checksOn } from "@somnium/shared";
 import { useJournal } from "../../api/journal";
 import { useHabitLog, useTrain } from "../../api/train";
 import { signLexicons, loadSignLexicons } from "../../api/signs";
@@ -20,7 +20,7 @@ export function useHabits() {
   const rowOf = (item: string) => rowAt(item, today.value);
   const topSign = computed(() => {
     const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
-    const top = signShortlist(els, elementStats(els, j.links.data.value ?? [], facts, today.value), facts, signLexicons.value?.checks ?? [], today.value, 1)[0];
+    const top = topSigns(els, j.links.data.value ?? [], facts, signLexicons.value?.checks ?? [], today.value, 1)[0];
     return top ? { id: top.element.id, name: top.element.name ?? "" } : null;
   });
   const settings = useSettings();

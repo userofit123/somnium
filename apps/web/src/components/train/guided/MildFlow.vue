@@ -1,11 +1,11 @@
 <script setup lang="ts">
 // The MILD flow (PLAN.md §6.4, LDJ-25), worded as the Aspy 2017 instructions [D11] (RESEARCH.md Part D §1): recall a
 // dream, say the sentence "next time I'm dreaming, I will remember that I'm dreaming" with meaning, and imagine being
-// back in the dream and noticing something odd, here your top dream sign (signShortlist; its name is sealed, and this
+// back in the dream and noticing something odd, here your top dream sign (topSigns, the same as Signs, recurring dreams first; its name is sealed, and this
 // screen is behind the lock like all of Train). An edited intention is saved sealed on the night (api/home.ts). Ends
 // with "Sleep now" and the five-minute finding [B37], as a finding, not a target.
 import { computed, ref } from "vue";
-import { signShortlist } from "@somnium/shared";
+import { topSigns } from "@somnium/shared";
 import { useSigns } from "../../signs/useSigns";
 import { useJournal } from "../../../api/journal";
 import { saveIntention } from "../../../api/home";
@@ -18,8 +18,8 @@ const emit = defineEmits<{ cite: [ids: string[]]; done: [] }>();
 /** Aspy 2017's sentence, as RESEARCH.md quotes it [D11]. */
 const SENTENCE = "Next time I'm dreaming, I will remember that I'm dreaming.";
 const j = useJournal();
-const { elements, stats, dreams, today } = useSigns();
-const top = computed(() => signShortlist(elements.value, stats.value, dreams.value, [], today.value, 1)[0]?.element.name ?? null);
+const { elements, links, dreams, today, stats } = useSigns();
+const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value })[0]?.element.name ?? null);
 const date = nightNowDate();
 const night = computed(() => j.nights.data.value?.find((n) => n.date === date && !n.nap));
 const saved = night.value?.intention?.trim() || "";

@@ -4,11 +4,12 @@
 // figures, and last every element by kind with its trend, folded by kind.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { elementsByKind, elementSuggestions, frequencyText, recurringGroups, recurringSignIds, signsBeforeLucidity, signShortlist, themeComparison, type Element, type ElementKind, type RecurringGroup } from "@somnium/shared";
+import { elementsByKind, elementSuggestions, frequencyText, recurringGroups, signsBeforeLucidity, themeComparison, topSigns, type Element, type ElementKind, type RecurringGroup } from "@somnium/shared";
 import { confirmElement, dismissElement, mergeElements, setElementFlags, signLexicons } from "../../api/signs";
 import { choose, confirm } from "../../core/ask";
 import { useFmt } from "../../core/format";
 import { toast, toastError } from "../../core/toast";
+import { uuidv7 } from "../../api/journal";
 import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Sparkline from "../Sparkline.vue";
@@ -21,7 +22,7 @@ const { today, elements, links, dreams, byId, stats } = useSigns();
 
 // recurring dreams (marked "recurring") joined by shared elements; their content ranks first (shared signs.ts, RESEARCH.md C17)
 const recurring = computed(() => recurringGroups(elements.value, links.value, dreams.value));
-const shortlist = computed(() => signShortlist(elements.value, stats.value, dreams.value, signLexicons.value?.checks ?? [], today.value, undefined, recurringSignIds(recurring.value)));
+const shortlist = computed(() => topSigns(elements.value, links.value, dreams.value, signLexicons.value?.checks ?? [], today.value, undefined, { stats: stats.value, groups: recurring.value }));
 const search = ref("");
 const groups = computed(() => elementsByKind(elements.value, stats.value, search.value));
 const suggestions = computed(() => elementSuggestions(elements.value, links.value, stats.value));
@@ -37,6 +38,7 @@ function toggle(k: ElementKind) {
   opened.value = next;
 }
 const router = useRouter();
+const write = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
 // the reality check paired with a sign, logged against that sign (CheckScreen reads kind and sign)
 const doCheck = (kind: string, sign: string) => router.push({ name: "check", query: { kind, sign } });
 const seen = (d: string | null) => (d ? `last ${fmt.value.date(d, { day: "numeric", month: "short" })}` : "");
@@ -76,7 +78,7 @@ async function dismissOne(e: Element) {
     <div class="sh first"><h2>Your dream signs</h2><span class="tiny">{{ shortlist.length ? "Ranked by how often, how lately and the kind of sign" : "" }}</span></div>
     <div class="card sgshort">
       <div v-if="!shortlist.length" class="empty sm">
-        <b>No dream signs yet</b>
+        <Icon name="sparkle" :size="34" /><b>No dream signs yet</b>
         A sign shows here once it turns up in 3 dreams, or in 2 within a month, and is an odd kind of thing (LaBerge's inner awareness, action, form or context) or one you marked as a dream sign.
       </div>
       <div v-else class="list">
@@ -125,10 +127,10 @@ async function dismissOne(e: Element) {
 
     <div class="sh"><h2>Signs in lucid dreams</h2></div>
     <div class="card">
-      <div v-if="!lucid.enough" class="empty sm">Not enough dreams yet. This compares lucid and other dreams once you have written {{ lucid.needed }} ({{ lucid.dreams }} so far).</div>
+      <div v-if="!lucid.enough" class="empty sm"><Icon name="layers" :size="34" /><b>Not enough dreams yet</b>This compares lucid and other dreams once you have written {{ lucid.needed }} ({{ lucid.dreams }} so far).</div>
       <template v-else>
         <p class="tiny sgmut">Each sign's count in your {{ dreamsText(lucid.lucidDreams).replace("dream", "lucid dream") }} and in your {{ lucid.otherDreams }} other {{ lucid.otherDreams === 1 ? "dream" : "dreams" }}. Plain counts: with this few dreams a difference can easily be chance.</p>
-        <div v-if="!lucid.rows.length" class="empty sm">No dream signs in your dreams yet.</div>
+        <div v-if="!lucid.rows.length" class="empty sm"><Icon name="sparkle" :size="34" /><b>No dream signs in your dreams yet</b>Signs show here once they turn up in your dreams.</div>
         <div v-else class="list">
           <button v-for="r in lucid.rows.slice(0, 8)" :key="r.element.id" type="button" class="li click sgrow" @click="emit('open', r.element.id)">
             <span class="grow sgmin t ellipsis">{{ r.element.name }}</span>
@@ -154,8 +156,8 @@ async function dismissOne(e: Element) {
     <!-- the reference list last, each kind folded until opened (a search opens every kind it matches) -->
     <div class="sh"><h2>Everything in your dreams</h2><span class="tiny">{{ elements.length ? `${elements.length} in all` : "" }}</span></div>
     <div v-if="elements.length" class="search sgsearch"><Icon name="search" :size="18" /><input v-model="search" type="search" placeholder="Search elements" aria-label="Search elements" /></div>
-    <div v-if="!elements.length" class="card empty sm">The people, places, things and feelings in your dreams show here once you add them to a dream.</div>
-    <div v-else-if="!groups.length" class="card empty sm">Nothing matches.</div>
+    <div v-if="!elements.length" class="card empty sm"><Icon name="layers" :size="34" /><b>No elements yet</b>The people, places, things and feelings in your dreams show here once you add them to a dream.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
+    <div v-else-if="!groups.length" class="card empty sm"><Icon name="search" :size="34" /><b>Nothing matches</b>No element has that name.<br /><button class="btn tonal" type="button" @click="search = ''">Clear search</button></div>
     <section v-for="g in groups" :key="g.kind">
       <div class="card">
         <button type="button" class="lbl sgk" :aria-expanded="isOpen(g.kind)" @click="toggle(g.kind)">

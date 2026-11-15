@@ -3,7 +3,7 @@ import * as lex from "@somnium/knowledge/lexicons";
 import { daysBetween } from "./course";
 import {
   categoryWeight, coOccurrence, recurringGroups, recurringSignIds, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
-  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison,
+  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison, topSigns,
   type SignDream, type SignElement, type SignLink,
 } from "./signs";
 
@@ -226,5 +226,18 @@ describe("recurringGroups (LDJ-164)", () => {
     const ranked = signShortlist(els, stats, dreams, [], TODAY, 5, recurringSignIds(g));
     expect(ranked.map((s) => s.element.id).sort()).toEqual(["fear", "house", "mother", "stairs"]); // fear: at the heart of two one-dream groups
     expect(ranked.every((s) => s.recurring)).toBe(true);
+  });
+  it("topSigns ranks with the recurring boost, the same as the Signs page (LDJ-211)", () => {
+    const signs = [...els, el("teeth", { isDreamSign: true, signCategory: "form" })];
+    const more = [...dreams, rd("g", "2026-11-02", false), rd("h", "2026-11-03", false), rd("i", "2026-11-04", false)];
+    const l2 = [...links, link("g", "teeth"), link("h", "teeth"), link("i", "teeth")];
+    const stats = elementStats(signs, l2, more, TODAY);
+    const pre = signShortlist(signs, stats, more, [], TODAY, 5, recurringSignIds(recurringGroups(signs, l2, more)));
+    const top = topSigns(signs, l2, more, [], TODAY);
+    expect(top.map((s) => s.element.id)).toEqual(pre.map((s) => s.element.id));
+    expect(top.some((s) => s.recurring)).toBe(true);
+    // without the boost the recurring dream's content would not be there at all
+    expect(signShortlist(signs, stats, more, [], TODAY).map((s) => s.element.id)).toEqual(["teeth"]);
+    expect(topSigns(signs, l2, more, [], TODAY, 1)).toHaveLength(1);
   });
 });
