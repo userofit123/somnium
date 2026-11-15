@@ -5,6 +5,7 @@ import { parseDismissed, type Dream, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "./client";
 import { invalidate } from "./live";
 import { needsServer, uuidv7 } from "./journal";
+import { setElementFlags } from "./signs";
 
 const done = () => invalidate(["journal", "home"]);
 
@@ -32,10 +33,8 @@ export async function rejectSuggestion(dreamId: string, key: string) {
   done();
 }
 
-export async function setDreamSign(elementId: string, on: boolean) {
-  await needsServer(() => api.put(`/elements/${elementId}`, { isDreamSign: on }));
-  done();
-}
+/** Marks or unmarks an element as a dream sign (a plain flag: it waits on this device when there is no connection). */
+export const setDreamSign = (elementId: string, on: boolean) => setElementFlags(elementId, { isDreamSign: on });
 
 /** Undo of a delete: the dream comes back with its links (the engine route; it syncs like any change). */
 export async function restoreDream(dreamId: string) {

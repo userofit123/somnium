@@ -4,6 +4,7 @@ import { useQuery, useMutation, useInfiniteQuery } from "@tanstack/vue-query";
 import { withDefaults, type Settings, type Me } from "@somnium/shared";
 import { api, httpTransport } from "./client";
 import { sync } from "./replica";
+import { send } from "./outbox";
 import { invalidate, queryClient } from "./live";
 import { toastError, savedToast, savedError } from "../core/toast";
 
@@ -62,7 +63,10 @@ export function saveSettings(patch: Partial<Settings> | Record<string, unknown>,
   queryClient.setQueryData(["settings", "me"], (m: any) => m && { ...m, settings: mergePatch(m.settings, patch) });
   pending++;
   saving = saving.then(async () => {
-    try { await api.put("/settings", patch); if (!o.quiet) savedToast(); } catch (e) { savedError(e); }
+    // Settings are one plain document (packages/engine/src/sealed.ts: user_settings has no sealed column), so like a
+    // tick the change goes through the outbox: with no connection it waits on this device and is sent once the
+    // server is back, and the cache above already shows it. Kept is saved, so it says so either way.
+    try { await send("put", "/settings", patch); if (!o.quiet) savedToast(); } catch (e) { savedError(e); }
     if (--pending === 0) invalidate(["settings", "home"]);
   });
   return saving;

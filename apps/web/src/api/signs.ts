@@ -4,7 +4,8 @@
 import { shallowRef } from "vue";
 import { mergeMark, mergePlan, mergingInto, parseDismissed, suggestionKey, withoutMergeMark, type Dream, type DreamElement, type Element, type ElementKind, type SignCategory, type SignCheck, type SignTheme } from "@somnium/shared";
 import { api, ApiError } from "./client";
-import { invalidate } from "./live";
+import { invalidate, queryClient } from "./live";
+import { send } from "./outbox";
 import { needsServer } from "./journal";
 
 export type CheckRow = SignCheck & { evidence: string; sources: string[] };
@@ -19,8 +20,21 @@ export function loadSignLexicons(): Promise<void> {
 
 const done = () => invalidate(["journal", "home"]);
 
+// The dream sign mark and "confirmed" are plain columns of elements (packages/engine/src/sealed.ts seals only the name,
+// aliases and note), so like a tick they go through the outbox: with no connection on the direct path the change
+// waits on this device and is sent when the server is back, and the screens show it at once. Only these flags ever
+// go this way; a body with a sealed field is refused by the outbox (api/outbox.ts), never queued in the clear.
+const ELEMENTS = ["journal", "elements"];
+/** Changes plain flags on an element: queued when there is no connection, shown in the lists the screens read now. */
+export async function setElementFlags(id: string, flags: { isDreamSign?: boolean; confirmed?: boolean }) {
+  await send("put", `/elements/${id}`, flags);
+  void queryClient.cancelQueries({ queryKey: ELEMENTS });
+  queryClient.setQueryData<Element[]>(ELEMENTS, (es) => es?.map((e) => (e.id === id ? { ...e, ...flags } : e)));
+  done();
+}
+
 /** Confirms an element the app found: it stops being offered as a suggestion. */
-export async function confirmElement(id: string) { await needsServer(() => api.put(`/elements/${id}`, { confirmed: true })); done(); }
+export const confirmElement = (id: string) => setElementFlags(id, { confirmed: true });
 
 export interface ElementEdit { name: string; kind: ElementKind; aliases: string | null; isDreamSign: boolean; signCategory: SignCategory | null }
 /** Saving by hand is confirming too. */

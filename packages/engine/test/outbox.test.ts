@@ -25,6 +25,11 @@ describe("the outbox never keeps a sealed field in the clear", () => {
     expect(plaintextSealedFields("put", "/dreams/x", { favourite: true })).toEqual([]);
     expect(plaintextSealedFields("put", "/reality-checks/x", { note: null })).toEqual([]);
     expect(plaintextSealedFields("post", "/reminders", { kind: "reality_check" })).toEqual([]);
+    // what the screens queue offline (LDJ-189, LDJ-190): a settings patch, a dream sign mark, a confirmed element
+    expect(plaintextSealedFields("put", "/settings", { features: { wbtb: true } })).toEqual([]);
+    expect(plaintextSealedFields("put", "/elements/x", { isDreamSign: true })).toEqual([]);
+    expect(plaintextSealedFields("put", "/elements/x", { confirmed: true })).toEqual([]);
+    expect(plaintextSealedFields("put", "/elements/x", { name: "teeth", note: "x" })).toEqual(["name", "note"]);
   });
   it("send() with a sealed field in the clear throws, online or not, and stores nothing", async () => {
     let sent = 0;
