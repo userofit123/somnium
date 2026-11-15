@@ -16,6 +16,8 @@ import { toastError } from "../../core/toast";
 import { saveSettings, useSettings } from "../../api/queries";
 import { loadSignLexicons, setElementFlags, signLexicons } from "../../api/signs";
 import Icon from "../Icon.vue";
+import { useRouter } from "vue-router";
+import { backLabel } from "../../core/leave";
 import Menu from "../Menu.vue";
 import Collapse from "../Collapse.vue";
 import NightSheet from "./NightSheet.vue";
@@ -30,6 +32,7 @@ import Milestone from "./Milestone.vue";
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
 const props = defineProps<{ id: string; date?: string; full?: boolean; fresh?: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+const backText = props.full ? backLabel(useRouter(), "Journal") : "";
 const j = useJournal();
 const fmt = useFmt();
 
@@ -293,8 +296,15 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 
 <template>
   <div class="jed" :class="{ jfull: full }">
-    <div class="jbar">
-      <button class="ib sm plain" aria-label="Close" @click="done"><Icon :name="full ? 'left' : 'close'" :size="18" /></button>
+    <!-- phone: the page header every page has, Back saving and closing like Done; computer: a bar atop the side panel -->
+    <div v-if="full" class="ph">
+      <div><button type="button" class="back" @click="done"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
+        <h1>{{ fresh ? "Write a dream" : "Edit dream" }}</h1>
+        <div class="sub jst" :class="{ err: state === 'error' }" aria-live="polite">{{ stateText }}</div></div>
+      <div class="acts"><Menu v-if="!after" :items="menu" /><button class="btn keep" @click="done">Done</button></div>
+    </div>
+    <div v-else class="jbar">
+      <button class="ib sm plain" aria-label="Close" @click="done"><Icon name="close" :size="18" /></button>
       <div class="grow jst tiny" :class="{ err: state === 'error' }" aria-live="polite">{{ stateText }}</div>
       <Menu v-if="!after" :items="menu" />
       <button class="btn" @click="done">Done</button>
@@ -411,7 +421,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jed { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
 .jfull { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--st) + var(--hg)) calc(var(--sr) + var(--hg)) calc(var(--sb) + var(--spg)) calc(var(--sl) + var(--hg)); }
 .jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
-.jfull .jbar { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); z-index: 2; }
+.jfull .ph { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); margin-bottom: 0; z-index: 2; align-items: center; }
 .jst { color: var(--tx2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jst.err { color: var(--neg); }
 .jnight { align-self: flex-start; padding-left: 0; }

@@ -39,7 +39,7 @@ async function noRecall() {
 
 <template>
   <Sheet v-if="dayNote" title="Day note" @close="emit('close')">
-    <template #head><button class="ib sm plain" aria-label="Back" @click="dayNote = false"><Icon name="left" /></button><b>Day note</b></template>
+    <template #head><div class="ph"><div><button type="button" class="back" @click="dayNote = false"><Icon name="left" :size="16" /><span>Add</span></button><h1>Day note</h1></div></div></template>
     <DayNoteCard :today="today" bare />
   </Sheet>
   <Sheet v-else title="Add" @close="emit('close')">
@@ -52,3 +52,9 @@ async function noRecall() {
     </div>
   </Sheet>
 </template>
+
+<style scoped>
+/* the sheet's own header row carries the page header, with the close button beside it */
+.sh_h .ph { flex: 1; min-width: 0; margin: 0; }
+.sh_h .ph .back { margin-bottom: 4px; }
+</style>
