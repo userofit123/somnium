@@ -381,7 +381,7 @@ html:not(.phone) .calnav b { min-width: 170px; }
 .exspark { width: 120px; height: 34px; position: relative; flex: none; }
 html.phone .exspark { width: 64px; }
 /* big numbers in two-across stat cards shrink a little on narrow phones instead of wrapping */
-html.phone .grid.g4 .stat .val { font-size: clamp(24px, 7.4vw, var(--fs-val)); white-space: nowrap; }
+html.phone .grid.g4 .stat .val, html.phone .grid.g3.keep .stat .val { font-size: clamp(24px, 7.4vw, var(--fs-val)); white-space: nowrap; }
 /* a single row of chips that scrolls sideways instead of wrapping onto many lines */
 .chips.hscroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; }
 html:not(.phone) .chips.hscroll { margin-inline: 0; padding-inline: 0; flex-wrap: wrap; }

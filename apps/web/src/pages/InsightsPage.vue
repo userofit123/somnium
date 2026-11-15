@@ -14,7 +14,7 @@ import {
   checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
-import { useJournal } from "../api/journal";
+import { useJournal, uuidv7 } from "../api/journal";
 import { api } from "../api/client";
 import { useHabitLog } from "../api/train";
 import { loaded, useSettings } from "../api/queries";
@@ -41,6 +41,8 @@ const today = useToday();
 const settings = useSettings();
 const features = computed(() => settings.value.features);
 const router = useRouter();
+// the empty sections offer what fills them: a dream, tonight's plan, a check
+const write = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
 const PREF = "insights.period";
 const period = ref<Period>((PERIODS as readonly string[]).includes(readJson<string>(PREF, "3m")) ? readJson<Period>(PREF, "3m") : "3m");
 const periodPick = computed({ get: () => period.value, set: (p: Period) => { period.value = p; writeJson(PREF, p); } });
@@ -197,13 +199,13 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <!-- Lucidity -->
     <section>
       <div class="sh"><h2>Lucidity</h2></div>
-      <div v-if="!lucid.lucid" class="card empty sm"><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.</div>
+      <div v-if="!lucid.lucid" class="card empty"><Icon name="sparkle" :size="34" /><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.<br /><button class="btn tonal" type="button" @click="router.push('/train/tonight')">Plan tonight</button></div>
       <template v-else>
         <div class="grid g4">
-          <div class="card hero stat"><div class="lbl">Lucid dreams</div><div class="val num">{{ lucid.lucid }}</div><div class="sub">{{ SINCE[period] }}</div></div>
-          <div class="card stat"><div class="lbl">Nights with one</div><div class="val num">{{ pct(lucid.lucidNights / Math.max(1, lucid.nights)) }}</div><div class="sub">{{ lucid.lucidNights }} of {{ plural(lucid.nights, "night") }}</div></div>
-          <div class="card stat"><div class="lbl">Of all dreams</div><div class="val num">{{ pct(lucid.lucid / Math.max(1, lucid.dreams)) }}</div><div class="sub">{{ plural(lucid.dreams, "dream") }}, all time</div></div>
-          <div class="card stat"><div class="lbl">Average level</div><div class="val num">{{ avgLevel }}</div><div class="sub">from 1 to 5</div></div>
+          <div class="card hero stat"><div class="lbl"><span class="bi"><Icon name="sparkle" :size="15" /></span>Lucid dreams</div><div class="val num">{{ lucid.lucid }}</div><div class="sub">{{ SINCE[period] }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Nights with one</div><div class="val num">{{ pct(lucid.lucidNights / Math.max(1, lucid.nights)) }}</div><div class="sub">{{ lucid.lucidNights }} of {{ plural(lucid.nights, "night") }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="layers" :size="15" /></span>Of all dreams</div><div class="val num">{{ pct(lucid.lucid / Math.max(1, lucid.dreams)) }}</div><div class="sub">{{ plural(lucid.dreams, "dream") }}, all time</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="stats" :size="15" /></span>Average level</div><div class="val num">{{ avgLevel }}</div><div class="sub">from 1 to 5</div></div>
         </div>
         <div class="card spt"><div class="lbl hgap">Lucid dreams, by {{ bucket }}</div><BarChart :bars="lucidBars" :height="150" /></div>
         <div class="grid g2 spt">
@@ -237,7 +239,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <p v-if="anyEarly" class="tiny ins-note">Early numbers, not a rate yet: a few nights can go either way by chance, and even the best techniques gave a lucid dream on about 1 night in 6 in the largest study. A rate shows once there are {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without. <CiteChips :ids="EARLY_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </div>
-      <div v-if="!groups.length" class="card empty sm"><b>Nothing to compare yet</b>Log your nights with the techniques you did, how long you took to fall asleep after them, WBTB and its minutes awake, and your bed and wake times. After {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without something, its lucid rate shows here.</div>
+      <div v-if="!groups.length" class="card empty"><Icon name="layers" :size="34" /><b>Nothing to compare yet</b>Log your nights with the techniques you did, how long you took to fall asleep after them, WBTB and its minutes awake, and your bed and wake times. After {{ MIN_NIGHTS }} nights with and {{ MIN_NIGHTS }} without something, its lucid rate shows here.<br /><button class="btn tonal" type="button" @click="router.push('/train/tonight')">Plan tonight</button></div>
       <template v-else>
         <p v-if="!anyEnough" class="tiny">Not enough nights yet for any rate: keep logging.</p>
         <div class="grid g2">
@@ -261,24 +263,24 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <div class="sh"><h2>Recall</h2><button v-if="progress.weekly.length" class="ib sm plain" type="button" aria-label="About your recall progress" @click="info = 'recall'"><Icon name="info" :size="17" /></button></div>
       <template v-if="progress.weekly.length">
         <div class="grid" :class="progress.said ? 'g4' : 'g3 keep'">
-          <div class="card hero stat" data-testid="recall-now"><div class="lbl">Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks${progress.reached.twoANight ? ` · ${RECALL_TARGETS.perNight} a night reached` : ""}` : "no night logged in the last 2 weeks" }}</div></div>
-          <div class="card stat"><div class="lbl">When you started</div><div class="val num">{{ progress.start?.perNight == null ? "-" : one(progress.start.perNight) }}</div><div class="sub">{{ progress.start ? `first ${plural(progress.start.nights, "night")} logged, from ${dateShort(progress.start.from)}` : `shows once ${RECALL_MIN_NIGHTS} nights are logged before the last 2 weeks` }}</div></div>
-          <div v-if="progress.said" class="card stat"><div class="lbl">You said</div><div class="val num">{{ one(progress.said.perNight) }}</div><div class="sub">{{ progress.said.label }}</div></div>
-          <div class="card stat"><div class="lbl">Nights in a row</div><div class="val num">{{ progress.run }}<small v-if="progress.run < RECALL_TARGETS.run">of {{ RECALL_TARGETS.run }}</small></div><div class="sub">{{ progress.reached.run ? `reached · best ${progress.bestRun}` : `with a dream · best ${progress.bestRun}` }}</div></div>
+          <div class="card hero stat" data-testid="recall-now"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks${progress.reached.twoANight ? ` · ${RECALL_TARGETS.perNight} a night reached` : ""}` : "no night logged in the last 2 weeks" }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="history" :size="15" /></span>When you started</div><div class="val num">{{ progress.start?.perNight == null ? "-" : one(progress.start.perNight) }}</div><div class="sub">{{ progress.start ? `first ${plural(progress.start.nights, "night")} logged, from ${dateShort(progress.start.from)}` : `shows once ${RECALL_MIN_NIGHTS} nights are logged before the last 2 weeks` }}</div></div>
+          <div v-if="progress.said" class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>You said</div><div class="val num">{{ one(progress.said.perNight) }}</div><div class="sub">{{ progress.said.label }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="flame" :size="15" /></span>Nights in a row</div><div class="val num">{{ progress.run }}<small v-if="progress.run < RECALL_TARGETS.run">of {{ RECALL_TARGETS.run }}</small></div><div class="sub">{{ progress.reached.run ? `reached · best ${progress.bestRun}` : `with a dream · best ${progress.bestRun}` }}</div></div>
         </div>
         <div class="card spt"><div class="lbl hgap">Dreams a night, by week since you started</div>
-          <div v-if="progressPoints.length < 2" class="tiny">Log a second week of mornings to see the trend.</div>
+          <div v-if="progressPoints.length < 2" class="empty sm">Log a second week of mornings to see the trend.</div>
           <LineChart v-else :points="progressPoints" :fmt="one" :marks="recallMarks" :height="150" zero />
           <p class="tiny ins-note">{{ progressLine ? progressLine + ". " : "" }}{{ progressRose ? "Part of the rise is counting: a journal catches dreams you would forget, so keep going." : "Keep writing each morning: for most people a journal helps them remember more." }} <CiteChips :ids="RECALL_COUNTING_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>
-      <div v-if="!recall.nights" class="card empty sm"><b>No nights logged in this period</b>Write down your dreams each morning, or mark "No recall", to see how often you remember them.</div>
+      <div v-if="!recall.nights" class="card empty"><Icon name="moon" :size="34" /><b>No nights logged in this period</b>Write down your dreams each morning, or mark "No recall", to see how often you remember them.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
         <div class="grid g4">
-          <div class="card stat"><div class="lbl">Nights with a dream</div><div class="val num">{{ pct(recall.withRecall / recall.nights) }}</div><div class="sub">{{ recall.withRecall }} of {{ recall.nights }}</div></div>
-          <div class="card stat"><div class="lbl">Dreams a night</div><div class="val num">{{ one(recall.dreams / recall.nights) }}</div><div class="sub">{{ plural(recall.dreams, "dream") }}, all time</div></div>
-          <div class="card stat"><div class="lbl">Nights logged</div><div class="val num">{{ recall.nights }}</div><div class="sub">{{ SINCE[period] }}</div></div>
-          <div class="card stat"><div class="lbl">Dreams in naps</div><div class="val num">{{ recall.napDreams }}</div><div class="sub">counted as dreams, not nights</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Nights with a dream</div><div class="val num">{{ pct(recall.withRecall / recall.nights) }}</div><div class="sub">{{ recall.withRecall }} of {{ recall.nights }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="stats" :size="15" /></span>Dreams a night</div><div class="val num">{{ one(recall.dreams / recall.nights) }}</div><div class="sub">{{ plural(recall.dreams, "dream") }}, all time</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="calendar" :size="15" /></span>Nights logged</div><div class="val num">{{ recall.nights }}</div><div class="sub">{{ SINCE[period] }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>Dreams in naps</div><div class="val num">{{ recall.napDreams }}</div><div class="sub">counted as dreams, not nights</div></div>
         </div>
         <div class="grid g2 spt">
           <div class="card"><div class="lbl hgap">Dreams a night, by {{ bucket }}, {{ SINCE[period] }}</div><BarChart :bars="recallBars" :fmt="one" :height="150" /></div>
@@ -290,13 +292,13 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <!-- Checks -->
     <section>
       <div class="sh"><h2>Checks</h2></div>
-      <div v-if="!checks.total" class="card empty sm"><b>No reality checks in this period</b>Log a check from Home or Train · Today, or from a reminder, each time you do one, and whether it said you were awake or dreaming.</div>
+      <div v-if="!checks.total" class="card empty"><Icon name="check" :size="34" /><b>No reality checks in this period</b>Log each check you do, and whether it said you were awake or dreaming.<br /><button class="btn tonal" type="button" @click="router.push('/check')">Log a check</button></div>
       <template v-else>
         <div class="grid g4">
-          <div class="card stat"><div class="lbl">A day</div><div class="val num">{{ one(checks.perDayAvg) }}</div><div class="sub">on average</div></div>
-          <div class="card stat"><div class="lbl">Checks</div><div class="val num">{{ checks.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
-          <div class="card stat"><div class="lbl">Said "dreaming"</div><div class="val num">{{ checks.byOutcome.dreaming }}</div><div class="sub">{{ checks.byOutcome.dreaming ? "lucid moments" : "none yet" }}{{ checks.byOutcome.unsure ? ` · ${checks.byOutcome.unsure} unsure` : "" }}</div></div>
-          <div class="card stat"><div class="lbl">From a reminder</div><div class="val num">{{ pct(checks.prompted / checks.total) }}</div><div class="sub">{{ checks.own }} on your own</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="calendar" :size="15" /></span>A day</div><div class="val num">{{ one(checks.perDayAvg) }}</div><div class="sub">on average</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="check" :size="15" /></span>Checks</div><div class="val num">{{ checks.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="eye" :size="15" /></span>Said "dreaming"</div><div class="val num">{{ checks.byOutcome.dreaming }}</div><div class="sub">{{ checks.byOutcome.dreaming ? "lucid moments" : "none yet" }}{{ checks.byOutcome.unsure ? ` · ${checks.byOutcome.unsure} unsure` : "" }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="bell" :size="15" /></span>From a reminder</div><div class="val num">{{ pct(checks.prompted / checks.total) }}</div><div class="sub">{{ checks.own }} on your own</div></div>
         </div>
         <div class="grid g2 spt">
           <div class="card"><div class="lbl hgap">Checks a day{{ period === "4w" ? "" : ", weekly average" }}</div><BarChart :bars="checkBars" :fmt="one" :height="150" /></div>
@@ -315,18 +317,18 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <section v-if="pm.set">
       <div class="sh"><h2>Memory targets</h2><button class="ib sm plain" type="button" aria-label="About memory targets" @click="info = 'pm'"><Icon name="info" :size="17" /></button></div>
       <div class="grid g2 keep">
-        <div class="card stat"><div class="lbl">Hit rate</div><div class="val num">{{ pm.rate == null ? "-" : pct(pm.rate) }}</div><div class="sub">last 7 days</div></div>
-        <div class="card stat"><div class="lbl">Targets hit</div><div class="val num">{{ pm.hit }}<small>of {{ pm.hit + pm.miss }}</small></div><div class="sub">last 7 days</div></div>
+        <div class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>Hit rate</div><div class="val num">{{ pm.rate == null ? "-" : pct(pm.rate) }}</div><div class="sub">last 7 days</div></div>
+        <div class="card stat"><div class="lbl"><span class="bi"><Icon name="check" :size="15" /></span>Targets hit</div><div class="val num">{{ pm.hit }}<small>of {{ pm.hit + pm.miss }}</small></div><div class="sub">last 7 days</div></div>
       </div>
     </section>
 
     <!-- Night events -->
     <section>
       <div class="sh"><h2>Night events</h2><button v-if="events.total.nightmares || events.total.badDreams" class="ib sm plain" type="button" aria-label="About nightmares and bad dreams" @click="info = 'events'"><Icon name="info" :size="17" /></button></div>
-      <div v-if="!lucid.dreams" class="card empty sm"><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.</div>
+      <div v-if="!lucid.dreams" class="card empty"><Icon name="moon" :size="34" /><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
         <div class="grid g4">
-          <div v-for="e in eventSets" :key="e.title" class="card stat"><div class="lbl">{{ e.title }}</div><div class="val num" :style="{ color: e.color }">{{ e.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
+          <div v-for="e in eventSets" :key="e.title" class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>{{ e.title }}</div><div class="val num" :style="{ color: e.color }">{{ e.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
         </div>
         <div class="grid g2 spt">
           <template v-for="e in eventSets" :key="e.title">
@@ -349,7 +351,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <!-- Your answers -->
     <section>
       <div class="sh"><h2>Your answers</h2></div>
-      <div v-if="!answerSets.length" class="card empty sm"><b>No answers yet</b>Answer the two questions in <router-link to="/learn/where-am-i" class="lnk inl">Learn · Where am I</router-link> now and again to see how they change.</div>
+      <div v-if="!answerSets.length" class="card empty"><Icon name="map" :size="34" /><b>No answers yet</b>Answer the two questions in Learn · Where am I now and again to see how they change.<br /><button class="btn tonal" type="button" @click="router.push('/learn/where-am-i')">Answer them</button></div>
       <template v-else>
         <p class="tiny">All your answers, whatever the period.</p>
         <div class="grid g2">

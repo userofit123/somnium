@@ -171,7 +171,7 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
               <button class="btn o s" aria-label="Delete" @click="delLook(x)">×</button>
             </span>
           </div>
-          <div v-if="!looks.length" class="sm">Nothing saved yet.</div>
+          <div v-if="!looks.length" class="empty sm">Nothing saved yet.</div>
         </div>
       </div>
     </div>

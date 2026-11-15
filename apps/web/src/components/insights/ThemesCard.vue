@@ -38,13 +38,14 @@ const open = ref<string[] | null>(null);
 const about = ref(false);
 const pct = (share: number) => (share > 0 && share < 0.01 ? "under 1%" : `${Math.round(share * 100)}%`);
 const dreamsText = (n: number) => (n === 1 ? "1 dream" : `${n} dreams`);
+const reload = () => location.reload();
 </script>
 
 <template>
   <section data-testid="themescard">
     <div class="sh"><h2>Typical dream themes</h2><div class="row"><button v-if="result?.enough" type="button" class="lnk" :aria-pressed="all" @click="all = !all">{{ all ? "Only yours" : "All 55" }}</button><button v-if="result?.enough" class="ib sm plain" type="button" aria-label="About these shares" @click="about = true"><Icon name="info" :size="17" /></button></div></div>
     <div class="card">
-      <div v-if="!result && failed" class="empty sm"><b>Not available</b>The theme list could not be loaded on this device. Reload the app to try again.</div>
+      <div v-if="!result && failed" class="empty sm"><b>Not available</b>The theme list could not be loaded on this device.<br /><button class="btn tonal" type="button" @click="reload">Reload the app</button></div>
       <div v-else-if="!result" class="empty sm"><b>Working it out</b>Reading your journal on this device.</div>
       <div v-else-if="!result.enough" class="empty sm"><b>Not enough yet</b>{{ dreamsText(result.read) }} so far. The shares show from {{ THEMES_MIN_DREAMS }} dreams on.</div>
       <template v-else>

@@ -5,7 +5,7 @@
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { monthName, periodSummary, reportPeriods, yearSummary } from "@somnium/shared";
-import { useJournal, type NightRow } from "../api/journal";
+import { useJournal, uuidv7, type NightRow } from "../api/journal";
 import { loaded, useSettings } from "../api/queries";
 import { useToday } from "../core/today";
 import { useFmt } from "../core/format";
@@ -34,6 +34,8 @@ const s = computed(() => (mode.value === "month" ? periodSummary(month.value, in
 const ys = computed(() => (mode.value === "year" ? yearSummary(year.value, input.value) : null));
 const title = computed(() => (mode.value === "month" ? monthName(month.value) : `Your year ${year.value}`));
 const print = () => globalThis.print();
+// the picker lists only periods with nights, so an empty report is mostly an empty journal: offer the first dream
+const write = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
 // Print is rare, so it sits in the menu; the period picker is what the page is for
 const menu = [{ label: "Print", icon: "download", run: print }];
 const monthOpts = computed(() => (periods.value.months.length ? periods.value.months : [month.value]).map((m) => ({ value: m, label: monthName(m) })));
@@ -53,12 +55,12 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
 
     <article class="rep-sheet" data-testid="report">
       <h2 class="ttl">{{ title }}</h2>
-      <div v-if="!s.nightsLogged && !s.dreams" class="card empty sm">Nothing logged in this {{ mode }}.</div>
+      <div v-if="!s.nightsLogged && !s.dreams" class="card empty"><Icon name="stats" :size="34" /><b>Nothing logged in this {{ mode }}</b>Each night you log, with a dream or with No recall, is counted here.<br /><button class="btn tonal noprint" type="button" @click="write">Write a dream</button></div>
       <template v-else>
         <div class="grid g3 keep">
-          <div class="card stat"><div class="lbl">Dreams</div><div class="val num">{{ s.dreams }}</div></div>
-          <div class="card stat"><div class="lbl">Nights with a dream</div><div class="val num">{{ pct(s.recallRate) }}</div><div class="sub">{{ s.nightsWithRecall }} of {{ s.nightsLogged }}</div></div>
-          <div class="card stat"><div class="lbl">Lucid dreams</div><div class="val num">{{ s.lucid }}</div></div>
+          <div class="card hero stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Dreams</div><div class="val num">{{ s.dreams }}</div><div class="sub">{{ s.nightsLogged }} nights logged</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="calendar" :size="15" /></span>Nights with a dream</div><div class="val num">{{ pct(s.recallRate) }}</div><div class="sub">{{ s.nightsWithRecall }} of {{ s.nightsLogged }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="sparkle" :size="15" /></span>Lucid dreams</div><div class="val num">{{ s.lucid }}</div><div class="sub">{{ s.dreams ? pct(s.lucid / s.dreams) + " of dreams" : "none yet" }}</div></div>
         </div>
         <div v-if="ys" class="card">
           <div class="lbl">By month</div>
@@ -66,13 +68,13 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
           <div v-if="ys.bestMonth" class="tiny">Most dreams: {{ monthName(ys.bestMonth) }}.</div>
         </div>
         <div class="card"><div class="lbl">Top dream signs</div>
-          <div v-if="!s.topSigns.length" class="tiny">No marked dream signs turned up in this {{ mode }}.</div>
+          <div v-if="!s.topSigns.length" class="empty sm">No marked dream signs turned up in this {{ mode }}.</div>
           <div v-for="x in s.topSigns" :key="x.name" class="li"><div class="grow t">{{ x.name }}</div><div class="tiny num">{{ x.dreams }} {{ x.dreams === 1 ? "dream" : "dreams" }}</div></div></div>
         <div class="card"><div class="lbl">New elements</div>
-          <div v-if="!s.newElementCount" class="tiny">Nothing new appeared for the first time.</div>
+          <div v-if="!s.newElementCount" class="empty sm">Nothing new appeared for the first time.</div>
           <div v-else class="tiny">{{ s.newElementCount }} first seen: {{ s.newElements.map((e) => e.name).join(", ") }}<template v-if="s.newElementCount > s.newElements.length">, and more</template></div></div>
         <div class="card"><div class="lbl">Techniques tried</div>
-          <div v-if="!s.techniques.length" class="tiny">None marked on a night.</div>
+          <div v-if="!s.techniques.length" class="empty sm">None marked on a night.</div>
           <div v-for="x in s.techniques" :key="x.id" class="li"><div class="grow t">{{ x.label }}</div><div class="tiny num">{{ x.nights }} {{ x.nights === 1 ? "night" : "nights" }}</div></div></div>
         <div v-if="s.best" class="card"><div class="lbl">Best night</div>
           <div class="t">{{ s.best.title || "Untitled dream" }}</div>

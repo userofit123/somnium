@@ -9,6 +9,7 @@ import { useJournal } from "../../api/journal";
 import { useGoals, saveGoal, removeGoal } from "../../api/extras";
 import { toastError } from "../../core/toast";
 import { localYmd } from "../../core/format";
+import Icon from "../Icon.vue";
 import Sheet from "../Sheet.vue";
 import Menu from "../Menu.vue";
 import NumStep from "../NumStep.vue";
@@ -38,8 +39,9 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
 
 <template>
   <section class="hextra" data-testid="goals">
-    <div class="sh"><h2>Goals</h2><button class="lnk tiny" type="button" @click="open()">Add a goal</button></div>
-    <div v-if="!rows.length" class="card empty sm">No goals yet. A goal is one number you would like to reach, such as 5 nights with a dream a week.</div>
+    <!-- the header's link only once there is a goal: an empty list has its own button -->
+    <div class="sh"><h2>Goals</h2><button v-if="rows.length" class="lnk tiny" type="button" @click="open()">Add a goal</button></div>
+    <div v-if="!rows.length" class="card empty"><Icon name="trophy" :size="34" /><b>No goals yet</b>A goal is one number you would like to reach, such as 5 nights with a dream a week.<br /><button class="btn tonal" type="button" @click="open()">Add a goal</button></div>
     <div v-for="r in rows" :key="r.g.id" class="card goalc">
       <div class="goalh"><div class="grow"><div class="t">{{ GOAL_KIND_INFO[r.g.kind].label }}</div><div class="tiny num">{{ r.p.line }}<template v-if="r.left != null && !r.p.done"> · {{ r.left }} {{ r.left === 1 ? "day" : "days" }} left</template><template v-if="r.p.done"> · reached</template></div></div>
         <Menu :items="[{ label: 'Change goal', icon: 'edit', run: () => open(r.g) }, { label: 'Remove goal', icon: 'trash', danger: true, run: () => del(r.g) }]" /></div>

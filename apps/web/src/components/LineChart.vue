@@ -39,7 +39,7 @@ const xf = (t: number) => (props.xfmt ? props.xfmt(t) : new Date(t).toLocaleDate
 
 <template>
   <div ref="box" style="position:relative">
-    <div v-if="!points.length" class="empty" style="padding:calc(var(--cpy) * 2) 0">No data yet</div>
+    <div v-if="!points.length" class="empty sm">No data yet</div>
     <svg v-else class="chart" :viewBox="`0 0 ${W} ${H}`" :style="{ height: H + 'px' }" @mousemove="move" @mouseleave="hover = null"
       @click="hover != null && sorted[hover]?.id && emit('pick', sorted[hover]!.id!)">
       <defs><linearGradient :id="'cg' + uid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" :stop-color="color ?? 'var(--acc)'" stop-opacity=".35" /><stop offset="1" :stop-color="color ?? 'var(--acc)'" stop-opacity="0" /></linearGradient></defs>

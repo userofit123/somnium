@@ -5,6 +5,7 @@
 import { computed } from "vue";
 import type { MoveOn } from "@somnium/shared";
 import { lessons, type Lesson } from "@somnium/knowledge/course";
+import Icon from "../Icon.vue";
 import ProgressBar from "../ProgressBar.vue";
 
 const props = defineProps<{ lesson: Lesson | null; rule: MoveOn | null; moving: boolean }>();
@@ -15,7 +16,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
 <template>
   <section class="tcourse">
     <div class="sh"><h2>Your course</h2><span v-if="lesson" class="tiny">Lesson {{ lesson.number }} of {{ lessons.length }}</span></div>
-    <div v-if="!lesson" class="card empty"><b>Course finished</b>All eight lessons are done. The techniques below are yours to use whenever you like.</div>
+    <div v-if="!lesson" class="card empty"><Icon name="graduation" :size="34" /><b>Course finished</b>All eight lessons are done. The techniques are yours to use whenever you like.<br /><router-link to="/train/techniques" class="btn tonal">See the techniques</router-link></div>
     <div v-else class="card">
       <div class="tlh">
         <div class="t">{{ lesson.title }}</div>

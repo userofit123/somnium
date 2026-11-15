@@ -90,7 +90,7 @@ await loaded(me);
       <!-- phone: the groups as short lists, each row saying what's inside -->
       <div v-if="isPhone && !sec">
         <input v-model="q" type="search" class="sq sqp" placeholder="Search settings" aria-label="Search settings" />
-      <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
+        <div v-if="!GROUPS.length" class="card empty"><Icon name="search" :size="34" /><b>Nothing matches "{{ q }}"</b>Try another word, such as sleep, lock or reminders.<br /><button class="btn tonal" type="button" @click="q = ''">Clear search</button></div>
         <template v-for="([g, xs], gi) in GROUPS" :key="g">
           <div class="sh" :class="{ first: gi === 0 }"><h2>{{ g }}</h2></div>
           <div class="card flush">
@@ -103,7 +103,8 @@ await loaded(me);
       <!-- a div, not <nav>: the app's <nav> styles are the side rail's -->
       <div v-else-if="!isPhone" class="card snav" role="navigation" aria-label="Settings sections">
         <input v-model="q" type="search" class="sq" placeholder="Search settings" aria-label="Search settings" />
-      <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
+        <!-- inside the side card: the short form, with the one way back -->
+        <div v-if="!GROUPS.length" class="empty sm"><b>Nothing matches</b><button class="btn tonal" type="button" @click="q = ''">Clear search</button></div>
         <template v-for="[g, xs] in GROUPS" :key="g">
           <div class="sng">{{ g }}</div>
           <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k || SUB[sec]?.[0] === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span class="grow">{{ l }}</span><i v-if="k === 'security' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></button>

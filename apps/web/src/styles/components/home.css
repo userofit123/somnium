@@ -21,10 +21,6 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .home .lnk.inl.tiny { font-size: var(--fs-xs); }
 .hli { text-decoration: none; color: inherit; padding-inline: 0; }
 
-/* streaks and rates: three small numbers */
-.hnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lpy); }
-.hnums .hv { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); margin: calc(var(--tdy) / 3) 0; }
-
 /* optional cards */
 .hcard { display: block; text-decoration: none; color: inherit; }
 .hcard .tiny { margin-top: calc(var(--tdy) / 3); }

@@ -78,7 +78,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
     </div>
 
     <template v-if="q.trim()">
-      <p v-if="!hits.length" class="empty sm">Nothing matches "{{ q }}".</p>
+      <div v-if="!hits.length" class="card empty"><Icon name="search" :size="34" /><b>Nothing matches "{{ q }}"</b>Try another word, or clear the search to browse every section.<br /><button class="btn tonal" type="button" @click="q = ''">Clear search</button></div>
       <div v-else class="card flush">
         <div v-for="h in hits" :key="h.id" class="li lrow">
           <router-link :to="'/learn/' + h.id" class="grow rlink hit">
