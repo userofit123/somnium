@@ -499,3 +499,7 @@ html.phone[data-den="compact"] { --lmh: 44px; }
 .ndot { width: 8px; height: 8px; border-radius: 50%; background: var(--neg); flex: none; display: inline-block; }
 .nb .ic, .tabbar button .ic { position: relative; }
 .ic > .ndot { position: absolute; top: 2px; right: 8px; }
+/* a count of things waiting (Dream signs' To confirm, LDJ-125): on a menu icon where the dot would be, beside a section
+   head, or at the end of a list row */
+.ncnt { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px; background: var(--acc); color: var(--on); font-size: 10.5px; font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
+.ic > .ncnt { position: absolute; top: -3px; right: 2px; }

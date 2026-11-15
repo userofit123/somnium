@@ -9,6 +9,7 @@ import { sheetIsOpen } from "../core/sheets";
 import { startOpen } from "../core/ui";
 import { useAutoUpdate } from "../core/updater";
 import { useNeedsRecoveryKey } from "../core/recoveryNudge";
+import { useToConfirmCount } from "../components/signs/useSigns";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
 useAutoUpdate();
 
@@ -28,6 +29,8 @@ const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
 const IN_MORE = ["more", "signs", "learn", "settings"];
 // Settings is under More here: the dot for a missing recovery key goes on More (LDJ-151)
 const needsKey = useNeedsRecoveryKey();
+// how many elements wait in Dream signs' To confirm (LDJ-125): on More while the recovery key dot isn't there
+const toConfirm = useToConfirmCount();
 const moreOn = computed(() => IN_MORE.includes(cur.value));
 // one key per page (Train's three tabs share one, which switches them itself), so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
 const pageKey = (r: any) => (TRAIN_TABS.includes(r.name) ? "train" : r.path);
@@ -71,7 +74,7 @@ function te(e: TouchEvent) {
       <div class="tabbar">
         <template v-for="t in TABS" :key="t.name">
           <button v-if="t.name === 'add'" type="button" aria-label="Add" @click="startOpen = true"><span class="start"><Icon name="plus" /></span></button>
-          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></span>{{ t.label }}</button>
+          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /><i v-else-if="t.name === 'more' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm in Dream signs`">{{ toConfirm }}</i></span>{{ t.label }}</button>
         </template>
       </div>
     </div>

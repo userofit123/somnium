@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Signs (PLAN.md §6.3, LDJ-19): the dream sign shortlist, elements by kind, suggestions and typical themes, worked
+// Signs (PLAN.md §6.4, LDJ-19, LDJ-125): the dream sign shortlist, suggestions, typical themes and elements by kind, worked
 // out on this device from the journal as opened here. On a computer an element opens in a panel beside the list; on
 // the phone it is a step of its own.
 import { computed, onMounted } from "vue";
@@ -27,7 +27,7 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
     <div v-if="isPhone && id" class="card"><ElementPanel :id="id" :key="id" back @close="close" @open="open" /></div>
     <div v-else class="sgcols" :class="{ split: !isPhone }">
       <div class="sglist">
-        <div class="ph"><div><h1>Dream signs</h1><div class="sub">What keeps showing up in your dreams</div></div></div>
+        <div class="ph"><div><h1>Dream signs</h1><div class="sub">Elements are the people, places, things and feelings in your dreams. Dream signs are the ones that keep coming back, your cue to check whether you are dreaming.</div></div></div>
         <SignsOverview :selected="id || undefined" @open="open" />
       </div>
       <aside v-if="!isPhone" class="sgside">

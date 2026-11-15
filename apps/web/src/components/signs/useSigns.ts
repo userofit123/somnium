@@ -2,7 +2,7 @@
 // (packages/shared/src/signs.ts does the maths). Nothing here goes to the server. The sums run over every dream's plain
 // facts (GET /dream-facts, no limit), never the Journal's capped list, which only lends titles.
 import { computed } from "vue";
-import { elementStats, type ElementKind, type SignCategory } from "@somnium/shared";
+import { elementStats, elementSuggestions, type ElementKind, type SignCategory } from "@somnium/shared";
 import { useJournal } from "../../api/journal";
 import { useToday } from "../../core/today";
 
@@ -25,4 +25,12 @@ export function useSigns() {
   const byId = computed(() => new Map(elements.value.map((e) => [e.id, e])));
   const stats = computed(() => elementStats(elements.value, links.value, dreams.value, today.value));
   return { j, today, elements, links, dreams, byId, stats };
+}
+
+/** How many elements wait in Dream signs' To confirm (PLAN.md §6.4): the count on the menu entry and the page's head.
+ *  The same lists as the page (one fetch serves both); the shells are not mounted behind the lock, and a number says
+ *  nothing about the journal. */
+export function useToConfirmCount() {
+  const { elements, links, stats } = useSigns();
+  return computed(() => elementSuggestions(elements.value, links.value, stats.value).length);
 }

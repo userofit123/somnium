@@ -11,6 +11,7 @@ import UpdateButton from "./UpdateButton.vue";
 import AccountSwitcher from "./AccountSwitcher.vue";
 import { useAutoUpdate } from "../core/updater";
 import { useNeedsRecoveryKey } from "../core/recoveryNudge";
+import { useToConfirmCount } from "../components/signs/useSigns";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
 useAutoUpdate();
 
@@ -19,6 +20,8 @@ const cur = computed(() => section(route.name as string));
 // Settings sits at the bottom of the rail, under the account (Motus's rail)
 // a dot on Settings while there is no recovery key (LDJ-151)
 const needsKey = useNeedsRecoveryKey();
+// how many elements wait in Dream signs' To confirm, on its entry (LDJ-125)
+const toConfirm = useToConfirmCount();
 const top = NAV.filter((p) => p.name !== "settings"), settings = NAV.find((p) => p.name === "settings")!;
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
@@ -60,7 +63,7 @@ const arrived = (el: Element) => el.classList?.add("in");
       <i ref="pill" class="nbi" style="transform-origin:0 0" />
       <Logo shuffle />
       <button v-for="p in top" :key="p.name" type="button" class="nb" :class="{ on: cur === p.name }" :aria-current="cur === p.name ? 'page' : undefined" @click="router.push(p.to)">
-        <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ p.label }}
+        <span class="ic"><Icon :name="p.icon" :size="22" /><i v-if="p.name === 'signs' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm`">{{ toConfirm }}</i></span>{{ p.label }}
       </button>
       <div class="navb">
         <UpdateButton />

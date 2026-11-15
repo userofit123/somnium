@@ -1,9 +1,11 @@
 <script setup lang="ts">
-// The Signs list (PLAN.md §6.3): the dream sign shortlist, every element by kind with its trend, suggestions to
-// confirm, merge or dismiss, which signs turned up in lucid dreams, and the typical themes beside Nielsen's figures.
+// The Signs list (PLAN.md §6.4), in the order to act on: the dream sign shortlist with the check to pair with each,
+// suggestions to confirm, merge or dismiss, which signs turned up in lucid dreams, the typical themes beside Nielsen's
+// figures, and last every element by kind with its trend, folded by kind.
 import { computed, ref } from "vue";
-import { elementsByKind, elementSuggestions, frequencyText, signsBeforeLucidity, signShortlist, themeComparison, type Element } from "@somnium/shared";
-import { confirmElement, dismissElement, mergeElements, signLexicons } from "../../api/signs";
+import { useRouter } from "vue-router";
+import { elementsByKind, elementSuggestions, frequencyText, signsBeforeLucidity, signShortlist, themeComparison, type Element, type ElementKind } from "@somnium/shared";
+import { confirmElement, dismissElement, mergeElements, setElementFlags, signLexicons } from "../../api/signs";
 import { choose, confirm } from "../../core/ask";
 import { useFmt } from "../../core/format";
 import { toast, toastError } from "../../core/toast";
@@ -12,7 +14,7 @@ import Menu from "../Menu.vue";
 import Sparkline from "../Sparkline.vue";
 import { CATEGORY_LABEL, KIND_LABEL, KIND_ONE, dreamsText, useSigns } from "./useSigns";
 
-defineProps<{ selected?: string }>();
+const props = defineProps<{ selected?: string }>();
 const emit = defineEmits<{ open: [id: string] }>();
 const fmt = useFmt();
 const { today, elements, links, dreams, byId, stats } = useSigns();
@@ -23,6 +25,18 @@ const groups = computed(() => elementsByKind(elements.value, stats.value, search
 const suggestions = computed(() => elementSuggestions(elements.value, links.value, stats.value));
 const lucid = computed(() => signsBeforeLucidity(elements.value, links.value, dreams.value));
 const themes = computed(() => themeComparison(elements.value, stats.value, signLexicons.value?.themes ?? []));
+// folded by kind; the kind of the element open beside the list stays open, and a search opens every kind it matches
+const opened = ref(new Set<ElementKind>());
+const selectedKind = computed(() => (props.selected ? byId.value.get(props.selected)?.kind : undefined));
+const isOpen = (k: ElementKind) => !!search.value.trim() || opened.value.has(k) || selectedKind.value === k;
+function toggle(k: ElementKind) {
+  const next = new Set(opened.value);
+  if (isOpen(k)) next.delete(k); else next.add(k);
+  opened.value = next;
+}
+const router = useRouter();
+// the reality check paired with a sign, logged against that sign (CheckScreen reads kind and sign)
+const doCheck = (kind: string, sign: string) => router.push({ name: "check", query: { kind, sign } });
 const seen = (d: string | null) => (d ? `last ${fmt.value.date(d, { day: "numeric", month: "short" })}` : "");
 
 const busy = ref("");
@@ -31,6 +45,8 @@ async function run(id: string, f: () => Promise<void>, done: string) {
   try { await f(); toast(done); } catch (e) { toastError(e); } finally { busy.value = ""; }
 }
 const confirmOne = (e: Element) => run(e.id, () => confirmElement(e.id), "Confirmed");
+// confirmed and marked in one step; both are plain flags, so this saves offline too (api/signs.ts setElementFlags)
+const confirmSign = (e: Element) => run(e.id, () => setElementFlags(e.id, { confirmed: true, isDreamSign: true }), "Marked as a dream sign");
 async function mergeOne(e: Element) {
   // the same kind first, most dreams first: what it is most likely a second name for
   const others = elements.value.filter((x) => x.id !== e.id && x.name)
@@ -48,6 +64,7 @@ async function dismissOne(e: Element) {
 
 <template>
   <div>
+    <!-- in the order to act on (PLAN.md §6.4, LDJ-125): your signs and their check, what to confirm, then the reference lists -->
     <div class="sh first"><h2>Your dream signs</h2><span class="tiny">{{ shortlist.length ? "Ranked by how often, how lately and the kind of sign" : "" }}</span></div>
     <div class="card sgshort">
       <div v-if="!shortlist.length" class="empty sm">
@@ -55,38 +72,26 @@ async function dismissOne(e: Element) {
         A sign shows here once it turns up in 3 dreams, or in 2 within a month, and is an odd kind of thing (LaBerge's inner awareness, action, form or context) or one you marked as a dream sign.
       </div>
       <div v-else class="list">
-        <button v-for="(s, i) in shortlist" :key="s.element.id" class="li click sgrow" :class="{ on: selected === s.element.id }" :aria-current="(selected === s.element.id) || undefined" @click="emit('open', s.element.id)">
+        <div v-for="(s, i) in shortlist" :key="s.element.id" class="li sgrow" :class="{ on: selected === s.element.id }">
           <span class="sgrank num">{{ i + 1 }}</span>
           <span class="grow sgmin sgcol">
-            <span class="t">{{ s.element.name }}</span>
-            <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : "Marked by you", frequencyText(s.frequency)].join(" · ") }}</span>
-            <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }}</span></span>
+            <button type="button" class="sgopen sgcol" :aria-current="(selected === s.element.id) || undefined" @click="emit('open', s.element.id)">
+              <span class="t">{{ s.element.name }}</span>
+              <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : "Marked by you", frequencyText(s.frequency)].join(" · ") }}</span>
+            </button>
+            <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }} <button type="button" class="lnk inl" @click="doCheck(s.check.id, s.element.id)">Do this check</button></span></span>
           </span>
-        </button>
+        </div>
       </div>
     </div>
 
-    <div class="sh"><h2>Elements</h2><span class="tiny">{{ elements.length ? `${elements.length} in all` : "" }}</span></div>
-    <div v-if="elements.length" class="search sgsearch"><Icon name="search" :size="18" /><input v-model="search" type="search" placeholder="Search elements" aria-label="Search elements" /></div>
-    <div v-if="!elements.length" class="card empty sm">The people, places, things and feelings in your dreams show here once you add them to a dream.</div>
-    <div v-else-if="!groups.length" class="card empty sm">Nothing matches.</div>
-    <section v-for="g in groups" :key="g.kind">
-      <div class="card"><div class="lbl sgk">{{ KIND_LABEL[g.kind] }}<span class="tiny sgn">{{ g.rows.length }}</span></div><div class="list">
-        <button v-for="r in g.rows" :key="r.element.id" class="li click sgrow" :class="{ on: selected === r.element.id }" :aria-current="(selected === r.element.id) || undefined" @click="emit('open', r.element.id)">
-          <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
-            <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
-          <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span>
-        </button>
-      </div></div>
-    </section>
-
     <template v-if="suggestions.length">
-      <div class="sh"><h2>To confirm</h2><span class="tiny">Found by the app in more than one dream</span></div>
+      <div class="sh"><h2>To confirm<span class="ncnt sgcnt" :aria-label="`${suggestions.length} to confirm`">{{ suggestions.length }}</span></h2><span class="tiny">Found by the app in more than one dream</span></div>
       <div class="card"><div class="list">
-        <div v-for="s in suggestions" :key="s.element.id" class="li sgrow">
-          <button class="grow sgmin sgopen sgcol" @click="emit('open', s.element.id)"><span class="t ellipsis">{{ s.element.name }}</span><span class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</span></button>
-          <button class="qb" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
-          <Menu :items="[{ label: 'Merge into another', icon: 'layers', run: () => mergeOne(s.element) }, { label: 'Dismiss', icon: 'close', danger: true, run: () => dismissOne(s.element) }]" />
+        <div v-for="s in suggestions" :key="s.element.id" class="li sgrow" :class="{ on: selected === s.element.id }">
+          <button type="button" class="grow sgmin sgopen sgcol" @click="emit('open', s.element.id)"><span class="t ellipsis">{{ s.element.name }}</span><span class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</span></button>
+          <button type="button" class="qb" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
+          <Menu :items="[{ label: 'Confirm as a dream sign', icon: 'sparkle', run: () => confirmSign(s.element) }, { label: 'Merge into another', icon: 'layers', run: () => mergeOne(s.element) }, { label: 'Dismiss', icon: 'close', danger: true, run: () => dismissOne(s.element) }]" />
         </div>
       </div></div>
     </template>
@@ -98,7 +103,7 @@ async function dismissOne(e: Element) {
         <p class="tiny sgmut">Each sign's count in your {{ dreamsText(lucid.lucidDreams).replace("dream", "lucid dream") }} and in your {{ lucid.otherDreams }} other {{ lucid.otherDreams === 1 ? "dream" : "dreams" }}. Plain counts: with this few dreams a difference can easily be chance.</p>
         <div v-if="!lucid.rows.length" class="empty sm">No dream signs in your dreams yet.</div>
         <div v-else class="list">
-          <button v-for="r in lucid.rows.slice(0, 8)" :key="r.element.id" class="li click sgrow" @click="emit('open', r.element.id)">
+          <button v-for="r in lucid.rows.slice(0, 8)" :key="r.element.id" type="button" class="li click sgrow" @click="emit('open', r.element.id)">
             <span class="grow sgmin t ellipsis">{{ r.element.name }}</span>
             <span class="tiny num">{{ r.inLucid }} lucid · {{ r.inOther }} other</span>
           </button>
@@ -111,13 +116,33 @@ async function dismissOne(e: Element) {
       <div class="card">
         <p class="tiny sgmut">Yours is how many of your written dreams had the theme. Beside it, the share of 1,181 Canadian students who said they had ever had it (Nielsen and others, 2003). They measure different things (a count against a lifetime share), so they can't be compared directly.</p>
         <div class="list">
-          <button v-for="t in themes" :key="t.theme.id" class="li click sgrow" @click="emit('open', t.element.id)">
+          <button v-for="t in themes" :key="t.theme.id" type="button" class="li click sgrow" @click="emit('open', t.element.id)">
             <span class="grow sgmin sgcol"><span class="t">{{ t.theme.displayName ?? t.theme.name }}</span><span class="s">{{ t.theme.prevalenceTotal }}% have ever had it</span></span>
             <span class="num sgcount">{{ t.yourDreams }}</span>
           </button>
         </div>
       </div>
     </template>
+
+    <!-- the reference list last, each kind folded until opened (a search opens every kind it matches) -->
+    <div class="sh"><h2>Everything in your dreams</h2><span class="tiny">{{ elements.length ? `${elements.length} in all` : "" }}</span></div>
+    <div v-if="elements.length" class="search sgsearch"><Icon name="search" :size="18" /><input v-model="search" type="search" placeholder="Search elements" aria-label="Search elements" /></div>
+    <div v-if="!elements.length" class="card empty sm">The people, places, things and feelings in your dreams show here once you add them to a dream.</div>
+    <div v-else-if="!groups.length" class="card empty sm">Nothing matches.</div>
+    <section v-for="g in groups" :key="g.kind">
+      <div class="card">
+        <button type="button" class="lbl sgk" :aria-expanded="isOpen(g.kind)" @click="toggle(g.kind)">
+          <span class="grow">{{ KIND_LABEL[g.kind] }}</span><span class="tiny sgn num">{{ g.rows.length }}</span><Icon :name="isOpen(g.kind) ? 'up' : 'down'" :size="16" class="muted" />
+        </button>
+        <div v-if="isOpen(g.kind)" class="list">
+          <button v-for="r in g.rows" :key="r.element.id" type="button" class="li click sgrow" :class="{ on: selected === r.element.id }" :aria-current="(selected === r.element.id) || undefined" @click="emit('open', r.element.id)">
+            <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
+              <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
+            <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span>
+          </button>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -140,7 +165,9 @@ button.sgrow { cursor: pointer; }
 .sgsearch { margin-bottom: var(--hg); }
 /* the icon's room comes from the shared .search rule */
 section + section > .card { margin-top: var(--hg); }
-.sgk { padding: var(--cpy) var(--cpx) 0; }
-.sgn { margin-inline-start: auto; }
+/* the kind's head is the button that folds it: a full-width .lbl row, like Motus's in-card titles */
+.sgk { display: flex; align-items: center; gap: calc(var(--hg) / 2); width: 100%; background: none; border: 0; padding: var(--cpy) var(--cpx); color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.sgk[aria-expanded="true"] { padding-bottom: 0; }
+.sgcnt { margin-inline-start: calc(var(--hg) / 2); vertical-align: 0.15em; }
 .sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--hg)); text-align: end; }
 </style>
