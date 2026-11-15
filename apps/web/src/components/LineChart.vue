@@ -1,16 +1,17 @@
 <script setup lang="ts">
 // A line chart over time with a soft area, gridlines and a tooltip; points can be clicked (e.g. to open that night).
+// `marks` are quiet dashed lines at fixed values (a target), kept inside the scale so the gap to them shows.
 import { computed, ref } from "vue";
 import { useWidth } from "./useWidth";
 
-const props = defineProps<{ points: { x: number; y: number; label?: string; id?: string }[]; height?: number; fmt?: (v: number) => string; xfmt?: (t: number) => string; color?: string; zero?: boolean }>();
+const props = defineProps<{ points: { x: number; y: number; label?: string; id?: string }[]; height?: number; fmt?: (v: number) => string; xfmt?: (t: number) => string; color?: string; zero?: boolean; marks?: { y: number; label: string }[] }>();
 const emit = defineEmits<{ pick: [id: string] }>();
 const box = ref<HTMLElement | null>(null);
 const W = useWidth(box), H = computed(() => props.height ?? 200), P = { l: 44, r: 12, t: 10, b: 22 };
 const uid = Math.random().toString(36).slice(2);
 const sorted = computed(() => [...props.points].sort((a, b) => a.x - b.x));
 const dom = computed(() => {
-  const ys = sorted.value.map((p) => p.y), xs = sorted.value.map((p) => p.x);
+  const ys = [...sorted.value.map((p) => p.y), ...(props.marks ?? []).map((m) => m.y)], xs = sorted.value.map((p) => p.x);
   let lo = props.zero ? 0 : Math.min(...ys), hi = Math.max(...ys);
   const flat = lo === hi;
   if (flat) { const m = Math.abs(hi) * 0.1 || 1; lo -= m; hi += m; }
@@ -44,6 +45,7 @@ const xf = (t: number) => (props.xfmt ? props.xfmt(t) : new Date(t).toLocaleDate
       <defs><linearGradient :id="'cg' + uid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" :stop-color="color ?? 'var(--acc)'" stop-opacity=".35" /><stop offset="1" :stop-color="color ?? 'var(--acc)'" stop-opacity="0" /></linearGradient></defs>
       <g v-for="t in ticks" :key="t"><line class="gl" :x1="P.l" :x2="W - P.r" :y1="sy(t)" :y2="sy(t)" /><text class="ax" :x="P.l - 6" :y="sy(t) + 3" text-anchor="end">{{ f(t) }}</text></g>
       <text v-for="(t, i) in xticks" :key="'x' + i" class="ax" :x="sx(t)" :y="H - 4" :text-anchor="i === 0 ? 'start' : i === xticks.length - 1 ? 'end' : 'middle'">{{ xf(t) }}</text>
+      <g v-for="m in marks ?? []" :key="'m' + m.y"><line class="gl" :x1="P.l" :x2="W - P.r" :y1="sy(m.y)" :y2="sy(m.y)" stroke-dasharray="4 4" /><text class="ax" :x="W - P.r" :y="sy(m.y) - 4" text-anchor="end">{{ m.label }}</text></g>
       <path :d="area" :fill="`url(#cg${uid})`" />
       <path class="ln" :d="path" :style="color ? { stroke: color } : undefined" />
       <circle v-for="(p, i) in sorted" :key="i" class="pt" :cx="sx(p.x)" :cy="sy(p.y)" :r="hover === i ? 5 : sorted.length > 40 ? 0 : 3" :style="color ? { stroke: color } : undefined" />
