@@ -2,7 +2,8 @@
 // Settings → Reality checks (PLAN.md §9, LDJ-28): the reality check reminder's switch and every option it has, in one
 // place (LDJ-102). The waking window follows the usual sleep times, which are edited only in Settings → Sleep schedule
 // (LDJ-103); here they are shown, with a way there. Nothing here is personal: habit labels come from a fixed list, and
-// the dream sign's name stays out of reminders unless switched on.
+// the dream signs' names stay out of reminders unless switched on. Guided checks (LDJ-112, on by default): a tap opens
+// the 15-second check; off, the reminder logs with one tap as before.
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { HABIT_LABELS, PER_DAY_MAX, PER_DAY_MIN, planDay, wakingWindow } from "@somnium/shared";
@@ -50,7 +51,7 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
 
 <template>
   <div class="card">
-    <label class="tgl"><div class="grow"><div class="t">Reality check reminders</div><div class="s">A few times a day: "Are you dreaming? Really check." and how to do the check</div></div><span class="tg"><input type="checkbox" :checked="on" @change="save({}, ($event.target as HTMLInputElement).checked)" /></span></label>
+    <label class="tgl"><div class="grow"><div class="t">Reality check reminders</div><div class="s">A few times a day: are you dreaming right now? Each one is paired with one of your top 3 dream signs in turn.</div></div><span class="tg"><input type="checkbox" :checked="on" @change="save({}, ($event.target as HTMLInputElement).checked)" /></span></label>
     <div v-if="on" class="li"><div class="grow"><div class="t">{{ paused ? "Paused for today" : nextAt ? `Next at ${fmt.time(new Date(nextAt).toISOString())}${localDate(new Date(nextAt)) !== today() ? " tomorrow" : ""}` : "None planned" }}</div><div class="s">{{ todayCount }} today · {{ win.from }} to {{ win.to }}</div></div>
       <button class="btn o s" @click="save({ pausedOn: paused ? null : today() })">{{ paused ? "Resume" : "Pause today" }}</button></div>
   </div>
@@ -91,7 +92,8 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
       <p class="tiny" style="margin:0">The reminders take these in turn.</p>
       <div class="chips"><button v-for="c in catalog" :key="c.id" type="button" class="fchip" :class="{ on: s.checks.includes(c.id) }" :aria-pressed="s.checks.includes(c.id)" @click="toggleCheck(c.id)">{{ c.name }}</button></div>
       <label class="tgl"><div class="grow"><div class="t">{{ androidApp ? "Vibrate only" : "No sound" }}</div><div class="s">{{ androidApp ? "Reality checks buzz with no sound, for places where sound is not wanted (RESEARCH.md Part C, 7, [39o] [39p])." : desktop ? "Reality checks come with no sound. This computer can't vibrate." : "Reality checks come with no sound. Browsers can't buzz on their own, so vibrating is only in the Android app." }}</div></div><span class="tg"><input type="checkbox" :checked="s.silent" @change="save({ silent: ($event.target as HTMLInputElement).checked })" /></span></label>
-      <label class="tgl"><div class="grow"><div class="t">Show my dream sign in reminders</div><div class="s">Adds your top dream sign's name. Off by default: it can be read on a locked screen.</div></div><span class="tg"><input type="checkbox" :checked="s.showSign" @change="save({ showSign: ($event.target as HTMLInputElement).checked })" /></span></label>
+      <label class="tgl"><div class="grow"><div class="t">Guided checks</div><div class="s">A tap opens a 15-second check: the test, what just happened, and "if this were a dream?" Off: log it with one tap.</div></div><span class="tg"><input type="checkbox" :checked="s.guided" @change="save({ guided: ($event.target as HTMLInputElement).checked })" /></span></label>
+      <label class="tgl"><div class="grow"><div class="t">Show my dream signs in reminders</div><div class="s">Names the dream sign each reminder is paired with, and its triggers. Off by default: they can be read on a locked screen.</div></div><span class="tg"><input type="checkbox" :checked="s.showSign" @change="save({ showSign: ($event.target as HTMLInputElement).checked })" /></span></label>
     </div>
   </template>
 </template>

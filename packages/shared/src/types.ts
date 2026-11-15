@@ -117,6 +117,8 @@ export interface Element extends Owned {
   aliases: string | null; // sealed
   colour: string | null;
   note: string | null; // sealed
+  /** a dream sign's waking triggers, one per line ("when I see a teacher"), checked at in the day (LDJ-111) */
+  triggers?: string | null; // sealed
   isDreamSign: boolean;
   signCategory: SignCategory | null;
   confirmed: boolean;
@@ -146,6 +148,7 @@ export interface RealityCheck extends Owned {
   outcome: CheckOutcome;
   prompted: boolean;
   note: string | null; // sealed
+  signId?: string | null; // the dream sign (element id) the reminder paired it with (LDJ-111)
 }
 
 export interface PracticeLog extends Owned {

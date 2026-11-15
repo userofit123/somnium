@@ -164,6 +164,11 @@ describe("journal", () => {
   it("logs reality checks, practice, the course, goals and reminders", async () => {
     const c = await call<RealityCheck>(A, "POST", "/reality-checks", { kind: "hands", outcome: "awake", prompted: true });
     expect((await call<RealityCheck[]>(A, "GET", "/reality-checks"))[0]!.id).toBe(c.id);
+    // paired with a dream sign by its reminder (LDJ-111); a sign's triggers are sealed like its name
+    const sc = await call<RealityCheck>(A, "POST", "/reality-checks", { kind: "text", outcome: "awake", prompted: true, signId: element.id });
+    expect(sc.signId).toBe(element.id);
+    await expect(call(A, "POST", "/reality-checks", { kind: "text", outcome: "awake", signId: "not-an-id" })).rejects.toThrow();
+    expect((await call<Element>(A, "PUT", `/elements/${element.id}`, { triggers: "env:t" })).triggers).toBe("env:t");
     await call(A, "POST", "/practice", { date: "2026-11-05", item: "mild", minutes: 10 });
     expect(await call<unknown[]>(A, "GET", "/practice", undefined, { from: "2026-11-01", to: "2026-11-30" })).toHaveLength(1);
     const l = await call<CourseProgress>(A, "PUT", "/course/lesson-1", { state: "done", doneAt: "2026-11-05T07:00:00Z" });

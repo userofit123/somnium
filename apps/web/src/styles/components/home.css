@@ -17,21 +17,11 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--hg); padding-inline-start: calc(var(--cpx) + var(--hg) + var(--hg) / 2); }
 .hfoot .lnk { padding: 0; }
 
-/* today and tonight */
-.hrow { display: flex; align-items: center; gap: var(--hg); }
-.hbar { margin-top: var(--hg); }
-.hsub { display: flex; align-items: baseline; justify-content: space-between; gap: var(--hg); margin: var(--hg) 0 calc(var(--hg) / 2); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+/* today */
 .home .lnk.inl.tiny { font-size: var(--fs-xs); }
-.hmore { display: inline-block; margin-top: calc(var(--hg) / 2); }
-.hnote { margin-bottom: var(--hg); }
-.hplan { display: flex; flex-direction: column; }
 .hli { text-decoration: none; color: inherit; padding-inline: 0; }
 .hli > svg:first-child { color: var(--acc); flex: none; }
 .hli > svg:last-child { color: var(--tx2); flex: none; }
-.hint { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
-.hintx { overflow-wrap: anywhere; }
-.hedit { display: flex; flex-direction: column; gap: var(--hg); }
-.hedit input { width: 100%; }
 
 /* streaks and rates: three small numbers */
 .hnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); }

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 // An element's page (PLAN.md §6.3): every dream it is in, what turns up with it, how often dreams with it were lucid
-// against dreams without it, and its name, kind, other names and dream sign mark to change.
+// against dreams without it, and its name, kind, other names and dream sign mark to change. A dream sign also has its
+// waking triggers (LDJ-111): moments in the day that resemble it, to check at (LaBerge's "circumstances that are similar
+// in some ways to your dreams", RESEARCH.md C1, D1). Sealed like the name; reminders name them only with showSign on.
 import { computed, reactive, ref } from "vue";
-import { addDays, coOccurrence, ELEMENT_KINDS, frequencyText, lucidSplit, mergingInto, pairedCheck, SIGN_ADVICE, SIGN_CATEGORIES, signFrequency, type SignCategory } from "@somnium/shared";
+import { addDays, parseTriggers, coOccurrence, ELEMENT_KINDS, frequencyText, lucidSplit, mergingInto, pairedCheck, SIGN_ADVICE, SIGN_CATEGORIES, signFrequency, type SignCategory } from "@somnium/shared";
 import { mergeElements, saveElement, signLexicons } from "../../api/signs";
 import { choose } from "../../core/ask";
 import { useFmt } from "../../core/format";
@@ -32,21 +34,22 @@ const freq = computed(() => (stat.value ? frequencyText(signFrequency(stat.value
 const check = computed(() => (el.value?.isDreamSign || el.value?.signCategory ? pairedCheck(el.value.signCategory, signLexicons.value?.checks ?? []) : null));
 // the 12 weeks as bars, labelled by the date each week starts (today from useToday, so it turns over at midnight)
 const weeks = computed(() => (stat.value?.weekly ?? []).map((v, i, a) => ({ label: fmt.value.date(addDays(today.value, -(a.length - 1 - i) * 7 - 6), { day: "numeric", month: "short" }), value: v })));
+const triggers = computed(() => parseTriggers(el.value?.triggers));
 const label = (id: string) => { const d = titles.value.get(id); return d ? d.title?.trim() || d.text?.trim().slice(0, 80) || "Untitled dream" : "Dream"; };
 
 // editing
 const editing = ref(false), saving = ref(false);
-const f = reactive({ name: "", kind: "object" as (typeof ELEMENT_KINDS)[number], aliases: "", isDreamSign: false, signCategory: null as SignCategory | null });
+const f = reactive({ name: "", kind: "object" as (typeof ELEMENT_KINDS)[number], aliases: "", triggers: "", isDreamSign: false, signCategory: null as SignCategory | null });
 function edit() {
   const e = el.value; if (!e) return;
-  Object.assign(f, { name: e.name ?? "", kind: e.kind, aliases: e.aliases ?? "", isDreamSign: e.isDreamSign, signCategory: e.signCategory });
+  Object.assign(f, { name: e.name ?? "", kind: e.kind, aliases: e.aliases ?? "", triggers: e.triggers ?? "", isDreamSign: e.isDreamSign, signCategory: e.signCategory });
   editing.value = true;
 }
 async function save() {
   if (!f.name.trim()) return;
   saving.value = true;
   try {
-    await saveElement(props.id, { name: f.name.trim(), kind: f.kind, aliases: f.aliases.trim() || null, isDreamSign: f.isDreamSign, signCategory: f.isDreamSign || f.kind === "dream_sign" ? f.signCategory : null });
+    await saveElement(props.id, { name: f.name.trim(), kind: f.kind, aliases: f.aliases.trim() || null, triggers: parseTriggers(f.triggers).join("\n") || null, isDreamSign: f.isDreamSign, signCategory: f.isDreamSign || f.kind === "dream_sign" ? f.signCategory : null });
     editing.value = false; toast("Saved");
   } catch (e) { toastError(e); } finally { saving.value = false; }
 }
@@ -105,6 +108,8 @@ const menu = computed(() => [
     <div v-if="check" class="sgbox">
       <div class="t"><Icon name="target" :size="15" class="sgacc" /> Pair it with: {{ check.name }}</div>
       <div class="tiny">{{ SIGN_ADVICE[el.signCategory ?? "none"] }} {{ check.howTo }}</div>
+      <div v-if="triggers.length" class="tiny">Check when: {{ triggers.join(" · ") }}</div>
+      <div v-else class="tiny sgmut">Add waking triggers in Edit: moments in your day like this sign, to check at.</div>
     </div>
 
     <h3 class="sgh">Last 12 weeks</h3>
@@ -135,6 +140,9 @@ const menu = computed(() => [
       <label class="tgl"><div class="grow"><div class="t">Dream sign</div><div class="tiny">Something that tells you you might be dreaming</div></div><span class="tg"><input v-model="f.isDreamSign" type="checkbox" /></span></label>
       <div v-if="f.isDreamSign || f.kind === 'dream_sign'" class="fld"><label>Category</label>
         <AppSelect v-model="f.signCategory" :options="[{ value: null, label: 'Not sure' }, ...SIGN_CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] }))]" /></div>
+      <div v-if="f.isDreamSign || f.kind === 'dream_sign'" class="fld"><label>Waking triggers</label>
+        <textarea v-model="f.triggers" aria-label="Waking triggers" rows="3" maxlength="1300" placeholder="One per line, like: when I see a teacher" />
+        <div class="tiny sgmut">Moments in your day like this sign. When you meet one, do a reality check. Reminders paired with this sign name one in turn when Show my dream signs is on.</div></div>
       <template #foot><button class="btn o" @click="editing = false">Cancel</button><button class="btn" :disabled="saving || !f.name.trim()" @click="save">Save</button></template>
     </Sheet>
   </div>

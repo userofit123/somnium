@@ -145,6 +145,15 @@ export async function planWbtb(wakeAt: Date, bedtime: Date | null, mode: WbtbMod
   return { date, id };
 }
 
+/** Tonight's own bedtime (Train > Tonight), or with null the usual one from Settings > Sleep again. The bedtime
+ *  reminder follows it (native/reminders.ts); a WBTB alarm already planned keeps its time until planned again. */
+export async function setTonightBedtime(at: Date | null) {
+  await changeNightPlan(tonightDate(), (n) => {
+    const iso = at ? at.toISOString() : null;
+    return (n?.bedtime ?? null) === iso ? {} : { bedtime: iso };
+  });
+}
+
 /** Clears tonight's WBTB alarm and takes "wbtb" out of the plan. */
 export async function unplanWbtb() {
   await changeNightPlan(tonightDate(), (n) => ({ techniquesPlanned: (n?.techniquesPlanned ?? []).filter((t) => t !== "wbtb"), wbtbWakeAt: null, wbtbMode: null }));

@@ -26,7 +26,8 @@ export interface RealityCheckSchedule {
   habits: HabitMoment[];
   checks: string[]; // ids from packages/knowledge/lexicons/checks.json, rotated in turn
   silent: boolean; // no sound: vibration only where the device can (Android), else just quiet (LDJ-67)
-  showSign: boolean; // the top dream sign's name in the text: it is sealed, so off unless the person turns it on
+  showSign: boolean; // the paired dream sign's name in the text: it is sealed, so off unless the person turns it on
+  guided: boolean; // a tap opens the 15-second guided check (test, memory, "if this were a dream?"); off: one-tap logging (LDJ-112)
   pausedOn: string | null; // "YYYY-MM-DD": no reminders that day
   seed: number; // fixed when the row is made; the same seed and date give the same plan everywhere
 }
@@ -34,7 +35,7 @@ export interface RealityCheckSchedule {
 export const PER_DAY_MIN = 1, PER_DAY_MAX = 20;
 export const DEFAULT_RC_SCHEDULE: RealityCheckSchedule = {
   perDay: 8, useSleep: true, from: "08:00", to: "22:00", quiet: { on: false, from: "12:30", to: "13:30" }, minGap: 30,
-  habits: [], checks: ["nose-pinch", "re-read-text"], silent: false, showSign: false, pausedOn: null, seed: 1,
+  habits: [], checks: ["nose-pinch", "re-read-text"], silent: false, showSign: false, guided: true, pausedOn: null, seed: 1,
 };
 
 const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -55,6 +56,7 @@ export function rcSchedule(saved: unknown): RealityCheckSchedule {
     checks: Array.isArray(s.checks) && s.checks.some((c: unknown) => typeof c === "string") ? s.checks.filter((c: unknown): c is string => typeof c === "string").slice(0, 20) : D.checks,
     silent: s.silent === true,
     showSign: s.showSign === true,
+    guided: s.guided !== false,
     pausedOn: typeof s.pausedOn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s.pausedOn) ? s.pausedOn : null,
     seed: clampInt(s.seed, 0, 2 ** 31 - 1, D.seed),
   };
@@ -134,20 +136,61 @@ const KIND_OF: Record<string, CheckKind> = {
 };
 export const checkKindOf = (checkId: string): CheckKind => KIND_OF[checkId] ?? "other";
 
+// ---------- pairing with dream signs (LDJ-111) ----------
+// A reminder is a real question about this moment, not a ping: each one is paired with one of the person's top dream
+// signs in turn, so the check is done where a dream sign would show up (LaBerge's dreamsign targeting and Tholey's
+// critical question, RESEARCH.md C1, D1, D6). Rote checks train an "obviously awake" answer, and reality testing alone
+// did not help in the large studies (B37, D12): the pairing and the imagining step are what make a check count.
+// The sign's id (plain) always rides along, so the check is logged against it; its name and triggers (sealed) only
+// reach the words when the person switched showSign on.
+
+/** How many of the top dream signs the reminders take in turn. */
+export const PAIRED_SIGNS = 3;
+export interface PairedSign { id: string; name?: string | null; triggers?: readonly string[] }
+
+/** A sign's waking triggers as stored (one per line, sealed): trimmed, no empty or repeated lines, at most 10. */
+export function parseTriggers(text: string | null | undefined): string[] {
+  const out: string[] = [];
+  for (const l of (text ?? "").split("\n")) { const t = l.trim().slice(0, 120); if (t && !out.includes(t)) out.push(t); }
+  return out.slice(0, 10);
+}
+
 /**
- * A reminder's words. Never dream text, never anything sealed - except the top dream sign's name, and only when the
- * person turned that on (showSign) and the device could read it.
+ * The sign each of a day's reminders is paired with: the top signs in turn (the day's first reminder the first sign),
+ * and with each sign its triggers in turn, one per round. Null for every reminder when there are no signs.
  */
-export function reminderText(check: { name: string; howTo: string }, o: { sign?: string | null; habit?: string | null } = {}): { title: string; body: string } {
-  const lead = o.habit ? `${o.habit}: are you dreaming?` : "Are you dreaming?";
-  const sign = o.sign ? ` Watch for ${o.sign}.` : "";
-  return { title: `${lead} Really check.`, body: `${check.name}: ${check.howTo}${sign}` };
+export function pairSigns<S extends PairedSign>(count: number, signs: readonly S[]): ({ sign: S; trigger: string | null } | null)[] {
+  const top = signs.slice(0, PAIRED_SIGNS);
+  return Array.from({ length: count }, (_, i) => {
+    const sign = top[i % (top.length || 1)];
+    if (!sign) return null;
+    const tr = sign.triggers ?? [], round = Math.floor(i / top.length);
+    return { sign, trigger: tr.length ? tr[round % tr.length]! : null };
+  });
+}
+
+/**
+ * A reminder's words: the question, where to look and the check. Never dream text, never anything sealed - except the
+ * paired dream sign's name and trigger, and only when the person turned that on (showSign) and the device could read
+ * them. The caller passes them only then.
+ */
+export function reminderText(check: { name: string; howTo: string }, o: { sign?: string | null; trigger?: string | null; habit?: string | null } = {}): { title: string; body: string } {
+  const title = o.habit ? `${o.habit}: are you dreaming right now?` : "Are you dreaming right now?";
+  const look = o.sign
+    ? `Your dream sign: ${o.sign}.${o.trigger ? ` Your trigger: ${o.trigger}.` : ""} Look around: is anything like that here?`
+    : "Look around: is anything odd or out of place here?";
+  return { title, body: `${look} Check: ${check.howTo}` };
 }
 
 // ---------- night reminders (PLAN.md §9, LDJ-30): bedtime, the WBTB alarm, the morning journal, practice ----------
 // Each is its own reminders row (kind bedtime / wbtb / morning_journal / practice), so each syncs and switches on its
 // own. Their times come from the Sleep settings, not from the row: change bedtime once and every reminder follows.
-// Nothing personal in any of them: the technique is an id from a fixed list, never the intention (which is sealed).
+// Nothing personal in any of them: the techniques are ids from a fixed list, never the intention (which is sealed).
+// LDJ-104: the bedtime reminder says what is planned for that night in Train > Tonight (the night's techniques_planned
+// and its own bedtime, passed in as `plans`), or, with nothing planned, asks you to plan it. The bedtime row's old
+// "technique" (a fixed pick in Settings, MILD by default) is no longer shown or offered: a standing pick called
+// "tonight" was the very thing that disagreed with the plan. It stays readable and storable, so a row saved by an older
+// version keeps its value and that version still shows it.
 
 export type NightKind = "bedtime" | "wbtb" | "morning_journal" | "practice";
 export const NIGHT_KINDS: readonly NightKind[] = ["bedtime", "wbtb", "morning_journal", "practice"];
@@ -193,17 +236,27 @@ export function nightTimes(evening: string, sleep?: { bedtime?: string; wake?: s
   return { bedtime, wake, morning: ymd(wake) };
 }
 
-export interface PlannedNightReminder { kind: NightKind; at: number; /** the date the night is filed under */ morning: string; technique?: string }
+export interface PlannedNightReminder {
+  kind: NightKind; at: number; /** the date the night is filed under */ morning: string;
+  /** bedtime only: the techniques planned for the night (TECHNIQUES ids), [] when nothing is */
+  techniques?: string[];
+}
+/** What Train > Tonight planned for a night, by the date it is filed under: its techniques and, when one was chosen
+ *  for that night, its own bedtime (ms). Only plain columns of the night (packages/engine/src/sealed.ts). */
+export type NightPlans = Record<string, { techniques?: readonly string[]; bedtime?: number | null }>;
 
 /**
  * The night reminders for the evening of `evening`, sorted: bedtime - lead (in real minutes, so across midnight and DST
  * alike), the WBTB alarm only when one is planned for this night (`wbtbAt`, an instant between noon of `evening` and
  * noon the next day), the morning journal at wake time, and practice at its own time on `evening`. Off rows give nothing.
  */
-export function planNight(rows: readonly ReminderRowLike[] | undefined, evening: string, sleep?: { bedtime?: string; wake?: string }, wbtbAt?: number | null): PlannedNightReminder[] {
+export function planNight(rows: readonly ReminderRowLike[] | undefined, evening: string, sleep?: { bedtime?: string; wake?: string }, wbtbAt?: number | null, plans?: NightPlans): PlannedNightReminder[] {
   const t = nightTimes(evening, sleep), out: PlannedNightReminder[] = [];
   const bed = nightRow(rows, "bedtime"), wb = nightRow(rows, "wbtb"), mo = nightRow(rows, "morning_journal"), pr = nightRow(rows, "practice");
-  if (bed.on) out.push({ kind: "bedtime", at: t.bedtime - bed.s.lead * 60_000, morning: t.morning, technique: bed.s.technique });
+  const plan = plans?.[t.morning];
+  // a bedtime chosen for this night (Train > Tonight, or the WBTB planner) moves its reminder, within 12 h of the usual
+  const own = typeof plan?.bedtime === "number" && Math.abs(plan.bedtime - t.bedtime) < 12 * 3_600_000 ? plan.bedtime : t.bedtime;
+  if (bed.on) out.push({ kind: "bedtime", at: own - bed.s.lead * 60_000, morning: t.morning, techniques: (plan?.techniques ?? []).filter((x) => TECHNIQUES.some((k) => k.id === x)) });
   if (wb.on && typeof wbtbAt === "number" && wbtbAt >= at(evening, 0, 12 * 60) && wbtbAt < at(evening, 1, 12 * 60)) out.push({ kind: "wbtb", at: wbtbAt, morning: t.morning });
   if (mo.on) out.push({ kind: "morning_journal", at: t.wake, morning: t.morning });
   if (pr.on) out.push({ kind: "practice", at: at(evening, 0, mins(pr.s.at)), morning: t.morning });
@@ -211,9 +264,12 @@ export function planNight(rows: readonly ReminderRowLike[] | undefined, evening:
 }
 
 /** A night reminder's words, and the only line a locked screen shows (`lockTitle`). Never the intention or any dream. */
-export function nightText(p: Pick<PlannedNightReminder, "kind" | "technique">, lead = 15): { title: string; body: string; lockTitle: string } {
+export function nightText(p: Pick<PlannedNightReminder, "kind" | "techniques">, lead = 15): { title: string; body: string; lockTitle: string } {
   switch (p.kind) {
-    case "bedtime": return { title: `Bed in ${lead} minutes`, body: `Tonight: ${TECHNIQUES.find((x) => x.id === p.technique)?.label ?? "MILD"}`, lockTitle: "Bedtime" };
+    case "bedtime": {
+      const names = (p.techniques ?? []).map((id) => TECHNIQUES.find((x) => x.id === id)?.label).filter(Boolean);
+      return { title: `Bed in ${lead} minutes`, body: names.length ? `Tonight: ${names.join(" · ")}` : "Nothing planned yet. Tap to plan tonight.", lockTitle: "Bedtime" };
+    }
     case "wbtb": return { title: "Time for WBTB", body: "Get up for a while, then back to bed. Tap for the guide.", lockTitle: "Alarm" };
     case "morning_journal": return { title: "Write your dream", body: "Even a fragment counts. Nothing came back? Say no recall.", lockTitle: "Morning" };
     case "practice": return { title: "Practice", body: "A few minutes on today's lesson.", lockTitle: "Practice" };
@@ -228,12 +284,12 @@ export function nightText(p: Pick<PlannedNightReminder, "kind" | "technique">, l
 export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, action?: "norecall" | "up"): string {
   if (p.kind === "wbtb") return action === "up" ? "/train/guided/up" : `/capture?date=${p.morning}&then=up`;
   if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/capture?date=${p.morning}`;
-  return "/train";
+  return p.kind === "bedtime" ? "/train/tonight" : "/train";
 }
 
 /** A reality check logged from a notification's button (Android), waiting in the plugin's queue. account and user say
  *  whose reminder it was: the app account it was planned for, and who was signed in on it. */
-export interface QueuedCheck { id: string; at: number; check: string; outcome: "awake" | "unsure" | "dreaming"; account?: string; user?: string }
+export interface QueuedCheck { id: string; at: number; check: string; outcome: "awake" | "unsure" | "dreaming"; account?: string; user?: string; /** the paired sign's element id (LDJ-111) */ sign?: string }
 /**
  * Which queued checks the open account may post now (mine), and which belong to another account on this device and
  * wait for it (others). One queued without an owner (made by an older version) can't be placed, so it is never
@@ -263,7 +319,7 @@ export function storableSchedule(saved: Record<string, unknown>): Record<string,
   const s = saved as Record<string, any>, out: Record<string, unknown> = {};
   const num = (v: unknown) => typeof v === "number" && Number.isFinite(v);
   for (const k of ["perDay", "minGap", "seed", "lead"]) if (num(s[k])) out[k] = s[k];
-  for (const k of ["useSleep", "showSign", "silent"]) if (typeof s[k] === "boolean") out[k] = s[k];
+  for (const k of ["useSleep", "showSign", "silent", "guided"]) if (typeof s[k] === "boolean") out[k] = s[k];
   for (const k of ["from", "to", "at"]) if (typeof s[k] === "string" && HHMM.test(s[k])) out[k] = s[k];
   if (s.quiet && typeof s.quiet === "object") {
     const q: Record<string, unknown> = {};

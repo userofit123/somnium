@@ -1,4 +1,4 @@
-// Logging a reality check (PLAN.md §6.4, §9). Only kind, outcome, prompted and time: none of these is sealed, so the
+// Logging a reality check (PLAN.md §6.4, §9). Only kind, outcome, prompted, time and the paired sign's id: none of these is sealed, so the
 // /check screen can do it without the journal being unlocked. Saved here at once and sent when the server can be
 // reached (outbox: no connection, or the key closed while the device's copy waits to sync).
 import { checkKindOf, type CheckOutcome } from "@somnium/shared";
@@ -15,10 +15,10 @@ import { keyring } from "../core/keyring";
 import { invalidate } from "./live";
 
 /** `given`: a check logged earlier from an Android notification's button (native/reminders.ts flushPending), with the
- *  time it was made at. */
-export async function logCheck(checkId: string, outcome: CheckOutcome, prompted: boolean, given?: { id?: string; at: number }): Promise<{ id: string; queued: boolean }> {
+ *  time it was made at. `signId`: the dream sign the reminder paired it with (LDJ-111), an element id, plain. */
+export async function logCheck(checkId: string, outcome: CheckOutcome, prompted: boolean, given?: { id?: string; at: number }, signId?: string | null): Promise<{ id: string; queued: boolean }> {
   const id = given?.id ?? uuidv7();
-  const body = { id, at: new Date(given?.at ?? Date.now()).toISOString(), kind: checkKindOf(checkId), outcome, prompted };
+  const body = { id, at: new Date(given?.at ?? Date.now()).toISOString(), kind: checkKindOf(checkId), outcome, prompted, ...(signId ? { signId } : {}) };
   let queued = false;
   if (!isLocalDevice() && !keyring.isOpen()) {
     // locked: the device's copy can't send a journal table without the key, so this row (nothing sealed in it, the

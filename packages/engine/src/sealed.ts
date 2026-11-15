@@ -14,10 +14,12 @@
 // merge_pending (a merge to try again here) is plain bookkeeping that never leaves the side that set it.
 // minutes_to_sleep (how long it took to fall asleep after the technique, LDJ-64) is a count but sealed all the same:
 // it says how the person sleeps, and the server has no use for it (only "What works for you" on the device reads it).
+// A dream sign's triggers (LDJ-111, the waking moments to check at) are the person's words; the sign a reality check
+// was paired with (reality_checks.sign_id) is only an element's id and stays plain, like dream_elements.element_id.
 export const SEALED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   nights: ["substances", "notes", "intention", "absorbed", "minutes_to_sleep"],
   dreams: ["title", "text", "lucid_trigger", "dismissed"],
-  elements: ["name", "aliases", "note"],
+  elements: ["name", "aliases", "note", "triggers"],
   dream_elements: ["span"],
   // ocr_text as text; the file (data) is sealed as bytes (sealBytes) before upload: a text envelope, so the column is text
   media: ["ocr_text", "data"],

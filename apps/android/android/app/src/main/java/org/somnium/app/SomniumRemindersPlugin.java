@@ -331,7 +331,9 @@ public class SomniumRemindersPlugin extends Plugin {
                     Intent log = new Intent(ctx, Action.class).setAction(ACTION_CHECK)
                         .putExtra("check", a.optString("check", "")).putExtra("outcome", outcome).putExtra("notice", id)
                         // whose check it is: the web app posts it to that account only (flushPending)
-                        .putExtra("account", a.optString("account", "")).putExtra("user", a.optString("user", ""));
+                        .putExtra("account", a.optString("account", "")).putExtra("user", a.optString("user", ""))
+                        // the dream sign the reminder was paired with (an element id, nothing personal), LDJ-111
+                        .putExtra("sign", a.optString("sign", ""));
                     pi = PendingIntent.getBroadcast(ctx, id * 8 + 1 + k, log, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
                 } else {
                     String url = appPath(a.optString("url", ""));
@@ -368,7 +370,7 @@ public class SomniumRemindersPlugin extends Plugin {
         @Override
         public void onReceive(Context ctx, Intent intent) {
             String check = intent.getStringExtra("check"), outcome = intent.getStringExtra("outcome");
-            String account = intent.getStringExtra("account"), user = intent.getStringExtra("user");
+            String account = intent.getStringExtra("account"), user = intent.getStringExtra("user"), sign = intent.getStringExtra("sign");
             if (outcome == null || !(outcome.equals("awake") || outcome.equals("unsure") || outcome.equals("dreaming"))) return;
             synchronized (LOCK) {
                 JSONArray q = queue(ctx), next = new JSONArray();
@@ -381,7 +383,8 @@ public class SomniumRemindersPlugin extends Plugin {
                         .put("check", check == null ? "" : check)
                         .put("outcome", outcome)
                         .put("account", account == null ? "" : account)
-                        .put("user", user == null ? "" : user));
+                        .put("user", user == null ? "" : user)
+                        .put("sign", sign == null ? "" : sign));
                 } catch (JSONException e) { return; }
                 prefs(ctx).edit().putString(KEY_QUEUE, next.toString()).apply();
             }

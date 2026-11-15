@@ -35,7 +35,7 @@ const nextOpen = computed(() => day.value.targets.find((t) => t.state === "open"
           <button class="btn o pmbig" :disabled="log.busy.value" @click="log.run(t.id, 'miss')">Miss</button>
         </div>
         <button v-else class="lnk tiny" :aria-label="'Undo ' + t.state" @click="log.run(t.id, t.state)"><Icon :name="t.state === 'hit' ? 'check' : 'close'" :size="14" /> {{ t.state === "hit" ? "Hit" : "Miss" }}</button>
-        <button v-if="t.state === 'open'" class="cx" :aria-label="'Remove target'" @click="toggle.run(t.id, false)"><Icon name="close" :size="16" /></button>
+        <button v-if="t.state === 'open'" class="ib sm plain" :aria-label="'Remove target'" :title="'Remove target'" @click="toggle.run(t.id, false)"><Icon name="close" :size="16" /></button>
       </div>
       <div v-if="!full" class="pmpick">
         <button class="lnk tiny" @click="choosing = !choosing">{{ choosing ? "Close list" : `Choose targets (${day.targets.length} of ${PM_PER_DAY})` }}</button>

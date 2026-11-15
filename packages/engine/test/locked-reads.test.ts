@@ -74,6 +74,8 @@ describe("while the journal is locked", () => {
     expect(allowedWithoutKey("POST", "/reality-checks/", { kind: "hands" })).toBe(false);
     expect(allowedWithoutKey("PUT", `/reality-checks/${ids["reality-checks"]}`, { outcome: "awake" })).toBe(false);
     expect(allowedWithoutKey("POST", "/reality-checks", { id: uuidv7(), at: new Date().toISOString(), kind: "hands", outcome: "awake", prompted: true })).toBe(true);
+    // with the dream sign a reminder paired it with (LDJ-111): an element id, plain
+    expect(allowedWithoutKey("POST", "/reality-checks", { id: uuidv7(), at: new Date().toISOString(), kind: "hands", outcome: "awake", prompted: true, signId: uuidv7() })).toBe(true);
     // what /check and the lock screen need besides: nothing of the journal
     expect(allowedWithoutKey("GET", "/me")).toBe(true);
     expect(allowedWithoutKey("GET", "/reminders")).toBe(true);

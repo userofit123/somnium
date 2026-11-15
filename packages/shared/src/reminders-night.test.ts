@@ -38,7 +38,7 @@ describe("planNight", () => {
   it("gives bedtime - lead, morning at wake and practice at its time, sorted; no WBTB unless planned", () => {
     const p = planNight(allOn, "2026-06-10", sleep);
     expect(p.map((x) => [x.kind, hm(x.at)])).toEqual([["practice", "18:30"], ["bedtime", "22:45"], ["morning_journal", "07:00"]]);
-    expect(p.find((x) => x.kind === "bedtime")!.technique).toBe("ssild");
+    expect(p.find((x) => x.kind === "bedtime")!.techniques).toEqual([]);
   });
   it("puts the WBTB alarm in only on a night it was planned for", () => {
     const at = new Date(2026, 5, 11, 3, 30).getTime();
@@ -77,9 +77,21 @@ describe("rows, words and links", () => {
     expect(nightRow(undefined, "bedtime").on).toBe(false);
     expect(nightRow(undefined, "wbtb").on).toBe(true);
   });
-  it("says nothing personal: the technique's name, never an intention", () => {
-    expect(nightText({ kind: "bedtime", technique: "mild" })).toEqual({ title: "Bed in 15 minutes", body: "Tonight: MILD", lockTitle: "Bedtime" });
+  it("says nothing personal: the planned techniques' names, never an intention", () => {
+    expect(nightText({ kind: "bedtime", techniques: ["mild"] })).toEqual({ title: "Bed in 15 minutes", body: "Tonight: MILD", lockTitle: "Bedtime" });
+    expect(nightText({ kind: "bedtime", techniques: ["mild", "wbtb"] }).body).toBe("Tonight: MILD · WBTB");
+    expect(nightText({ kind: "bedtime", techniques: [] }).body).toBe("Nothing planned yet. Tap to plan tonight.");
     expect(nightText({ kind: "morning_journal" }).title).toBe("Write your dream");
+  });
+  it("the bedtime reminder follows tonight's plan, not the row's old technique (LDJ-104)", () => {
+    const bed = (plans?: Parameters<typeof planNight>[4]) => planNight(allOn, "2026-06-10", sleep, null, plans).find((x) => x.kind === "bedtime")!;
+    expect(bed().techniques).toEqual([]); // the row says ssild: no longer shown
+    expect(bed({ "2026-06-11": { techniques: ["ssild", "nope"] } }).techniques).toEqual(["ssild"]);
+    expect(bed({ "2026-06-12": { techniques: ["mild"] } }).techniques).toEqual([]); // another night's plan
+    // a bedtime chosen for that night moves the reminder
+    expect(hm(bed({ "2026-06-11": { bedtime: new Date(2026, 5, 10, 22, 0).getTime() } }).at)).toBe("21:45");
+    expect(hm(bed().at)).toBe("22:45");
+    expect(nightUrl({ kind: "bedtime", morning: "2026-06-11" })).toBe("/train/tonight");
   });
   it("links each to its screen", () => {
     expect(nightUrl({ kind: "wbtb", morning: "2026-06-11" })).toBe("/capture?date=2026-06-11&then=up");

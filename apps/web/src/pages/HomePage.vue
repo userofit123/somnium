@@ -6,21 +6,18 @@
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, currentLesson, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, nextReminder, checksOn, lastLucid, planDay, rcSchedule, tipIndex } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, currentLesson, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
 import { loaded, saveSettings, useSettings } from "../api/queries";
 import { confirm } from "../core/ask";
-import { useQuery } from "@tanstack/vue-query";
-import { REMINDERS_KEY, fetchReminders, rcRow } from "../native/reminders";
-import { localYmd } from "../core/format";
 import { useToday } from "../core/today";
 import "../styles/components/train.css";
 import "../styles/components/home.css";
 import MorningCard from "../components/home/MorningCard.vue";
-import TodayCard from "../components/home/TodayCard.vue";
-import TonightCard from "../components/home/TonightCard.vue";
+import TodayChecklist from "../components/train/TodayChecklist.vue";
+import TonightPlan from "../components/train/TonightPlan.vue";
 import RatesCard from "../components/home/RatesCard.vue";
 import ExtraCards from "../components/home/ExtraCards.vue";
 import DayNoteCard from "../components/home/DayNoteCard.vue";
@@ -34,17 +31,16 @@ import { useRouter } from "vue-router";
 
 const j = useJournal();
 const t = useTrain();
-const reminders = useQuery({ queryKey: [...REMINDERS_KEY], queryFn: fetchReminders, staleTime: 60_000 });
 const settings = useSettings();
 // the texts load while the queries run, not before them
 const [{ articles }, { lessons, findLesson, practiceItemId }, { findTechnique }] = await Promise.all([
   import("@somnium/knowledge/content"), import("@somnium/knowledge/course"), import("@somnium/knowledge/techniques"),
-  loaded(j.nights, j.dreams, t.course, t.practice, t.checks, reminders),
+  loaded(j.nights, j.dreams, t.course, t.practice, t.checks),
 ]);
 
 // reactive: the page can stay open across midnight
 const today = useToday();
-// the clock moves on while the page is open (the next reminder, the 05:00 turn): a minute's tick is enough here
+// the clock moves on while the page is open (the 05:00 turn): a minute's tick is enough here
 const now = ref(Date.now());
 const clock = setInterval(() => { now.value = Date.now(); }, 60_000);
 onUnmounted(() => clearInterval(clock));
@@ -54,37 +50,21 @@ const dreams = computed(() => j.dreams.data.value ?? []);
 
 const morning = computed(() => morningState(nights.value, dreams.value, when.value.lastNight));
 
-// reality checks: done today against the plan for today, 0 planned while reminders are off
-const row = computed(() => rcRow(reminders.data.value));
-const remindersOn = computed(() => !!row.value?.enabled);
-const plan = computed(() => {
-  if (!row.value?.enabled) return { today: 0, times: [] as number[] };
-  const s = rcSchedule(row.value.schedule), sleep = settings.value.sleep;
-  const days = [-1, 0, 1].map((d) => { const x = new Date(today.value + "T12:00:00"); x.setDate(x.getDate() + d); return localYmd(x); });
-  return { today: planDay(s, today.value, s.seed, sleep).length, times: days.flatMap((d) => planDay(s, d, s.seed, sleep).map((p) => p.at)) };
-});
-const checksDone = computed(() => checksOn((t.checks.data.value ?? []).map((c) => localYmd(new Date(c.at))), today.value));
-const next = computed(() => nextReminder(plan.value.times, now.value));
-
-// today's course practice, the same items and ticks as Train's course card
+// today's checklist (the same one as Train > Today): the lesson's practice items come from the course texts loaded above
 const lesson = computed(() => { const id = currentLesson(t.course.data.value ?? []); return id ? findLesson(id) ?? null : null; });
-const items = computed(() => (lesson.value?.practice ?? []).map((text, i) => {
-  const id = practiceItemId(lesson.value!.id, i);
-  return { id, text, row: (t.practice.data.value ?? []).find((p) => p.item === id && p.date === today.value && p.done) };
-}));
+const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
 
 // tonight
 const tonight = computed(() => tonightNight(nights.value, when.value.tonight));
 const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && articles.find((a) => a.id === "techniques/" + tq.slug)?.title) ?? id.replace(/-/g, " "); };
-const planned = computed(() => (tonight.value?.techniquesPlanned ?? []).map((id) => ({ id, title: titleOf(id) })));
 
 const rates = computed(() => homeRates(nights.value, dreams.value, today.value));
 
 // ---- the blocks: name and what it shows (Edit home)
 const META: Record<string, { name: string; desc: string }> = {
   morning: { name: "This morning", desc: "Last night's dreams, or a nudge to write them down" },
-  today: { name: "Today", desc: "Reality checks and the lesson's practice for today" },
-  tonight: { name: "Tonight", desc: "The technique and intention planned for tonight" },
+  today: { name: "Today", desc: "Your checklist for today: journal, reality checks, practice, dream sign" },
+  tonight: { name: "Tonight", desc: "Tonight's techniques, intention, bedtime and WBTB alarm" },
   rates: { name: "Streaks and rates", desc: "Your journal streak, recall and lucid rate" },
   goals: { name: "Goals", desc: "Your goals and how close you are" },
   dayNote: { name: "Day note", desc: "A line about your day" },
@@ -181,9 +161,8 @@ async function reset() {
         <ForYouCard v-if="ci === 1" />
         <template v-for="(id, k) in col" :key="id">
           <MorningCard v-if="id === 'morning'" :state="morning" :date="when.lastNight" />
-          <TodayCard v-else-if="id === 'today'" :done="checksDone" :planned="plan.today" :next="next" :reminders-on="remindersOn" :today="today" :primary="morning.kind !== 'open'"
-            :lesson="lesson ? { id: lesson.id, title: lesson.title } : null" :items="items" />
-          <TonightCard v-else-if="id === 'tonight'" :date="when.tonight" :same="when.same" :planned="planned" :intention="tonight?.intention ?? ''" />
+          <TodayChecklist v-else-if="id === 'today'" :lesson="checklistLesson" :primary="morning.kind !== 'open'" />
+          <TonightPlan v-else-if="id === 'tonight'" compact :night="tonight" :date="when.tonight" :same="when.same" :title-of="titleOf" />
           <RatesCard v-else-if="id === 'rates'" :rates="rates" />
           <GoalCards v-else-if="id === 'goals'" :today="today" />
           <DayNoteCard v-else-if="id === 'dayNote'" :today="today" />

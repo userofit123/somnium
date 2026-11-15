@@ -42,8 +42,9 @@ const camelOf = (col: string) => col.replace(/_([a-z0-9])/g, (_, c: string) => c
 export const isJournalRoute = (path: string): boolean => !!routeOf(path) || isBulk(path);
 
 /** The one journal write allowed without the key: a new reality check from /check, which opens over the lock screen
- *  (LDJ-28). Its only sealed column, the note, must be absent; anything else still needs the key. */
-const CHECK_FIELDS = new Set(["id", "at", "kind", "outcome", "prompted"]);
+ *  (LDJ-28), with the dream sign the reminder paired it with (signId, a plain element id, LDJ-111). Its only sealed
+ *  column, the note, must be absent; anything else still needs the key. */
+const CHECK_FIELDS = new Set(["id", "at", "kind", "outcome", "prompted", "signId"]);
 const isUnsealedCheck = (method: string, path: string, body: unknown) =>
   method === "POST" && path === "/reality-checks" && !!body && typeof body === "object" && !Array.isArray(body) && Object.keys(body).every((k) => CHECK_FIELDS.has(k));
 

@@ -12,16 +12,19 @@
 //   last plan it was given. A week ahead, so a phone left alone for days still reminds; every open plans again.
 // - Night reminders (LDJ-30): bedtime, the WBTB alarm, the morning journal and practice, one reminders row each, from
 //   planNight (shared). The WBTB alarm's time is the one planned for the night on this device (setWbtbAlarm, LDJ-25),
-//   opening /train/guided/up; on Android it is a real alarm with sound.
-// Words: the question and the check's own instruction, nothing from the journal. The top dream sign's name (sealed)
-// only when the person switched that on, and only while this device can read it.
+//   opening /train/guided/up; on Android it is a real alarm with sound. The bedtime one says what Train > Tonight
+//   planned for that night (LDJ-104): the nights this device has loaded, kept here (nightPlans) for a start while locked.
+// Words: the question and the check's own instruction, nothing from the journal. Each reality check is paired with one
+// of the top 3 dream signs in turn (LDJ-111): the sign's id rides in the link and the log, its name and a trigger
+// (sealed) are in the words only when the person switched that on, and only while this device can read them. With
+// guided checks on (LDJ-112) a tap opens the 15-second check, and there are no one-tap outcome buttons to skip it with.
 import { QueryObserver } from "@tanstack/vue-query";
-import { catDay, hmToMin, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type NightKind, type NightSchedules, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
+import { catDay, hmToMin, pairSigns, parseTriggers, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type NightKind, type NightPlans, type NightSchedules, type Night, type PairedSign, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
 import { keyring } from "../core/keyring";
-import { readStr, writeStr } from "../core/prefs";
+import { readJson, readStr, writeJson, writeStr } from "../core/prefs";
 import { isNativeApp } from "./notifications";
 import { logCheck } from "../api/checks";
 import { session } from "../core/session";
@@ -30,6 +33,8 @@ import { current as currentAccount } from "./accounts";
 /** An action button: opens the app at `url`, or (Android) logs a check with `outcome` without opening it. */
 export interface ReminderAction {
   id: string; title: string; url?: string; outcome?: "awake" | "unsure" | "dreaming"; check?: string;
+  /** the paired dream sign's element id (LDJ-111), logged with the check */
+  sign?: string;
   /** whose check it logs (the app account and the person signed in on it): the queue posts it to that one only */
   account?: string; user?: string;
 }
@@ -77,35 +82,45 @@ export async function checkCatalog() {
   return (checksCache ??= (await import("@somnium/knowledge/lexicons")).checks);
 }
 
-/** The most-linked confirmed dream sign's own name, or null. Sealed, so it is read only while the key is open here:
- *  the transports refuse journal reads while locked as well (allowedWithoutKey), this just doesn't ask. A plan made
- *  while locked goes without it, and a new one is made when the key opens (startReminders). */
-async function topSign(): Promise<string | null> {
-  if (!keyring.isOpen()) return null;
+/** The top dream signs (confirmed first, then the most linked), PAIRED_SIGNS of them. Names and triggers are sealed,
+ *  so they are read only while the key is open here: the transports refuse journal reads while locked as well
+ *  (allowedWithoutKey), this just doesn't ask. Locked, the ids kept from the last read pair the checks (an id is
+ *  plain: it says which row, not what is in it); the key opening makes a new plan (startReminders). */
+const SIGN_IDS = "somniumPairedSigns";
+async function topSigns(): Promise<PairedSign[]> {
+  const kept = (): PairedSign[] => (readJson<string[]>(SIGN_IDS, []) ?? []).filter((x) => typeof x === "string").map((id) => ({ id }));
+  if (!keyring.isOpen()) return kept();
   try {
     const [els, links] = await Promise.all([api.get<any[]>("/elements", { signs: 1 }), api.get<any[]>("/dream-elements")]);
     const n = new Map<string, number>();
     for (const l of links) if (!l.deletedAt) n.set(l.elementId, (n.get(l.elementId) ?? 0) + 1);
-    const best = els.filter((e) => e.isDreamSign && typeof e.name === "string" && e.name).sort((a, b) => (+b.confirmed - +a.confirmed) || (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0))[0];
-    return best?.name ?? null;
-  } catch { return null; }
+    const top = els.filter((e) => e.isDreamSign && !e.deletedAt && typeof e.name === "string" && e.name)
+      .sort((a, b) => (+b.confirmed - +a.confirmed) || (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 3)
+      .map((e): PairedSign => ({ id: e.id, name: e.name, triggers: parseTriggers(e.triggers) }));
+    writeJson(SIGN_IDS, top.map((x) => x.id));
+    return top;
+  } catch { return kept(); }
 }
 
 /** The reality check reminders due from `now` over the coming `days` waking days (1: until the end of tomorrow's). */
-export async function upcoming(s: RealityCheckSchedule, settings: Settings, now = Date.now(), sign: string | null = null, days = 1): Promise<DueReminder[]> {
+export async function upcoming(s: RealityCheckSchedule, settings: Settings, now = Date.now(), signs: readonly PairedSign[] = [], days = 1): Promise<DueReminder[]> {
   const catalog = await checkCatalog();
   const today = new Date(now), out: DueReminder[] = [], owner = queueOwner();
   // yesterday too: its window may run past midnight into today
   for (let d = -1; d <= days; d++) {
-    for (const p of planDay(s, localDate(addDays(today, d)), s.seed, settings.sleep)) {
-      if (p.at < now - 60_000) continue;
-      const c = catalog.find((x) => x.id === p.check) ?? catalog[0]!;
-      const { title, body } = reminderText(c, { sign: s.showSign ? sign : null, habit: p.habit });
+    const day = planDay(s, localDate(addDays(today, d)), s.seed, settings.sleep), pairs = pairSigns(day.length, signs);
+    day.forEach((p, i) => {
+      if (p.at < now - 60_000) return;
+      const c = catalog.find((x) => x.id === p.check) ?? catalog[0]!, pair = pairs[i];
+      const named = s.showSign && pair?.sign.name ? pair : null;
+      const { title, body } = reminderText(c, { sign: named?.sign.name, trigger: named?.trigger, habit: p.habit });
+      const q = new URLSearchParams({ kind: p.check, prompted: "1", ...(s.guided ? { guided: "1" } : {}), ...(pair ? { sign: pair.sign.id } : {}) });
       out.push({
-        at: p.at, title, body, url: `/check?kind=${encodeURIComponent(p.check)}&prompted=1`, kind: "reality_check", lockTitle: "Reality check", silent: s.silent,
-        actions: CHECK_OUTCOMES.map(([outcome, t]) => ({ id: outcome, title: t, outcome, check: p.check, ...owner })),
+        at: p.at, title, body, url: `/check?${q}`, kind: "reality_check", lockTitle: "Reality check", silent: s.silent,
+        // guided: the tap is the way in, so no buttons to log it without doing it; the old one-tap log otherwise
+        actions: s.guided ? [] : CHECK_OUTCOMES.map(([outcome, t]) => ({ id: outcome, title: t, outcome, check: p.check, ...owner, ...(pair ? { sign: pair.sign.id } : {}) })),
       });
-    }
+    });
   }
   return out.sort((a, b) => a.at - b.at);
 }
@@ -113,9 +128,9 @@ const CHECK_OUTCOMES = [["awake", "Awake"], ["unsure", "Not sure"], ["dreaming",
 
 /** The night reminders (bedtime, WBTB, morning, practice) due from `now` over the coming `days` evenings. */
 export function upcomingNights(rows: Reminder[] | undefined, settings: Settings, now = Date.now(), days = 1): DueReminder[] {
-  const out: DueReminder[] = [], today = new Date(now), wbtb = wbtbAlarm(), lead = nightRow(rows, "bedtime").s.lead;
+  const out: DueReminder[] = [], today = new Date(now), wbtb = wbtbAlarm(), lead = nightRow(rows, "bedtime").s.lead, plans = nightPlans();
   for (let d = -1; d <= days; d++) {
-    for (const p of planNight(rows, localDate(addDays(today, d)), settings.sleep, wbtb)) {
+    for (const p of planNight(rows, localDate(addDays(today, d)), settings.sleep, wbtb, plans)) {
       if (p.at < now - 60_000) continue;
       const { title, body, lockTitle } = nightText(p, lead);
       const r: DueReminder = { at: p.at, title, body, lockTitle, url: nightUrl(p), kind: p.kind, tag: `somnium-${p.kind}` };
@@ -210,7 +225,7 @@ export async function flushPending() {
     const sent = new Set<string>(JSON.parse(readStr(SENT, "[]")) as string[]), done: string[] = stale.map((it) => it.id);
     for (const it of mine) {
       if (!sent.has(it.id)) {
-        try { await logCheck(it.check, it.outcome, true, { at: it.at }); } catch { break; } // tried again on the next open
+        try { await logCheck(it.check, it.outcome, true, { at: it.at }, it.sign || null); } catch { break; } // tried again on the next open
         sent.add(it.id);
         writeStr(SENT, JSON.stringify([...sent].slice(-200)));
       }
@@ -240,6 +255,22 @@ export async function setWbtbAlarm(at: number | null) {
   if (tick) await replan();
 }
 
+// ----- tonight's plan (LDJ-104): what Train > Tonight planned for the coming nights, for the bedtime reminder's words
+// and time. Read from the journal's nights list whenever this device loads or changes it (plain columns only: the
+// technique ids and the night's own bedtime), and kept here so a start while locked, before that list loads, still
+// says it. Ids and a time, nothing personal; only nights from today on. -----
+const PLANS = "somniumNightPlans";
+export const nightPlans = (): NightPlans => readJson<NightPlans>(PLANS, {});
+function plansOf(nights: readonly Night[] | undefined): NightPlans | null {
+  if (!nights) return null;
+  const today = localDate(new Date()), out: NightPlans = {};
+  for (const n of nights) {
+    if (n.nap || n.date < today || (!n.techniquesPlanned?.length && !n.bedtime)) continue;
+    out[n.date] = { techniques: n.techniquesPlanned ?? [], ...(n.bedtime ? { bedtime: new Date(n.bedtime).getTime() } : {}) };
+  }
+  return out;
+}
+
 async function replan() {
   const rows = current.rows, row = rcRow(rows), a = androidReminders();
   const days = a ? ANDROID_DAYS : 1;
@@ -248,7 +279,7 @@ async function replan() {
   if (!row || !row.enabled) plan = nights;
   else {
     const s = rcSchedule(row.schedule);
-    plan = [...await upcoming(s, current.settings, Date.now(), s.showSign ? await topSign() : null, days), ...nights].sort((x, y) => x.at - y.at);
+    plan = [...await upcoming(s, current.settings, Date.now(), await topSigns(), days), ...nights].sort((x, y) => x.at - y.at);
   }
   if (a) { await a.schedule({ items: plan.map((r) => ({ ...r, channel: channelOf(r) })) }).catch(() => {}); plan = []; }
   const d = desktop();
@@ -284,17 +315,22 @@ export function startReminders() {
   if (isNativeApp() && !androidReminders()) return;
   const rowsQ = new QueryObserver(queryClient, { queryKey: [...REMINDERS_KEY], queryFn: fetchReminders, staleTime: 60_000 });
   const me = new QueryObserver(queryClient, { queryKey: ["settings", "me"], queryFn: () => api.get("/me"), staleTime: 60_000 });
+  // the nights list is only watched, never fetched from here: Home, Train and the journal load it (it needs the key)
+  const nightsQ = new QueryObserver(queryClient, { queryKey: ["journal", "nights"], enabled: false });
   const update = () => {
     const r = rowsQ.getCurrentResult().data as Reminder[] | undefined, m = me.getCurrentResult().data as any;
     const rows = r?.filter((x) => !x.deletedAt);
     const settings = withDefaults(m?.settings ?? {});
-    if (JSON.stringify([rows, settings.sleep]) === JSON.stringify([current.rows, current.settings.sleep])) return;
+    const plans = plansOf(nightsQ.getCurrentResult().data as Night[] | undefined), was = JSON.stringify(nightPlans());
+    if (plans) writeJson(PLANS, plans);
+    if (JSON.stringify([rows, settings.sleep]) === JSON.stringify([current.rows, current.settings.sleep]) && JSON.stringify(nightPlans()) === was) return;
     current = { rows, settings };
     void replan();
   };
-  // every start is locked, so the first plan has no dream sign; the key opening brings it in
-  const onKey = (open: boolean) => { const row = rcRow(current.rows); if (open && row?.enabled && rcSchedule(row.schedule).showSign) void replan(); };
-  stops = [rowsQ.subscribe(update), me.subscribe(update), keyring.onChange(onKey)];
+  // every start is locked, so the first plan pairs only the signs' kept ids; the key opening brings in the current
+  // top signs (and their names, when showSign is on)
+  const onKey = (open: boolean) => { const row = rcRow(current.rows); if (open && row?.enabled) void replan(); };
+  stops = [rowsQ.subscribe(update), me.subscribe(update), nightsQ.subscribe(update), keyring.onChange(onKey)];
   // the desktop tray's "Pause reminders today" / "Resume reminders": the same pausedOn as Settings' Pause today, so it
   // syncs and every device pauses (the reminders row carries nothing sealed, so this works while locked)
   desktop()?.onPause?.((on) => {

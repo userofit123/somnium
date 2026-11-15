@@ -36,7 +36,7 @@ function oneUpset(cols: Record<string, unknown>): Record<string, unknown> {
 }
 const ELEMENT: Fields = {
   kind: enumOf(ELEMENT_KINDS, "theme"),
-  name: sealed, aliases: sealed, colour: (v) => (v == null || v === "" ? null : str(v, 20)), note: sealed,
+  name: sealed, aliases: sealed, triggers: sealed, colour: (v) => (v == null || v === "" ? null : str(v, 20)), note: sealed,
   is_dream_sign: (v) => bool(v), sign_category: enumOrNull(SIGN_CATEGORIES), confirmed: (v) => bool(v),
 };
 const LINK: Fields = {

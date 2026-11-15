@@ -1,7 +1,8 @@
-// Reality checks: each one logged with its kind and outcome, prompted by a reminder or not (PLAN.md §5, §6.4).
+// Reality checks: each one logged with its kind and outcome, prompted by a reminder or not (PLAN.md §5, §6.4), and the
+// dream sign the reminder paired it with, if any (LDJ-111).
 import { CHECK_KINDS, CHECK_OUTCOMES, type RealityCheck } from "@somnium/shared";
 import type { Router } from "../router";
-import { id, intOrNull, bool, isoTime } from "../util";
+import { id, optId, intOrNull, bool, isoTime } from "../util";
 import { clientId, columns, sealed, enumOf, listLive, getLive, insertRow, updateRow, removeRow, type Fields } from "./rows";
 
 const CHECK: Fields = {
@@ -10,6 +11,8 @@ const CHECK: Fields = {
   outcome: enumOf(CHECK_OUTCOMES, "awake"),
   prompted: (v) => bool(v),
   note: sealed,
+  // the dream sign the reminder paired it with (LDJ-111): an element id, plain
+  sign_id: optId,
 };
 
 export function checkRoutes(r: Router) {

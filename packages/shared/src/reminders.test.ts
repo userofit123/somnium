@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { planDay, rcSchedule, wakingWindow, checkKindOf, reminderText, DEFAULT_RC_SCHEDULE, type RealityCheckSchedule } from "./reminders";
+import { planDay, rcSchedule, wakingWindow, checkKindOf, reminderText, pairSigns, parseTriggers, DEFAULT_RC_SCHEDULE, type RealityCheckSchedule } from "./reminders";
 
 // the plans are wall-clock times in the device's zone: pin one with DST (Node picks up a changed TZ at once)
 const oldTz = process.env.TZ;
@@ -119,9 +119,26 @@ describe("waking window, kinds and text", () => {
     expect(checkKindOf("re-read-text")).toBe("text");
     expect(checkKindOf("mirror")).toBe("other");
   });
-  it("is generic unless a sign is given", () => {
+  it("asks a real question, naming the sign only when given", () => {
     const c = { name: "Nose pinch", howTo: "Pinch your nose and try to breathe in." };
-    expect(reminderText(c)).toEqual({ title: "Are you dreaming? Really check.", body: "Nose pinch: Pinch your nose and try to breathe in." });
-    expect(reminderText(c, { sign: "Flying" }).body).toContain("Flying");
+    expect(reminderText(c)).toEqual({ title: "Are you dreaming right now?", body: "Look around: is anything odd or out of place here? Check: Pinch your nose and try to breathe in." });
+    expect(reminderText(c, { sign: "your old school", trigger: "when I see a teacher" }).body)
+      .toBe("Your dream sign: your old school. Your trigger: when I see a teacher. Look around: is anything like that here? Check: Pinch your nose and try to breathe in.");
+    expect(reminderText(c, { habit: "After a meal" }).title).toBe("After a meal: are you dreaming right now?");
+  });
+  it("guided checks are on unless switched off", () => {
+    expect(rcSchedule({}).guided).toBe(true);
+    expect(rcSchedule({ guided: false }).guided).toBe(false);
+  });
+  it("pairs a day's reminders with the top three signs in turn, and each sign's triggers in turn", () => {
+    const signs = [{ id: "a", triggers: ["t1", "t2"] }, { id: "b" }, { id: "c" }, { id: "d" }];
+    const p = pairSigns(7, signs);
+    expect(p.map((x) => x!.sign.id)).toEqual(["a", "b", "c", "a", "b", "c", "a"]);
+    expect([p[0]!.trigger, p[3]!.trigger, p[6]!.trigger, p[1]!.trigger]).toEqual(["t1", "t2", "t1", null]);
+    expect(pairSigns(2, [])).toEqual([null, null]);
+  });
+  it("reads triggers one per line", () => {
+    expect(parseTriggers(" when I see a teacher \n\nwhen I see a teacher\nat a door")).toEqual(["when I see a teacher", "at a door"]);
+    expect(parseTriggers(null)).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Train (PLAN.md §6.3) in three tabs, each its own address: Today (/train: the course lesson, today's checklist, memory
-// targets, meditation and dream yoga when on), Tonight (/train/tonight: tonight's plan and the bedtime guided modes)
+// targets, meditation and dream yoga when on), Tonight (/train/tonight: the one place to plan the night, LDJ-96, then the bedtime starts and the evening review)
 // and Techniques (/train/techniques: the library and the guided tools). The sub-screens have addresses too:
 // /train/technique/:id (Learn's "Try it" lands there), /train/lesson/:id, /train/guided/:mode and /train/review; their
 // Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
@@ -11,8 +11,9 @@ import { useRoute, useRouter } from "vue-router";
 import { currentLesson, nextLesson, moveOn } from "@somnium/shared";
 import { findLesson, practiceItemId } from "@somnium/knowledge/course";
 import { findTechnique } from "@somnium/knowledge/techniques";
+import { articles } from "@somnium/knowledge/content";
 import { useJournal } from "../api/journal";
-import { useTrain, setLesson, tonightNight } from "../api/train";
+import { useTrain, setLesson, tonightNight, tonightDate } from "../api/train";
 import { loaded } from "../api/queries";
 import { localYmd } from "../core/format";
 import { useToday } from "../core/today";
@@ -20,7 +21,7 @@ import { toastError } from "../core/toast";
 import "../styles/components/learn.css";
 import "../styles/components/train.css";
 import CourseCard from "../components/train/CourseCard.vue";
-import TonightCard from "../components/train/TonightCard.vue";
+import TonightPlan from "../components/train/TonightPlan.vue";
 import TechniqueLibrary from "../components/train/TechniqueLibrary.vue";
 import TechniqueView from "../components/train/TechniqueView.vue";
 import LessonView from "../components/train/LessonView.vue";
@@ -30,7 +31,7 @@ import { nightNowDate } from "../api/train";
 import type { GuidedMode } from "../components/train/guided/GuidedView.vue";
 // the guided modes (LDJ-25) load when one opens: /train/guided/wbtb|up|mild|ssild|wild|drill|cat|cue
 const GuidedView = defineAsyncComponent(() => import("../components/train/guided/GuidedView.vue"));
-import HabitsCard from "../components/train/HabitsCard.vue";
+import TodayChecklist from "../components/train/TodayChecklist.vue";
 import PmCard from "../components/train/PmCard.vue";
 import ReviewView from "../components/train/ReviewView.vue";
 import MeditationCard from "../components/train/MeditationCard.vue";
@@ -76,7 +77,12 @@ const rows = computed(() => t.course.data.value ?? []);
 const current = computed(() => currentLesson(rows.value));
 const lesson = computed(() => (current.value ? findLesson(current.value) ?? null : null));
 const row = computed(() => rows.value.find((r) => r.lessonId === current.value));
-const planned = computed(() => tonightNight(j.nights.data.value)?.techniquesPlanned ?? []);
+const tonight = computed(() => tonightNight(j.nights.data.value, tonightDate()));
+const planned = computed(() => tonight.value?.techniquesPlanned ?? []);
+const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && articles.find((a) => a.id === "techniques/" + tq.slug)?.title) ?? id.replace(/-/g, " "); };
+
+// the lesson's practice items for the Today checklist (ticked there, not on the course card)
+const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
 
 const rule = computed(() => {
   if (!lesson.value) return null;
@@ -124,8 +130,8 @@ async function next() {
       <Transition name="sw" mode="out-in">
         <div v-if="tab === 'train'" key="today" class="grid g2 tgrid">
           <div class="tcol">
-            <CourseCard :lesson="lesson" :row="row" :practice="t.practice.data.value ?? []" :today="today" :rule="rule" :moving="moving" @move-on="next" />
-            <HabitsCard />
+            <CourseCard :lesson="lesson" :rule="rule" :moving="moving" @move-on="next" />
+            <TodayChecklist :lesson="checklistLesson" />
           </div>
           <div class="tcol">
             <PmCard />
@@ -134,7 +140,7 @@ async function next() {
           </div>
         </div>
         <div v-else-if="tab === 'train-tonight'" key="tonight" class="grid g2 tgrid">
-          <div class="tcol"><TonightCard :planned="planned" /></div>
+          <div class="tcol"><TonightPlan :night="tonight" :date="tonightDate()" :title-of="titleOf" /></div>
           <div class="tcol"><GuidedCard :wake-at="wbtbAt" group="tonight" /></div>
         </div>
         <div v-else key="techniques" class="grid g2 tgrid">

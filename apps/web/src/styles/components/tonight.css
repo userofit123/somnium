@@ -1,0 +1,15 @@
+/* tonight's plan (components/train/TonightPlan.vue): Train > Tonight, and compact on Home */
+.tplan .tpnote { margin-bottom: var(--hg); }
+.tplan .tplist { display: flex; flex-direction: column; }
+.tplan .tpli { padding-inline: 0; }
+.tplan .tpli > svg:first-child { color: var(--acc); flex: none; }
+.tplan .tpname { text-decoration: none; color: inherit; }
+.tplan .tpname:hover { color: var(--acc); }
+.tplan .tpadd { margin-top: calc(var(--hg) / 2); margin-inline-start: calc(var(--hg) / -2); }
+.tplan .tprow { display: flex; align-items: center; gap: var(--hg); }
+.tplan .tpsec { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.tplan .tpx { overflow-wrap: anywhere; }
+.tplan .tpedit { display: flex; flex-direction: column; gap: var(--hg); }
+.tplan .tpedit input { width: 100%; }
+.tpfam + .tpfam { margin-top: var(--hg); }
+.tpfam .tpfh { margin-bottom: calc(var(--hg) / 2); }

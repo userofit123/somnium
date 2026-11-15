@@ -7,7 +7,7 @@
 // Nothing here is personal: no journal text, no intention.
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { TECHNIQUES, nightTimes, reminderText, wakingWindow } from "@somnium/shared";
+import { nightTimes, reminderText, wakingWindow } from "@somnium/shared";
 import { useSettings } from "../../api/queries";
 import { toastError, savedToast } from "../../core/toast";
 import { useFmt } from "../../core/format";
@@ -15,7 +15,6 @@ import { isPhone } from "../../core/device";
 import { checkCatalog, localDate, showReminder, androidReminders, wbtbAlarm } from "../../native/reminders";
 import { reminderDelivery } from "../../native/notifications";
 import { useReminders, desktopApp } from "./useReminders";
-import AppSelect from "../AppSelect.vue";
 import NumStep from "../NumStep.vue";
 import TimePicker from "../TimePicker.vue";
 import Icon from "../Icon.vue";
@@ -73,7 +72,6 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
 const times = computed(() => nightTimes(today(), settings.value.sleep));
 const win = computed(() => wakingWindow(rc.value, settings.value.sleep));
 const rcLine = computed(() => `${rc.value.perDay} a day · ${win.value.from} to ${win.value.to}${rc.value.pausedOn === today() ? " · paused today" : ""}`);
-const techniques = TECHNIQUES.filter((t) => ["mild", "ssild", "wild", "wbtb", "vild", "fild", "deild", "reality-testing", "dream-signs", "incubation"].includes(t.id)).map((t) => ({ value: t.id, label: t.label }));
 const wbtbSet = computed(() => { void rows.data.value; return wbtbAlarm(); });
 const checked = (e: Event) => (e.target as HTMLInputElement).checked;
 </script>
@@ -84,9 +82,8 @@ const checked = (e: Event) => (e.target as HTMLInputElement).checked;
     <div class="li"><button type="button" class="grow rlink" @click="router.push('/settings/reality-checks')"><div class="grow"><div class="t">Reality checks</div><div class="s">{{ rcOn ? rcLine : "A few times a day while you're awake" }}</div></div><Icon name="right" :size="16" class="muted" /></button>
       <span class="tg"><input type="checkbox" :checked="rcOn" aria-label="Reality checks" @change="saveRc({}, checked($event))" /></span></div>
 
-    <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">{{ night("bedtime").on ? `${clock(times.bedtime - night("bedtime").s.lead * 60_000)}, ${night("bedtime").s.lead} min before bed · "Tonight: ${techniques.find((t) => t.value === night("bedtime").s.technique)?.label ?? "MILD"}"` : "Before bed, with tonight's technique" }}</div></div><span class="tg"><input type="checkbox" :checked="night('bedtime').on" @change="saveNight('bedtime', {}, checked($event))" /></span></label>
+    <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">{{ night("bedtime").on ? `${clock(times.bedtime - night("bedtime").s.lead * 60_000)}, ${night("bedtime").s.lead} min before bed · with what you plan in Train, Tonight` : "Before bed, with what you plan in Train, Tonight" }}</div></div><span class="tg"><input type="checkbox" :checked="night('bedtime').on" @change="saveNight('bedtime', {}, checked($event))" /></span></label>
     <div v-if="night('bedtime').on" class="frow">
-      <div class="fld grow"><label>Tonight's technique</label><AppSelect :model-value="night('bedtime').s.technique" :options="techniques" title="Technique" @update:model-value="(v) => saveNight('bedtime', { technique: v })" /></div>
       <div class="fld"><label>Minutes before bed</label><NumStep :value="night('bedtime').s.lead" :step="5" :min="5" :max="60" unit="min" @set="(v) => saveNight('bedtime', { lead: v })" /></div>
     </div>
 

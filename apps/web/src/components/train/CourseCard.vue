@@ -1,21 +1,14 @@
 <script setup lang="ts">
-// "Your course" (LDJ-24): the current lesson, today's practice ticks (practice_log) and how close the move-on rule
-// is. The rule never blocks: "Move on" is the primary button once it is met, and a quiet link before that.
+// "Your course" (LDJ-24): the current lesson and how close the move-on rule is. Its practice items are ticked in the
+// Today checklist beside it (LDJ-97), never twice. The rule never blocks: "Move on" is the primary button once it is
+// met, and a quiet link before that.
 import { computed } from "vue";
-import type { CourseProgress, PracticeLog, MoveOn } from "@somnium/shared";
-import { lessons, practiceItemId, type Lesson } from "@somnium/knowledge/course";
-import { tickPractice } from "../../api/train";
-import { useChange } from "../../api/queries";
-import Icon from "../Icon.vue";
+import type { MoveOn } from "@somnium/shared";
+import { lessons, type Lesson } from "@somnium/knowledge/course";
 import ProgressBar from "../ProgressBar.vue";
 
-const props = defineProps<{ lesson: Lesson | null; row?: CourseProgress; practice: PracticeLog[]; today: string; rule: MoveOn | null; moving: boolean }>();
+const props = defineProps<{ lesson: Lesson | null; rule: MoveOn | null; moving: boolean }>();
 const emit = defineEmits<{ moveOn: [] }>();
-const items = computed(() => (props.lesson?.practice ?? []).map((text, i) => {
-  const id = practiceItemId(props.lesson!.id, i);
-  return { id, text, row: props.practice.find((p) => p.item === id && p.date === props.today && p.done) };
-}));
-const tick = useChange((id: string, on: boolean, row?: PracticeLog) => tickPractice(id, props.today, on, row), ["practice"]);
 const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
 </script>
 
@@ -28,13 +21,6 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
         <div class="t">{{ lesson.title }}</div>
         <div class="tiny">{{ lesson.summary }}</div>
         <router-link :to="'/train/lesson/' + lesson.id" class="lnk inl tiny">Read the lesson</router-link>
-      </div>
-      <div class="tiny tsub">Today's practice</div>
-      <div class="tcheck">
-        <button v-for="it in items" :key="it.id" type="button" class="tck" :class="{ on: !!it.row }" role="checkbox" :aria-checked="!!it.row"
-          :disabled="tick.busy.value" @click="tick.run(it.id, !it.row, it.row)">
-          <span class="box"><Icon v-if="it.row" name="check" :size="14" /></span><span class="txt">{{ it.text }}</span>
-        </button>
       </div>
       <div v-if="rule" class="tmove">
         <ProgressBar :percent="pct" label="Progress towards moving on" />

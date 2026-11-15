@@ -17,41 +17,36 @@
 .tcourse .tlh .t { font-weight: 600; font-size: var(--fs-lg); }
 .tcourse .tlh .tiny { margin-top: 2px; }
 .tcourse .tlh .lnk { display: inline-block; margin-top: 6px; padding: 0; }
-.tcourse .tsub { margin: var(--hg) 0 6px; font-weight: 600; }
-.tcheck { display: flex; flex-direction: column; }
-.tck { font-size: var(--fs-sm); display: flex; align-items: flex-start; gap: 10px; padding: var(--lpy) 0; border: 0; border-bottom: 1px solid var(--ol); background: none; color: var(--tx); font-family: inherit; text-align: start; cursor: pointer; }
-.tck:last-child { border-bottom: 0; }
-.tck .box { flex: none; width: 20px; height: 20px; border-radius: var(--r-sm); border: 1.5px solid var(--ol); display: grid; place-items: center; margin-top: 1px; color: var(--on); }
-.tck.on .box { background: var(--acc); border-color: var(--acc); }
-.tck.on .txt { color: var(--tx2); }
 .tmove { margin-top: var(--hg); }
 .tmrow { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
 .tprog { font-weight: 600; font-size: var(--fs-sm); }
 .tmove > .lnk { margin-top: 6px; padding: 0; }
 
-/* tonight's plan */
-.ttonight .tname { text-decoration: none; color: inherit; }
+/* the Today checklist (LDJ-97), on Home and Train > Today: rows in the list look, ticks are the one checkbox
+   (forms.css). Rows that tick themselves show the box only; clicks go to the row's link, not the box */
+.tday input[type=checkbox], .tdtick input[type=checkbox] { flex: none; margin: 0; }
+.tday input.ro { pointer-events: none; }
+.tdtick { cursor: pointer; }
+.tdl { text-decoration: none; color: inherit; }
+.tday .tdchecks { flex-direction: column; align-items: stretch; gap: var(--hg); }
+.tday .tdrow { display: flex; align-items: center; gap: var(--hg); }
+.tday .tdstreak { flex: none; color: var(--acc); }
+.tday .tdall { margin: var(--hg) 0 0; }
 
 /* a technique or lesson page */
-.tview .tuse { display: flex; align-items: center; gap: 12px; margin-bottom: var(--spg); flex-wrap: wrap; }
-.tview .tbasis { margin-top: 6px; }
-.tview .tplanned { display: flex; align-items: center; gap: 10px; }
-.tview .tplanned .tiny { display: inline-flex; align-items: center; gap: 4px; }
+.tuse { display: flex; align-items: center; gap: 12px; margin-bottom: var(--spg); flex-wrap: wrap; }
+.tuse .tbasis { margin-top: 6px; }
+.tplanned { display: flex; align-items: center; gap: 10px; }
+.tplanned .tiny { display: inline-flex; align-items: center; gap: 4px; }
 .tsafe { border-inline-start: 2px solid var(--ol); padding: calc(var(--lpy) / 4) 0 calc(var(--lpy) / 4) var(--cpx); margin-bottom: var(--spg); }
 .tsafe ul { margin: 4px 0; padding-inline-start: 18px; }
 .tsafe li { margin: 2px 0; }
 .tview .tpr { margin: var(--spg) 0; }
 .tview .tpr ul { margin: 6px 0; padding-inline-start: 18px; }
-html.phone .tview .tuse .btn { width: 100%; }
+html.phone .tuse .btn { width: 100%; }
 .train .lnk.inl.tiny { font-size: var(--fs-xs); }
 
-/* habits, memory targets, meditation (LDJ-26, LDJ-50) */
-.thabits .hrow { align-items: center; }
-.thabits .hl { text-decoration: none; color: inherit; }
-.thabits .hstreak { flex: none; color: var(--acc); }
-.thabits .hall { margin: var(--hg) 0 0; }
-.thabits .hbox { flex: none; width: 20px; height: 20px; border-radius: var(--r-sm); border: 1.5px solid var(--ol); display: grid; place-items: center; color: var(--on); }
-.thabits .hbox.on { background: var(--acc); border-color: var(--acc); }
+/* memory targets, meditation (LDJ-26, LDJ-50) */
 .tpm .pmrow { display: flex; align-items: center; gap: 12px; padding: var(--lpy) 0; border-bottom: 1px solid var(--ol); }
 .tpm .pmbtns { display: flex; gap: 8px; flex: none; }
 .tpm .pmbig { min-width: 64px; min-height: 44px; }

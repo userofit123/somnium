@@ -36,7 +36,11 @@ export async function setElementFlags(id: string, flags: { isDreamSign?: boolean
 /** Confirms an element the app found: it stops being offered as a suggestion. */
 export const confirmElement = (id: string) => setElementFlags(id, { confirmed: true });
 
-export interface ElementEdit { name: string; kind: ElementKind; aliases: string | null; isDreamSign: boolean; signCategory: SignCategory | null }
+export interface ElementEdit {
+  name: string; kind: ElementKind; aliases: string | null; isDreamSign: boolean; signCategory: SignCategory | null;
+  /** a dream sign's waking triggers, one per line (sealed, LDJ-111); left out, they stay as they are */
+  triggers?: string | null;
+}
 /** Saving by hand is confirming too. */
 export async function saveElement(id: string, e: ElementEdit) { await needsServer(() => api.put(`/elements/${id}`, { ...e, confirmed: true })); done(); }
 
