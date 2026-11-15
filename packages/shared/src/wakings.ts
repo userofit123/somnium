@@ -88,8 +88,8 @@ export function wakeCluster(rows: readonly WakeRow[]): { minutes: number; dreams
 export interface TimelineMark { at: number; clock: string }
 /**
  * LDJ-221: a night's timed dreams placed between bedtime and wake time, as fractions 0-1 of the night, for the small
- * timeline in Night details. Null without a bedtime or a dream woken from in this night. Without a wake time (or a
- * dream after it, within the hour's grace) the line ends at the last dream.
+ * timeline in Night details. Null without a bedtime or a dream woken from in this night. The line ends at the wake time; without a usable wake
+ * time, or when a dream came after it, it ends at the last dream.
  */
 export function nightTimeline(bedtime: string | null | undefined, wakeTime: string | null | undefined, wokeAts: readonly (string | null | undefined)[]):
   { from: string; to: string; marks: TimelineMark[] } | null {

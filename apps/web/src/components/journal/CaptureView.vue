@@ -76,7 +76,7 @@ const fields = (unfinished: boolean, t = text()) => ({
 // what the capture can show again without losing anything: key words and its three marks, nothing more (the
 // capture saves every field each time, so taking up anything fuller here would write over it)
 // (the editor's other fields, all empty; an unfinished one is still key words, a finished one was written out)
-const OTHER = ["awareness", "vividness", "control", "emotionOverall", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd"];
+const OTHER = ["awareness", "vividness", "control", "emotionOverall", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd", "planDone"];
 function captureShaped(d: Record<string, unknown>) {
   return !d.title && !(typeof d.text === "string" && d.text.includes("\n")) && d.unfinished !== false
     && Number(d.lucidityLevel ?? 0) <= 1 && (d.recallClarity == null || d.recallClarity === 1)

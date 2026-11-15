@@ -35,6 +35,8 @@ export interface DreamFact {
   nightmare: boolean; badDream: boolean; recurring: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
   /** when you woke from it, stamped by a capture in the night (LDJ-177); null for one written up later */
   wokeAt: string | null;
+  /** whether you did your lucid plan, when you had one (the plan itself is sealed) */
+  planDone: Dream["planDone"] | null;
 }
 export { uuidv7 };
 

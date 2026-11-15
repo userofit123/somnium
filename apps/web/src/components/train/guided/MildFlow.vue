@@ -90,7 +90,7 @@ async function next() {
         <label class="glabel" for="g-intention">Intention</label>
         <textarea id="g-intention" v-model="text" class="gintent" rows="3" maxlength="200" />
         <Ev text="Aspy's study used this sentence word for word [D11]. Changing it saves it, sealed, as tonight's intention." @cite="emit('cite', $event)" />
-        <div v-if="lucidPlan" class="gbox"><div class="glabel">Then, once lucid, I will</div><div class="gp">{{ lucidPlan }}</div><Ev text="Deciding beforehand what to do keeps you calm and on task once lucid [D1][B64]." @cite="emit('cite', $event)" /></div>
+        <div v-if="lucidPlan" class="gbox"><div class="glabel">Then, once lucid, I will</div><div class="gp">{{ lucidPlan }}</div><Ev text="Staying calm, then one small step, is LaBerge's advice once lucid [D1]; in the practice studies everyone had the task set before sleep [B64]." @cite="emit('cite', $event)" /></div>
       </template>
       <template v-else-if="step === 2">
         <h1>Picture it</h1>
