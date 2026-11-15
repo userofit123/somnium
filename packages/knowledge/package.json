@@ -11,7 +11,8 @@
     "./assessments": "./src/assessments.ts",
     "./techniques": "./src/techniques.ts",
     "./course": "./src/course.ts",
-    "./resources": "./src/resources.ts"
+    "./resources": "./src/resources.ts",
+    "./chartHelp": "./src/chartHelp.ts"
   },
   "scripts": {
     "test": "vitest run",

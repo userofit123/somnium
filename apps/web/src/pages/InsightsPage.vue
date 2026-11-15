@@ -2,7 +2,7 @@
 // Progress (PLAN.md §6.5, LDJ-21, LDJ-22, LDJ-90): goals, lucidity, what goes with lucid nights, recall, reality checks,
 // night events, day-note lag and the Learn questionnaire answers over a chosen period, in §6.5's order. Each section is
 // a row of stat tiles and then one chart per card (Motus StatsPage), so it scans and the cards line up; the longer
-// explanations sit behind each section's info button. Everything is summed here on the device from the journal it
+// explanations sit behind each section's info button (ChartInfo, texts in packages/knowledge/content/progress). Everything is summed here on the device from the journal it
 // already holds (packages/shared/src/insights.ts); nothing is sent anywhere. A lazy route, so the charts load with
 // this page only. No primary action: it only shows; the reports are in the ⋮ menu.
 import { computed, ref } from "vue";
@@ -10,9 +10,9 @@ import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
-  RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_WINDOW, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, RECALL_FIRST_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES,
-  lucidQuality, QUALITY_MIN, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
+  RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_COUNTING_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
+  checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS,
+  lucidQuality, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor, recallBaseline } from "@somnium/knowledge/assessments";
 import { useJournal, uuidv7 } from "../api/journal";
@@ -30,6 +30,7 @@ import Menu from "../components/Menu.vue";
 import ProgressBar from "../components/ProgressBar.vue";
 import Sheet from "../components/Sheet.vue";
 import GoalCards from "../components/goals/GoalCards.vue";
+import ChartInfo from "../components/insights/ChartInfo.vue";
 import LagCard from "../components/insights/LagCard.vue";
 import ThemesCard from "../components/insights/ThemesCard.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
@@ -52,8 +53,6 @@ const SINCE: Record<string, string> = { "4w": "last 4 weeks", "3m": "last 3 mont
 const periodOpts = PERIODS.map((p) => ({ value: p, label: PERIOD_LABEL[p] }));
 // the reports are rare and optional, so they sit in the ⋮ menu rather than beside the period
 const menu = computed(() => (features.value.reports ? [{ label: "Month and year reports", icon: "stats", run: () => void router.push("/report") }] : []));
-// which section's explanation is open: one Sheet at a time
-const info = ref<"works" | "pm" | "events" | "recall" | "quality" | "sleep" | null>(null);
 const from = computed(() => periodStart(period.value, today.value));
 const bucket = computed<Bucket>(() => bucketFor(period.value));
 // every check of the period (all=1: no limit, so a long habit of checks is never cut short)
@@ -182,8 +181,7 @@ const kindBars = computed(() => checks.value.byKind.map((k) => ({ label: KIND[k.
 
 // ---------- night events ----------
 const sourcesOpen = ref<string[] | null>(null);
-const PM_SOURCES = ["D1"]; // RESEARCH.md 1.6, LaBerge and Rheingold 1990 ch. 3
-const cite = (sid: string) => { info.value = null; sourcesOpen.value = [sid]; };
+const cite = (sid: string) => { sourcesOpen.value = [sid]; };
 // nightmares (they woke you) apart from bad dreams (they didn't): RESEARCH.md C18
 const eventSets = computed(() => [
   { title: "Nightmares", total: events.value.total.nightmares, color: "var(--c1)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.nightmares, color: "var(--c1)" })) },
@@ -220,7 +218,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Lucidity -->
     <section>
-      <div class="sh"><h2>Lucidity</h2><button v-if="quality.all.lucid" class="ib sm plain" type="button" aria-label="About how your lucid dreams change" @click="info = 'quality'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>Lucidity</h2><ChartInfo id="lucidity" /></div>
       <div v-if="!lucid.lucid" class="card empty"><Icon name="sparkle" :size="34" /><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.<br /><button class="btn tonal" type="button" @click="router.push('/train/tonight')">Plan tonight</button></div>
       <template v-else>
         <div class="grid g4">
@@ -258,7 +256,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- What works for you -->
     <section>
-      <div class="sh"><h2>What works for you</h2><button class="ib sm plain" type="button" aria-label="About these rates" @click="info = 'works'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>What works for you</h2><ChartInfo id="works" /></div>
       <div v-if="recipes.length || tally.length" class="grid g2" :class="{ 'ins-early': groups.length }" data-testid="early">
         <div v-if="recipes.length" class="card">
           <div class="lbl hgap">Your lucid dreams came after</div>
@@ -301,7 +299,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Recall -->
     <section>
-      <div class="sh"><h2>Recall</h2><button v-if="progress.weekly.length" class="ib sm plain" type="button" aria-label="About your recall progress" @click="info = 'recall'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>Recall</h2><ChartInfo id="recall" /></div>
       <template v-if="progress.weekly.length">
         <div class="grid" :class="progress.said ? 'g4' : 'g3 keep'">
           <div class="card hero stat" data-testid="recall-now"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks${progress.reached.twoANight ? ` · ${RECALL_TARGETS.perNight} a night reached` : ""}` : "no night logged in the last 2 weeks" }}</div></div>
@@ -332,7 +330,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Sleep (LDJ-160) -->
     <section data-testid="sleep">
-      <div class="sh"><h2>Sleep</h2><button class="ib sm plain" type="button" aria-label="About sleep and lucid dreams" @click="info = 'sleep'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>Sleep</h2><ChartInfo id="sleep" /></div>
       <div v-if="sleep.last.short" class="card" data-testid="sleep-first"><div class="lbl hgap">Sleep first</div><p class="tiny">Lucid dreams come in the long REM periods of the morning. Your last {{ SLEEP_MIN_NIGHTS }} nights averaged {{ one(sleep.last.hours!) }} h asleep: sleep longer before adding practice. <CiteChips :ids="sleepCites" @cite="cite($event[0]!)" /></p></div>
       <div v-if="!sleep.enough" class="card empty" :class="{ spt: sleep.last.short }"><Icon name="moon" :size="34" /><b>Not enough nights with times yet</b>{{ sleep.timed }} of {{ SLEEP_MIN_NIGHTS }} nights in this period have a bedtime and a wake time. Add them to your nights to see how long and how regularly you sleep.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
@@ -352,7 +350,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Checks -->
     <section>
-      <div class="sh"><h2>Checks</h2></div>
+      <div class="sh"><h2>Checks</h2><ChartInfo id="checks" /></div>
       <div v-if="!checks.total" class="card empty"><Icon name="check" :size="34" /><b>No reality checks in this period</b>Log each check you do, and whether it said you were awake or dreaming.<br /><button class="btn tonal" type="button" @click="router.push('/check')">Log a check</button></div>
       <template v-else>
         <div class="grid g4">
@@ -376,7 +374,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </section>
 
     <section v-if="pm.set">
-      <div class="sh"><h2>Memory targets</h2><button class="ib sm plain" type="button" aria-label="About memory targets" @click="info = 'pm'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>Memory targets</h2><ChartInfo id="memory-targets" /></div>
       <div class="grid g2 keep">
         <div class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>Hit rate</div><div class="val num">{{ pm.rate == null ? "-" : pct(pm.rate) }}</div><div class="sub">last 7 days</div></div>
         <div class="card stat"><div class="lbl"><span class="bi"><Icon name="check" :size="15" /></span>Targets hit</div><div class="val num">{{ pm.hit }}<small>of {{ pm.hit + pm.miss }}</small></div><div class="sub">last 7 days</div></div>
@@ -385,7 +383,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Night events -->
     <section>
-      <div class="sh"><h2>Night events</h2><button v-if="events.total.nightmares || events.total.badDreams" class="ib sm plain" type="button" aria-label="About nightmares and bad dreams" @click="info = 'events'"><Icon name="info" :size="17" /></button></div>
+      <div class="sh"><h2>Night events</h2><ChartInfo id="events" /></div>
       <div v-if="!lucid.dreams" class="card empty"><Icon name="moon" :size="34" /><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
         <div class="grid g4">
@@ -411,7 +409,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Your answers -->
     <section>
-      <div class="sh"><h2>Your answers</h2></div>
+      <div class="sh"><h2>Your answers</h2><ChartInfo id="answers" /></div>
       <div v-if="!answerSets.length" class="card empty"><Icon name="map" :size="34" /><b>No answers yet</b>Answer the two questions in Learn · Where am I now and again to see how they change.<br /><button class="btn tonal" type="button" @click="router.push('/learn/where-am-i')">Answer them</button></div>
       <template v-else>
         <p class="tiny">All your answers, whatever the period.</p>
@@ -428,11 +426,6 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       </template>
     </section>
 
-    <Sheet v-if="info === 'works'" title="What works for you" @close="info = null">
-      <p>What went with your lucid nights, from your own nights only: it shows what went together, not what caused what.</p>
-      <p>A rate shows once there are {{ MIN_NIGHTS }} nights on each side. The grey bar is the nights without it.</p>
-      <p>Until then, what each lucid night came after and how many nights you tried each technique show as plain counts: early numbers, not a rate. <CiteChips :ids="EARLY_SOURCES" @cite="cite($event[0]!)" /></p>
-    </Sheet>
     <Sheet v-if="tallyOpen" :title="tallyOpen.label" @close="tallyOpen = null">
       <p class="tiny">{{ tallyOpen.text }}, {{ SINCE[period] }}. The nights you did it, lucid or not: they show what went with your lucid nights, not what caused them.</p>
       <div class="list">
@@ -441,27 +434,6 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <span v-if="r.lucid" class="tag">Lucid</span>
         </component>
       </div>
-    </Sheet>
-    <Sheet v-if="info === 'recall'" title="Your recall" @close="info = null">
-      <p>Dreams a night over the last two weeks, set against your first {{ RECALL_WINDOW }} logged nights, once each side has {{ RECALL_MIN_NIGHTS }} nights. In the international induction study, people with better dream recall had more success with the techniques <CiteChips :ids="RECALL_WHY_SOURCES" @cite="cite($event[0]!)" />; the course puts recall first <CiteChips :ids="RECALL_FIRST_SOURCES" @cite="cite($event[0]!)" />.</p>
-      <p>The course's targets: a dream remembered every night for {{ RECALL_TARGETS.run }} nights in a row, then {{ RECALL_TARGETS.perNight }} a night. <CiteChips :ids="RECALL_TARGET_SOURCES" @cite="cite($event[0]!)" /></p>
-      <p>Part of any rise is counting: writing dreams down each morning catches some you would have forgotten. For most people keeping a journal also helps them remember more, though in one study it raised recall in people who remembered few or some dreams and lowered it in those who already remembered many. <CiteChips :ids="RECALL_COUNTING_SOURCES" @cite="cite($event[0]!)" /></p>
-    </Sheet>
-    <Sheet v-if="info === 'pm'" title="Memory targets" @close="info = null">
-      <p>A target you set and never logged counts as a miss once its day is over. LaBerge's exercise: keep going for at least a week, and if you still miss most targets, carry on until you hit most of them. <CiteChips :ids="PM_SOURCES" @cite="cite($event[0]!)" /></p>
-    </Sheet>
-    <Sheet v-if="info === 'events'" title="Nightmares and bad dreams" @close="info = null">
-      <p>{{ UPSET_HINT }} <CiteChips :ids="UPSET_SOURCES" @cite="cite($event[0]!)" /></p>
-    </Sheet>
-    <Sheet v-if="info === 'quality'" title="How your lucid dreams change" @close="info = null">
-      <p>Lucidity is a range, not a yes or no: people describe everything from a brief flash of knowing to full clarity, and the scale researchers use grades insight and control apart. <CiteChips :ids="['B79', 'B22']" @cite="cite($event[0]!)" /></p>
-      <p>Once lucid dreams come, the training turns to keeping them going longer. <CiteChips :ids="['D1']" @cite="cite($event[0]!)" /></p>
-      <p>These read the level, control, length and ending you give each lucid dream, since your first one, whatever the period above. "Mostly" is the most common level, a tie counting as the lower one; it shows once {{ QUALITY_MIN }} lucid dreams on a side have a level.</p>
-    </Sheet>
-    <Sheet v-if="info === 'sleep'" title="Sleep" @close="info = null">
-      <p>REM periods grow longer through the night, so the last hours of sleep hold the most REM, and that is where lucid dreams mostly come. <CiteChips :ids="SLEEP_REM_SOURCES" @cite="cite($event[0]!)" /> Cutting sleep to train cuts that time: sleep comes first. <CiteChips :ids="SLEEP_FIRST_SOURCES" @cite="cite($event[0]!)" /></p>
-      <p>WBTB breaks sleep up on purpose. In a four-study project, waking in the night went with lucid dreaming while rated sleep quality did not; in two surveys, people with frequent lucid dreams rated their sleep worse. <CiteChips :ids="SLEEP_WBTB_SOURCES" @cite="cite($event[0]!)" /> The WBTB line sets your own WBTB nights against the others once each side has {{ MIN_NIGHTS }} nights.</p>
-      <p>Hours asleep run from bedtime to wake time, less the minutes awake for WBTB. "Varies by about" is how far bedtimes usually stray from the usual one. Numbers show once {{ SLEEP_MIN_NIGHTS }} nights have both times; naps are left out.</p>
     </Sheet>
     <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
   </div>

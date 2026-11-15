@@ -92,5 +92,3 @@ export function lagLine(w: LagWindow, label: string): string {
 }
 export const RESIDUE_LABEL = "In a dream 1-2 days after you wrote about it";
 export const LAG_LABEL = "In a dream 5-7 days after you wrote about it";
-/** The caution shown under the card; the effect is small and mixed in the studies, so this is a count, not a finding. */
-export const LAG_CAVEAT = "These are counts from your own notes, not a test. Studies found the 5-7 day delay in some groups and not in others, and things you write about are often the things you keep thinking about, so a match does not show cause.";

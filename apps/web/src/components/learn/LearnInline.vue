@@ -3,7 +3,8 @@
 import type { Inline } from "@somnium/knowledge/markdown";
 defineProps<{ nodes: Inline[] }>();
 const emit = defineEmits<{ cite: [ids: string[]] }>();
-const internal = (h: string) => h.startsWith("/learn");
+// any in-app path (Learn, and the Train or Signs links in the Progress notes) stays in the router
+const internal = (h: string) => /^\/(?![/\\])/.test(h);
 const external = (h: string) => /^https?:/i.test(h);
 </script>
 
