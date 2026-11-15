@@ -21,7 +21,7 @@
   background: none;
   color: var(--tx);
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs);
   padding: 9px 12px;
   border-radius: 10px;
   cursor: pointer;

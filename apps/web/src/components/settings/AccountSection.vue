@@ -88,10 +88,10 @@ async function deleteAccount() {
 
 <style scoped>
 .ac-head { display: flex; align-items: center; gap: var(--spg); }
-.ac-av { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--accc); color: var(--onc); font-size: 20px; font-weight: 700; letter-spacing: .02em; }
+.ac-av { width: 56px; height: 56px; border-radius: 50%; flex: none; display: grid; place-items: center; background: var(--accc); color: var(--onc); font-size: calc(20px * var(--fsc)); font-weight: 700; letter-spacing: .02em; }
 .ac-who { min-width: 0; }
 .ac-who .tiny { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ac-name { font-size: 18px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-name { font-size: calc(18px * var(--fsc)); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the control column: same width on every input row so the card reads as one aligned form */
 .li > .ac-in { width: min(240px, 58%); max-width: none; flex: none; }
 .ac-neg { color: var(--neg); }

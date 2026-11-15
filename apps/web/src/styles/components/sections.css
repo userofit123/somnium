@@ -22,13 +22,13 @@
   margin: 0;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 14px;
+  font-size: var(--fs);
 }
 
 .cdt .accs > span {
   display: block;
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs);
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
@@ -38,7 +38,7 @@
 .cdt .accs .sm {
   display: block;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -67,7 +67,7 @@
 
 .ssh b {
   display: block;
-  font-size: 16px;
+  font-size: var(--fs-lg);
   font-weight: 650;
   letter-spacing: -.15px;
 }
@@ -108,7 +108,7 @@
   border-radius: 99px;
   background: var(--s2);
   color: var(--tx2);
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 700;
   vertical-align: 2px;
 }
@@ -126,7 +126,7 @@
   padding: 12px 20px 16px;
   border-top: 1px solid var(--ol);
   background: var(--s2);
-  font-size: 12.5px;
+  font-size: var(--fs-sm);
   color: var(--tx2);
   line-height: 1.5;
 }
@@ -147,7 +147,7 @@
   border-radius: 12px;
   padding: 11px 13px;
   margin: 12px 0 16px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--tx2);
 }
@@ -174,7 +174,7 @@
 
 .cdt span {
   display: block;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: .6px;
@@ -183,7 +183,7 @@
 }
 
 .cdt b {
-  font-size: 14px;
+  font-size: var(--fs);
   font-weight: 600;
   line-height: 1.5;
 }

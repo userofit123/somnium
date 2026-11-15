@@ -31,7 +31,7 @@
   border-radius: 16px;
   padding: 12px 14px;
   box-shadow: 0 14px 34px -14px rgba(0, 0, 0, .4);
-  font-size: 14px;
+  font-size: var(--fs);
   animation: tin .22s ease-out;
 }
 
@@ -104,7 +104,7 @@
 
 .toast .tm b {
   display: block;
-  font-size: 13px;
+  font-size: var(--fs-sm);
 }
 
 .toast .tm div {
@@ -142,7 +142,7 @@
   border: 0;
   background: none;
   color: var(--tx2);
-  font-size: 20px;
+  font-size: calc(20px * var(--fsc));
   cursor: pointer;
   line-height: 1;
   padding: 2px 6px;

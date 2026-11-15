@@ -21,14 +21,14 @@ function typed(e: Event) {
 
 <style scoped>
 .nstep { display: inline-flex; align-items: center; border: 1px solid var(--ol); border-radius: var(--pill); background: var(--s1); height: 38px; flex: none; }
-.nstep button { width: 36px; height: 100%; border: 0; background: none; color: var(--tx2); font-size: 18px; cursor: pointer; border-radius: var(--pill); }
+.nstep button { width: 36px; height: 100%; border: 0; background: none; color: var(--tx2); font-size: calc(18px * var(--fsc)); cursor: pointer; border-radius: var(--pill); }
 .nstep button:hover:not(:disabled) { color: var(--acc); background: var(--s2); }
 .nstep button:disabled { opacity: .35; cursor: default; }
-.nstep label { display: inline-flex; align-items: baseline; gap: 3px; padding: 0 2px; }
-.nstep input { width: 4ch; min-width: 0; border: 0; background: none; padding: 0; text-align: center; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tx); }
+.nstep label { display: inline-flex; align-items: baseline; gap: calc(var(--hg) * .3); padding: 0 2px; }
+.nstep input { width: 4ch; min-width: 0; border: 0; background: none; padding: 0; text-align: center; font-size: calc(15px * var(--fsc)); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tx); }
 .nstep input:focus { outline: none; }
-.nstep span { font-size: 12.5px; color: var(--tx2); }
+.nstep span { font-size: var(--fs-sm); color: var(--tx2); }
 .nstep.big { height: 48px; }
-.nstep.big button { width: 44px; font-size: 22px; }
-.nstep.big input { font-size: 20px; width: 4.2ch; }
+.nstep.big button { width: 44px; font-size: calc(22px * var(--fsc)); }
+.nstep.big input { font-size: calc(20px * var(--fsc)); width: 4.2ch; }
 </style>

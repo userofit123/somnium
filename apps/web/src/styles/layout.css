@@ -98,7 +98,7 @@ html.vt-r::view-transition-new(root) {
   display: grid;
   place-items: center;
   font-weight: 700;
-  font-size: 20px;
+  font-size: calc(20px * var(--fsc));
   margin-bottom: 8px;
   box-shadow: 0 6px 20px -6px var(--acc);
   flex: none;
@@ -109,7 +109,7 @@ html.vt-r::view-transition-new(root) {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--tx2);
   cursor: pointer;
   border: 0;
@@ -180,7 +180,7 @@ html.vt-r::view-transition-new(root) {
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  font-size: 10.5px;
+  font-size: calc(10.5px * var(--fsc));
   color: var(--tx2);
   text-align: center;
   line-height: 1.25;
@@ -217,7 +217,7 @@ header {
   border: 0;
   background: linear-gradient(135deg, var(--acc), var(--acc2));
   color: var(--on);
-  font-size: 28px;
+  font-size: calc(28px * var(--fsc));
   cursor: pointer;
   box-shadow: 0 12px 30px -8px var(--acc);
   display: grid;

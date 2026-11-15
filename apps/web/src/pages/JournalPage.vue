@@ -220,7 +220,7 @@ const menu = computed(() => [
 .jtoday { margin-bottom: var(--hg); }
 .jtoday .t { font-weight: 500; }
 .jmut { color: var(--tx2); }
-.lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
+.lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
 .jg { gap: var(--hg); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
 </style>

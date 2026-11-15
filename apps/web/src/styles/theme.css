@@ -123,7 +123,7 @@ html[data-den="roomy"] {
 }
 
 html[data-den="compact"] .val {
-  font-size: 26px;
+  font-size: calc(26px * var(--fsc));
 }
 
 html[data-den="compact"] .fld {

@@ -25,7 +25,7 @@
   border: 0;
   background: none;
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   padding: 8px 14px;
   border-radius: 99px;
   color: var(--tx2);
@@ -88,13 +88,13 @@ html.sl {
 
 .h2r .seg {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .h2r .seg button {
   padding: 5px 12px;
   min-height: 28px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 html.he .seg,

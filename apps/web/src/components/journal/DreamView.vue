@@ -260,7 +260,7 @@ const menu = computed((): MenuItem[] => [
 <style scoped>
 .jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--hg); }
 .jview { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
-.jbar { display: flex; align-items: center; gap: 8px; }
+.jbar { display: flex; align-items: center; gap: calc(var(--hg) * .8); }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .jtx.none { color: var(--tx2); }
 .jmut { color: var(--tx2); }
@@ -273,14 +273,14 @@ const menu = computed((): MenuItem[] => [
 .dl:hover, .dl:focus-visible { color: var(--acc); }
 .ds:hover, .ds:focus-visible, .ds.on { color: var(--acc); text-decoration-color: var(--acc); }
 .dl:focus-visible, .ds:focus-visible, .jsgo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
-.jpick { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
-.jsg { display: inline-flex; align-items: center; gap: 4px; border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: 13px; max-width: 100%; }
+.jpick { display: flex; align-items: center; gap: calc(var(--hg) * .4); flex-wrap: wrap; }
+.jsg { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
 .jsg.on { border-color: var(--acc); }
-.jsgo { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jsgo { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
 .jsgo:hover { color: var(--acc); }
 .jx { border: 0; background: none; color: var(--tx2); padding: 2px; cursor: pointer; display: inline-flex; }
 .jx:hover, .jx:focus-visible { color: var(--tx); }
-.jkind { font-size: 11px; color: var(--tx2); margin-inline-start: 4px; }
+.jkind { font-size: var(--fs-xs); color: var(--tx2); margin-inline-start: 4px; }
 .jrel { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--ol); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .jrel:last-child { border-bottom: 0; }
 </style>

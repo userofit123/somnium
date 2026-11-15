@@ -10,7 +10,7 @@
   border-radius: 9px;
   background: var(--neg);
   color: #fff;
-  font-size: 10px;
+  font-size: calc(10px * var(--fsc));
   font-weight: 700;
   display: none;
   place-items: center;
@@ -24,7 +24,7 @@
   border: 1px solid var(--ol);
   border-radius: 10px;
   padding: 5px 11px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--tx2);
   background: var(--s1);
 }
@@ -69,7 +69,7 @@
   white-space: nowrap;
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--tx2);
 }
 
@@ -83,7 +83,7 @@ button.dchip {
 }
 
 .bd {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   padding: 2px 9px;
   border-radius: 99px;
   font-weight: 600;
@@ -110,7 +110,7 @@ i.live.spin {
   color: var(--onc);
   border-radius: 99px;
   padding: 3px 10px;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   margin: 1px;
   border: 0;
   font-family: inherit;
@@ -176,7 +176,7 @@ html.he .chip {
 
 .mrow .mt .catl {
   font-weight: 600;
-  font-size: 14px;
+  font-size: var(--fs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

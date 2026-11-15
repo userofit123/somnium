@@ -72,7 +72,7 @@
   display: flex;
   flex-direction: column;
   gap: 9px;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   flex: 1;
   min-width: 170px;
 }
@@ -96,7 +96,7 @@ svg .gl {
 .wnb {
   padding: 4px 26px 8px;
   overflow: auto;
-  font-size: 14px;
+  font-size: var(--fs);
   line-height: 1.55;
 }
 
@@ -111,11 +111,11 @@ svg .gl {
 }
 
 .trtip.m b {
-  font-size: 12px;
+  font-size: var(--fs-sm);
 }
 
 .trtip.m span {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   font-weight: 500;
 }
 
@@ -126,7 +126,7 @@ svg .gl {
   border: 1px solid var(--ol);
   border-radius: 12px;
   padding: 8px 11px;
-  font-size: 12px;
+  font-size: var(--fs-sm);
   box-shadow: 0 10px 26px -10px #0009;
   display: flex;
   flex-direction: column;
@@ -136,13 +136,13 @@ svg .gl {
 }
 
 .trtip b {
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: var(--tx2);
   font-weight: 600;
 }
 
 .trtip span {
-  font-size: 15px;
+  font-size: calc(15px * var(--fsc));
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -237,7 +237,7 @@ svg [data-tip] {
 }
 
 .wca {
-  font-size: 15px;
+  font-size: calc(15px * var(--fsc));
   font-weight: 650;
   min-height: 24px;
   line-height: 24px;
@@ -311,7 +311,7 @@ svg [data-tip] {
 }
 
 .wcn b {
-  font-size: 13.5px;
+  font-size: var(--fs);
   font-weight: 600;
   display: block;
 }
@@ -330,7 +330,7 @@ svg [data-tip] {
 .wrl {
   padding: 9px 4px;
   border-top: 1px solid var(--ol);
-  font-size: 13.5px;
+  font-size: var(--fs);
   display: flex;
   align-items: center;
   justify-content: center;

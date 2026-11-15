@@ -132,14 +132,14 @@ textarea {
 
 .qa b {
   display: block;
-  font-size: 14px;
+  font-size: var(--fs);
 }
 
 input,
 select,
 textarea {
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs);
   padding: 10px 14px;
   border-radius: 14px;
   border: 1px solid var(--ol);
@@ -172,7 +172,7 @@ textarea:focus {
   gap: 8px;
   width: 100%;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--fs);
   padding: 10px 12px 10px 14px;
   border-radius: 14px;
   border: 1px solid var(--ol);
@@ -242,7 +242,7 @@ input[type=number]::-webkit-outer-spin-button {
 
 tr.grp td {
   background: var(--s2);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 700;
   letter-spacing: .9px;
   text-transform: uppercase;
@@ -261,7 +261,7 @@ tr.grp td {
   height: 54px;
   cursor: pointer;
   font: inherit;
-  font-size: 11px;
+  font-size: var(--fs-xs);
   color: #fff;
   font-weight: 600;
   text-shadow: 0 1px 3px #0006;
@@ -279,7 +279,7 @@ tr.grp td {
 }
 
 .fld label {
-  font-size: 12px;
+  font-size: var(--fs-sm);
   color: var(--tx2);
   font-weight: 600;
 }
@@ -345,7 +345,7 @@ html.he input[type=time] {
   height: 100%;
   opacity: 0;
   cursor: pointer;
-  font-size: 16px;
+  font-size: var(--fs-lg);
 }
 
 select:not([multiple]) {
@@ -424,7 +424,7 @@ html.he select:not([multiple]) {
   background: var(--s1);
   color: var(--tx);
   font: inherit;
-  font-size: 13px;
+  font-size: var(--fs-sm);
   padding: 7px 13px;
   border-radius: 99px;
   cursor: pointer;
@@ -485,7 +485,7 @@ html.he .vsel select {
 }
 
 .sw .swn {
-  font-size: 10px;
+  font-size: calc(10px * var(--fsc));
   font-weight: 600;
   line-height: 1;
 }
