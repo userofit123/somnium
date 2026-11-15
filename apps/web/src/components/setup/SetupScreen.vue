@@ -147,8 +147,10 @@ async function next() {
     } else if (at.value === "recall") {
       if (recall.value != null) {
         // one answer a day: running the setup again the same day replaces it instead of adding another
+        // compared before saving, which updates settings at once; unchanged means no duplicate dated answer in Learn history
+        const changed = recall.value !== settings.value.setup.recall;
         void saveSettings({ setup: { recall: recall.value } }, { quiet: true });
-        void saveAnswer("madre", settings.value.learn.assessments.madre, recall.value, { quiet: true });
+        if (changed) void saveAnswer("madre", settings.value.learn.assessments.madre, recall.value, { quiet: true });
       }
     } else if (at.value === "sleep") {
       void saveSettings({ sleep: { bedtime: bedtime.value, wake: wake.value } }, { quiet: true });
@@ -236,7 +238,7 @@ function finish(to: string) { close(); void router.push(to); }
       <template v-else-if="at === 'freeNights'">
         <h1>Nights you can sleep in</h1>
         <p class="muted su-lede"><LearnInline :nodes="parseInline(FREE_NIGHTS_LEDE)" @cite="cite = $event" /></p>
-        <FreeNights />
+        <FreeNights quiet />
         <p class="tiny su-gap">None picked: no WBTB suggestions. Change them any time in Settings · Sleep.</p>
       </template>
 

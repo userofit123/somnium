@@ -50,7 +50,7 @@ const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? o
 function side(inp: WeekInput, from: string, to: string, clock: Clock): WeekSide {
   const within = (d: string) => d >= from && d <= to;
   // periodSummary filters by a prefix; the empty prefix with the input already cut to the week sums the week
-  const nights = inp.nights.filter((n) => within(n.date)), dreams = inp.dreams.filter((d) => within(d.date));
+  const nights = inp.nights.filter((n) => within(n.date) && !n.nap), dreams = inp.dreams.filter((d) => within(d.date));
   const s = periodSummary("", { ...inp, nights, dreams });
   const lucidDays = new Set([...nights.filter((n) => (n.lucidCount ?? 0) > 0).map((n) => n.date), ...dreams.filter((d) => d.lucid && !d.deletedAt).map((d) => d.date)]);
   const c = checksInsight([...inp.checks], from, to, clock);

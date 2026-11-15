@@ -38,6 +38,10 @@ describe("weekSummary", () => {
     expect(w.now.checksPerDay).toBe(0.4);
     expect(w.last).toMatchObject({ from: "2026-11-02", to: "2026-11-08", nights: 2, dreams: 1, recall: 0.5, lucid: 0, checks: 1 });
   });
+  it("leaves a lucid nap out of the lucid nights, like the night counts", () => {
+    const withNap = { ...base, nights: [...base.nights, { id: "nap1", date: "2026-11-13", dreamCount: 1, lucidCount: 1, nap: true }] };
+    expect(weekSummary(withNap, "2026-11-15", clock).now).toMatchObject({ nights: 5, lucidNights: 1 });
+  });
   it("puts the techniques of lucid nights first", () => {
     expect(w.techniques.map((t) => [t.id, t.nights, t.lucidNights])).toEqual([["mild", 2, 1], ["wbtb", 1, 1], ["ssild", 1, 0]]);
   });

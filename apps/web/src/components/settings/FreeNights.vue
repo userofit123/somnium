@@ -6,6 +6,8 @@ import { computed } from "vue";
 import { freeNightsOf, resolveFormats } from "@somnium/shared";
 import { saveSettings, useSettings } from "../../api/queries";
 
+// quiet: the setup saves each tap without the 'Saved' toast, like its other steps
+const props = defineProps<{ quiet?: boolean }>();
 const settings = useSettings();
 const NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -14,7 +16,7 @@ const days = computed(() => { const f = resolveFormats(settings.value).firstDay;
 const on = computed(() => freeNightsOf(settings.value.sleep.freeNights));
 function toggle(d: number) {
   const next = on.value.includes(d) ? on.value.filter((x) => x !== d) : [...on.value, d].sort((a, b) => a - b);
-  void saveSettings({ sleep: { freeNights: next } });
+  void saveSettings({ sleep: { freeNights: next } }, { quiet: props.quiet });
 }
 </script>
 
