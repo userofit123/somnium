@@ -221,10 +221,24 @@ never lands in a plaintext database. See also "Backups".
 Nothing of the journal shows until the person proves it is them (PLAN.md §4.3). The decisions are in one tested
 function (`packages/shared/src/lock.ts`); `apps/web/src/core/lock.ts` feeds it the real events.
 
-- **When it locks:** on every start, reloads included; when the tab or app is hidden (and, in the desktop app, when the
-  window loses focus) for longer than the chosen delay (immediately by default; 30 s, 1, 5 or 15 minutes); after idle
-  time (10 minutes by default; 5, 15 or 30 minutes). **It cannot be turned off**, and a saved value that is not one of
-  the choices falls back to the default.
+- **When it locks:** on every start (a browser reload within the delay excepted, below); when the tab or app is hidden
+  (and, in the desktop app, when the window loses focus) for longer than the chosen delay (10 minutes by default;
+  immediately, 30 s, 1, 5 or 15 minutes); after idle time (10 minutes by default; 5, 15 or 30 minutes); at once when
+  the desktop app is closed to the tray. **It cannot be turned off**, and a saved value that is not one of the choices
+  falls back to the default. "Immediately" saved before 2026-11-15 was the old default and moves to 10 minutes;
+  chosen since, it is kept.
+- **A reload within the delay (browser and PWA):** reloading the page, or the browser bringing back a tab it discarded
+  in the background, does not lock when it happens within the delay, for the same account, because the key would have
+  stayed open in that tab for that long anyway. The data key is never stored in the clear for this. While the journal
+  is open, the tab encrypts it (AES-GCM, the account id as associated data) under a fresh key made by Web Crypto as
+  **non-extractable**, kept as a CryptoKey object in IndexedDB: the browser can use it, no script can read its bytes.
+  The encrypted key and the time the delay ends (written when the tab is hidden or unloads; none while it is in view,
+  so a crash locks) are in that tab's session storage, which other tabs don't see and which goes with the tab. A load
+  takes them once: same account, inside the delay, and a clock that has not gone back, or the lock screen. Both are
+  deleted whether they were used or not, and the journal makes a fresh pair once open. Locking (by the delay, idle time
+  or Lock now), signing out, switching account and choosing "immediately" delete them; IndexedDB keys of closed tabs
+  expire a few minutes after their delay and are deleted by the next load. The apps keep locking at every start
+  (`apps/web/src/core/resume.ts`).
 - **What locking does:** the data key is zeroed and dropped from memory, the shells and pages are unmounted so no dream
   is in the page, the query cache with its decrypted answers is emptied, open questions are dismissed, toasts are
   dropped, and a question or toast raised later stays away until the next unlock. A session ending does all of this
@@ -317,6 +331,10 @@ setting is not shown). The window runs with `contextIsolation` on and opens link
 - A hidden tab's timers are slowed by the browser, so with a delay other than "immediately" the key can stay in memory up
   to about a minute longer than chosen. Coming back always checks the time. JavaScript cannot guarantee that no copy of a
   key or decrypted text is left in memory until overwritten.
+- The reload grace: inside the delay, someone with this browser profile and that tab's session storage (a browser that
+  restores closed tabs may restore it) can open the journal without the password, through the browser's own use of the
+  non-extractable key. They could equally read the open tab, and the profile already holds the plaintext copy. The key's
+  bytes are never on disk in the clear, but the browser stores the CryptoKey in its profile in its own form.
 - An operating system may keep a picture of the app for its task switcher, taken before the app learns it was hidden.
   The web cannot prevent that; Android's `FLAG_SECURE` and the desktop's content protection can.
 - **A local account's lock** works like a server account's: the password opens the data key from the account's own

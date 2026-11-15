@@ -149,9 +149,20 @@ zod validation, strict CSP, self-hosted fonts, EXIF stripped from photos), plus:
 Required by the brief: nothing is shown until the person has proven it is them, on every platform, also when
 coming back from another app.
 
-- **When it locks:** on every start; when the app goes to the background / loses focus / the tab is hidden for
-  longer than the chosen delay (default **immediately**; choices: immediately, 30 s, 1 min, 5 min, 15 min); after
-  10 minutes idle (setting). Locked state hides all content (an opaque lock screen; on Android `FLAG_SECURE` is
+- **When it locks:** on every start (except a browser reload within the delay, below); when the app goes to the
+  background / loses focus / the tab is hidden for longer than the chosen delay (default **10 minutes**; choices:
+  immediately, 30 s, 1 min, 5 min, 10 min, 15 min), checked once a second while away and again on coming back; after
+  10 minutes idle (its own setting). Closing the desktop app to the tray locks at once whatever the delay (LDJ-56).
+  A saved "immediately" from before 2026-11-15 moves to 10 minutes (it was the default and was saved along with any
+  change to the idle time, so a choice can't be told from it); "immediately" chosen since is kept (D11).
+- **Reload grace (browser and PWA only):** a tab that reloads, or that the browser discarded in the background, opens
+  again without the lock screen if it comes back within the delay, for the same account. The data key is never
+  stored in the clear: while the journal is open it is kept encrypted (AES-GCM) under a fresh **non-extractable**
+  Web Crypto key stored as a CryptoKey object in IndexedDB, and the encrypted key plus the time the delay ends (set
+  when the tab is hidden or unloads) sit in that tab's session storage. A load reads them once, opens the key only
+  inside the delay for the same account, and deletes both whatever happens; expired, missing or failing means the
+  lock screen. Locking, signing out, another account and setting "immediately" delete them. The apps keep locking on
+  every start (`apps/web/src/core/resume.ts`, D11). Locked state hides all content (an opaque lock screen; on Android `FLAG_SECURE` is
   on by default so the recents thumbnail and screenshots are blank; on desktop the window's content protection
   is on by default).
 - **How it unlocks:** the **device's own verification** when it has one (Android: fingerprint / face / screen
@@ -491,7 +502,7 @@ The Focus list "Lucid Dreaming journal" holds the tasks (`LD-n`). Phases:
 - D1 Name Somnium; Latin like Motus.
 - D2 Sealed journal (end-to-end encryption) with password / recovery key / device key envelope; the server never
   reads dreams. Trade-off accepted: no admin-side data recovery.
-- D3 App lock on every platform, default lock immediately on leaving the app; device verification where the
+- D3 App lock on every platform, default lock immediately on leaving the app (default changed by D11); device verification where the
   platform has it; password fallback; cannot be turned off.
 - D4 All analysis on the device: lexicons + `compromise` + `tesseract.js`; no cloud and no bundled model server.
 - D5 Motus architecture and look kept whole; new default atmosphere "Dusk".
@@ -500,3 +511,15 @@ The Focus list "Lucid Dreaming journal" holds the tasks (`LD-n`). Phases:
 - D8 Dev ports 8800 / 8801, Tailscale 8444, site somnium.local.
 - D9 (2026-11-15) One target structure for pages and tabs (§6, supersedes the earlier layout): phone tabs Home · Journal · [+] · Train · Progress · More; desktop rail Home · Journal · Train · Dream signs · Progress · Learn · Settings with a + button; Train in three tabs (Today, Tonight, Techniques); Insights renamed Progress; Learn is reading only. Each thing has one home, and other pages summarise and link to it.
 - D10 (2026-11-15) The developer asked for an even 3+3 phone bar with Dream signs on it and Learn under More: Home · Journal · Train · [+] · Dream signs · Progress · More (amends D9's phone tabs).
+- D11 (2026-11-15) The developer found the lock too eager: every page refresh and every switch to another tab asked for
+  the password. The lock's default delay is now **10 minutes** away (10 minutes added to the choices); a saved
+  "immediately" from before this moves to it, since it was the old default and was saved with any change to the idle
+  time; other saved choices stay. A browser tab that reloads (or is discarded and brought back) within the delay
+  opens without the lock screen, for the same account (§4.3). Security reasoning: the key was already open in that
+  tab's memory and would have stayed open for the delay had the page not reloaded, so the grace adds no time. It is
+  never written in the clear: it is AES-GCM encrypted by a non-extractable key that only the browser can use (stored
+  as a CryptoKey in IndexedDB, whose bytes no script can read), and the ciphertext lives in session storage, per tab
+  and gone with it. Both are deleted on use, on lock, sign-out and account change, and with "immediately". The limit:
+  anyone with this browser profile and the tab's session storage inside the delay can open the journal, as they could
+  by looking at the open tab; the browser profile already holds the plaintext copy (§4.1). The apps don't reload in
+  normal use and keep locking at every start; the desktop app still locks at once when closed to the tray.

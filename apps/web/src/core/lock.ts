@@ -1,11 +1,12 @@
 // The app lock on this device (PLAN.md §4.3): feeds real events to the decisions in @somnium/shared (lockStep) and
-// carries out what they ask. Locked on every start; App.vue keeps every shell unmounted while `lock.locked`.
+// carries out what they ask. Locked on every start; App.vue keeps every shell unmounted while `lock.locked`. A browser
+// tab that reloads within the delay is the exception: it opens again without the lock screen (core/resume.ts).
 //
 // Locking drops the data key and everything decrypted that this module can reach (the query cache, open questions,
 // toasts). Screens are unmounted by App.vue, so an unsaved form is lost on lock: a page that holds text worth keeping
 // has to save as the person types.
 import { nextTick, reactive, watch } from "vue";
-import { lockSettingsFrom, lockStep, startLockState, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings } from "@somnium/shared";
+import { LOCK_SETTINGS_VERSION, lockSettingsFrom, lockStep, startLockState, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings } from "@somnium/shared";
 import { usingHttp } from "../api/client";
 import { invalidate, queryClient } from "../api/live";
 import { startReplica } from "../api/replica";
@@ -14,15 +15,17 @@ import { keyring } from "./keyring";
 import { readJson, writeJson } from "./prefs";
 import { isLocalAccount, session } from "./session";
 import { muteToasts } from "./toast";
+import { forgetResume, keepForReload, markAway, mayResume, takeResumeKey } from "./resume";
 
 const SETTINGS = "somniumLock", TRIES = "somniumLockTries";
 
 let state = startLockState(Date.now(), readJson(TRIES, 0));
 const saveTries = () => writeJson(TRIES, { count: state.wrongTries, lastAt: state.lastWrongAt });
 saveTries(); // a clock found to have gone back is settled here, for the next start too
-/** waitMs: how long until the next try may be made. */
-export const lock = reactive<{ locked: boolean; wrongTries: number; waitMs: number; settings: LockSettings }>({
-  locked: true, wrongTries: state.wrongTries, waitMs: wrongTryWaitLeft(state, Date.now()), settings: lockSettingsFrom(readJson(SETTINGS, null)),
+/** waitMs: how long until the next try may be made. resuming: a reload within the delay is being opened (App.vue keeps
+ *  the splash up meanwhile, so the lock screen doesn't flash or ask for device verification). */
+export const lock = reactive<{ locked: boolean; resuming: boolean; wrongTries: number; waitMs: number; settings: LockSettings }>({
+  locked: true, resuming: mayResume(), wrongTries: state.wrongTries, waitMs: wrongTryWaitLeft(state, Date.now()), settings: lockSettingsFrom(readJson(SETTINGS, null)),
 });
 muteToasts(true);
 
@@ -37,6 +40,8 @@ function dispatch(e: LockEvent) {
   if (r.actions.includes("clearKey")) keyring.clear();
   if (!was && state.locked) onLocked();
   if (was && !state.locked) { muteToasts(false); openQuestions(); }
+  // the reload grace's end moves with the time away, as the lock's own does; locking deletes it (the key's clearing)
+  if (!state.locked) markAway(state.awayAt === null ? null : Math.max(state.awayAt, state.holdUntil), lock.settings.delayMs);
 }
 
 function onLocked() {
@@ -51,6 +56,7 @@ function onLocked() {
 /** The password was just proven at sign-in, or the journal just opened on the lock screen. */
 export function markUnlocked() {
   dispatch({ type: "unlocked", at: Date.now() });
+  void keepForReload(session.user?.id, lock.settings.delayMs);
   void openCopyIfNone();
   // unlocked while the app was being left (the slow key derivation): the time away starts now
   if (document.visibilityState === "hidden") { hold(1500); dispatch({ type: "away", at: Date.now() }); }
@@ -61,6 +67,21 @@ async function openCopyIfNone() {
   const user = session.user;
   if (!user || !usingHttp() || (await isLocalAccount())) return;
   if (await startReplica(user)) invalidate(["*"]);
+}
+/**
+ * A reload of this tab within the delay, for the same account: the key comes back from what the page before left
+ * (core/resume.ts) and the journal opens without the lock screen. Anything else leaves the lock screen to ask.
+ * Called once the session is known.
+ */
+export async function resumeAfterReload() {
+  try {
+    if (!lock.resuming || !session.user) return;
+    const key = await takeResumeKey(session.user.id, lock.settings.delayMs);
+    if (!key) return;
+    try { keyring.set(key); } finally { key.fill(0); }
+    markUnlocked();
+  } catch { /* the lock screen */ }
+  finally { lock.resuming = false; }
 }
 /** The password was right, but the lock screen has one more step before the journal shows: the idle time runs meanwhile. */
 export const keyOpenedOnLockScreen = () => dispatch({ type: "keyOpened", at: Date.now() });
@@ -88,7 +109,9 @@ export function wrongTry() {
 }
 export function setLockSettings(s: Partial<LockSettings>) {
   lock.settings = lockSettingsFrom({ ...lock.settings, ...s });
-  writeJson(SETTINGS, lock.settings);
+  writeJson(SETTINGS, { ...lock.settings, v: LOCK_SETTINGS_VERSION });
+  // "Immediately" keeps nothing for a reload; another delay keeps it with its own end
+  if (!state.locked) void keepForReload(session.user?.id, lock.settings.delayMs);
 }
 
 /** The Android activity left the screen (onStop), timed from when it began to leave (onPause); and came back. */
@@ -149,6 +172,7 @@ export function startLock() {
     state = startLockState(now());
     lock.locked = true; lock.wrongTries = 0; lock.waitMs = 0;
     saveTries();
+    forgetResume();
     onLocked();
   }, { flush: "sync" });
 }

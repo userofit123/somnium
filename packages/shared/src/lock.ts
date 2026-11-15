@@ -7,6 +7,7 @@ export const LOCK_DELAYS: readonly { ms: number; label: string }[] = [
   { ms: 30_000, label: "30 seconds" },
   { ms: 60_000, label: "1 minute" },
   { ms: 300_000, label: "5 minutes" },
+  { ms: 600_000, label: "10 minutes" },
   { ms: 900_000, label: "15 minutes" },
 ];
 export const LOCK_IDLE_TIMES: readonly { ms: number; label: string }[] = [
@@ -23,15 +24,44 @@ export const WRONG_TRY_WAITS_MS: readonly number[] = [60_000, 300_000, 900_000, 
 export const LOCK_HOLD_MAX_MS = 120_000;
 
 export interface LockSettings { delayMs: number; idleMs: number }
-export const DEFAULT_LOCK_SETTINGS: LockSettings = { delayMs: 0, idleMs: 600_000 };
+// 10 minutes away (PLAN.md §16, 2026-11-15): switching tabs for a moment no longer asks for the password
+export const DEFAULT_LOCK_SETTINGS: LockSettings = { delayMs: 600_000, idleMs: 600_000 };
+/** Written beside saved settings from 2026-11-15 on. Before it, "Immediately" was the default and was saved along with
+ *  any change to the idle time, so a saved 0 without it can't be told from a choice: it moves to the new default. */
+export const LOCK_SETTINGS_VERSION = 2;
 
 /** Saved settings as they may be, made safe: there is no value that turns the lock off or stretches it past the choices. */
 export function lockSettingsFrom(saved: unknown): LockSettings {
-  const s = (saved ?? {}) as Partial<LockSettings>;
+  const s = (saved ?? {}) as Partial<LockSettings> & { v?: unknown };
+  const oldDefault = s.delayMs === 0 && s.v !== LOCK_SETTINGS_VERSION;
   return {
-    delayMs: LOCK_DELAYS.some((d) => d.ms === s.delayMs) ? s.delayMs! : DEFAULT_LOCK_SETTINGS.delayMs,
+    delayMs: LOCK_DELAYS.some((d) => d.ms === s.delayMs) && !oldDefault ? s.delayMs! : DEFAULT_LOCK_SETTINGS.delayMs,
     idleMs: LOCK_IDLE_TIMES.some((d) => d.ms === s.idleMs) ? s.idleMs! : DEFAULT_LOCK_SETTINGS.idleMs,
   };
+}
+
+/**
+ * The reload grace (PLAN.md §4.3): a browser tab that reloads, or comes back after the browser discarded it, within the
+ * delay opens without the lock screen. The data key is kept for that wrapped by a non-extractable key in IndexedDB; this
+ * is what the tab's session storage holds beside the wrapped key. `until` is null while the tab is in view (a reload is
+ * marked as leaving first, by pagehide), and the time the delay ends once it is away.
+ */
+export interface ResumeMark { id: string; owner: string; until: number | null }
+
+/** When a tab away since `awayAt` stops being able to resume; null when the delay is "Immediately" (no grace). */
+export const resumeUntil = (awayAt: number | null, delayMs: number): number | null => (awayAt === null || delayMs <= 0 ? null : awayAt + delayMs);
+
+/**
+ * Whether a reloaded tab may open without the lock screen. It fails closed: anything unexpected is a no. Another
+ * account, no time stamp (the tab went without leaving: a crash), the delay passed, the delay since set to
+ * "Immediately", or an end further away than the delay allows (the clock was moved back) all mean the lock screen.
+ */
+export function canResume(saved: unknown, now: { at: number; user: string | null | undefined; delayMs: number }): boolean {
+  const m = saved as Partial<ResumeMark> | null;
+  if (!m || typeof m !== "object" || typeof m.id !== "string" || !m.id || typeof m.owner !== "string") return false;
+  if (!now.user || m.owner !== now.user || now.delayMs <= 0) return false;
+  if (typeof m.until !== "number" || !Number.isFinite(m.until)) return false;
+  return now.at < m.until && m.until - now.at <= now.delayMs;
 }
 
 /** How long a further try has to wait after this many wrong tries in a row. */

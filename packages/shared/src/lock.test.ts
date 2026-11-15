@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, devicePath, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
+import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_SETTINGS_VERSION, canResume, resumeUntil, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, devicePath, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
 
 const T0 = 1_000_000;
 const cfg = (delayMs = 0, idleMs = 600_000): LockSettings => ({ delayMs, idleMs });
@@ -17,13 +17,21 @@ describe("app lock", () => {
     expect(startLockState(T0, 3).wrongTries).toBe(3);
   });
 
-  it("locks and clears the key the moment the app is hidden with the default delay", () => {
-    const r = lockStep(open(), { type: "away", at: T0 + 1 }, DEFAULT_LOCK_SETTINGS);
+  it("waits 10 minutes away by default", () => {
+    expect(DEFAULT_LOCK_SETTINGS.delayMs).toBe(600_000);
+    const away = lockStep(open(), { type: "away", at: T0 }, DEFAULT_LOCK_SETTINGS).state;
+    expect(away.locked).toBe(false);
+    expect(lockStep(away, { type: "back", at: T0 + 599_999 }, DEFAULT_LOCK_SETTINGS).state.locked).toBe(false);
+    expect(lockStep(away, { type: "back", at: T0 + 600_000 }, DEFAULT_LOCK_SETTINGS).state.locked).toBe(true);
+  });
+
+  it("locks and clears the key the moment the app is hidden when set to Immediately", () => {
+    const r = lockStep(open(), { type: "away", at: T0 + 1 }, cfg(0));
     expect(r.state.locked).toBe(true);
     expect(r.actions).toEqual(["clearKey"]);
   });
 
-  it.each([30_000, 60_000, 300_000, 900_000])("waits %i ms when away, then locks on the tick", (delay) => {
+  it.each([30_000, 60_000, 300_000, 600_000, 900_000])("waits %i ms when away, then locks on the tick", (delay) => {
     const c = cfg(delay, 3_600_000);
     const away = lockStep(open(), { type: "away", at: T0 }, c).state;
     expect(away.locked).toBe(false);
@@ -134,6 +142,48 @@ describe("app lock", () => {
     expect(lockSettingsFrom({ delayMs: 86_400_000, idleMs: 0 })).toEqual(DEFAULT_LOCK_SETTINGS);
     expect(lockSettingsFrom(null)).toEqual(DEFAULT_LOCK_SETTINGS);
     expect(lockSettingsFrom({ delayMs: 60_000, idleMs: 300_000 })).toEqual({ delayMs: 60_000, idleMs: 300_000 });
+  });
+
+  it("moves the old default Immediately to 10 minutes, but keeps Immediately chosen since", () => {
+    expect(lockSettingsFrom({ delayMs: 0, idleMs: 300_000 })).toEqual({ delayMs: 600_000, idleMs: 300_000 });
+    expect(lockSettingsFrom({ delayMs: 0, idleMs: 300_000, v: LOCK_SETTINGS_VERSION })).toEqual({ delayMs: 0, idleMs: 300_000 });
+    expect(lockSettingsFrom({ delayMs: 900_000, idleMs: 600_000 })).toEqual({ delayMs: 900_000, idleMs: 600_000 });
+    expect(lockSettingsFrom({ delayMs: 600_000, idleMs: 600_000, v: LOCK_SETTINGS_VERSION })).toEqual({ delayMs: 600_000, idleMs: 600_000 });
+  });
+
+  describe("the reload grace", () => {
+    const D = 600_000, mark = (until: number | null, owner = "u1") => ({ id: "t1", owner, until });
+    const now = (at: number, delayMs = D, user: string | null = "u1") => ({ at, user, delayMs });
+
+    it("ends the delay after leaving, and gives none with Immediately or while in view", () => {
+      expect(resumeUntil(T0, D)).toBe(T0 + D);
+      expect(resumeUntil(T0, 0)).toBeNull();
+      expect(resumeUntil(null, D)).toBeNull();
+    });
+    it("lets a reload within the delay open without the lock screen", () => {
+      expect(canResume(mark(T0 + D), now(T0 + 1))).toBe(true);
+      expect(canResume(mark(T0 + D), now(T0 + D - 1))).toBe(true);
+    });
+    it("locks once the delay has passed", () => {
+      expect(canResume(mark(T0 + D), now(T0 + D))).toBe(false);
+      expect(canResume(mark(T0 + D), now(T0 + 5 * D))).toBe(false);
+    });
+    it("locks for another account, or with nobody signed in", () => {
+      expect(canResume(mark(T0 + D, "u2"), now(T0 + 1))).toBe(false);
+      expect(canResume(mark(T0 + D), now(T0 + 1, D, null))).toBe(false);
+    });
+    it("locks when the delay is now Immediately, or shorter than the time left", () => {
+      expect(canResume(mark(T0 + D), now(T0 + 1, 0))).toBe(false);
+      expect(canResume(mark(T0 + D), now(T0 + 1, 60_000))).toBe(false);
+    });
+    it("locks when the clock was moved back, and when the tab never marked leaving", () => {
+      expect(canResume(mark(T0 + D), now(T0 - 1))).toBe(false);
+      expect(canResume(mark(null), now(T0))).toBe(false);
+    });
+    it("locks on anything malformed", () => {
+      for (const bad of [null, undefined, 1, "x", {}, { id: "", owner: "u1", until: T0 + D }, { id: "t1", owner: "u1", until: "soon" }, { id: "t1", owner: "u1", until: Number.POSITIVE_INFINITY }])
+        expect(canResume(bad, now(T0 + 1))).toBe(false);
+    });
   });
 
   describe("with the key open on the lock screen (offering device verification)", () => {
