@@ -294,11 +294,15 @@ In action order:
 ### 6.5 Progress (was Insights)
 Ordered by what matters for lucid dreaming; numbers as stat tiles, one chart per card.
 - **Goals**: their one home (pinnable to Home).
-- **Lucidity**: lucid dreams per month, lucidity level distribution, how lucidity started (sign / check / WILD).
+- **Lucidity**: lucid dreams per month, lucidity level distribution, how lucidity started (sign / check / WILD);
+  quality since the first lucid dream: level and control by month, share lasting a few minutes or longer, how it ended,
+  and a plain "mostly level 3, up from level 1" line (LDJ-165).
 - **What works for you**: lucidity rate on nights with each technique vs without, WBTB vs not, with wake duration
   bands, sleep length bands, nap vs no nap, bedtime bands - with sample sizes and a plain "not enough nights yet"
   when under 10. Honest, no p-values dressed up.
 - **Recall**: dreams per night, nights with recall, trend; weekday pattern.
+- **Sleep**: hours asleep by week, usual bedtime and how much it varies, WBTB nights against the others, a "sleep
+  first" flag when the last 7 nights average under 6 h; nothing until 7 nights have both times (LDJ-160).
 - **Checks**: reality checks per day, by kind, prompted vs own, "dreaming" outcomes (these are the lucid moments).
 - **Night events**: elements and emotions over time, nightmares, false awakenings, sleep paralysis.
 - **Day-note lag**: the analysis only; the notes themselves are in the Journal.

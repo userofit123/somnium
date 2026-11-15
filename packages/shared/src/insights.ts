@@ -10,9 +10,9 @@
 // never "caused": these are the person's own nights, not an experiment. The recommendation rules (PLAN.md §8.2,
 // LDJ-27) read the same Comparison objects, so the threshold and wording stay in one place.
 import { loggedNights, addDays, minutesToSleep, type NightLog } from "./rates";
-import { TECHNIQUES } from "./journal";
+import { TECHNIQUES, lucidLength } from "./journal";
 import { lucidSplit, type SignDream, type SignLink } from "./signs";
-import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome } from "./types";
+import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome, type LucidEnd } from "./types";
 
 /** Fewer nights than this in either group: "not enough nights yet", and no rate. */
 export const MIN_NIGHTS = 10;
@@ -36,6 +36,11 @@ export interface InsightDream {
   falseAwakening?: boolean;
   sleepParalysis?: boolean;
   becameLucidHow?: BecameLucidHow | null;
+  /** 0-5, how much of the dream went your way (LDJ-165) */
+  control?: number | null;
+  /** how long it stayed lucid, in minutes (journal.ts LUCID_LENGTHS) */
+  durationEst?: number | null;
+  lucidEnd?: LucidEnd | null;
 }
 export interface InsightCheck { at: string; kind: CheckKind; outcome: CheckOutcome; prompted: boolean; /** the dream sign (element id) the reminder paired it with (LDJ-111) */ signId?: string | null }
 
@@ -236,6 +241,76 @@ export function lucidityInsight(nights: InsightNight[], dreams: InsightDream[], 
   const how = [...BECAME_LUCID_HOW, "unknown" as const].map((h) => ({ how: h, count: lucid.filter((d) => (d.becameLucidHow ?? "unknown") === h).length }));
   const main = new Set(ns.filter((n) => !n.nap).map((n) => n.id));
   return { lucid: lucid.length, dreams: ds.length, lucidNights: new Set(lucid.filter((d) => main.has(d.nightId)).map((d) => d.nightId)).size, nights: main.size, byBucket: [...buckets.values()], levels, how: how.filter((h) => h.count > 0) };
+}
+
+// ---------- lucid dream quality (LDJ-165) ----------
+// Once lucid dreams come, the aim shifts to how lucid, how much control and how long (lucidity is a range, not a
+// yes/no: RESEARCH.md B79, B22; stabilising aims at longer lucidity: D1 ch. 6). Since the start, whatever the period,
+// like recall progress: a trend needs the whole run. The level is the editor's 1-5 (0 is "marked lucid, no level").
+
+/** Fewer lucid dreams with a level than this on either side of the comparison: no "mostly level" for that side. */
+export const QUALITY_MIN = 3;
+/** Days in the recent window the summary sets against everything before it. */
+export const QUALITY_RECENT_DAYS = 91;
+export const QUALITY_SOURCES = ["B79", "B22", "D1"] as const;
+
+export interface QualityRow { key: string; lucid: number; leveled: number; level: number | null; controlled: number; control: number | null }
+export interface QualityWindow {
+  lucid: number;
+  /** lucid dreams with a level 1-5, and the most common level among them (null under QUALITY_MIN) */
+  leveled: number; mostly: number | null; level: number | null;
+  /** lucid dreams with control rated (0 counts), and its average */
+  controlled: number; control: number | null;
+  /** lucid dreams with a length noted, and how many of them lasted "a few minutes" or longer */
+  timed: number; long: number;
+  /** how the lucid part ended, where noted */
+  ends: Partial<Record<LucidEnd, number>>;
+}
+export interface LucidQuality { byMonth: QualityRow[]; all: QualityWindow; recent: QualityWindow; before: QualityWindow; text: string }
+
+const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+const LUCID: Noun = { one: "lucid dream", many: "lucid dreams" };
+
+function qualityOf(ds: InsightDream[]): QualityWindow {
+  const levels = ds.map((d) => Math.round(d.lucidityLevel ?? 0)).filter((l) => l >= 1 && l <= 5);
+  const controls = ds.map((d) => d.control).filter((c): c is number => c != null);
+  const lengths = ds.map((d) => lucidLength(d.durationEst)).filter((l) => l != null);
+  const count = [0, 0, 0, 0, 0, 0];
+  for (const l of levels) count[l]!++;
+  // the most common level; a tie goes to the lower one, so the summary never flatters
+  let mostly: number | null = null;
+  if (levels.length >= QUALITY_MIN) for (let l = 1; l <= 5; l++) if (mostly == null || count[l]! > count[mostly]!) mostly = l;
+  const ends: Partial<Record<LucidEnd, number>> = {};
+  for (const d of ds) if (d.lucidEnd) ends[d.lucidEnd] = (ends[d.lucidEnd] ?? 0) + 1;
+  return {
+    lucid: ds.length, leveled: levels.length, mostly, level: avg(levels), controlled: controls.length, control: avg(controls),
+    timed: lengths.length, long: lengths.filter((l) => l === "few_minutes" || l === "longer").length, ends,
+  };
+}
+
+/** The summary line: the last 3 months against everything before, each side only once it has QUALITY_MIN levels. */
+export function qualityText(q: Pick<LucidQuality, "all" | "recent" | "before">): string {
+  const { all, recent: r, before: b } = q;
+  if (!all.leveled) return "";
+  if (r.mostly != null && b.mostly != null) {
+    const how = r.mostly > b.mostly ? `up from level ${b.mostly}` : r.mostly < b.mostly ? `down from level ${b.mostly}` : "as before";
+    return `Your lucid dreams in the last 3 months: mostly level ${r.mostly}, ${how}`;
+  }
+  if (r.mostly != null) return `Your lucid dreams in the last 3 months: mostly level ${r.mostly}. A comparison shows once ${QUALITY_MIN} from before then have a level`;
+  if (b.mostly != null) return `Before the last 3 months your lucid dreams were mostly level ${b.mostly}; ${plural(r.leveled, LUCID)} with a level since, too few to compare`;
+  return `${plural(all.leveled, LUCID)} with a level so far: too few to say what is typical. It shows at ${QUALITY_MIN}`;
+}
+
+/** Lucid dreams' level, control and length over time, from every logged night up to `to` (naps' dreams in). */
+export function lucidQuality(nights: InsightNight[], dreams: InsightDream[], to: string): LucidQuality {
+  const lucid = dreamsOf(nightsIn(nights, null, to), dreams).filter((d) => d.lucid).sort((a, b) => a.date.localeCompare(b.date));
+  const cut = addDays(to, -(QUALITY_RECENT_DAYS - 1));
+  const byMonth = lucid.length ? bucketRange(lucid[0]!.date, to, "month").map((key) => {
+    const w = qualityOf(lucid.filter((d) => bucketOf(d.date, "month") === key));
+    return { key, lucid: w.lucid, leveled: w.leveled, level: w.level, controlled: w.controlled, control: w.control };
+  }) : [];
+  const q = { all: qualityOf(lucid), recent: qualityOf(lucid.filter((d) => d.date >= cut)), before: qualityOf(lucid.filter((d) => d.date < cut)) };
+  return { byMonth, ...q, text: qualityText(q) };
 }
 
 // ---------- night events and emotions ----------
@@ -568,4 +643,82 @@ export function techniqueTally(nights: InsightNight[], dreams: InsightDream[], c
       list: list.sort((a, b) => b.date.localeCompare(a.date)),
     };
   }).sort((a, b) => b.nights - a.nights || b.lucid - a.lucid || a.label.localeCompare(b.label));
+}
+
+// ---------- sleep (LDJ-160) ----------
+// How long and how regularly the person sleeps, and how WBTB nights compare. Lucid dreams come mostly in the long REM
+// periods late in the night (RESEARCH.md C31, B1, C1), so cutting sleep to train cuts the best time for them; sleep
+// comes first (B69, D1). Naps are not nights and stay out. Bedtimes are read through `clock` as in BEDTIME_BANDS.
+
+/** Nights with both bed and wake times before any sleep number shows, and the length of the "last nights" average. */
+export const SLEEP_MIN_NIGHTS = 7;
+/** Under this many hours a night on average over the last SLEEP_MIN_NIGHTS nights: the "sleep first" flag. */
+export const SHORT_SLEEP_HOURS = 6;
+export const SLEEP_REM_SOURCES = ["C31", "B1", "C1"] as const;
+export const SLEEP_FIRST_SOURCES = ["B69", "D1"] as const;
+/** WBTB breaks sleep up (B77); frequent lucid dreamers rate their sleep a little worse (B80). */
+export const SLEEP_WBTB_SOURCES = ["B77", "B80"] as const;
+
+export interface SleepGroup {
+  /** nights with both times, and their average hours asleep (null under MIN_NIGHTS) */
+  timed: number; hours: number | null;
+  /** nights with a sleep rating (1-5), and its average (null under MIN_NIGHTS) */
+  rated: number; quality: number | null;
+}
+export interface SleepInsight {
+  /** nights (not naps) in the period, and those with both bed and wake times */
+  nights: number; timed: number;
+  /** timed reached SLEEP_MIN_NIGHTS: until then only the count shows */
+  enough: boolean;
+  hours: number | null;
+  byBucket: { key: string; nights: number; hours: number | null }[];
+  /** the usual bedtime (minutes since midnight) and how far bedtimes stray from it (standard deviation, minutes) */
+  bedtime: number | null; spread: number | null;
+  /** each night's bedtime as minutes after noon (so 23:00 and 01:00 sit in order), for a chart */
+  bedtimes: { date: string; min: number }[];
+  wbtb: SleepGroup; other: SleepGroup;
+  /** the last SLEEP_MIN_NIGHTS nights with times, when all of them fall within the last two weeks */
+  last: { hours: number | null; short: boolean };
+}
+
+function sleepGroup(ns: InsightNight[]): SleepGroup {
+  const hs = ns.map(sleepHours).filter((h): h is number => h != null);
+  const qs = ns.map((n) => n.sleepQuality).filter((q): q is number => q != null && q >= 1 && q <= 5);
+  return { timed: hs.length, hours: hs.length >= MIN_NIGHTS ? avg(hs) : null, rated: qs.length, quality: qs.length >= MIN_NIGHTS ? avg(qs) : null };
+}
+
+export function sleepInsight(nights: InsightNight[], from: string | null, to: string, b: Bucket = "week", clock: Clock = localClock): SleepInsight {
+  const ns = nightsIn(nights, from, to).filter((n) => !n.nap);
+  const timed = ns.filter((n) => sleepHours(n) != null);
+  const enough = timed.length >= SLEEP_MIN_NIGHTS;
+  const { first, last } = span(ns, from, to);
+  const buckets = new Map(ns.length ? bucketRange(first, last, b).map((k) => [k, [] as number[]]) : []);
+  for (const n of timed) buckets.get(bucketOf(n.date, b))?.push(sleepHours(n)!);
+  const bedtimes = ns.filter((n) => n.bedtime).map((n) => ({ date: n.date, min: afterNoon(clock.minutes(n.bedtime!)) })).sort((x, y) => x.date.localeCompare(y.date));
+  const mean = bedtimes.length >= SLEEP_MIN_NIGHTS ? avg(bedtimes.map((x) => x.min))! : null;
+  const spread = mean == null ? null : Math.sqrt(avg(bedtimes.map((x) => (x.min - mean) ** 2))!);
+  // the latest nights with times, from every night (not only the period): the flag is about now
+  const recent = loggedNights(nights).filter((n) => !n.nap && n.date <= to && sleepHours(n) != null).sort((x, y) => y.date.localeCompare(x.date)).slice(0, SLEEP_MIN_NIGHTS);
+  const lastHours = recent.length === SLEEP_MIN_NIGHTS && recent.at(-1)!.date >= addDays(to, -13) ? avg(recent.map((n) => sleepHours(n)!)) : null;
+  return {
+    nights: ns.length, timed: timed.length, enough,
+    hours: enough ? avg(timed.map((n) => sleepHours(n)!)) : null,
+    byBucket: [...buckets].map(([key, hs]) => ({ key, nights: hs.length, hours: avg(hs) })),
+    bedtime: mean == null ? null : Math.round(mean + 720) % 1440, spread: spread == null ? null : Math.round(spread),
+    bedtimes, wbtb: sleepGroup(ns.filter(isWbtb)), other: sleepGroup(ns.filter((n) => !isWbtb(n))),
+    last: { hours: lastHours, short: lastHours != null && lastHours < SHORT_SLEEP_HOURS },
+  };
+}
+
+const one = (v: number) => (Math.round(v * 10) / 10).toString();
+const WBTB_NIGHTS = nightsNoun("WBTB");
+/** WBTB nights against the others: hours and sleep rating, each only once both sides have MIN_NIGHTS. */
+export function sleepWbtbText(s: Pick<SleepInsight, "wbtb" | "other">): string {
+  const { wbtb: w, other: o } = s;
+  const parts: string[] = [];
+  if (w.hours != null && o.hours != null) parts.push(`${one(w.hours)} h asleep on WBTB nights, ${one(o.hours)} h on others`);
+  if (w.quality != null && o.quality != null) parts.push(`sleep rated ${one(w.quality)} of 5 on WBTB nights, ${one(o.quality)} on others`);
+  if (parts.length) return parts.join("; ").replace(/^./, (c) => c.toUpperCase()) + ` (${plural(Math.max(w.timed, w.rated), WBTB_NIGHTS)}, ${plural(Math.max(o.timed, o.rated), OTHER)})`;
+  if (!w.timed && !w.rated) return "No WBTB nights with times or a sleep rating yet";
+  return `Not enough nights yet: ${plural(w.rated, WBTB_NIGHTS)} and ${plural(o.rated, OTHER)} with a sleep rating; it shows at ${MIN_NIGHTS} each`;
 }

@@ -11,9 +11,10 @@ import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
   RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_WINDOW, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, RECALL_FIRST_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
+  checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES,
+  lucidQuality, QUALITY_MIN, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
-import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
+import { assessments, assessmentIds, optionFor, recallBaseline } from "@somnium/knowledge/assessments";
 import { useJournal, uuidv7 } from "../api/journal";
 import { api } from "../api/client";
 import { useHabitLog } from "../api/train";
@@ -52,7 +53,7 @@ const periodOpts = PERIODS.map((p) => ({ value: p, label: PERIOD_LABEL[p] }));
 // the reports are rare and optional, so they sit in the ⋮ menu rather than beside the period
 const menu = computed(() => (features.value.reports ? [{ label: "Month and year reports", icon: "stats", run: () => void router.push("/report") }] : []));
 // which section's explanation is open: one Sheet at a time
-const info = ref<"works" | "pm" | "events" | "recall" | null>(null);
+const info = ref<"works" | "pm" | "events" | "recall" | "quality" | "sleep" | null>(null);
 const from = computed(() => periodStart(period.value, today.value));
 const bucket = computed<Bucket>(() => bucketFor(period.value));
 // every check of the period (all=1: no limit, so a long habit of checks is never cut short)
@@ -67,9 +68,13 @@ const { answers } = useLearn();
 
 const nights = computed(() => j.nights.data.value ?? []);
 const dreams = computed(() => j.facts.data.value ?? []);
-// since the start, whatever the period; the setup answer (LDJ-180) will be passed here once setup stores one
-const progress = computed(() => recallProgress(nights.value, dreams.value, today.value, null));
+// since the start, whatever the period; set against the setup's recall answer when there is one (LDJ-180)
+const progress = computed(() => recallProgress(nights.value, dreams.value, today.value, recallBaseline(settings.value.setup.recall)));
 const recall = computed(() => recallInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
+// lucid dream quality (LDJ-165): since the first lucid dream, whatever the period, like recall progress
+const quality = computed(() => lucidQuality(nights.value, dreams.value, today.value));
+// sleep (LDJ-160): naps out; the "sleep first" flag reads the latest nights whatever the period
+const sleep = computed(() => sleepInsight(nights.value, from.value, today.value, bucket.value, localClock));
 const lucid = computed(() => lucidityInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const events = computed(() => eventsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const emotions = computed(() => emotionsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
@@ -122,6 +127,23 @@ const avgLevel = computed(() => {
   const ls = lucid.value.levels, n = ls.slice(1).reduce((a, b) => a + b, 0);
   return n ? one(ls.reduce((a, c, i) => a + c * i, 0) / n) : "-";
 });
+
+// quality: one line per month with a rating; the tiles read the last 3 months, the window the summary speaks of
+const levelPoints = computed(() => quality.value.byMonth.filter((r) => r.level != null).map((r) => ({ x: dayX(r.key), y: r.level!, label: `${mon(r.key, { month: "short", year: "numeric" })} · ${plural(r.leveled, "lucid dream")}` })));
+const controlPoints = computed(() => quality.value.byMonth.filter((r) => r.control != null).map((r) => ({ x: dayX(r.key), y: r.control!, label: `${mon(r.key, { month: "short", year: "numeric" })} · ${plural(r.controlled, "lucid dream")}` })));
+const monthX = (t: number) => new Date(t).toLocaleDateString(undefined, { month: "short" });
+const topEnd = computed(() => {
+  const e = (Object.entries(quality.value.recent.ends) as [string, number][]).sort((a, b) => b[1] - a[1]);
+  return { label: e[0] ? LUCID_END_LABEL[e[0][0] as keyof typeof LUCID_END_LABEL] : "-", noted: e.reduce((a, x) => a + x[1], 0), count: e[0]?.[1] ?? 0 };
+});
+
+// ---------- sleep ----------
+const sleepBars = computed(() => sleep.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.hours ?? 0, dim: !r.nights, color: "var(--c3)" })));
+// bedtimes are minutes after noon (so 23:00 and 01:00 sit in order); the axis reads them back as a clock time
+const hhmm = (min: number) => { const m = Math.round(min) % 1440; return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`; };
+const clockOf = (afterNoon: number) => hhmm(afterNoon + 720);
+const bedPoints = computed(() => sleep.value.bedtimes.map((b) => ({ x: dayX(b.date), y: b.min, label: dateShort(b.date) })));
+const sleepCites = [...SLEEP_REM_SOURCES, ...SLEEP_FIRST_SOURCES];
 
 // ---------- what works ----------
 const groups = computed(() => {
@@ -198,7 +220,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
     <!-- Lucidity -->
     <section>
-      <div class="sh"><h2>Lucidity</h2></div>
+      <div class="sh"><h2>Lucidity</h2><button v-if="quality.all.lucid" class="ib sm plain" type="button" aria-label="About how your lucid dreams change" @click="info = 'quality'"><Icon name="info" :size="17" /></button></div>
       <div v-if="!lucid.lucid" class="card empty"><Icon name="sparkle" :size="34" /><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.<br /><button class="btn tonal" type="button" @click="router.push('/train/tonight')">Plan tonight</button></div>
       <template v-else>
         <div class="grid g4">
@@ -212,6 +234,25 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card"><div class="lbl hgap">How lucid (level 1-5)</div><BarChart :bars="levelBars" :height="140" /></div>
           <div class="card"><div class="lbl hgap">How it started</div><BarChart :bars="howBars" horizontal /></div>
         </div>
+      </template>
+      <!-- quality over time (LDJ-165): since the first lucid dream, so it shows even when this period had none -->
+      <template v-if="quality.all.lucid">
+        <div class="grid g3 spt" data-testid="lucid-quality">
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>Control</div><div class="val num">{{ quality.recent.control == null ? "-" : one(quality.recent.control) }}<small v-if="quality.recent.control != null">of 5</small></div><div class="sub">{{ quality.recent.controlled ? `${plural(quality.recent.controlled, "lucid dream")} rated, last 3 months` : "none rated in the last 3 months" }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>A few minutes or longer</div><div class="val num">{{ quality.recent.timed ? pct(quality.recent.long / quality.recent.timed) : "-" }}</div><div class="sub">{{ quality.recent.timed ? `${quality.recent.long} of ${plural(quality.recent.timed, "lucid dream")} with a length, last 3 months` : "no length noted in the last 3 months" }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Most often ended</div><div class="val">{{ topEnd.label }}</div><div class="sub">{{ topEnd.noted ? `${topEnd.count} of ${topEnd.noted} with an ending noted, last 3 months` : "no ending noted in the last 3 months" }}</div></div>
+        </div>
+        <div class="grid g2 spt">
+          <div class="card"><div class="lbl hgap">How lucid, by month since your first</div>
+            <div v-if="levelPoints.length < 2" class="empty sm">Give your lucid dreams a level in more than one month to see a trend.</div>
+            <LineChart v-else :points="levelPoints" :fmt="one" :xfmt="monthX" :height="140" color="var(--acc2)" />
+          </div>
+          <div class="card"><div class="lbl hgap">Control, by month since your first</div>
+            <div v-if="controlPoints.length < 2" class="empty sm">Rate the control of your lucid dreams in more than one month to see a trend.</div>
+            <LineChart v-else :points="controlPoints" :fmt="one" :xfmt="monthX" :height="140" color="var(--acc2)" zero />
+          </div>
+        </div>
+        <p v-if="quality.text" class="tiny ins-note">{{ quality.text }}. <CiteChips :ids="QUALITY_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
     </section>
 
@@ -286,6 +327,26 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card"><div class="lbl hgap">Dreams a night, by {{ bucket }}, {{ SINCE[period] }}</div><BarChart :bars="recallBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">Nights with a dream, by weekday</div><BarChart :bars="weekdayBars" :fmt="pct" :height="150" /></div>
         </div>
+      </template>
+    </section>
+
+    <!-- Sleep (LDJ-160) -->
+    <section data-testid="sleep">
+      <div class="sh"><h2>Sleep</h2><button class="ib sm plain" type="button" aria-label="About sleep and lucid dreams" @click="info = 'sleep'"><Icon name="info" :size="17" /></button></div>
+      <div v-if="sleep.last.short" class="card" data-testid="sleep-first"><div class="lbl hgap">Sleep first</div><p class="tiny">Lucid dreams come in the long REM periods of the morning. Your last {{ SLEEP_MIN_NIGHTS }} nights averaged {{ one(sleep.last.hours!) }} h asleep: sleep longer before adding practice. <CiteChips :ids="sleepCites" @cite="cite($event[0]!)" /></p></div>
+      <div v-if="!sleep.enough" class="card empty" :class="{ spt: sleep.last.short }"><Icon name="moon" :size="34" /><b>Not enough nights with times yet</b>{{ sleep.timed }} of {{ SLEEP_MIN_NIGHTS }} nights in this period have a bedtime and a wake time. Add them to your nights to see how long and how regularly you sleep.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
+      <template v-else>
+        <div class="grid g4" :class="{ spt: sleep.last.short }">
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Asleep a night</div><div class="val num">{{ one(sleep.hours!) }}<small>h</small></div><div class="sub">{{ plural(sleep.timed, "night") }} with times, {{ SINCE[period] }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>Usual bedtime</div><div class="val num">{{ sleep.bedtime == null ? "-" : hhmm(sleep.bedtime) }}</div><div class="sub">{{ sleep.spread == null ? "needs more bedtimes" : `varies by about ${sleep.spread} min` }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="history" :size="15" /></span>Last {{ SLEEP_MIN_NIGHTS }} nights</div><div class="val num">{{ sleep.last.hours == null ? "-" : one(sleep.last.hours) }}<small v-if="sleep.last.hours != null">h</small></div><div class="sub">{{ sleep.last.hours == null ? `needs ${SLEEP_MIN_NIGHTS} nights with times in 2 weeks` : "asleep a night, on average" }}</div></div>
+          <div class="card stat"><div class="lbl"><span class="bi"><Icon name="bell" :size="15" /></span>WBTB nights</div><div class="val num">{{ sleep.wbtb.timed }}</div><div class="sub">of {{ plural(sleep.timed, "night") }} with times</div></div>
+        </div>
+        <div class="grid g2 spt">
+          <div class="card"><div class="lbl hgap">Hours asleep, by {{ bucket }}</div><BarChart :bars="sleepBars" :fmt="one" :height="150" /></div>
+          <div class="card"><div class="lbl hgap">Bedtime, night by night</div><LineChart :points="bedPoints" :fmt="clockOf" :height="150" color="var(--c3)" /></div>
+        </div>
+        <p class="tiny ins-note">{{ sleepWbtbText(sleep) }}. <CiteChips :ids="SLEEP_WBTB_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
     </section>
 
@@ -391,6 +452,16 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </Sheet>
     <Sheet v-if="info === 'events'" title="Nightmares and bad dreams" @close="info = null">
       <p>{{ UPSET_HINT }} <CiteChips :ids="UPSET_SOURCES" @cite="cite($event[0]!)" /></p>
+    </Sheet>
+    <Sheet v-if="info === 'quality'" title="How your lucid dreams change" @close="info = null">
+      <p>Lucidity is a range, not a yes or no: people describe everything from a brief flash of knowing to full clarity, and the scale researchers use grades insight and control apart. <CiteChips :ids="['B79', 'B22']" @cite="cite($event[0]!)" /></p>
+      <p>Once lucid dreams come, the training turns to keeping them going longer. <CiteChips :ids="['D1']" @cite="cite($event[0]!)" /></p>
+      <p>These read the level, control, length and ending you give each lucid dream, since your first one, whatever the period above. "Mostly" is the most common level, a tie counting as the lower one; it shows once {{ QUALITY_MIN }} lucid dreams on a side have a level.</p>
+    </Sheet>
+    <Sheet v-if="info === 'sleep'" title="Sleep" @close="info = null">
+      <p>REM periods grow longer through the night, so the last hours of sleep hold the most REM, and that is where lucid dreams mostly come. <CiteChips :ids="SLEEP_REM_SOURCES" @cite="cite($event[0]!)" /> Cutting sleep to train cuts that time: sleep comes first. <CiteChips :ids="SLEEP_FIRST_SOURCES" @cite="cite($event[0]!)" /></p>
+      <p>WBTB breaks sleep up on purpose. In a four-study project, waking in the night went with lucid dreaming while rated sleep quality did not; in two surveys, people with frequent lucid dreams rated their sleep worse. <CiteChips :ids="SLEEP_WBTB_SOURCES" @cite="cite($event[0]!)" /> The WBTB line sets your own WBTB nights against the others once each side has {{ MIN_NIGHTS }} nights.</p>
+      <p>Hours asleep run from bedtime to wake time, less the minutes awake for WBTB. "Varies by about" is how far bedtimes usually stray from the usual one. Numbers show once {{ SLEEP_MIN_NIGHTS }} nights have both times; naps are left out.</p>
     </Sheet>
     <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
   </div>
