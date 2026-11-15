@@ -14,7 +14,7 @@ export const NAV = [
 export function section(routeName: string | undefined): string {
   if (routeName?.startsWith("journal")) return "journal";
   if (routeName?.startsWith("signs")) return "signs";
-  if (routeName === "report") return "progress";
+  if (routeName === "report" || routeName?.startsWith("progress")) return "progress";
   if (routeName?.startsWith("train")) return "train";
   return routeName ?? "";
 }

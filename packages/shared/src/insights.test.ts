@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bucketOf, bucketRange, periodStart, recallInsight, lucidityInsight, eventsInsight, emotionsInsight, checksInsight,
-  compareLucid, checksBySign, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, lucidQuality, qualityText, sleepInsight, sleepWbtbText, QUALITY_MIN, SLEEP_MIN_NIGHTS, MIN_NIGHTS, type InsightNight, type InsightDream,
+  compareLucid, checksBySign, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, lucidQuality, qualityText, sleepInsight, sleepWbtbText, retakeDue, loggedRates, RETAKE_DAYS, QUALITY_MIN, SLEEP_MIN_NIGHTS, MIN_NIGHTS, type InsightNight, type InsightDream,
 } from "./insights";
 import { addDays } from "./rates";
 
@@ -391,5 +391,27 @@ describe("insights: sleep (LDJ-160)", () => {
     expect(sleepInsight(short, null, today, "week", utcClock).last).toEqual({ hours: 5, short: true });
     // the same nights a month ago: nothing to say about now
     expect(sleepInsight(short, null, addDays(today, 30), "week", utcClock).last).toEqual({ hours: null, short: false });
+  });
+});
+
+describe("insights: self-assessment retake (LDJ-175)", () => {
+  it("is due four weeks after the newest answer of either scale, never with no answers", () => {
+    const today = "2026-11-15";
+    expect(retakeDue([], today)).toBe(false);
+    expect(retakeDue([undefined, null], today)).toBe(false);
+    expect(retakeDue([addDays(today, -RETAKE_DAYS)], today)).toBe(true);
+    expect(retakeDue([addDays(today, -(RETAKE_DAYS - 1))], today)).toBe(false);
+    expect(retakeDue([addDays(today, -60), addDays(today, -3)], today)).toBe(false); // the newer answer counts
+  });
+  it("gives the logged rates of the four weeks up to a date in the scales' units", () => {
+    const to = "2026-11-15";
+    const ns = Array.from({ length: 14 }, (_, i) => night(addDays(to, -i), { dreamCount: i % 2 ? 0 : 1, noRecall: !!(i % 2) }));
+    const old = night(addDays(to, -40), { dreamCount: 3 });
+    const ds = [...ns.filter((n) => n.dreamCount).map((n, i) => dream(n, { lucid: i < 2 })), dream(old, { lucid: true })];
+    const r = loggedRates([...ns, old], ds, to);
+    expect(r.nights).toBe(14);
+    expect(r.recallPerWeek).toBeCloseTo(3.5);
+    expect(r.lucidPerMonth).toBeCloseTo((2 / 14) * 30.4);
+    expect(loggedRates(ns.slice(0, 3), ds, to)).toEqual({ nights: 3, lucidPerMonth: null, recallPerWeek: null });
   });
 });

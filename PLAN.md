@@ -306,7 +306,7 @@ Ordered by what matters for lucid dreaming; numbers as stat tiles, one chart per
 - **Checks**: reality checks per day, by kind, prompted vs own, "dreaming" outcomes (these are the lucid moments).
 - **Night events**: elements and emotions over time, nightmares, false awakenings, sleep paralysis.
 - **Day-note lag**: the analysis only; the notes themselves are in the Journal.
-- **Self-assessment answers** (LuCiD, DLQ, MADRE and the "Where am I" questionnaires), linked from Learn.
+- **Self-assessment** (LuCiD, DLQ, MADRE): the answers over time, first and latest beside the logged rates, and the questions themselves (/progress/self-assessment), linked from Learn.
 - **Reports**: month report and year in review (optional features).
 
 ### 6.6 Learn (§10)

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Progress (PLAN.md §6.5, LDJ-21, LDJ-22, LDJ-90): goals, lucidity, what goes with lucid nights, recall, reality checks,
-// night events, day-note lag and the Learn questionnaire answers over a chosen period, in §6.5's order. Each section is
+// night events, day-note lag and the self-assessment answers over a chosen period, in §6.5's order. Each section is
 // a row of stat tiles and then one chart per card (Motus StatsPage), so it scans and the cards line up; the longer
 // explanations sit behind each section's info button (ChartInfo, texts in packages/knowledge/content/progress). Everything is summed here on the device from the journal it
 // already holds (packages/shared/src/insights.ts); nothing is sent anywhere. A lazy route, so the charts load with
@@ -12,7 +12,7 @@ import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
   RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_COUNTING_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
   checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS,
-  lucidQuality, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
+  lucidQuality, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, retakeDue, loggedRates, RETAKE_SOURCES, DIARY_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor, recallBaseline } from "@somnium/knowledge/assessments";
 import { useJournal, uuidv7 } from "../api/journal";
@@ -32,7 +32,6 @@ import Sheet from "../components/Sheet.vue";
 import GoalCards from "../components/goals/GoalCards.vue";
 import ChartInfo from "../components/insights/ChartInfo.vue";
 import LagCard from "../components/insights/LagCard.vue";
-import ThemesCard from "../components/insights/ThemesCard.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
 import CiteChips from "../components/learn/CiteChips.vue";
 import "../styles/components/learn.css";
@@ -193,15 +192,26 @@ const emotionPoints = computed(() => emotions.value.byBucket.filter((r) => r.avg
 // numbers on the axis (the anchor words don't fit beside it); the tooltip's label names the period
 const feel = (v: number) => (v > 0 ? "+" : "") + one(v);
 
-// ---------- your answers ----------
+// ---------- self-assessment (LDJ-127, LDJ-175) ----------
+// each scale's first and latest answer beside what the journal logged in the four weeks before it, in the scale's unit
+const LOGGED: Record<string, (r: ReturnType<typeof loggedRates>) => number | null> = { ldfs: (r) => r.lucidPerMonth, madre: (r) => r.recallPerWeek };
+const answerRow = (id: (typeof assessmentIds)[number], x: { date: string; value: number }) => {
+  const o = optionFor(id, x.value);
+  const logged = LOGGED[id]!(loggedRates(nights.value, dreams.value, x.date));
+  return { date: x.date, label: o?.label ?? "", said: o?.rate ?? 0, logged };
+};
 const answerSets = computed(() => assessmentIds.map((id) => {
   const list = answers.value?.[id] ?? [];
   const last = list.at(-1);
   return {
     id, a: assessments[id], count: list.length, last, lastLabel: last ? optionFor(id, last.value)?.label ?? "" : "",
+    compare: list.length > 1 ? [answerRow(id, list[0]!), answerRow(id, last!)] : [],
     points: list.map((x) => ({ x: dayX(x.date), y: optionFor(id, x.value)?.rate ?? 0, label: `${optionFor(id, x.value)?.label ?? ""} · ${mon(x.date, { day: "numeric", month: "short", year: "numeric" })}` })),
   };
 }).filter((s) => s.count));
+// four weeks after the newest answer, a quiet invitation to answer again (the scales are steady over weeks: B49, B50)
+const retake = computed(() => retakeDue(assessmentIds.map((id) => answers.value?.[id]?.at(-1)?.date), today.value));
+const answerAgain = () => router.push("/progress/self-assessment");
 const dateShort = (ymd: string) => mon(ymd, { day: "numeric", month: "short" });
 const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year: "numeric" });
 </script>
@@ -404,15 +414,15 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       </template>
     </section>
 
-    <ThemesCard v-if="features.typicalThemes" />
     <LagCard v-if="features.dayNotes" :today="today" />
 
-    <!-- Your answers -->
+    <!-- Self-assessment: the answers' one home; the questions open from here and from Learn (PLAN.md §6.5) -->
     <section>
-      <div class="sh"><h2>Your answers</h2><ChartInfo id="answers" /></div>
-      <div v-if="!answerSets.length" class="card empty"><Icon name="map" :size="34" /><b>No answers yet</b>Answer the two questions in Learn · Where am I now and again to see how they change.<br /><button class="btn tonal" type="button" @click="router.push('/learn/where-am-i')">Answer them</button></div>
+      <div class="sh"><h2>Self-assessment</h2><div class="row"><button v-if="answerSets.length" type="button" class="lnk" @click="answerAgain">Answer again</button><ChartInfo id="answers" /></div></div>
+      <div v-if="!answerSets.length" class="card empty"><Icon name="map" :size="34" /><b>No answers yet</b>Two short questions about how often you remember dreams and have lucid ones. Answer them now and again to see how it changes.<br /><button class="btn tonal" type="button" @click="answerAgain">Answer them</button></div>
       <template v-else>
-        <p class="tiny">All your answers, whatever the period.</p>
+        <p v-if="retake" class="tiny">Four weeks on: answer the two questions again to see what has changed. <CiteChips :ids="RETAKE_SOURCES" @cite="cite($event[0]!)" /></p>
+        <p v-else class="tiny">All your answers, whatever the period.</p>
         <div class="grid g2">
           <div v-for="s in answerSets" :key="s.id" class="card">
             <div class="lbl">{{ s.a.title }}</div>
@@ -421,8 +431,13 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
               <LineChart :points="s.points" :fmt="(v: number) => one(v)" :height="120" zero />
               <div class="tiny">Counted as {{ s.a.unit }}.</div>
             </template>
+            <div v-for="(c, i) in s.compare" :key="i" class="ins-cmp">
+              <div class="t">{{ i ? "Latest" : "First" }} · {{ dateShort(c.date) }}: {{ c.label }}, counted as {{ one(c.said) }} {{ s.a.unit }}</div>
+              <div class="s tiny">{{ c.logged == null ? "Not enough nights logged in the four weeks before to set beside it." : `Your journal in the four weeks before: ${one(c.logged)} ${s.a.unit}.` }}</div>
+            </div>
           </div>
         </div>
+        <p v-if="answerSets.some((s) => s.compare.length)" class="tiny ins-note">A journal usually finds more than a question about your habits, so the two seldom match; watch how each one moves. <CiteChips :ids="DIARY_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
     </section>
 

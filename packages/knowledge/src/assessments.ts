@@ -1,4 +1,4 @@
-// Self-assessment scales for Learn -> "Where am I". The wording is exactly what RESEARCH.md Part B section 7
+// Self-assessment scales (Progress · Self-assessment, linked from Learn). The wording is exactly what RESEARCH.md Part B section 7
 // gives (the scales' anchors and the standard definition); no question text has been added to it.
 // The Dream Lucidity Questionnaire (DLQ) is left out: RESEARCH.md names it but does not list its items.
 

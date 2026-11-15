@@ -64,12 +64,12 @@ const GOALS = [
   { value: "recall", label: "Remember more of my dreams", icon: "book" },
 ];
 
-// 3. where recall starts (LDJ-180): Learn's "Where am I" dream recall question (MADRE [B50]), kept as a dated answer
+// 3. where recall starts (LDJ-180): the self-assessment's dream recall question (MADRE [B50]), kept as a dated answer
 // like any other and in settings.setup.recall, the starting point Progress · Recall and Home set today against
 const MADRE = assessments.madre;
 const recall = ref<number | null>(settings.value.setup.recall);
 const RECALLS = [...MADRE.options].reverse().map((o) => ({ value: o.value, label: o.label }));
-const recallNote = "The dream recall question of the Mannheim Dream Questionnaire [B50]. Progress · Recall sets what your journal shows against it; Learn · Where am I keeps it with the date.";
+const recallNote = "The dream recall question of the Mannheim Dream Questionnaire [B50]. Progress · Recall sets what your journal shows against it; Progress · Self-assessment keeps it with the date.";
 
 // 4. usual sleep times
 const bedtime = ref(settings.value.sleep.bedtime), wake = ref(settings.value.sleep.wake);

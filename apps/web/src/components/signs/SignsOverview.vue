@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The Signs list (PLAN.md §6.4), in the order to act on: the dream sign shortlist with the check to pair with each,
-// recurring dreams grouped with what keeps coming back in them (LDJ-164), suggestions to confirm, merge or dismiss, which signs turned up in lucid dreams, the typical themes beside Nielsen's
-// figures, and last every element by kind with its trend, folded by kind.
+// recurring dreams grouped with what keeps coming back in them (LDJ-164), suggestions to confirm, merge or dismiss, which signs turned up in lucid dreams, the typical themes beside the
+// published figures (optional, ThemesCard), and last every element by kind with its trend, folded by kind.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { elementsByKind, elementSuggestions, frequencyText, recurringGroups, signsBeforeLucidity, themeComparison, topSigns, type Element, type ElementKind, type RecurringGroup } from "@somnium/shared";
@@ -13,6 +13,8 @@ import { uuidv7 } from "../../api/journal";
 import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Sparkline from "../Sparkline.vue";
+import ThemesCard from "./ThemesCard.vue";
+import { useSettings } from "../../api/queries";
 import { CATEGORY_LABEL, KIND_LABEL, KIND_ONE, dreamsText, useSigns } from "./useSigns";
 
 const props = defineProps<{ selected?: string }>();
@@ -27,7 +29,9 @@ const search = ref("");
 const groups = computed(() => elementsByKind(elements.value, stats.value, search.value));
 const suggestions = computed(() => elementSuggestions(elements.value, links.value, stats.value));
 const lucid = computed(() => signsBeforeLucidity(elements.value, links.value, dreams.value));
-const themes = computed(() => themeComparison(elements.value, stats.value, signLexicons.value?.themes ?? []));
+// the typical themes you have as elements, so the themes card's rows open them
+const themeEls = computed(() => new Map(themeComparison(elements.value, stats.value, signLexicons.value?.themes ?? []).map((t) => [t.theme.id, t.element.id])));
+const settings = useSettings();
 // folded by kind; the kind of the element open beside the list stays open, and a search opens every kind it matches
 const opened = ref(new Set<ElementKind>());
 const selectedKind = computed(() => (props.selected ? byId.value.get(props.selected)?.kind : undefined));
@@ -83,13 +87,13 @@ async function dismissOne(e: Element) {
       </div>
       <div v-else class="list">
         <div v-for="(s, i) in shortlist" :key="s.element.id" class="li sgrow" :class="{ on: selected === s.element.id }">
-          <span class="sgrank num">{{ i + 1 }}</span>
+          <span class="bi sg sgrank num">{{ i + 1 }}</span>
           <span class="grow sgmin sgcol">
             <button type="button" class="sgopen sgcol" :aria-current="(selected === s.element.id) || undefined" @click="emit('open', s.element.id)">
               <span class="t">{{ s.element.name }}</span>
               <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : s.element.isDreamSign ? "Marked by you" : "", s.recurring ? "Recurring dream" : "", frequencyText(s.frequency)].filter(Boolean).join(" · ") }}</span>
             </button>
-            <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }} <button type="button" class="lnk inl" @click="doCheck(s.check.id, s.element.id)">Do this check</button></span></span>
+            <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="16" /><span>Check: {{ s.check.name }}. {{ s.advice }} <button type="button" class="lnk inl" @click="doCheck(s.check.id, s.element.id)">Do this check</button></span></span>
           </span>
         </div>
       </div>
@@ -109,7 +113,7 @@ async function dismissOne(e: Element) {
             <span class="s">{{ seen(g.lastSeen) }} · add who and what was in it to make it a dream sign</span>
           </span>
           <button v-if="unmarked(g).length" type="button" class="qb" :disabled="busy === g.dreamIds[0]" @click="markGroup(g)"><Icon name="sparkle" :size="16" />Mark as dream sign</button>
-          <span v-else-if="g.core.length" class="tiny sgacc sgmark"><Icon name="sparkle" :size="13" />Dream sign</span>
+          <span v-else-if="g.core.length" class="tiny sgacc sgmark"><Icon name="sparkle" :size="16" />Dream sign</span>
         </div>
       </div></div>
     </template>
@@ -134,24 +138,14 @@ async function dismissOne(e: Element) {
         <div v-else class="list">
           <button v-for="r in lucid.rows.slice(0, 8)" :key="r.element.id" type="button" class="li click sgrow" @click="emit('open', r.element.id)">
             <span class="grow sgmin t ellipsis">{{ r.element.name }}</span>
-            <span class="tiny num">{{ r.inLucid }} lucid · {{ r.inOther }} other</span>
+            <span class="tiny num">{{ r.inLucid }} lucid · {{ r.inOther }} other</span><Icon name="right" :size="16" class="muted" />
           </button>
         </div>
       </template>
     </div>
 
-    <template v-if="themes.length">
-      <div class="sh"><h2>Typical dream themes</h2></div>
-      <div class="card">
-        <p class="tiny sgmut">Yours is how many of your written dreams had the theme. Beside it, the share of 1,181 Canadian students who said they had ever had it (Nielsen and others, 2003). They measure different things (a count against a lifetime share), so they can't be compared directly.</p>
-        <div class="list">
-          <button v-for="t in themes" :key="t.theme.id" type="button" class="li click sgrow" @click="emit('open', t.element.id)">
-            <span class="grow sgmin sgcol"><span class="t">{{ t.theme.displayName ?? t.theme.name }}</span><span class="s">{{ t.theme.prevalenceTotal }}% have ever had it</span></span>
-            <span class="num sgcount">{{ t.yourDreams }}</span>
-          </button>
-        </div>
-      </div>
-    </template>
+    <!-- optional (Settings · Features); its one home (PLAN.md §6.4, LDJ-124) -->
+    <ThemesCard v-if="settings.features.typicalThemes" :elements="themeEls" @open="emit('open', $event)" />
 
     <!-- the reference list last, each kind folded until opened (a search opens every kind it matches) -->
     <div class="sh"><h2>Everything in your dreams</h2><span class="tiny">{{ elements.length ? `${elements.length} in all` : "" }}</span></div>
@@ -165,9 +159,9 @@ async function dismissOne(e: Element) {
         </button>
         <div v-if="isOpen(g.kind)" class="list">
           <button v-for="r in g.rows" :key="r.element.id" type="button" class="li click sgrow" :class="{ on: selected === r.element.id }" :aria-current="(selected === r.element.id) || undefined" @click="emit('open', r.element.id)">
-            <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
+            <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="16" class="sgacc" aria-label="Dream sign" /></span>
               <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
-            <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span>
+            <span class="sgspark" :title="'Last 12 weeks'"><Sparkline :values="r.stat.weekly" /></span><Icon name="right" :size="16" class="muted" />
           </button>
         </div>
       </div>
@@ -183,7 +177,7 @@ button.sgrow { cursor: pointer; }
 /* spans inside the row buttons (a button may only hold phrasing content), stacked as the divs were */
 .sgcol { display: flex; flex-direction: column; }
 .sgopen { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.sgrank { width: calc(var(--cpx) + var(--lpy) / 2); flex: none; color: var(--acc); font-weight: 600; text-align: center; align-self: flex-start; }
+.sgrank { font-weight: 600; align-self: flex-start; }
 .sgcheck { color: var(--tx2); display: flex; gap: var(--tdy); align-items: flex-start; margin-top: var(--tdy); }
 .sgcheck :deep(svg) { flex: none; margin-top: calc(var(--tdy) / 3); color: var(--acc); }
 .sgspark { width: calc(var(--lmh) * 1.75); height: calc(var(--lmh) / 2); flex: none; }
@@ -199,5 +193,4 @@ section + section > .card { margin-top: var(--hg); }
 .sgk { display: flex; align-items: center; gap: var(--tdy); width: 100%; background: none; border: 0; padding: var(--cpy) var(--cpx); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .sgk[aria-expanded="true"] { padding-bottom: 0; }
 .sgcnt { margin-inline-start: var(--tdy); vertical-align: 0.15em; }
-.sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--lpy)); text-align: end; }
 </style>

@@ -20,7 +20,7 @@ export interface Settings {
     /** "Nights I can sleep in" (LDJ-108): weekdays (0 Sunday ... 6 Saturday) of the evenings after which a lie-in is
      *  possible. Tonight's suggested plan puts WBTB only on these (tonight.ts). Plain weekdays, nothing personal. */
     freeNights: number[] };
-  /** Learn: reading progress and "Where am I" answers. No dream content, so these sync in the clear. */
+  /** Learn: reading progress and self-assessment answers. No dream content, so these sync in the clear. */
   learn: {
     /** Article id to the ISO date it was read to the end. An empty string means marked unread by hand (the settings merge cannot delete a key). */
     read: Record<string, string>;
@@ -39,7 +39,7 @@ export interface Settings {
    * The first-run setup (LDJ-77): done once it has been finished or skipped, so it shows once. experience is the
    * answer to "how much lucid dreaming have you done" (it picked the starting lesson); empty when skipped. Plain
    * choices, nothing personal. goal is "what do you want from it" (LDJ-180), empty when skipped. recall is the setup's
-   * "Where am I" dream recall answer (a MADRE value, @somnium/knowledge/assessments), the baseline Progress · Recall
+   * self-assessment dream recall answer (a MADRE value, @somnium/knowledge/assessments), the baseline Progress · Recall
    * and Home set today's recall against (recallProgress's `said`); null when not answered in the setup.
    */
   setup: { done: boolean; experience: SetupExperience; goal: SetupGoal; recall: number | null };

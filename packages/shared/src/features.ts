@@ -19,9 +19,10 @@ export const FEATURES: FeatureDef[] = [
   { id: "soundCue", group: "Training", name: "Sound cue training", desc: "Pair a soft tone with reality checks while awake, then play it quietly during a nap or after waking in the night (wake back to bed, targeted lucidity reactivation). On Android the cues play with the screen off; elsewhere keep the app open with the screen on.", where: "Train", to: "/train", on: false },
   { id: "dreamYoga", group: "Training", name: "Dream yoga practices", desc: "Wangyal's four daytime practices as daily habits, shown as a tradition, with their source.", where: "Train", to: "/train", on: false },
   { id: "weekReview", group: "Training", name: "Weekly review", desc: "On the last evening of your week, two minutes: this week against last, what went with your lucid nights, and next week's WBTB nights and target dream sign.", where: "Train · Home on the review evening", to: "/train/week", on: false },
-    // Insights
+  // Dream signs
+  { id: "typicalThemes", group: "Dream signs", name: "Typical dream themes", desc: "How often the common dream themes (being chased, falling, flying...) show up in your dreams, beside how many people say they have ever had them.", where: "Dream signs", to: "/signs", on: false },
+  // Progress
   { id: "reports", group: "Progress", name: "Month report and year in review", desc: "A summary page for each month and year.", where: "Progress", to: "/progress", on: false },
-  { id: "typicalThemes", group: "Progress", name: "Typical dream themes", desc: "How often the common dream themes (being chased, falling, flying...) show up in your dreams, beside how many people say they have ever had them.", where: "Progress", to: "/progress", on: false },
   { id: "goals", group: "Progress", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", where: "Progress · Home when pinned", to: "/progress", on: false },
   // Advanced
   { id: "localModel", group: "Advanced", name: "Local AI model (advanced)", desc: "Summarise a dream, or ask for its elements, with a text model you run yourself on your own network (an Ollama address). Never a cloud service; only on request. Desktop app only for now.", where: "A dream's ⋮ menu", to: "/settings/local-model", on: false },

@@ -123,7 +123,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
 
       <router-link v-if="cont && (last || Object.keys(read).length)" :to="'/learn/' + cont.id" class="card click controw">
         <div class="grow"><div class="s">Continue reading</div><div class="t">{{ cont.title }}</div></div>
-        <Icon name="right" />
+        <Icon name="right" :size="16" class="muted" />
       </router-link>
 
       <div class="sh"><h2>Start here</h2></div>
@@ -143,12 +143,13 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       <div class="sh"><h2>Sections</h2></div>
       <div class="card flush">
         <router-link v-for="s in sections" :key="s.id" :to="'/learn/' + s.id" class="li click">
+          <span class="bi sg"><Icon name="book" :size="18" /></span>
           <div class="grow">
             <div class="t">{{ s.title }}</div>
             <template v-if="!single(s.id)"><ProgressBar :percent="secProg(s.id).percent" class="pgap" /></template>
           </div>
           <div v-if="!single(s.id)" class="r s">{{ secProg(s.id).percent }}% · {{ secProg(s.id).read }} of {{ secProg(s.id).total }}</div>
-          <Icon name="right" />
+          <Icon name="right" :size="16" class="muted" />
         </router-link>
       </div>
 
@@ -161,12 +162,12 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       </div>
 
       <router-link to="/learn/resources" class="card click controw wheream">
-        <div class="grow"><div class="t">Resources</div><div class="s">Books, key studies, organisations and communities.</div></div>
-        <Icon name="right" />
+        <span class="bi sg"><Icon name="book" :size="18" /></span><div class="grow"><div class="t">Resources</div><div class="s">Books, key studies, organisations and communities.</div></div>
+        <Icon name="right" :size="16" class="muted" />
       </router-link>
-      <router-link to="/learn/where-am-i" class="card click controw">
-        <div class="grow"><div class="t">Where am I</div><div class="s">Two short questions that show where you start.</div></div>
-        <Icon name="right" />
+      <router-link to="/progress/self-assessment" class="card click controw">
+        <span class="bi sg"><Icon name="target" :size="18" /></span><div class="grow"><div class="t">Self-assessment</div><div class="s">Two short questions that show where you start and how it changes.</div></div>
+        <Icon name="right" :size="16" class="muted" />
       </router-link>
     </template>
   </div>

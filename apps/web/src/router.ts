@@ -61,7 +61,11 @@ export const router = createRouter({
     { path: "/progress", name: "progress", component: () => import("./pages/InsightsPage.vue") },
     // the page was called Insights; old links and bookmarks still land on it
     { path: "/insights", redirect: "/progress" },
+    // the two self-assessment questions (LDJ-127): answered here, shown in Progress, linked from Learn
+    { path: "/progress/self-assessment", name: "progress-self-assessment", component: () => import("./pages/SelfAssessmentPage.vue") },
     { path: "/report", name: "report", component: () => import("./pages/ReportPage.vue") },
+    // they were Learn · Where am I; old links still land on them
+    { path: "/learn/where-am-i", redirect: "/progress/self-assessment" },
     { path: "/learn/:sub(.*)?", name: "learn", component: () => import("./pages/LearnPage.vue") },
     // a reality check from a reminder or by hand: App.vue shows it over the lock screen; its note is a page behind the lock
     { path: "/check", name: "check", component: () => import("./shell/CheckScreen.vue") },

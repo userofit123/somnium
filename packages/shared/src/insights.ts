@@ -153,10 +153,6 @@ export const RECALL_TARGETS = { run: 7, perNight: 2 } as const;
 /** Fewer logged nights than this in a window: no comparison, and no "2 a night" reached. */
 export const RECALL_MIN_NIGHTS = 7;
 export const RECALL_COUNTING_SOURCES = ["B48", "C30", "C30a"] as const;
-export const RECALL_TARGET_SOURCES = ["C2", "D5"] as const;
-export const RECALL_WHY_SOURCES = ["B38"] as const;
-/** The course puts recall first. */
-export const RECALL_FIRST_SOURCES = ["D5"] as const;
 /** The setup answer (LDJ-180): roughly how many dreams a night, and the person's own words for it. */
 export interface RecallBaseline { perNight: number; label: string }
 export interface RecallSpan { nights: number; dreams: number; perNight: number | null }
@@ -217,6 +213,36 @@ export function recallChangeText(p: Pick<RecallProgress, "now" | "base">): strin
   const unit = `dream${b === "1" ? "" : "s"} a night`;
   if (a === b) return `About the same as ${since}: ${b} ${unit}`;
   return `${p.now.perNight > p.base.perNight ? "Up" : "Down"} from ${a} to ${b} ${unit}, against ${since}`;
+}
+
+// ---------- self-assessment retake (LDJ-175) ----------
+// The two frequency scales give much the same answer a few weeks apart (retest reliability, RESEARCH.md B49, B50), so
+// a change between the first and the latest answer is worth seeing. A diary finds more than a questionnaire does (B48,
+// C28a), so each answer is set beside what the journal logged over the four weeks before it, not judged against it.
+
+/** Days after the newest answer before Progress (and Home) invite answering again. */
+export const RETAKE_DAYS = 28;
+export const RETAKE_SOURCES = ["B49", "B50"] as const;
+export const DIARY_SOURCES = ["B48", "C28a"] as const;
+
+/** True once the newest answer (of either scale) is RETAKE_DAYS or more before today; never when nothing is answered. */
+export function retakeDue(lastDates: readonly (string | null | undefined)[], today: string): boolean {
+  const newest = lastDates.filter((d): d is string => !!d).sort().at(-1);
+  return !!newest && newest <= addDays(today, -RETAKE_DAYS);
+}
+
+/** What the journal logged in the RETAKE_DAYS mornings up to `to`, in the scales' own units: lucid dreams a month and
+ *  mornings a week with a dream remembered. Both null with fewer than RECALL_MIN_NIGHTS nights logged. */
+export interface LoggedRates { nights: number; lucidPerMonth: number | null; recallPerWeek: number | null }
+export function loggedRates(nights: InsightNight[], dreams: InsightDream[], to: string): LoggedRates {
+  const from = addDays(to, -(RETAKE_DAYS - 1));
+  const byDate = mornings(nights, dreams, from, to);
+  const n = byDate.size;
+  if (n < RECALL_MIN_NIGHTS) return { nights: n, lucidPerMonth: null, recallPerWeek: null };
+  const withRecall = [...byDate.values()].filter((c) => c > 0).length;
+  // per logged morning, then scaled to the scales' units (a month taken as 30.4 days), so gaps in logging don't read as no dreams
+  const lucid = lucidityInsight(nights, dreams, from, to).lucid;
+  return { nights: n, lucidPerMonth: (lucid / n) * 30.4, recallPerWeek: (withRecall / n) * 7 };
 }
 
 // ---------- lucidity ----------

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Learn (PLAN.md §6.6, §10): sections, search, articles, glossary, FAQ and the "Where am I" scales.
+// Learn (PLAN.md §6.6, §10): sections, search, articles, glossary and FAQ, with a link to the self-assessment (in Progress).
 // On a computer a section list sits on the left and the page on the right; on a phone each step is its own screen.
 // The article texts load with this page only (it is a lazy route), so the first screen stays small.
 import { computed } from "vue";
@@ -16,7 +16,6 @@ import ArticleView from "../components/learn/ArticleView.vue";
 import GlossaryView from "../components/learn/GlossaryView.vue";
 import FaqView from "../components/learn/FaqView.vue";
 import ResourcesView from "../components/learn/ResourcesView.vue";
-import Questionnaires from "../components/learn/Questionnaires.vue";
 
 const route = useRoute(), router = useRouter();
 const { read } = useLearn();
@@ -24,7 +23,6 @@ const segs = computed(() => String(route.params.sub ?? "").split("/").filter(Boo
 const kind = computed(() => {
   const [a, b] = segs.value;
   if (!a) return "home";
-  if (a === "where-am-i") return "where";
   if (a === "glossary") return "glossary";
   if (a === "faq") return "faq";
   if (a === "resources") return "resources";
@@ -52,15 +50,15 @@ const total = articles.length;
     <aside v-if="!isPhone" class="lnav" aria-label="Learn sections">
       <router-link to="/learn" class="ln" :class="{ on: kind === 'home' }">Learn home</router-link>
       <template v-for="s in sections" :key="s.id">
-        <router-link :to="'/learn/' + s.id" class="ln" :class="{ on: section === s.id && kind !== 'where' && kind !== 'home' && kind !== 'resources' }">
+        <router-link :to="'/learn/' + s.id" class="ln" :class="{ on: section === s.id && kind !== 'home' && kind !== 'resources' }">
           {{ s.title }}<span class="s">{{ single(s.id) ? "" : articlesIn(s.id).length }}</span>
         </router-link>
-        <div v-if="section === s.id && !single(s.id) && kind !== 'where'" class="lsub">
+        <div v-if="section === s.id && !single(s.id)" class="lsub">
           <router-link v-for="a in articlesIn(s.id)" :key="a.id" :to="'/learn/' + a.id" class="lsl" :class="{ on: article?.id === a.id, done: !!read[a.id] }">{{ a.title }}</router-link>
         </div>
       </template>
       <router-link to="/learn/resources" class="ln" :class="{ on: kind === 'resources' }">Resources</router-link>
-      <router-link to="/learn/where-am-i" class="ln" :class="{ on: kind === 'where' }">Where am I</router-link>
+      <router-link to="/progress/self-assessment" class="ln">Self-assessment</router-link>
       <div class="s lcount">{{ total }} articles</div>
     </aside>
     <div class="lmain">
@@ -72,7 +70,6 @@ const total = articles.length;
       <GlossaryView v-else-if="kind === 'glossary'" />
       <FaqView v-else-if="kind === 'faq'" />
       <ResourcesView v-else-if="kind === 'resources'" />
-      <Questionnaires v-else-if="kind === 'where'" />
     </div>
   </div>
 </template>

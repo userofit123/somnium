@@ -1,4 +1,4 @@
-// Learn state kept with the settings (reading progress, last article, "Where am I" answers). Nothing here
+// Learn state kept with the settings (reading progress, last article, self-assessment answers). Nothing here
 // holds dream content, so it syncs in the clear like the other settings.
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, type Ref } from "vue";
 import { useSettings, saveSettings } from "../api/queries";

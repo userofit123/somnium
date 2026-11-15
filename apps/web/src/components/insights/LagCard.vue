@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Icon from "../Icon.vue";
 // Day notes and dreams (optional, LDJ-41): which things you wrote about came back in a dream 1-2 or 5-7 days later,
 // counted here from the notes and elements on this device (packages/shared/src/lag.ts). Honest wording: counts with
 // the chance level beside them, never "caused". Only shown while Settings → Features → Day notes is on.
@@ -21,8 +22,8 @@ const count = computed(() => (notes.data.value ?? []).filter((n) => n.text).leng
 
 <template>
   <section data-testid="lagcard">
-    <div class="sh"><h2>Day notes and dreams</h2><ChartInfo id="day-notes" /></div>
     <div class="card">
+      <div class="lbl hgap"><span class="bi"><Icon name="note" :size="16" /></span><span class="grow">Day notes and dreams</span><ChartInfo id="day-notes" /></div>
       <div v-if="!rows.length" class="empty sm"><b>Not enough yet</b>{{ count }} day {{ count === 1 ? "note" : "notes" }} so far. An element needs to be named in at least {{ LAG_MIN_MENTIONS }} notes before it shows here.</div>
       <div v-for="r in rows" :key="r.elementId" class="ins-lag">
         <div class="t">{{ r.name }} <span class="tiny">named on {{ r.days }} days</span></div>
