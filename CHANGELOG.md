@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.2.0] - 2026-11-15
+
 A rework of the whole app: every screen has one clear place, one look and one main action, and new help for each
 step of learning to dream lucidly.
 
