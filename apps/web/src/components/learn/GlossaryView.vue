@@ -22,8 +22,7 @@ const first = (i: number) => i === 0 || terms.value[i - 1]!.letter !== terms.val
 
 <template>
   <div class="art">
-    <h1>Glossary</h1>
-    <p class="lede">Short definitions of the terms used in this app.</p>
+    <div class="ph"><div><h1>Glossary</h1><div class="sub">Short definitions of the terms used in this app.</div></div></div>
     <div class="jump" role="navigation" aria-label="Jump to a letter"><button v-for="l in letters" :key="l" type="button" @click="jump(l)">{{ l }}</button></div>
     <dl class="lgl">
       <template v-for="(t, i) in terms" :key="t.term">

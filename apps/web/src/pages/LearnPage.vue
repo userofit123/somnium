@@ -3,7 +3,7 @@
 // On a computer a section list sits on the left and the page on the right; on a phone each step is its own screen.
 // The article texts load with this page only (it is a lazy route), so the first screen stays small.
 import { computed } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { articles, sections, findArticle, articlesIn } from "@somnium/knowledge/content";
 import { isPhone } from "../core/device";
 import { openedFrom } from "../core/leave";
@@ -18,7 +18,7 @@ import FaqView from "../components/learn/FaqView.vue";
 import ResourcesView from "../components/learn/ResourcesView.vue";
 import Questionnaires from "../components/learn/Questionnaires.vue";
 
-const route = useRoute();
+const route = useRoute(), router = useRouter();
 const { read } = useLearn();
 const segs = computed(() => String(route.params.sub ?? "").split("/").filter(Boolean));
 const kind = computed(() => {
@@ -64,7 +64,8 @@ const total = articles.length;
       <div class="s lcount">{{ total }} articles</div>
     </aside>
     <div class="lmain">
-      <router-link v-if="isPhone && back" :to="back.to" class="lback"><Icon name="left" /> {{ back.label }}</router-link>
+      <!-- the same Back pill as every other page, just above the view's own header -->
+      <button v-if="isPhone && back" type="button" class="back" @click="router.push(back.to)"><Icon name="left" :size="16" /><span>{{ back.label }}</span></button>
       <LearnHome v-if="kind === 'home'" />
       <SectionView v-else-if="kind === 'section'" :section="section" />
       <ArticleView v-else-if="kind === 'article' && article" :key="article.id" :article="article" />

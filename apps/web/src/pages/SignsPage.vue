@@ -24,7 +24,7 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
 
 <template>
   <div class="page">
-    <div v-if="isPhone && id" class="card"><ElementPanel :id="id" :key="id" back @close="close" @open="open" /></div>
+    <ElementPanel v-if="isPhone && id" :id="id" :key="id" back @close="close" @open="open" />
     <div v-else class="sgcols" :class="{ split: !isPhone }">
       <div class="sglist">
         <div class="ph"><div><h1>Dream signs</h1><div class="sub">Elements are the people, places, things and feelings in your dreams. Dream signs are the ones that keep coming back, your cue to check whether you are dreaming.</div></div></div>

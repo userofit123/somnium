@@ -71,8 +71,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
 
 <template>
   <div class="art wide">
-    <h1>Learn</h1>
-    <p class="lede">What is known about lucid dreaming, with the sources behind it. Everything here works offline.</p>
+    <div class="ph"><div><h1>Learn</h1><div class="sub">What is known about lucid dreaming, with the sources behind it. Everything here works offline.</div></div></div>
     <div class="search lsearch">
       <Icon name="search" />
       <input v-model="q" type="search" placeholder="Search titles, summaries and text" aria-label="Search Learn" autocomplete="off" />

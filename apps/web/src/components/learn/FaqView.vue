@@ -21,8 +21,7 @@ const open = ref<string[] | null>(null);
 
 <template>
   <div class="art">
-    <h1>Frequently asked questions</h1>
-    <p class="lede">Short answers to the questions people ask most.</p>
+    <div class="ph"><div><h1>Frequently asked questions</h1><div class="sub">Short answers to the questions people ask most.</div></div></div>
     <div class="faq">
       <div v-for="(q, i) in items" :key="i" class="fq" :class="{ on: openIdx === i }">
         <div class="fqrow"><button type="button" class="fqh" :aria-expanded="openIdx === i" @click="openIdx = openIdx === i ? null : i">{{ q.question }}<span class="fqc" aria-hidden="true" /></button><PinButton :id="pinId.faq(q.question)" :label="q.question" /></div>

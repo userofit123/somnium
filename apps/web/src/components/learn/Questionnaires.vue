@@ -28,8 +28,7 @@ const date = (d: string) => fmt.value.date(d, { day: "numeric", month: "short", 
 
 <template>
   <div class="art">
-    <h1>Where am I</h1>
-    <p class="lede">Two short questions that show where you start and how it changes. Answer again whenever you like; each answer is kept with its date.</p>
+    <div class="ph"><div><h1>Where am I</h1><div class="sub">Two short questions that show where you start and how it changes. Answer again whenever you like; each answer is kept with its date.</div></div></div>
     <div class="seg" role="tablist"><button v-for="id in assessmentIds" :key="id" type="button" role="tab" :class="{ on: which === id }" :aria-selected="which === id" @click="choose(id)">{{ assessments[id].title }}</button></div>
     <div class="card qcard">
       <div class="ch"><span class="t">{{ a.title }}</span></div>

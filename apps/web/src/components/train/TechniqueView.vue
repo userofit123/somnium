@@ -26,9 +26,7 @@ const open = ref<string[] | null>(null);
 
 <template>
   <article class="art tview">
-    <button type="button" class="back" @click="goBack(router, '/train/techniques')"><Icon name="left" :size="16" /><span>{{ back }}</span></button>
-    <div class="eyebrow">{{ family }}</div>
-    <h1>{{ article.title }}</h1>
+    <div class="ph"><div><button type="button" class="back" @click="goBack(router, '/train/techniques')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>{{ article.title }}</h1><div class="sub">{{ family }}</div></div></div>
     <p class="lede">{{ article.summary }}</p>
     <TechniqueUse :technique="technique" :planned="planned" @cite="open = $event" />
     <SafetyNote v-if="technique.safety" @cite="open = $event" />

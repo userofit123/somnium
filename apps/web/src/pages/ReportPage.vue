@@ -11,11 +11,15 @@ import { useToday } from "../core/today";
 import { useFmt } from "../core/format";
 import AppSelect from "../components/AppSelect.vue";
 import Menu from "../components/Menu.vue";
+import Icon from "../components/Icon.vue";
+import { goBack, backLabel } from "../core/leave";
 
 const j = useJournal();
 const settings = useSettings();
 // an optional feature: absent while off, even by its address
 const router = useRouter();
+// opened from Progress's menu: its Back pill returns there (or to Progress when opened directly)
+const back = backLabel(router, "Progress");
 watch(() => !settings.value.features.reports, (off) => { if (off) void router.replace("/progress"); }, { immediate: true });
 await loaded(j.nights, j.dreams, j.elements, j.links);
 const today = useToday();
@@ -39,7 +43,7 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
 
 <template>
   <div v-if="settings.features.reports" class="page report">
-    <div class="ph noprint"><div><h1>Reports</h1><div class="sub">Worked out on this device. No dream text is used.</div></div>
+    <div class="ph noprint"><div><button type="button" class="back" @click="goBack(router, '/progress')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>Reports</h1><div class="sub">Worked out on this device. No dream text is used.</div></div>
       <div class="acts">
         <div class="seg" role="tablist"><button v-for="m in (['month', 'year'] as const)" :key="m" type="button" role="tab" :aria-selected="mode === m" :class="{ on: mode === m }" @click="mode = m">{{ m === "month" ? "Month" : "Year" }}</button></div>
         <AppSelect v-if="mode === 'month'" v-model="month" :options="monthOpts" title="Month" style="width:auto" />

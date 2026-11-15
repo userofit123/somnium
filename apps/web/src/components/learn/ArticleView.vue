@@ -56,13 +56,14 @@ const go = (a: Article) => router.push("/learn/" + a.id);
 
 <template>
   <article class="art">
-    <button v-if="outside" type="button" class="back" @click="goBack(router, '/learn/' + article.section)"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
-    <div class="ahead">
-      <div class="eyebrow grow">{{ sectionTitle }} <ReadMark :done="isRead" class="rdm-eb" /></div>
-      <PinButton :id="article.id" :label="article.title" />
-      <Menu :items="menu" label="Article actions" />
+    <div class="ph">
+      <div>
+        <button v-if="outside" type="button" class="back" @click="goBack(router, '/learn/' + article.section)"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
+        <h1>{{ article.title }}</h1>
+        <div class="sub asub">{{ sectionTitle }} <ReadMark :done="isRead" /></div>
+      </div>
+      <div class="acts"><PinButton :id="article.id" :label="article.title" /><Menu :items="menu" label="Article actions" /></div>
     </div>
-    <h1>{{ article.title }}</h1>
     <p class="lede">{{ article.summary }}</p>
     <template v-if="ownTech">
       <TechniqueUse :technique="ownTech" @cite="open = $event" />

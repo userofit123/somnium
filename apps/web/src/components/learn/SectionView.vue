@@ -17,7 +17,7 @@ const prog = computed(() => progressOf(list.value, read.value));
 
 <template>
   <div class="art wide">
-    <h1>{{ title }}</h1>
+    <div class="ph"><div><h1>{{ title }}</h1></div></div>
     <div v-if="list.length > 1" class="sprog"><ProgressBar :percent="prog.percent" /><span class="s">{{ prog.percent }}% · {{ prog.read }} of {{ prog.total }} read</span></div>
     <div class="card flush">
       <div v-for="(a, i) in list" :key="a.id" class="li lrow">

@@ -28,9 +28,7 @@ const readCount = computed(() => readings.value.filter((a) => read.value[a.id]).
 
 <template>
   <article class="art tview">
-    <button type="button" class="back" @click="goBack(router, '/train')"><Icon name="left" :size="16" /><span>{{ back }}</span></button>
-    <div class="eyebrow">Lesson {{ lesson.number }} of {{ lessons.length }}</div>
-    <h1>{{ lesson.title }}</h1>
+    <div class="ph"><div><button type="button" class="back" @click="goBack(router, '/train')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>{{ lesson.title }}</h1><div class="sub">Lesson {{ lesson.number }} of {{ lessons.length }}</div></div></div>
     <p class="lede">{{ lesson.summary }}</p>
     <SafetyNote v-if="lesson.safety" @cite="open = $event" />
     <LearnBlocks :blocks="blocks" @cite="open = $event" />

@@ -11,8 +11,7 @@ const open = ref<string[] | null>(null);
 
 <template>
   <div class="art wide">
-    <h1>Resources</h1>
-    <p class="lede">Books, studies, organisations and communities behind the Learn articles. Each one comes from the reference lists in the research notes; none is ranked.</p>
+    <div class="ph"><div><h1>Resources</h1><div class="sub">Books, studies, organisations and communities behind the Learn articles. Each one comes from the reference lists in the research notes; none is ranked.</div></div></div>
     <template v-for="g in groups" :key="g.id">
       <div class="sh"><h2>{{ g.title }}</h2></div>
       <div class="card flush">
