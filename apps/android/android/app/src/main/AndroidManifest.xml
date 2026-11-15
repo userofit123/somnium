@@ -60,6 +60,13 @@
                 <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
             </intent-filter>
         </receiver>
+
+        <!-- night practice tones with the screen off (SomniumNightAudioService, LDJ-115): a media playback foreground
+             service with a generic notification, started only from a guided screen's Start -->
+        <service
+            android:name=".SomniumNightAudioService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
     </application>
 
     <!-- Permissions -->
@@ -77,9 +84,13 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <!-- the alarm reminders' vibration before Android 8 (later the channel's setting) -->
     <uses-permission android:name="android.permission.VIBRATE" />
-    <!-- comes with @capacitor/local-notifications (here only for asking the notification permission) in its own
-         manifest; Somnium's reminders never hold the phone awake themselves. Declared so it is on the list. -->
+    <!-- comes with @capacitor/local-notifications in its own manifest; Somnium's reminders never hold the phone awake.
+         The night practice tones (SomniumNightAudioService) hold the CPU, not the screen, while their schedule runs,
+         so the tones play on time with the screen off. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- the night practice tones' foreground service (Android 9+ and, for its media playback type, 14+) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <!-- backups into Documents/Somnium up to Android 10 (the Filesystem plugin asks for it there); from Android 11 an
          app writes its own files in Documents without any permission -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29" />

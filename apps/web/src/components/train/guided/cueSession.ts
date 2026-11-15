@@ -4,14 +4,16 @@
 // included) stops it, and so does the window's end. That touch or key still goes on to what it was for (the lock
 // screen's password field, say): it only also stops the cues. Logging "sound-cue" on the night needs the journal key,
 // so when it is locked the log waits on this device (per account: pendingKey) and goes on the next open of Train
-// (flushCueLog).
+// (flushCueLog). On Android the cues go to the night tones service instead (LDJ-115, native/nightAudio.ts), which plays
+// them with the screen off; its notification's Stop or the window's end comes back here as "ended".
 import { ref } from "vue";
-import { cueSchedule, CUE_TONES, type CueAt, type CueTone } from "@somnium/shared";
+import { cueSchedule, soundCueCues, CUE_TONES, type CueAt, type CueTone } from "@somnium/shared";
 import { logTechniqueDone, nightNowDate } from "../../../api/train";
 import { readStr, writeStr } from "../../../core/prefs";
 import { session } from "../../../core/session";
 import { server } from "../../../api/client";
 import { createCuePlayer } from "./useGuided";
+import { nightAudio, onNightTonesEnded, playNightTones, stopNightTones } from "../../../native/nightAudio";
 
 // the waiting log is this account's own: another account opened on this device never logs it on its nights
 const pendingKey = () => `somniumCuePending:${server.value.base || location.origin}:${session.user?.id ?? ""}`;
@@ -21,10 +23,13 @@ export const cueSession = {
   win: ref<{ start: number; end: number } | null>(null),
   nextAt: ref<number | null>(null),
   wakeHeld: ref(false),
+  /** played by the Android service, with the screen off */
+  offScreen: ref(false),
   /** cues put on the audio clock (a headless check reads it) */
   scheduled: ref(0),
 };
 let player: ReturnType<typeof createCuePlayer> | null = null, cues: CueAt[] = [], queued = 0, tone: CueTone = "bell";
+let offEnded: (() => void) | null = null;
 let iv: ReturnType<typeof setInterval> | null = null, wl: { release(): Promise<void> } | null = null, onEnd: ((n: number, waiting: boolean) => void) | null = null;
 
 async function grabWake() {
@@ -39,12 +44,21 @@ const onTouch = () => { void stopCueSession(); };
 /** Starts the cues for a window; call inside the tap (the audio needs it). False when this browser can't play sound. */
 export function startCueSession(o: { win: { start: number; end: number }; everySec: number; gain: number; tone: CueTone; ended?: (played: number, waiting: boolean) => void }): boolean {
   if (cueSession.on.value) return true;
-  player = createCuePlayer();
-  if (!player.prime()) { player = null; return false; }
+  const offScreen = !!nightAudio();
+  if (!offScreen) {
+    player = createCuePlayer();
+    if (!player.prime()) { player = null; return false; }
+  }
   tone = o.tone; onEnd = o.ended ?? null;
   cues = cueSchedule(o.win.start, o.win.end, o.everySec, o.gain); queued = 0;
   cueSession.win.value = o.win; cueSession.played.value = 0; cueSession.scheduled.value = 0; cueSession.on.value = true;
-  void grabWake(); document.addEventListener("visibilitychange", onVis);
+  cueSession.offScreen.value = offScreen;
+  if (offScreen) {
+    offEnded = onNightTonesEnded(() => { void stopCueSession(); });
+    void playNightTones(soundCueCues(cues, tone), o.win.end).then((ok) => {
+      if (ok) cueSession.scheduled.value = cues.length; else void stopCueSession();
+    });
+  } else { void grabWake(); document.addEventListener("visibilitychange", onVis); }
   iv = setInterval(tick, 1000); tick();
   // any touch or key stops it; added once this tap has finished
   setTimeout(() => { if (cueSession.on.value) { window.addEventListener("pointerdown", onTouch, true); window.addEventListener("keydown", onTouch, true); } }, 400);
@@ -66,7 +80,9 @@ export async function stopCueSession(): Promise<number> {
   window.removeEventListener("pointerdown", onTouch, true); window.removeEventListener("keydown", onTouch, true);
   document.removeEventListener("visibilitychange", onVis);
   if (iv) clearInterval(iv); iv = null;
-  const n = cues.filter((c) => c.at <= Date.now()).length;
+  offEnded?.(); offEnded = null;
+  // the service's own count when it played them (a cue it had to skip isn't counted)
+  const n = cueSession.offScreen.value ? await stopNightTones() : cues.filter((c) => c.at <= Date.now()).length;
   cueSession.played.value = n;
   await player?.close(); player = null;
   const x = wl; wl = null; cueSession.wakeHeld.value = false; await x?.release().catch(() => {});

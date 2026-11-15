@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(SomniumBarsPlugin.class);
         registerPlugin(SomniumRemindersPlugin.class);
         registerPlugin(SomniumLockPlugin.class);
+        registerPlugin(SomniumNightAudioPlugin.class);
         // screenshots and the recents thumbnail stay blank unless allowed in Settings → Security (PLAN.md §4.3)
         SomniumLockPlugin.applySecure(this);
         super.onCreate(savedInstanceState);

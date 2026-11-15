@@ -8,8 +8,7 @@
 //   stops on any touch or key and when the window ends, and logs "sound-cue" in the night's techniques_done.
 // The cue spacing, loudness and settle time are the app's own (our notes don't record the studies'), said so on screen.
 // Limits said plainly: a web tab must stay open with the screen on (wake lock) and the volume up; the desktop app
-// must stay open; the Android app has no foreground service to play sound with the screen off, so there too the
-// screen stays on.
+// must stay open. The Android app plays the sleep cues from a foreground service with the screen off (LDJ-115).
 import { computed, onBeforeUnmount, ref } from "vue";
 import { cueWindow, clockText, minToHm, hmToMin, trainingPairings, isCueTone, CUE_TONES, CUE_VOLUMES, CUE_EVERY_SEC, CUE_EVERY_DEFAULT, CUE_SETTLE_MIN, CUE_SETTLE_DEFAULT, CUE_TRAIN_MIN, CUE_TRAIN_EVERY_SEC, CUE_NAP_MIN, type CueTone, type CueVolume, type CueWindowKind } from "@somnium/shared";
 import { safetyLines } from "@somnium/knowledge/techniques";
@@ -89,7 +88,7 @@ const KINDS: { id: CueWindowKind; t: string; s: string }[] = [
   { id: "night", t: "Tonight", s: "from 6 h after training" },
 ];
 const limit = computed(() => where === "desktop" ? "Keep Somnium open (the window can be in the background) and the volume up. It can't play while the computer sleeps."
-  : where === "android" ? "Keep the screen on and the app in front, with the volume up: the Android app can't play sound with the screen off yet (that needs a foreground service it doesn't have)."
+  : where === "android" ? "The sleep cues play with the screen off, so you can let the phone go dark. Keep the media volume up. While they play, a notification says \"Night practice running\", with Stop."
   : "Keep this tab open with the screen on and the volume up. A closed or hidden tab may stop the sound.");
 </script>
 
@@ -163,7 +162,7 @@ const limit = computed(() => where === "desktop" ? "Keep Somnium open (the windo
       <div class="gbig" aria-live="off">{{ played }} cues</div>
       <div class="gsub">{{ cueSession.nextAt.value ? `next at ${hmOf(cueSession.nextAt.value)}` : "" }} · until {{ win ? hmOf(win.end) : "" }}</div>
       <p class="glead">Sleep well. Touch the screen or press a key to stop.</p>
-      <p class="gev">{{ cueSession.wakeHeld.value ? "The screen stays on." : "The screen may turn off and stop the sound." }} The app lock may come on; the cues go on behind it.</p>
+      <p class="gev">{{ cueSession.offScreen.value ? "They play with the screen off." : cueSession.wakeHeld.value ? "The screen stays on." : "The screen may turn off and stop the sound." }} The app lock may come on; the cues go on behind it.</p>
     </template>
   </div>
   <div class="gfoot">

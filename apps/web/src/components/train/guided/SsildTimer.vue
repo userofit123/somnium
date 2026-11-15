@@ -2,11 +2,12 @@
 // The SSILD timer (PLAN.md §6.4, LDJ-25): Cosmic Iron's cycle [D19] - sight, sound, body - first fast cycles (4-6, a few
 // seconds per step, a warm-up), then slow ones (3-4 in the tutorial, at least about 30 s per step; ILDIS asked for at
 // least four [D12]). Voice-free: a soft visual pulse on every step and, if switched on, a very quiet tone on the slow
-// ones. The screen dims further and stays awake while it runs; stop at any time. Timing: shared guided.ts.
+// ones. With the tones on Android they play with the screen off (LDJ-115), so the phone can go dark; otherwise the
+// screen dims further and stays awake while it runs. Stop at any time. Timing and tones: shared guided.ts.
 import { computed, ref, watch } from "vue";
-import { clockText, ssildAt, ssildSchedule, SSILD, type Sense } from "@somnium/shared";
+import { clockText, ssildAt, ssildCues, ssildSchedule, SSILD, type Sense } from "@somnium/shared";
 import { readStr, writeStr } from "../../../core/prefs";
-import { useClock, useTone, useWakeLock } from "./useGuided";
+import { useClock, useNightTones, useWakeLock } from "./useGuided";
 import NumStep from "../../NumStep.vue";
 import Ev from "./Ev.vue";
 
@@ -21,7 +22,7 @@ const SENSE: Record<Sense, { name: string; how: string }> = {
   body: { name: "Body", how: "Feel your body: tingling, heaviness, lightness, spinning. If nothing, the blanket's weight, your heartbeat, the air." },
 };
 
-const clock = useClock(), wake = useWakeLock(), beep = useTone();
+const clock = useClock(), wake = useWakeLock(), tones = useNightTones();
 const state = ref<"setup" | "run" | "end" | "stopped">("setup");
 const cur = computed(() => ssildAt(plan.value, clock.sec.value));
 const idx = computed(() => (cur.value ? plan.value.steps.indexOf(cur.value) : -1));
@@ -29,17 +30,20 @@ const left = computed(() => plan.value.total - clock.sec.value);
 
 watch(idx, (i, was) => {
   if (state.value !== "run") return;
-  if (i === -1 && was !== -1) { void finish("end"); return; }
-  const s = plan.value.steps[i];
-  if (tone.value && s && (s.phase === "slow" || s.cycle === 1 && s.sense === "sight")) beep.play();
+  if (i === -1 && was !== -1) void finish("end");
 });
 function start() {
-  if (tone.value) beep.prime();
+  const t0 = Date.now();
   state.value = "run"; emit("running", true);
-  clock.start(); void wake.on();
+  clock.start(t0);
+  // the tones are scheduled once, inside this tap (the audio needs it); playing off-screen, the phone may go dark
+  const playing = tone.value ? tones.play(ssildCues(plan.value, t0), t0 + plan.value.total * 1000) : Promise.resolve(false);
+  void playing.then((ok) => { if (!(ok && tones.offScreen)) void wake.on(); });
 }
 async function finish(to: "end" | "stopped") {
   clock.stop(); state.value = to; emit("running", false);
+  // at the natural end the last tone has played; Stop silences what is left
+  if (to === "stopped") await tones.stop();
   await wake.off();
 }
 </script>
@@ -56,6 +60,7 @@ async function finish(to: "end" | "stopped") {
         <div class="grow2"><div><div class="t">Slow cycles</div><div class="glabel">about 30 s per step</div></div>
           <NumStep :value="slow" :min="SSILD.slow.min" :max="SSILD.slow.max" label="Slow cycles" @set="(v) => (slow = v)" /></div>
         <label class="gtgl"><input v-model="tone" type="checkbox" /> A quiet tone on each slow step</label>
+        <div v-if="tone" class="glabel">{{ tones.offScreen ? "The tones play with the screen off: you can let the phone go dark." : "The tones need this page open and the screen on." }}</div>
         <div class="glabel">About {{ Math.round(plan.total / 60) }} min in all</div>
       </div>
       <Ev text="Cosmic Iron's tutorial: 4-6 fast cycles of a few seconds per step, then 3-4 slow ones of at least about 30 seconds per step, without counting [D19]. In the one large study, SSILD after WBTB gave lucid dreams on 16.9% of nights, as MILD did [D12]." @cite="emit('cite', $event)" />

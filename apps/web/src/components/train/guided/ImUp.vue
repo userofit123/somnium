@@ -2,15 +2,18 @@
 // "I'm up" (PLAN.md §9, LDJ-25), opened from the WBTB alarm or Train: a soft count-up of the minutes awake, what to do
 // while up (dream work, which is what made the waking period count [D13]), and "Back to bed", which stores wbtb_used
 // and wbtb_minutes_awake on the night and then offers MILD or SSILD. The start time is kept on this device, so
-// writing the dream down in the Journal and coming back keeps counting.
+// writing the dream down in the Journal and coming back keeps counting. A soft tone says when the planned minutes up
+// have passed (LDJ-115); on Android it plays with the screen off and while in the Journal, elsewhere while this page is
+// open. "Back to bed" silences it.
 import { computed, ref } from "vue";
+import { backToBedCue } from "@somnium/shared";
 import { useRouter } from "vue-router";
 import { uuidv7 } from "@somnium/engine/sealed-api";
 import { backToBed, nightNowDate } from "../../../api/train";
 import { setWbtbAlarm, wbtbAlarm } from "../../../native/reminders";
 import { readStr, writeStr } from "../../../core/prefs";
 import { toastError } from "../../../core/toast";
-import { useClock, useWakeLock } from "./useGuided";
+import { useClock, useNightTones, useWakeLock } from "./useGuided";
 import Ev from "./Ev.vue";
 import type { GuidedMode } from "./GuidedView.vue";
 
@@ -25,6 +28,11 @@ const wake = useWakeLock();
 void wake.on();
 const minutes = computed(() => Math.floor(clock.sec.value / 60));
 const target = Number(readStr("somniumWbtbAwake", "30")) || 30;
+// kept when this screen goes (writing the dream down); a later mount replaces it with the same tone
+const tones = useNightTones({ keep: true });
+const backCue = backToBedCue(t0, target);
+const toneAhead = backCue.at > Date.now();
+void tones.play([backCue], backCue.at + 10_000);
 const date = nightNowDate();
 // the planner's mode (LDJ-49): the LaBerge nap ends with a nap, the others with MILD or SSILD
 const napMode = readStr("somniumWbtbMode", "") === "nap";
@@ -36,7 +44,7 @@ async function back() {
     saved.value = minutes.value;
     await backToBed(saved.value, date);
     writeStr(UP, "0");
-    clock.stop(); await wake.off();
+    clock.stop(); await tones.stop(); await wake.off();
     if (wbtbAlarm()) await setWbtbAlarm(null);
     done.value = true;
   } catch (e) { toastError(e); } finally { busy.value = false; }
@@ -50,6 +58,7 @@ const writeDream = () => router.push({ name: "journal-write", params: { id: uuid
       <h1>You're up</h1>
       <div class="gbig" aria-live="off">{{ minutes }} min</div>
       <div class="gsub">awake · your plan was about {{ target }} min</div>
+      <p v-if="toneAhead" class="glabel">A soft tone at {{ target }} min says it's time to go back to bed{{ tones.offScreen ? ", with the screen off too" : ", while this page is open" }}.</p>
       <p class="glead">Keep the lights low. Use the time for dream work:</p>
       <ul class="glist gp">
         <li><button type="button" class="ginl" @click="writeDream">Write down the last dream</button>, while it is fresh.</li>

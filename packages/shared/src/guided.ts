@@ -294,3 +294,60 @@ export function cueSchedule(start: number, end: number, everySec: number = CUE_E
 }
 /** Training: one pairing (the tone, a reality check, the intention) every CUE_TRAIN_EVERY_SEC for 20 minutes [B42]. */
 export const trainingPairings = (min: number = CUE_TRAIN_MIN, everySec: number = CUE_TRAIN_EVERY_SEC) => Math.floor((min * 60) / everySec);
+
+// ----- Night tones (LDJ-115) -----
+// The guided screens' tones as one timed list, so a phone can play them with the screen off: the Android app hands it
+// to a foreground service (apps/android SomniumNightAudioService); the web and desktop apps put it on the WebAudio
+// clock, which only plays while the page is open and the screen on. Falling asleep quickly after the technique is what
+// predicts lucidity [B37][B38], and a lit phone by the pillow works against it. Tones and times only, nothing personal.
+export type ToneWave = "sine" | "triangle";
+export interface NightCue {
+  /** when, ms since the epoch */
+  at: number;
+  /** Hz, played one after another */
+  notes: readonly number[];
+  wave: ToneWave;
+  /** WebAudio-style linear gain (0-1); the guided tones use GUIDED_TONE_GAIN */
+  gain: number;
+}
+/** The longest schedule the phone plays: a whole night, then it stops by itself. */
+export const NIGHT_MAX_MIN = 720;
+/** The guided screens' quiet tone (the same as sound cue's "soft"). */
+export const GUIDED_TONE_GAIN = 0.04;
+/** The guided screens' own tones (app's choice): a low sine for SSILD's steps and WILD's phases, two rising notes for
+ *  "time to go back to bed". */
+export const GUIDED_TONES = {
+  ssild: { notes: [196], wave: "sine" },
+  wild: { notes: [174], wave: "sine" },
+  back: { notes: [392, 523.25], wave: "sine" },
+} as const satisfies Record<string, { notes: readonly number[]; wave: ToneWave }>;
+
+const cueOf = (t: { notes: readonly number[]; wave: ToneWave }, at: number, gain: number): NightCue => ({ at, notes: t.notes, wave: t.wave, gain });
+
+/** SSILD's tones from `startMs`: the first step (the start) and every slow step, as the screen plays them. */
+export function ssildCues(plan: SsildPlan, startMs: number, gain = GUIDED_TONE_GAIN): NightCue[] {
+  return plan.steps.filter((s) => s.phase === "slow" || (s.cycle === 1 && s.sense === "sight" && s.phase === "fast"))
+    .map((s) => cueOf(GUIDED_TONES.ssild, startMs + s.start * 1000, gain));
+}
+/** The seconds at which WILD's later phases begin (wildPhase's split), in order. */
+export function wildPhaseStarts(totalSec: number): { phase: Exclude<WildPhase, "relax" | "done">; sec: number }[] {
+  const images = Math.ceil(Math.max(120, totalSec / 5)), focus = Math.ceil((totalSec * 2) / 3);
+  const out: { phase: "images" | "focus"; sec: number }[] = [];
+  if (images < focus) out.push({ phase: "images", sec: images });
+  if (focus < totalSec) out.push({ phase: "focus", sec: Math.max(focus, images) });
+  return out;
+}
+/** WILD's tones from `startMs`: one as each later phase begins. */
+export const wildCues = (totalSec: number, startMs: number, gain = GUIDED_TONE_GAIN): NightCue[] =>
+  wildPhaseStarts(totalSec).map((p) => cueOf(GUIDED_TONES.wild, startMs + p.sec * 1000, gain));
+/** "Time to go back to bed": one tone once the planned minutes up have passed since `upSince`. */
+export const backToBedCue = (upSince: number, awakeMin: number, gain = GUIDED_TONE_GAIN): NightCue =>
+  cueOf(GUIDED_TONES.back, upSince + Math.max(1, awakeMin) * 60_000, gain);
+/** Sound cue's sleep schedule as tones. */
+export const soundCueCues = (cues: readonly CueAt[], tone: CueTone): NightCue[] =>
+  cues.map((c) => ({ at: c.at, notes: CUE_TONES[tone].notes, wave: CUE_TONES[tone].type, gain: c.gain }));
+/** The cues still to come from `now` (a second's grace) and within NIGHT_MAX_MIN, in time order. */
+export function nightCuesAhead(cues: readonly NightCue[], now: number): NightCue[] {
+  const last = now + NIGHT_MAX_MIN * 60_000;
+  return cues.filter((c) => c.at >= now - 1000 && c.at <= last).sort((a, b) => a.at - b.at);
+}

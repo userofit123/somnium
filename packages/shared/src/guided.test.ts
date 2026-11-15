@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wbtbTiming, wildPhase, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_EARLY_MIN, WBTB_TOO_EARLY_MIN } from "./guided";
+import { bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wbtbTiming, wildPhase, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_EARLY_MIN, WBTB_TOO_EARLY_MIN, ssildCues, wildCues, wildPhaseStarts, backToBedCue, soundCueCues, nightCuesAhead, GUIDED_TONE_GAIN, NIGHT_MAX_MIN, WILD_MINUTES } from "./guided";
 
 describe("WBTB times", () => {
   it("files an evening bedtime on the day before the morning, an after-midnight one on the morning", () => {
@@ -155,4 +155,40 @@ describe("sound cue", () => {
     expect(s.every((c, i) => i === 0 || c.gain >= s[i - 1]!.gain)).toBe(true);
   });
   it("training: 20 pairings over 20 minutes (Carr 2023's 20-minute session)", () => expect(trainingPairings()).toBe(20));
+});
+
+describe("night tones (LDJ-115)", () => {
+  it("SSILD: a tone at the start and on every slow step, at the step's start", () => {
+    const plan = ssildSchedule(4, 3), t0 = 1_000_000;
+    const cues = ssildCues(plan, t0);
+    expect(cues.length).toBe(1 + 3 * 3);
+    expect(cues[0]!.at).toBe(t0);
+    const slow = plan.steps.filter((s) => s.phase === "slow");
+    expect(cues.slice(1).map((c) => c.at)).toEqual(slow.map((s) => t0 + s.start * 1000));
+    expect(cues.every((c) => c.gain === GUIDED_TONE_GAIN && c.wave === "sine")).toBe(true);
+  });
+
+  it("WILD: a tone exactly where wildPhase turns to images and to focus", () => {
+    for (const min of WILD_MINUTES) {
+      const total = min * 60;
+      for (const p of wildPhaseStarts(total)) {
+        expect(wildPhase(p.sec, total)).toBe(p.phase);
+        expect(wildPhase(p.sec - 1, total)).not.toBe(p.phase);
+      }
+      expect(wildCues(total, 0).map((c) => c.at / 1000)).toEqual(wildPhaseStarts(total).map((p) => p.sec));
+    }
+  });
+
+  it("back to bed after the planned minutes up; sound cue keeps its tone and rising gain", () => {
+    expect(backToBedCue(5_000, 30).at).toBe(5_000 + 30 * 60_000);
+    const sc = soundCueCues(cueSchedule(0, 120_000, 30, 0.02), "hum");
+    expect(sc.map((c) => [c.at, c.wave, c.notes])).toEqual([0, 30_000, 60_000, 90_000].map((at) => [at, "triangle", [196]]));
+    expect(sc[0]!.gain).toBeLessThan(sc[3]!.gain);
+  });
+
+  it("keeps only cues still to come, in order, and never past a whole night", () => {
+    const now = 10_000_000, c = (at: number) => ({ at, notes: [196], wave: "sine" as const, gain: 0.04 });
+    const out = nightCuesAhead([c(now + 5000), c(now - 60_000), c(now + 1000), c(now + NIGHT_MAX_MIN * 60_000 + 1)], now);
+    expect(out.map((x) => x.at)).toEqual([now + 1000, now + 5000]);
+  });
 });

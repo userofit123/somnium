@@ -1,7 +1,11 @@
 // What the guided screens share (LDJ-25): the screen kept awake while a timer runs (Screen Wake Lock API where the
 // browser has it; nothing happens where it doesn't), a clock that counts from a start time (so a slowed background
-// tab or a sleeping phone catches up instead of drifting), and an optional quiet tone.
+// tab or a sleeping phone catches up instead of drifting), and the quiet tones (LDJ-115: with the screen off on
+// Android, on the page's audio clock elsewhere).
 import { onBeforeUnmount, ref } from "vue";
+import type { NightCue } from "@somnium/shared";
+import { nightAudio, playNightTones, stopNightTones } from "../../../native/nightAudio";
+import { lock } from "../../../core/lock";
 
 interface Sentinel { released: boolean; release(): Promise<void>; addEventListener(t: "release", f: () => void): void }
 
@@ -42,21 +46,6 @@ export function useClock() {
   return { sec, running, start, stop };
 }
 
-/** A short, very quiet sine tone (no voice). Made on first use, inside the tap that started the timer. */
-export function useTone() {
-  let ctx: AudioContext | null = null;
-  function prime() { try { ctx ??= new AudioContext(); void ctx.resume(); } catch { ctx = null; } }
-  function play(freq = 196) {
-    if (!ctx) return;
-    const o = ctx.createOscillator(), g = ctx.createGain(), t = ctx.currentTime;
-    o.type = "sine"; o.frequency.value = freq;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.04, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
-    o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + 1);
-  }
-  onBeforeUnmount(() => { void ctx?.close().catch(() => {}); ctx = null; });
-  return { prime, play };
-}
-
 /**
  * Sound cue training's tones (LDJ-48): the three bundled cues made with WebAudio (no audio files), each note a soft
  * sine or triangle with a slow attack and a long fade, so it never clicks. `at` is a moment (ms); the note is put on
@@ -85,3 +74,35 @@ export function createCuePlayer() {
 }
 /** The same, closed when the screen goes. */
 export function useCuePlayer() { const p = createCuePlayer(); onBeforeUnmount(() => { void p.close(); }); return p; }
+
+/**
+ * A guided screen's tones (LDJ-115), given as one schedule at the start. On Android a foreground service plays them
+ * with the screen off (`offScreen`), so the screen need not stay lit; elsewhere they go on this page's audio clock and
+ * play only while it is open and the screen on. Call `play` inside the tap that starts the timer (the audio needs it).
+ * When the screen goes the tones stop, except when the app lock took it away (a person asleep is idle; the schedule
+ * then ends by itself) or `keep` is set (the screen is left on purpose and comes back, as "I'm up" does).
+ */
+export function useNightTones(o: { keep?: boolean } = {}) {
+  const offScreen = !!nightAudio();
+  const player = offScreen ? null : createCuePlayer();
+  let on = false;
+  /** False when nothing will play (no audio here, or nothing left in the schedule). */
+  async function play(cues: readonly NightCue[], end: number): Promise<boolean> {
+    if (!player) { on = await playNightTones(cues, end); return on; }
+    if (!player.prime()) return false;
+    const now = Date.now();
+    for (const c of cues) if (c.at >= now - 1000 && c.at < end) player.cue({ notes: c.notes, type: c.wave }, c.gain, c.at);
+    on = true;
+    return true;
+  }
+  async function stop() {
+    if (!on) return;
+    on = false;
+    if (player) await player.close(); else await stopNightTones();
+  }
+  onBeforeUnmount(() => {
+    if (player) { void player.close(); return; }
+    if (on && !o.keep && !lock.locked) void stop();
+  });
+  return { offScreen, play, stop };
+}
