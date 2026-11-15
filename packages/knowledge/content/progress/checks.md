@@ -10,7 +10,7 @@ Every reality check you logged in the period: how many a day on average, which k
 
 ## How to read it
 
-More is not better here. Daily reality checks on their own did not raise lucid dreams within a week in two field studies [D11, D12]. Read the numbers as how well the habit is going, not as a forecast. What the checks aim at is noticing, in a dream, a sign you already know [C1, C2].
+More is not better here. Reality checks did not raise lucid dreams within a week on their own [D11], and adding them to MILD did not help [D12]. Read the numbers as how well the habit is going, not as a forecast. What the checks aim at is noticing, in a dream, a sign you already know [C1, C2].
 
 ## What to do
 

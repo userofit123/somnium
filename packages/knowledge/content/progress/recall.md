@@ -18,4 +18,4 @@ Part of any rise is counting: writing dreams down each morning catches some you 
 
 ## What to do
 
-Sleep a little longer in the morning, the course's most effective recall aid [C2], and on waking ask "What was I dreaming?" before you move [D1]: [Dream recall](/learn/dream-signs/dream-recall).
+Sleep a little longer in the morning, sleeping later works better than going to bed earlier [C2], and on waking ask "What was I dreaming?" before you move [D1]: [Dream recall](/learn/dream-signs/dream-recall).
