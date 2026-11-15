@@ -1,0 +1,5 @@
+/* Loading placeholder shared by every block that waits for a query (QueryState.vue): a calm shimmer on the surface tokens. */
+.card.skel { min-height: 120px; background: linear-gradient(100deg, var(--s1) 30%, var(--s2) 50%, var(--s1) 70%) 0 0 / 300% 100%; border-color: transparent; animation: skel 1.4s linear infinite; }
+.card.skel.sm { min-height: 64px; }
+@keyframes skel { to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .card.skel { animation: none; background: var(--s1); } }

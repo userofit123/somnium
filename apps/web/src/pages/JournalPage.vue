@@ -20,6 +20,7 @@ import { confirm } from "../core/ask";
 import Icon from "../components/Icon.vue";
 import Menu from "../components/Menu.vue";
 import Sheet from "../components/Sheet.vue";
+import QueryState from "../components/QueryState.vue";
 import FilterPanel from "../components/FilterPanel.vue";
 import FilterRow from "../components/FilterRow.vue";
 import DatePicker from "../components/DatePicker.vue";
@@ -36,6 +37,8 @@ const route = useRoute(), router = useRouter();
 const fmt = useFmt();
 const j = useJournal();
 await loaded(j.nights, j.dreams);
+// a failed read must not look like an empty journal
+const failed = { isLoading: computed(() => false), isError: computed(() => j.nights.isError.value || j.dreams.isError.value), refetch: () => { void j.nights.refetch(); void j.dreams.refetch(); } };
 // reactive: the page can stay open across midnight
 const today = useToday();
 
@@ -189,16 +192,17 @@ const menu = computed(() => [
           </div>
         </div>
 
+        <QueryState v-if="failed.isError.value" :q="failed" what="your journal" />
         <!-- the page's one No recall, also above an empty journal -->
-        <div v-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
+        <div v-else-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
         <!-- once last night is logged: did you do its techniques (LDJ-79), asked once -->
         <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
-        <div v-if="empty" class="card empty">
+        <div v-if="empty && !failed.isError.value" class="card empty">
           <Icon name="book" :size="34" /><b>No dreams yet</b>Write down what you remember as soon as you wake. A fragment counts.
           <!-- the editor beside it has the screen's one action while it is open -->
           <template v-if="mode !== 'write'"><br /><button class="btn tonal" type="button" @click="write()">Write a dream</button></template>
         </div>
-        <template v-else>
+        <template v-else-if="!failed.isError.value">
           <div v-if="unsent.ids.length" class="card tiny jnote"><Icon name="lock" :size="14" />{{ unsent.ids.length === 1 ? "1 dream is" : `${unsent.ids.length} dreams are` }} kept sealed on this device until the server can take {{ unsent.ids.length === 1 ? "it" : "them" }}.</div>
 
           <template v-if="view === 'list'">
