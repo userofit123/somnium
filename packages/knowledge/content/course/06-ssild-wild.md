@@ -4,6 +4,7 @@ summary: Two ways to enter the dream from waking: SSILD's sense cycles after WBT
 reviewed: 2026-11-06
 safety: true
 sources: [B6, B7, B15, B35, B38, D1, D12, D13, D19]
+readings: [techniques/ssild, techniques/wild, safety/false-awakenings-and-sleep-paralysis]
 ---
 
 ## What to do

@@ -4,6 +4,7 @@ summary: Dry spells, lost sleep, false awakenings and trying too hard, and the s
 reviewed: 2026-11-06
 safety: true
 sources: [B6, B7, B8, B38, B69, B70, B71, B72, B73, B76, D1, D5, D19, D20, D24]
+readings: [basics/common-mistakes-and-dry-spells, safety/sleep-first, safety/when-to-stop]
 ---
 
 ## Dry spells

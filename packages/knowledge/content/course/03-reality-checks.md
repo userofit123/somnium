@@ -3,6 +3,7 @@ title: Reality checks
 summary: Two checks, done for real at planned moments and whenever something is odd, so the habit carries into the dream.
 reviewed: 2026-11-06
 sources: [B35, B37, B38, C1, C4, C33, D1, D8, D11, D12, D20]
+readings: [techniques/reality-testing, techniques/prospective-memory, dream-signs/what-dream-signs-are]
 ---
 
 ## What to do

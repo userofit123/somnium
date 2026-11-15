@@ -17,6 +17,7 @@ import { putSafetyPageAway, safetyPage } from "./setup/safety";
 import { useToday } from "../core/today";
 import Menu from "./Menu.vue";
 import SourceSheet from "./learn/SourceSheet.vue";
+import CiteChips from "./learn/CiteChips.vue";
 import "../styles/components/learn.css";
 import "../styles/components/foryou.css";
 
@@ -64,7 +65,7 @@ const hide = (id: string) => saveSettings({ recommend: { dismissed: dismiss(sett
         <p class="fybody">{{ r.body }}</p>
         <p class="fywhy tiny"><b>Why:</b> {{ r.reason }}</p>
         <div class="fyfoot">
-          <span class="fycites"><button v-for="id in r.sources" :key="id" type="button" class="cite" :aria-label="'Source ' + id" @click="open = [id]">{{ id }}</button></span>
+          <span class="fycites"><CiteChips :ids="r.sources" @cite="open = $event" /></span>
           <router-link v-if="r.action" :to="r.action.to" class="lnk inl">{{ r.action.label }}</router-link>
           <router-link v-if="r.link" :to="r.link.to" class="lnk inl" @click="r.id === 'safety' && putSafetyPageAway()">{{ r.link.label }}</router-link>
         </div>

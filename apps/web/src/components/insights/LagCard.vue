@@ -7,6 +7,7 @@ import { LAG_CAVEAT, LAG_LABEL, LAG_SOURCES, LAG_MIN_MENTIONS, RESIDUE_LABEL, la
 import { useJournal } from "../../api/journal";
 import { useDayNotes } from "../../api/extras";
 import SourceSheet from "../learn/SourceSheet.vue";
+import CiteChips from "../learn/CiteChips.vue";
 import Icon from "../Icon.vue";
 import Sheet from "../Sheet.vue";
 import "../../styles/components/learn.css";
@@ -31,7 +32,7 @@ const count = computed(() => (notes.data.value ?? []).filter((n) => n.text).leng
         <div class="tiny">{{ lagLine(r.residue, RESIDUE_LABEL) }}</div>
         <div class="tiny">{{ lagLine(r.lag, LAG_LABEL) }}</div>
       </div>
-      <div class="tiny ins-note">Sources: Nielsen and Powell 1989 · Nielsen and others 2004 · Blagrove and others 2011 <button v-for="id in LAG_SOURCES" :key="id" type="button" class="cite" :aria-label="'Source ' + id" @click="open = [id]">{{ id }}</button></div>
+      <div class="tiny ins-note">Sources: Nielsen and Powell 1989 · Nielsen and others 2004 · Blagrove and others 2011 <CiteChips :ids="LAG_SOURCES" @cite="open = $event" /></div>
     </div>
     <Sheet v-if="about" title="Day notes and dreams" @close="about = false"><p>{{ LAG_CAVEAT }}</p></Sheet>
     <SourceSheet v-if="open" :ids="open" @close="open = null" />

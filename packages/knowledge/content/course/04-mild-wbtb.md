@@ -4,6 +4,7 @@ summary: The best-supported home protocol: wake after about five hours, set the 
 reviewed: 2026-11-06
 safety: true
 sources: [B35, B37, B38, B39, B40, D1, D5, D11, D12, D13]
+readings: [science/what-the-evidence-says-about-techniques, techniques/mild, techniques/wbtb]
 ---
 
 ## What to do

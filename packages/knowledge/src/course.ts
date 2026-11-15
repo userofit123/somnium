@@ -16,6 +16,8 @@ export interface Lesson {
   summary: string;
   reviewed: string;
   sources: string[];
+  /** The Learn articles that explain the lesson ("Read for this lesson", LDJ-166), as article ids, 2-3 of them. */
+  readings: string[];
   /** Today's practice, in order. A tick is stored as practice_log.item = practiceItemId(lesson, index). */
   practice: string[];
   /** Shows the sleep safety note (WBTB, WILD, SSILD). */
@@ -35,6 +37,7 @@ export function parseLesson(path: string, raw: string): Lesson {
   const { meta, body } = parseFrontMatter(raw);
   const need = (k: string) => { const v = meta[k]; if (typeof v !== "string" || !v) throw new Error(`${path}: front matter needs ${k}`); return v; };
   if (!Array.isArray(meta.sources)) throw new Error(`${path}: sources must be a list`);
+  if (!Array.isArray(meta.readings)) throw new Error(`${path}: readings must be a list of Learn article ids`);
   // split the practice list out of the body: everything from its heading to the next "## " heading
   const sec = /^## Today's practice\s*\n([\s\S]*?)(?=^## |(?![\s\S]))/m.exec(body);
   if (!sec) throw new Error(`${path}: needs a "## Today's practice" section`);
@@ -42,7 +45,7 @@ export function parseLesson(path: string, raw: string): Lesson {
   const rest = (body.slice(0, sec.index) + body.slice(sec.index + sec[0].length)).trim();
   return {
     id, number: Number(m[1]), title: need("title"), summary: need("summary"), reviewed: need("reviewed"),
-    sources: meta.sources, practice, safety: meta.safety === "true", body: rest, words: countWords(rest),
+    sources: meta.sources, readings: meta.readings, practice, safety: meta.safety === "true", body: rest, words: countWords(rest),
   };
 }
 

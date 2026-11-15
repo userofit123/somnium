@@ -3,6 +3,7 @@ title: Journal habits
 summary: Write each dream so that it is useful later, then go through your dreams for the signs that repeat.
 reviewed: 2026-11-06
 sources: [C1, C2, D1, D5]
+readings: [techniques/journaling, dream-signs/what-dream-signs-are, dream-signs/how-the-app-finds-signs]
 ---
 
 ## What to do

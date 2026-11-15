@@ -1,12 +1,14 @@
 <script setup lang="ts">
-// Learn home: search, overall progress, Pinned, Continue reading, the Start here path, sections with their progress,
+// Learn home: search, For your lesson (the readings of the course lesson in front of you, LDJ-166), overall progress, Pinned, Continue reading, the Start here path, sections with their progress,
 // the course lessons (so a lesson can be pinned) and Resources. Search runs on the device.
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { articles, sections, findArticle, articlesIn } from "@somnium/knowledge/content";
 import { continueReading, progressOf, startPath, pinId, slug } from "@somnium/knowledge/learn";
 import { glossaryTerms, faqItems } from "@somnium/knowledge/learn";
-import { lessons } from "@somnium/knowledge/course";
+import { lessons, findLesson } from "@somnium/knowledge/course";
+import { currentLesson } from "@somnium/shared";
+import { useTrain } from "../../api/train";
 import { buildIndex, search, highlight, excerpt } from "@somnium/knowledge/search";
 import { useLearn } from "../../core/learn";
 import Icon from "../Icon.vue";
@@ -25,6 +27,15 @@ const hits = computed(() => {
   return search(index, q.value);
 });
 watch(q, (v) => { if (route.path === "/learn") void router.replace({ path: "/learn", query: v.trim() ? { q: v } : {} }); });
+
+// the course lesson in front of you, once the course is loaded (an empty course would read as lesson 1 meanwhile)
+const { course } = useTrain();
+const forLesson = computed(() => {
+  const rows = course.data.value;
+  const id = rows ? currentLesson(rows) : null;
+  const l = id ? findLesson(id) : undefined;
+  return l ? { lesson: l, readings: l.readings.map((r) => findArticle(r)).filter((a) => !!a) } : null;
+});
 
 const overall = computed(() => progressOf(articles, read.value));
 const path = computed(() => startPath.map((id) => findArticle(id)).filter((a) => !!a));
@@ -81,6 +92,20 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
     </template>
 
     <template v-else>
+      <template v-if="forLesson?.readings.length">
+        <div class="sh"><h2>For your lesson</h2><router-link :to="'/train/lesson/' + forLesson.lesson.id" class="lnk">Lesson {{ forLesson.lesson.number }} · {{ forLesson.lesson.title }}</router-link></div>
+        <div class="card flush">
+          <div v-for="a in forLesson.readings" :key="a!.id" class="li lrow">
+            <router-link :to="'/learn/' + a!.id" class="grow rlink">
+              <div class="t">{{ a!.title }}</div>
+              <div class="s">{{ a!.summary }}</div>
+              <ReadMark :done="!!read[a!.id]" class="s" />
+            </router-link>
+            <PinButton :id="a!.id" :label="a!.title" />
+          </div>
+        </div>
+      </template>
+
       <div class="card overall">
         <div class="t">You've read {{ overall.percent }}% · {{ overall.read }} of {{ overall.total }}</div>
         <ProgressBar :percent="overall.percent" />

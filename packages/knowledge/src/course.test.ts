@@ -51,8 +51,16 @@ describe("course lessons", () => {
     expect(list.filter((l) => l.safety).map((l) => l.id)).toEqual(["mild-wbtb", "ssild-wild", "dream-control", "troubleshooting"]);
   });
 
+  it("links each lesson to two or three Learn articles that exist", () => {
+    for (const l of list) {
+      expect(l.readings.length, l.id).toBeGreaterThanOrEqual(2);
+      expect(l.readings.length, l.id).toBeLessThanOrEqual(3);
+      for (const id of l.readings) expect(kb.articles.some((a) => a.id === id), `${l.id} reads unknown ${id}`).toBe(true);
+    }
+  });
+
   it("refuses a lesson without a practice list", () => {
-    expect(() => parseLesson("course/01-recall.md", "---\ntitle: T\nsummary: S\nreviewed: 2026-01-01\nsources: [B1]\n---\nBody [B1]\n")).toThrow();
+    expect(() => parseLesson("course/01-recall.md", "---\ntitle: T\nsummary: S\nreviewed: 2026-01-01\nsources: [B1]\nreadings: [basics/what-is-lucid-dreaming]\n---\nBody [B1]\n")).toThrow();
   });
 });
 

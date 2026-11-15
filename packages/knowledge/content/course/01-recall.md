@@ -3,6 +3,7 @@ title: Recall
 summary: Weeks one and two. Remember your dreams first: everything later in the course is built on recall.
 reviewed: 2026-11-06
 sources: [B33, B38, B48, C1, C2, C30, D1, D5, D20]
+readings: [dream-signs/dream-recall, techniques/journaling, science/sleep-and-rem]
 ---
 
 ## What to do

@@ -1,12 +1,16 @@
 <script setup lang="ts">
-// A course lesson in full: what to do and why, with its sources, and the safety note where the lesson needs it.
+// A course lesson in full: what to do and why, the Learn articles that explain it with their read marks (LDJ-166), its
+// sources, and the safety note where the lesson needs it.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { sources } from "@somnium/knowledge/content";
+import { findArticle } from "@somnium/knowledge/content";
 import { parseMarkdown } from "@somnium/knowledge/markdown";
 import { lessons, type Lesson } from "@somnium/knowledge/course";
 import LearnBlocks from "../learn/LearnBlocks.vue";
 import SourceSheet from "../learn/SourceSheet.vue";
+import SourcesList from "../learn/SourcesList.vue";
+import ReadMark from "../learn/ReadMark.vue";
+import { useLearn } from "../../core/learn";
 import SafetyNote from "./SafetyNote.vue";
 import Icon from "../Icon.vue";
 import { goBack, backLabel } from "../../core/leave";
@@ -15,9 +19,11 @@ const props = defineProps<{ lesson: Lesson }>();
 const router = useRouter();
 const back = backLabel(router, "Train");
 const blocks = computed(() => parseMarkdown(props.lesson.body));
-const listed = computed(() => props.lesson.sources.filter((id) => sources.has(id)));
 const open = ref<string[] | null>(null);
-const showSources = ref(false);
+const { read } = useLearn();
+// the readings come from the lesson's front matter; the course tests keep every id pointing at an article
+const readings = computed(() => props.lesson.readings.map((id) => findArticle(id)).filter((a) => !!a));
+const readCount = computed(() => readings.value.filter((a) => read.value[a.id]).length);
 </script>
 
 <template>
@@ -33,14 +39,16 @@ const showSources = ref(false);
       <ul><li v-for="(p, i) in lesson.practice" :key="i">{{ p }}</li></ul>
       <router-link to="/train" class="lnk inl tiny">Tick them off in Train</router-link>
     </div>
-    <section class="srcs">
-      <button type="button" class="srch" :aria-expanded="showSources" @click="showSources = !showSources">
-        Sources ({{ listed.length }}) <span class="s">· reviewed {{ lesson.reviewed }}</span>
-      </button>
-      <ul v-if="showSources">
-        <li v-for="id in listed" :key="id"><button type="button" class="cite" @click="open = [id]">{{ id }}</button> <span class="s">{{ sources.get(id)?.text.replace(/https?:\/\/\S+/, "").trim() }}</span></li>
-      </ul>
-    </section>
+    <template v-if="readings.length">
+      <div class="sh"><h2>Read for this lesson</h2><span class="s">{{ readCount }} of {{ readings.length }} read</span></div>
+      <div class="card flush">
+        <router-link v-for="a in readings" :key="a.id" :to="'/learn/' + a.id" class="li click">
+          <div class="grow"><div class="t">{{ a.title }}</div><div class="s">{{ a.summary }}</div><ReadMark :done="!!read[a.id]" class="s" /></div>
+          <Icon name="right" />
+        </router-link>
+      </div>
+    </template>
+    <SourcesList :ids="lesson.sources" :reviewed="lesson.reviewed" @cite="open = $event" />
     <SourceSheet v-if="open" :ids="open" @close="open = null" />
   </article>
 </template>

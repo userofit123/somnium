@@ -3,6 +3,7 @@ title: Stabilise and stay
 summary: The first seconds of a lucid dream decide how long it lasts: stay calm, engage your senses, and spin when it fades.
 reviewed: 2026-11-06
 sources: [D1, D5, D7, D8, D11]
+readings: [techniques/stabilisation, techniques/re-entry, safety/false-awakenings-and-sleep-paralysis]
 ---
 
 ## What to do

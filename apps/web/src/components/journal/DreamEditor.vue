@@ -15,6 +15,7 @@ import Collapse from "../Collapse.vue";
 import NightSheet from "./NightSheet.vue";
 import DreamMedia from "./DreamMedia.vue";
 import SourceSheet from "../learn/SourceSheet.vue";
+import CiteChips from "../learn/CiteChips.vue";
 import "../../styles/components/learn.css";
 import { loadLexicons, suggestElements, suggestKind } from "./detect";
 
@@ -234,7 +235,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <div class="chips jchips">
         <button v-for="c in CHIPS" :key="c.k" class="fchip" :class="{ on: chipOn(c.k) }" :aria-pressed="chipOn(c.k)" @click="toggleChip(c.k)">{{ c.label }}</button>
       </div>
-      <div v-if="upset" class="tiny jupset">{{ UPSET_HINT }} <button v-for="sid in UPSET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="sourcesOpen = [sid]">{{ sid }}</button></div>
+      <div v-if="upset" class="tiny jupset">{{ UPSET_HINT }} <CiteChips :ids="UPSET_SOURCES" @cite="sourcesOpen = $event" /></div>
       <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
 
       <div class="fld">
@@ -244,7 +245,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       </div>
       <div v-if="f.lucid" class="jlucid" role="group" aria-label="Your lucid dream">
         <div class="jlh">Your lucid dream</div>
-        <div class="tiny jan0">Which way gets you lucid shows you what to train. <button v-for="sid in LUCID_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="sourcesOpen = [sid]">{{ sid }}</button></div>
+        <div class="tiny jan0">Which way gets you lucid shows you what to train. <CiteChips :ids="LUCID_SOURCES" @cite="sourcesOpen = $event" /></div>
         <div class="fld">
           <label>How did you know?</label>
           <div class="chips jopts" role="radiogroup" aria-label="How did you know?">

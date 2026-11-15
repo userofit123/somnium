@@ -1,17 +1,24 @@
 <script setup lang="ts">
-// One article: the rendered body, sources with the reviewed date, the "try it" button, previous and next.
+// One article: the rendered body, sources with the reviewed date, previous and next. A technique article carries the
+// same evidence card and "Use tonight" as the technique page in Train (LDJ-128), so planning never leaves Learn; another
+// article that puts a technique into practice links to that technique's article.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { articles, sources, type Article } from "@somnium/knowledge/content";
+import { articles, findArticle, type Article } from "@somnium/knowledge/content";
 import { parseMarkdown } from "@somnium/knowledge/markdown";
 import { neighbours } from "@somnium/knowledge/learn";
 import { sections } from "@somnium/knowledge/content";
 import LearnBlocks from "./LearnBlocks.vue";
 import SourceSheet from "./SourceSheet.vue";
+import SourcesList from "./SourcesList.vue";
+import TechniqueUse from "../train/TechniqueUse.vue";
+import SafetyNote from "../train/SafetyNote.vue";
+import { findTechnique } from "@somnium/knowledge/techniques";
 import { useLearn, recordOpened, setRead, togglePinned, useReadAtEnd } from "../../core/learn";
 import Menu, { type MenuItem } from "../Menu.vue";
 import PinButton from "./PinButton.vue";
 import ReadMark from "./ReadMark.vue";
+import Icon from "../Icon.vue";
 
 const props = defineProps<{ article: Article }>();
 const router = useRouter();
@@ -20,13 +27,14 @@ const blocks = computed(() => parseMarkdown(props.article.body));
 const near = computed(() => neighbours(articles, props.article.id));
 const sectionTitle = computed(() => sections.find((s) => s.id === props.article.section)?.title ?? "");
 const open = ref<string[] | null>(null);
-const listed = computed(() => props.article.sources.filter((id) => sources.has(id)));
-const showSources = ref(false);
-const techLabel = computed(() => (props.article.tryIt ?? "").replace(/-/g, " "));
+const tech = computed(() => (props.article.tryIt ? findTechnique(props.article.tryIt) : undefined));
+// the technique's own article shows the card inline; any other article links to it
+const ownTech = computed(() => (tech.value && props.article.id === "techniques/" + tech.value.slug ? tech.value : undefined));
+const techArticle = computed(() => (tech.value && !ownTech.value ? findArticle("techniques/" + tech.value.slug) : undefined));
 
 const { end, arm } = useReadAtEnd(() => props.article.id, read);
 onMounted(() => recordOpened(last.value, props.article.id));
-watch(() => props.article.id, () => { showSources.value = false; recordOpened(last.value, props.article.id); void arm(); });
+watch(() => props.article.id, () => { recordOpened(last.value, props.article.id); void arm(); });
 const isRead = computed(() => !!read.value[props.article.id]);
 const isPinned = computed(() => pinned.value.includes(props.article.id));
 const menu = computed((): MenuItem[] => [
@@ -45,19 +53,16 @@ const go = (a: Article) => router.push("/learn/" + a.id);
     </div>
     <h1>{{ article.title }}</h1>
     <p class="lede">{{ article.summary }}</p>
+    <template v-if="ownTech">
+      <TechniqueUse :technique="ownTech" @cite="open = $event" />
+      <SafetyNote v-if="ownTech.safety" @cite="open = $event" />
+    </template>
     <LearnBlocks :blocks="blocks" @cite="open = $event" />
-    <div v-if="article.tryIt" class="tryit card">
-      <div><b>Try it</b><div class="s">Put this into practice with the {{ techLabel }} technique.</div></div>
-      <router-link class="btn" :to="'/train/technique/' + article.tryIt">Try it in Train</router-link>
-    </div>
-    <section class="srcs">
-      <button type="button" class="srch" :aria-expanded="showSources" @click="showSources = !showSources">
-        Sources ({{ listed.length }}) <span class="s">· reviewed {{ article.reviewed }}</span>
-      </button>
-      <ul v-if="showSources">
-        <li v-for="id in listed" :key="id"><button type="button" class="cite" @click="open = [id]">{{ id }}</button> <span class="s">{{ sources.get(id)?.text.replace(/https?:\/\/\S+/, "").trim() }}</span></li>
-      </ul>
-    </section>
+    <router-link v-if="techArticle" :to="'/learn/' + techArticle.id" class="tryit card click">
+      <div class="grow"><b>Try it</b><div class="s">Put this into practice with {{ techArticle.title }}.</div></div>
+      <Icon name="right" />
+    </router-link>
+    <SourcesList :ids="article.sources" :reviewed="article.reviewed" @cite="open = $event" />
     <div ref="end" class="endmark" aria-hidden="true" />
     <div v-if="near.prev || near.next" class="lpn" role="navigation" aria-label="In this section">
       <button v-if="near.prev" type="button" class="card click prev" @click="go(near.prev!)"><span class="s">Previous</span><b>{{ near.prev.title }}</b></button>
