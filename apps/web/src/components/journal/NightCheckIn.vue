@@ -6,7 +6,7 @@
 // Home's This morning card and the Journal's last-night strip show it under what was logged. Each tap is saved at once
 // (api/nightCheckIn.ts); a "No" or "Skip" is remembered on this device so it isn't asked again.
 import { computed, reactive, ref } from "vue";
-import { ASKS_ASLEEP, ASLEEP_CHIPS, asleepChip, checkInAnswered, checkInTechniques, isPlanOnly, minutesToSleep, TECHNIQUES } from "@somnium/shared";
+import { ASKS_ASLEEP, ASLEEP_CHIPS, asleepChip, checkInAnswered, checkInTechniques, isPlanOnly, minutesToSleep, techniquesDoneOf, TECHNIQUES } from "@somnium/shared";
 import type { NightRow } from "../../api/journal";
 import { answerAsleep, answerTechnique, askedNights, markAsked } from "../../api/nightCheckIn";
 import { toastError } from "../../core/toast";
@@ -22,25 +22,32 @@ const ask = checkInTechniques(props.night, props.nights);
 const already = checkInAnswered(props.night);
 const show = computed(() => !already && !props.night.nap && !isPlanOnly(props.night) && !askedNights.value.includes(props.night.id));
 
-// the answers given here: Yes is pre-set where the night already has the technique (a guided screen logged it)
-const ans = reactive<Record<string, boolean | undefined>>(Object.fromEntries(ask.ids.map((id) => [id, props.night.techniquesDone?.includes(id) || undefined])));
+// the answers given here: Yes is pre-set where the night already has the technique (a guided screen or "I'm up" logged it)
+const logged = techniquesDoneOf(props.night);
+const ans = reactive<Record<string, boolean | undefined>>(Object.fromEntries(ask.ids.map((id) => [id, logged.includes(id) || undefined])));
 const chip = ref(asleepChip(minutesToSleep(props.night)));
 const asksAsleep = computed(() => ask.ids.some((id) => ans[id] && ASKS_ASLEEP.includes(id)));
 const ticked = computed(() => ask.ids.some((id) => ans[id]));
 const summary = computed(() => ask.ids.map(label).join(" · "));
 
-// the night as the last answer left it: quick taps each build on the one before, not on a list not refetched yet
-let done = [...(props.night.techniquesDone ?? [])];
+// the night as the saved answers left it: each answer builds on the one before it (they are saved in turn,
+// api/nightCheckIn.ts), not on a list not refetched yet
+let done = [...logged];
+// A failed save puts the answer back and leaves the question open: the night is only marked answered once what was
+// tapped is on it (minutes to sleep are sealed, so on the direct path with no connection they can't be saved yet).
 async function answer(id: string, did: boolean) {
+  const was = ans[id];
   ans[id] = did;
-  const before = done;
-  done = did ? (done.includes(id) ? done : [...done, id]) : done.filter((t) => t !== id);
-  try { await answerTechnique({ id: props.night.id, techniquesDone: before }, id, did); } catch (e) { toastError(e); }
+  try { done = await answerTechnique(props.night.id, () => done, id, did); }
+  catch (e) { if (ans[id] === did) ans[id] = was; toastError(e); return; }
   if (ask.planned) finishWhenComplete();
 }
 async function pickAsleep(i: number) {
-  chip.value = chip.value === i ? -1 : i;
-  try { await answerAsleep(props.night.id, chip.value < 0 ? null : ASLEEP_CHIPS[i]!.minutes); } catch (e) { toastError(e); }
+  const was = chip.value;
+  const now = was === i ? -1 : i;
+  chip.value = now;
+  try { await answerAsleep(props.night.id, now < 0 ? null : ASLEEP_CHIPS[i]!.minutes); }
+  catch (e) { if (chip.value === now) chip.value = was; toastError(e); return; }
   if (ask.planned) finishWhenComplete();
 }
 // the plan's question ends by itself once each technique has its answer, and the minutes when they are asked

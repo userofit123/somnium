@@ -58,7 +58,12 @@ export function useJournal() {
  */
 export async function needsServer<T>(f: () => Promise<T>): Promise<T> {
   try { return await f(); }
-  catch (e) { if (!onDevice() && e instanceof ApiError && e.status === 0) throw new Error("Needs a connection, or turn on offline use"); throw e; }
+  catch (e) { if (!onDevice() && e instanceof ApiError && e.status === 0) throw new NeedsConnectionError(); throw e; }
+}
+/** What needsServer throws, so a screen can say it once in place instead of as a toast. `unsaved` is what didn't go. */
+export class NeedsConnectionError extends Error {
+  unsaved?: Record<string, unknown>;
+  constructor() { super("Needs a connection, or turn on offline use"); this.name = "NeedsConnectionError"; }
 }
 
 const isWaitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
@@ -110,9 +115,17 @@ export async function putNight(nightId: string, patch: Record<string, unknown>) 
   const secret = Object.fromEntries(Object.entries(patch).filter(([k]) => sealed.has(k)));
   try {
     if (Object.keys(plain).length) await send("put", `/nights/${nightId}`, plain);
-    if (Object.keys(secret).length) await needsServer(() => api.put(`/nights/${nightId}`, secret));
+    if (Object.keys(secret).length) {
+      await needsServer(() => api.put(`/nights/${nightId}`, secret)).catch((e) => { if (e instanceof NeedsConnectionError) e.unsaved = secret; throw e; });
+    }
   } finally { invalidate(["journal", "home", "train"]); }
 }
+/**
+ * Sealed night fields typed in Night details that couldn't be saved yet (direct path, no connection), by night id.
+ * Only in this tab's memory, like a draft being written: never in storage in the clear. The sheet puts them back on
+ * top when it opens again and sends them with the next change or when the connection is back.
+ */
+export const unsavedNightFields = new Map<string, Record<string, unknown>>();
 
 // ---------- drafts ----------
 

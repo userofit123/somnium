@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, lucidLength, LUCID_LENGTHS, type DreamDraft } from "./journal";
-import { checkInTechniques, checkInAnswered, ASLEEP_CHIPS, asleepChip, nightLine } from "./journal";
+import { checkInTechniques, checkInAnswered, techniquesDoneOf, ASLEEP_CHIPS, asleepChip, nightLine } from "./journal";
 import { ASLEEP_WITHIN } from "./insights";
 import { dreamMarks } from "./exportDream";
 
@@ -157,6 +157,13 @@ describe("the morning's night question (LDJ-79)", () => {
     expect(checkInAnswered({ techniquesPlanned: ["wbtb"], techniquesDone: ["wbtb"] })).toBe(true);
     expect(checkInAnswered({ techniquesPlanned: ["mild"], techniquesDone: ["mild"] })).toBe(false);
     expect(checkInAnswered({ techniquesPlanned: ["mild"], techniquesDone: ["mild"], minutesToSleep: "8" })).toBe(true);
+  });
+  it("counts a WBTB logged by \"I'm up\" (wbtb_used) as WBTB done", () => {
+    expect(techniquesDoneOf({ techniquesDone: ["mild"], wbtbUsed: true })).toEqual(["mild", "wbtb"]);
+    expect(techniquesDoneOf({ techniquesDone: ["wbtb"], wbtbUsed: true })).toEqual(["wbtb"]);
+    expect(checkInAnswered({ techniquesPlanned: ["wbtb"], techniquesDone: [], wbtbUsed: true })).toBe(true);
+    expect(checkInAnswered({ techniquesPlanned: ["wbtb", "mild"], techniquesDone: ["mild"], wbtbUsed: true, minutesToSleep: 8 })).toBe(true);
+    expect(checkInTechniques({ wbtbUsed: true }, []).ids[0]).toBe("wbtb");
   });
   it("files each answer in its band and reads it back", () => {
     ASLEEP_CHIPS.forEach((c, i) => expect(asleepChip(c.minutes)).toBe(i));

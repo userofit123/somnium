@@ -255,7 +255,15 @@ const techLabel = (id: string) => TECHNIQUES.find((t) => t.id === id)?.label ?? 
 // only the ones a guided screen logged. The morning asks once, in a tap per technique.
 
 /** The fields of a night the question reads. */
-export interface CheckInNight { techniquesPlanned?: string[] | null; techniquesDone?: string[] | null; minutesToSleep?: string | number | null }
+export interface CheckInNight { techniquesPlanned?: string[] | null; techniquesDone?: string[] | null; wbtbUsed?: boolean | null; minutesToSleep?: string | number | null }
+
+/** The techniques done on a night, WBTB included when "I'm up" or Night details logged it as wbtb_used rather than in
+ *  techniques_done: the two are one fact, and the morning's question must not ask again about a WBTB already logged. */
+export function techniquesDoneOf(n: { techniquesDone?: string[] | null; wbtbUsed?: boolean | null }): string[] {
+  const done = [...(n.techniquesDone ?? [])];
+  if (n.wbtbUsed && !done.includes("wbtb")) done.push("wbtb");
+  return done;
+}
 /** Techniques asked about when nothing was planned and too little was logged to know the person's own (Learn's core four). */
 export const CHECK_IN_DEFAULTS = ["mild", "wbtb", "reality-testing", "ssild"] as const;
 /** After these, how long it took to fall asleep is asked: Aspy's studies tie it to lucid nights (RESEARCH.md [37][38]). */
@@ -282,14 +290,15 @@ export function checkInTechniques(night: CheckInNight, nights: readonly CheckInN
   const used = new Map<string, number>();
   for (const n of nights) for (const t of new Set(n.techniquesDone ?? [])) if (known(t)) used.set(t, (used.get(t) ?? 0) + 1);
   const top = [...used].sort((a, b) => b[1] - a[1]).map(([t]) => t);
-  const ids = [...new Set([...(night.techniquesDone ?? []).filter(known), ...top.slice(0, 4), ...CHECK_IN_DEFAULTS])];
-  return { planned: false, ids: ids.slice(0, Math.max(4, (night.techniquesDone ?? []).length)) };
+  const done = techniquesDoneOf(night);
+  const ids = [...new Set([...done.filter(known), ...top.slice(0, 4), ...CHECK_IN_DEFAULTS])];
+  return { planned: false, ids: ids.slice(0, Math.max(4, done.length)) };
 }
 
 /** Whether the night already holds the answer: every planned technique logged, and the minutes to sleep when MILD or
  *  SSILD was. A "No" leaves nothing on the night, so the screens also remember on the device that it was answered. */
 export function checkInAnswered(night: CheckInNight): boolean {
-  const done = night.techniquesDone ?? [];
+  const done = techniquesDoneOf(night);
   if (!done.length) return false;
   if (!(night.techniquesPlanned ?? []).every((t) => done.includes(t))) return false;
   return !done.some((t) => ASKS_ASLEEP.includes(t)) || minutesToSleep(night) != null;
@@ -297,8 +306,7 @@ export function checkInAnswered(night: CheckInNight): boolean {
 
 /** A night's details on one line for the Journal (LDJ-99): "Bed 23:10 · Woke 07:05 · MILD", "" when none are logged. */
 export function nightLine(n: { bedtime?: string | null; wakeTime?: string | null; techniquesDone?: string[] | null; wbtbUsed?: boolean | null }): string {
-  const tech = [...(n.techniquesDone ?? [])];
-  if (n.wbtbUsed && !tech.includes("wbtb")) tech.push("wbtb");
+  const tech = techniquesDoneOf(n);
   return [n.bedtime ? `Bed ${clockOf(n.bedtime)}` : "", n.wakeTime ? `Woke ${clockOf(n.wakeTime)}` : "", ...tech.map(techLabel)].filter(Boolean).join(" · ");
 }
 

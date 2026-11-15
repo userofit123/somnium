@@ -3,9 +3,9 @@
 // whether it was a nap, techniques used and the minutes to fall asleep after them, substances and notes. Saved as it changes, with the dream (api/journal.ts).
 // Without a dream (LDJ-99: opened from the Journal list, a dream being read, or the morning's question, so a no-recall
 // night can be filled in too) it changes the night itself (putNight), and which night it is stays fixed.
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { clockOf, minutesToSleep, nightClock, nightOfDate, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
-import { changeNight, liveDraft, moveDream, putNight, useJournal, uuidv7 } from "../../api/journal";
+import { changeNight, liveDraft, moveDream, NeedsConnectionError, putNight, unsavedNightFields, useJournal, uuidv7 } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { toastError } from "../../core/toast";
 import Sheet from "../Sheet.vue";
@@ -26,7 +26,8 @@ const ready = ref(false);
 function fill() {
   ready.value = false;
   const row = (j.nights.data.value ?? []).find((x) => x.id === n.nightId);
-  const own = (props.dreamId && liveDraft(props.dreamId)?.night) || {};
+  // what was typed here before and couldn't be saved yet (offline) is still what the person last wrote
+  const own = (props.dreamId ? liveDraft(props.dreamId)?.night : unsavedNightFields.get(n.nightId)) || {};
   const v = { ...(row ?? {}), ...own } as Record<string, any>;
   n.bedtime = clockOf(v.bedtime); n.wakeTime = clockOf(v.wakeTime);
   n.sleepQuality = v.sleepQuality ?? null; n.wbtbUsed = !!v.wbtbUsed; n.wbtbMinutesAwake = v.wbtbMinutesAwake ?? null;
@@ -48,13 +49,33 @@ function move(date: string, nap: boolean) {
 // on its own, the changes of a moment go together (typing in Notes is one change, not one per key)
 let pending: Record<string, unknown> = {};
 let timer: ReturnType<typeof setTimeout> | undefined;
+// Substances, notes and the minutes are sealed: on the direct path with no connection they can't be saved, and
+// saying so with a toast every 600 ms of typing would be noise. It is said once, in the sheet, and what was typed is
+// kept (unsavedNightFields) and sent with the next change, when the connection is back, or when the sheet opens again.
+const waiting = ref(false);
 function flush() {
   clearTimeout(timer); timer = undefined;
   if (!Object.keys(pending).length) return;
+  const id = n.nightId;
   const patch = pending; pending = {};
-  putNight(n.nightId, patch).catch(toastError);
+  putNight(id, patch).then(() => {
+    waiting.value = false;
+    if (!Object.keys(pending).length) unsavedNightFields.delete(id);
+  }, (e) => {
+    if (!(e instanceof NeedsConnectionError)) { toastError(e); return; }
+    // newer typing in pending wins over what just failed
+    pending = { ...(e.unsaved ?? {}), ...pending };
+    unsavedNightFields.set(id, { ...pending });
+    waiting.value = true;
+  });
 }
-onBeforeUnmount(flush);
+const retry = () => { if (waiting.value) { pending = { ...(unsavedNightFields.get(n.nightId) ?? {}), ...pending }; flush(); } };
+onMounted(() => {
+  window.addEventListener("online", retry);
+  // left from an earlier time the sheet was open: try it again now
+  if (!props.dreamId && unsavedNightFields.has(n.nightId)) { waiting.value = true; retry(); }
+});
+onBeforeUnmount(() => { window.removeEventListener("online", retry); flush(); });
 const put = (patch: Record<string, unknown>) => {
   if (!ready.value) return;
   if (props.dreamId) { changeNight(props.dreamId, patch); return; }
@@ -101,6 +122,7 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
     </div>
     <div class="fld"><label>Substances</label><input aria-label="Substances" v-model="n.substances" placeholder="Caffeine, alcohol, supplements, medicines" maxlength="500" /></div>
     <div class="fld"><label>Notes</label><textarea aria-label="Notes" v-model="n.notes" rows="3" placeholder="Anything else about the night" /></div>
+    <div v-if="waiting" class="tiny jan" role="status">Substances, notes and minutes to fall asleep need a connection to be saved. They are kept while the app stays open.</div>
   </Sheet>
 </template>
 

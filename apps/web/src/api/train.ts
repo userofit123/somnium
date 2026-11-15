@@ -10,6 +10,7 @@ import { send } from "./outbox";
 import { invalidate, queryClient } from "./live";
 import { ensureNight, onDevice, type NightRow } from "./journal";
 import { localYmd } from "../core/format";
+import { readJson, writeJson } from "../core/prefs";
 
 /** How far back the move-on rules look at checks and ticks: the longest rule runs 4 weeks, plus room. */
 const WINDOW_DAYS = 60;
@@ -60,37 +61,58 @@ const NIGHTS = ["journal", "nights"];
 // no connection, or the journal key isn't open: the outbox's own test (api/outbox.ts mustWait)
 const mustWait = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 
-/** The change on the night in the lists the screens read, before the server has it (a night made here is added). */
-function showOnNight(id: string, date: string, body: Partial<Night>) {
+/** The change on the night in the lists the screens read, before the server has it (a night made here is added).
+ *  Offline (`seed`) a list not loaded yet is started with it, so the next change offline builds on this one. */
+function showOnNight(id: string, date: string, body: Partial<Night>, seed = false) {
   void queryClient.cancelQueries({ queryKey: NIGHTS });
-  queryClient.setQueryData<NightRow[]>(NIGHTS, (ns) => {
-    if (!ns) return ns;
+  queryClient.setQueryData<NightRow[]>(NIGHTS, (loaded) => {
+    if (!loaded && !seed) return loaded;
+    const ns = loaded ?? [];
     if (ns.some((n) => n.id === id)) return ns.map((n) => (n.id === id ? { ...n, ...body } : n));
     const made = { id, date, nap: false, techniquesPlanned: [], techniquesDone: [], wbtbUsed: false, alcohol: false, noRecall: false, dreamCount: 0, lucidCount: 0, ...body } as unknown as NightRow;
     return [made, ...ns];
   });
 }
 
+// The nights this device made while it had no connection, by date: a second change to the same date before the
+// server has the first must go to that night, not queue a second create with a new id (the server would refuse it as
+// a second night of the date, and the changes queued for it would find no night). Kept in storage so a reload in
+// between still knows; a date and a random id, nothing personal. Dropped once the server answers with that night.
+const MADE_KEY = "somniumNightsMadeOffline";
+const madeOffline = () => readJson<Record<string, string>>(MADE_KEY, {});
+function rememberMade(date: string, id: string | null) {
+  const m = madeOffline();
+  if (id) m[date] = id; else delete m[date];
+  // only the last few dates matter: tonight's and last night's
+  writeJson(MADE_KEY, Object.fromEntries(Object.entries(m).sort(([a], [b]) => a.localeCompare(b)).slice(-8)));
+}
+
 /**
  * Changes plain fields on the night of a date, making the night when there is none. `change` gets the night as it is
  * and answers the fields to change ({} for none). Without a connection on the direct path the night is the one this
- * device last saw; a night not seen yet is made by a queued create with the id ensureNight was asked for, so a create
- * that reached the server before the connection went is answered as the same row (rows.ts sameCreate), not a 409.
+ * device last saw or made; a night not seen yet is made by a queued create with the id ensureNight was asked for, so a
+ * create that reached the server before the connection went is answered as the same row (rows.ts sameCreate), not a
+ * 409. (Not journal.ts changeNight, which changes the night of a dream being written.)
  */
-async function changeNight(date: string, change: (n: Night | undefined) => Partial<Night>): Promise<string> {
-  const wanted = uuidv7();
+async function changeNightPlan(date: string, change: (n: Night | undefined) => Partial<Night>): Promise<string> {
+  const made = madeOffline()[date];
+  // a night made offline and not sent yet is asked for with its own id, so it isn't made twice when the server is back
+  const wanted = made ?? uuidv7();
   let night: Night | undefined;
+  let offline = false;
   try {
     night = await api.get<Night>(`/nights/${await ensureNight(date, false, wanted)}`);
+    if (made) rememberMade(date, null);
   } catch (e) {
     if (!mustWait(e) || onDevice()) throw e;
+    offline = true;
     night = nightOfDate(queryClient.getQueryData<NightRow[]>(NIGHTS) ?? [], date);
-    if (!night) await send("post", "/nights", { id: wanted, date, nap: false });
+    if (!night && !made) { await send("post", "/nights", { id: wanted, date, nap: false }); rememberMade(date, wanted); }
   }
   const id = night?.id ?? wanted;
   const body = change(night);
   if (Object.keys(body).length) await send("put", `/nights/${id}`, body);
-  showOnNight(id, date, body);
+  showOnNight(id, date, body, offline);
   invalidate(["journal", "train", "home"]);
   return id;
 }
@@ -98,7 +120,7 @@ async function changeNight(date: string, change: (n: Night | undefined) => Parti
 /** Adds or removes a technique in tonight's plan, making tonight's night when there is none. */
 export async function planTonight(technique: string, add: boolean) {
   const date = tonightDate();
-  const id = await changeNight(date, (n) => {
+  const id = await changeNightPlan(date, (n) => {
     const cur = n?.techniquesPlanned ?? [];
     const next = add ? (cur.includes(technique) ? cur : [...cur, technique]) : cur.filter((t) => t !== technique);
     return next.length !== cur.length || next.some((t, i) => t !== cur[i]) ? { techniquesPlanned: next } : {};
@@ -113,7 +135,7 @@ export async function planTonight(technique: string, add: boolean) {
 export async function planWbtb(wakeAt: Date, bedtime: Date | null, mode: WbtbModeLog | null = null) {
   const date = tonightDate();
   // the mode (LDJ-49) goes on the night with the alarm, so "What works for you" can compare Short, Long and the nap
-  const id = await changeNight(date, (n) => {
+  const id = await changeNightPlan(date, (n) => {
     const cur = n?.techniquesPlanned ?? [];
     const body: Partial<Night> = { wbtbWakeAt: wakeAt.toISOString(), wbtbMode: mode };
     if (!cur.includes("wbtb")) body.techniquesPlanned = [...cur, "wbtb"];
@@ -125,18 +147,18 @@ export async function planWbtb(wakeAt: Date, bedtime: Date | null, mode: WbtbMod
 
 /** Clears tonight's WBTB alarm and takes "wbtb" out of the plan. */
 export async function unplanWbtb() {
-  await changeNight(tonightDate(), (n) => ({ techniquesPlanned: (n?.techniquesPlanned ?? []).filter((t) => t !== "wbtb"), wbtbWakeAt: null, wbtbMode: null }));
+  await changeNightPlan(tonightDate(), (n) => ({ techniquesPlanned: (n?.techniquesPlanned ?? []).filter((t) => t !== "wbtb"), wbtbWakeAt: null, wbtbMode: null }));
 }
 
 /** "Back to bed": the night was a WBTB night, with this many minutes up (0-600, the column's range). */
 export async function backToBed(minutes: number, date = nightNowDate()) {
-  return changeNight(date, () => ({ wbtbUsed: true, wbtbMinutesAwake: Math.max(0, Math.min(600, Math.round(minutes))) }));
+  return changeNightPlan(date, () => ({ wbtbUsed: true, wbtbMinutesAwake: Math.max(0, Math.min(600, Math.round(minutes))) }));
 }
 
 /** A technique done on a night (techniques_done), e.g. "sound-cue" after a sleep-mode session (LDJ-48), and with
  *  `wbtbMode` the mode on the night (a CAT morning logs "cat", LDJ-49). Makes the night when there is none. */
 export async function logTechniqueDone(technique: string, date = nightNowDate(), wbtbMode?: WbtbModeLog) {
-  return changeNight(date, (n) => {
+  return changeNightPlan(date, (n) => {
     const cur = n?.techniquesDone ?? [];
     const body: Partial<Night> = {};
     if (!cur.includes(technique)) body.techniquesDone = [...cur, technique];
