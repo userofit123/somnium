@@ -8,8 +8,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { nightOfDate } from "@somnium/shared";
-import { api } from "../../api/client";
-import { beginDraft, changeDream, endDraft, liveDraft, markNoRecall, openStored, saveError, saveNow, saveState, useJournal, uuidv7, type NightRow } from "../../api/journal";
+import { api, ApiError } from "../../api/client";
+import { beginDraft, changeDream, deleteDream, endDraft, liveDraft, markNoRecall, openStored, saveError, saveNow, saveState, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { useSettings } from "../../api/queries";
 import { localYmd } from "../../core/format";
 import { goBack } from "../../core/leave";
@@ -28,8 +28,12 @@ const date = typeof route.query.date === "string" && DATE.test(route.query.date)
 // the id goes into the address at once, so coming back after the lock (or a reload) takes up the same dream
 const id = typeof route.query.id === "string" && route.query.id ? route.query.id : uuidv7();
 if (route.query.id !== id) void router.replace({ query: { ...route.query, date, id } });
-// after the WBTB alarm the capture hands on to the "I'm up" guide
+// a capture just opened for a new dream (captureFirst): nothing on the server can be written over, so a failed look
+// there means nothing; the mark goes from the address as soon as there is something saved
+const fresh = route.query.new === "1" || !route.query.id;
+// after the WBTB alarm the capture hands on to the "I'm up" guide (and so does the editor it may go on to)
 const afterUp = route.query.then === "up";
+const carry = afterUp ? { then: "up" } : {};
 
 const STILL_SECONDS = 20;
 // the still moment is for waking: the morning and the night's alarm, not a dream written up in the afternoon
@@ -52,35 +56,66 @@ const fields = (unfinished: boolean, t = text()) => ({
   text: t || null, lucid: marks.lucid, lucidityLevel: marks.lucid ? 1 : 0, nightmare: marks.nightmare,
   recallClarity: marks.feeling ? 1 : null, unfinished,
 });
+// what the capture can show again without losing anything: key words and its three marks, nothing more (the
+// capture saves every field each time, so taking up anything fuller here would write over it)
+// (the editor's other fields, all empty; an unfinished one is still key words, a finished one was written out)
+const OTHER = ["awareness", "vividness", "control", "emotionOverall", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd"];
+function captureShaped(d: Record<string, unknown>) {
+  return !d.title && !(typeof d.text === "string" && d.text.includes("\n")) && d.unfinished !== false
+    && Number(d.lucidityLevel ?? 0) <= 1 && (d.recallClarity == null || d.recallClarity === 1)
+    && OTHER.every((k) => d[k] == null || d[k] === false);
+}
+function takeUp(d: Record<string, unknown>) {
+  words.value = typeof d.text === "string" ? d.text.split(/\s*[,\n]\s*/).filter(Boolean) : [];
+  Object.assign(marks, { lucid: !!d.lucid, nightmare: !!d.nightmare, feeling: d.recallClarity === 1 });
+  step.value = "words";
+  // only a dream with something in it counts as made (an empty draft is just the capture having been open)
+  started = !empty.value;
+}
+// fuller than a capture (or unreadable just now): the editor takes it, which never writes over it blind
+function toEditor() { void router.replace({ name: "journal-write", params: { id }, query: { date, ...carry } }); }
 
 // ----- the draft: the editor's own, so the lock, a reload or no connection never loses a word -----
 let started = false;
-async function open() {
+// the dream is (or may be) on the server: leaving it empty, or No recall, takes it away again
+let made = false;
+// a voice note may hang on the dream even with no words: it is never removed for being empty
+let voiced = false;
+async function open(): Promise<boolean> {
   const live = liveDraft(id), stored = live ? null : await openStored(id), draft = live ?? stored;
   if (draft) {
     // back after the lock: the words and marks as they were, and straight to the words
     const d = draft.dream as Record<string, unknown>;
-    words.value = typeof d.text === "string" ? d.text.split(/\s*[,\n]\s*/).filter(Boolean) : [];
-    Object.assign(marks, { lucid: !!d.lucid, nightmare: !!d.nightmare, feeling: d.recallClarity === 1 });
-    step.value = "words";
-    started = true;
+    if (!captureShaped(d)) { toEditor(); return false; }
+    takeUp(d);
+    made = started;
     if (!live) beginDraft(draft);
-    if (stored) changeDream(id, fields(true));
+    if (stored && started) changeDream(id, fields(true));
   } else {
+    // nothing kept here: the dream may be on the server already (key words sent, then a reload or Forward)
+    let row: DreamFull | null = null;
+    try { row = await api.get<DreamFull>(`/dreams/${id}`); }
+    catch (e) { if (!(e instanceof ApiError && e.status === 404) && !fresh) { toEditor(); return false; } }
+    if (row && (!captureShaped(row as unknown as Record<string, unknown>) || row.elements.length)) { toEditor(); return false; }
     const nights: NightRow[] = j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
-    beginDraft({ dreamId: id, nightId: nightOfDate(nights, date)?.id ?? uuidv7(), date, nap: false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: 0 });
+    const night = row ? nights.find((n) => n.id === row!.nightId) : null;
+    if (row) { takeUp(row as unknown as Record<string, unknown>); made = true; }
+    beginDraft({ dreamId: id, nightId: row?.nightId ?? nightOfDate(nights, date)?.id ?? uuidv7(), date: night?.date ?? date, nap: night?.nap ?? false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
   }
   ready.value = true;
+  return true;
 }
 // nothing is made until there is something to keep; from then on every change is saved (unfinished: key words only)
+// Emptied again (every word taken off): nothing is saved, and leaving like that removes the dream (see leave)
 function save() {
-  if (!ready.value || (empty.value && !started)) return;
-  started = true;
+  if (!ready.value || empty.value) return;
+  if (!started && fresh) void router.replace({ query: { ...route.query, new: undefined } });
+  started = made = true;
   changeDream(id, fields(true));
 }
 watch([words, typed, marks], save, { deep: true });
 // a voice note needs the dream on the server first: tapping it saves what is here now (DreamMedia waits for it)
-function beforeVoice() { if (!ready.value) return; started = true; changeDream(id, fields(true)); }
+function beforeVoice() { if (!ready.value) return; started = made = voiced = true; changeDream(id, fields(true)); }
 
 // ----- the still moment -----
 function toWords() {
@@ -108,29 +143,45 @@ function toggle(k: "lucid" | "nightmare" | "feeling") { marks[k] = !marks[k]; }
 // ----- leaving -----
 const state = computed(() => saveState[id]);
 const stateText = computed(() => ({ saving: "Saving", saved: "Saved", waiting: "Kept on this device", error: saveError[id] ?? "Couldn't save" } as Record<string, string>)[state.value ?? ""] ?? "");
-function leave() {
-  saveNow(id); endDraft(id);
-  if (afterUp) void router.replace("/train/guided/up"); else goBack(router, "/");
+function go() { if (afterUp) void router.replace("/train/guided/up"); else goBack(router, "/"); }
+async function leave() {
+  if (empty.value && !voiced) {
+    // nothing entered: nothing is kept, and a dream already made from words since taken off goes again (if that
+    // fails, offline, the last words saved stay: better than an empty dream)
+    started = false;
+    if (made) await deleteDream(id).catch(() => undefined); else endDraft(id);
+  } else { saveNow(id); endDraft(id); }
+  go();
 }
 /** On to the editor: the key words at the top of the text, the cursor under them. */
 function writeOut() {
   commit();
   const t = text();
-  if (started || !empty.value) { started = true; changeDream(id, fields(false, t ? `${t}\n\n` : "")); saveNow(id); }
-  void router.replace({ name: "journal-write", params: { id }, query: { date } });
+  if (!empty.value) { started = made = true; changeDream(id, fields(false, t ? `${t}\n\n` : "")); saveNow(id); }
+  toEditor();
 }
 /** Later: the key words are the dream for now, marked unfinished (the editor shows it, and writing on finishes it). */
-function later() { commit(); save(); leave(); }
+function later() { commit(); save(); void leave(); }
+// No recall is for a night with no dreams: not offered when the night has another one (markNoRecall refuses it too)
+const otherDreams = computed(() => (j.facts.data.value ?? []).some((x) => x.date === date && !x.nap && x.id !== id));
 async function noRecall() {
   if (busy.value) return;
   busy.value = true; err.value = "";
-  try { await markNoRecall(date); endDraft(id); leave(); }
-  catch (e) { err.value = e instanceof Error && e.message ? e.message : "It couldn't be saved"; }
+  try {
+    // a dream made here before the words were taken off goes first, or it would be a night with a dream and no recall
+    if (made) { started = false; await deleteDream(id); made = false; } else endDraft(id);
+    await markNoRecall(date);
+    go();
+  } catch (e) {
+    // still here: the words typed next need a draft to go into again
+    if (!liveDraft(id)) beginDraft({ dreamId: id, nightId: nightOfDate(j.nights.data.value ?? [], date)?.id ?? uuidv7(), date, nap: false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: 0 });
+    err.value = e instanceof Error && e.message ? e.message : "It couldn't be saved";
+  }
   finally { busy.value = false; }
 }
 
 onMounted(async () => {
-  await open();
+  if (!(await open())) return;
   if (step.value === "still") stillTimer = setTimeout(toWords, STILL_SECONDS * 1000);
   else void nextTick(() => inputEl.value?.focus());
 });
@@ -169,7 +220,7 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
         <button type="button" class="gchip" :class="{ on: marks.lucid }" :aria-pressed="marks.lucid" @click="toggle('lucid')"><b>Lucid</b></button>
         <button type="button" class="gchip" :class="{ on: marks.nightmare }" :aria-pressed="marks.nightmare" @click="toggle('nightmare')"><b>Nightmare</b></button>
         <button type="button" class="gchip" :class="{ on: marks.feeling }" :aria-pressed="marks.feeling" @click="toggle('feeling')"><b>Just a feeling</b></button>
-        <button v-if="empty" type="button" class="gchip" :disabled="busy" @click="noRecall"><b>No recall</b></button>
+        <button v-if="empty && !otherDreams" type="button" class="gchip" :disabled="busy" @click="noRecall"><b>No recall</b></button>
       </div>
       <p v-if="err" class="gev" role="alert">{{ err }}</p>
       <div v-if="voiceOn && ready" class="gbox" @click.capture="beforeVoice"><DreamMedia :dream-id="id" edit voice /></div>

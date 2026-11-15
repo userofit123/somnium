@@ -85,8 +85,10 @@ function write(d?: string) { router.push({ name: "journal-write", params: { id: 
 const fresh = computed(() => route.query.new === "1");
 const open = (did: string) => (mode.value ? router.replace : router.push)({ name: "journal-dream", params: { id: did } });
 function closeWrite() {
+  // written out from the capture after the WBTB alarm: on to the "I'm up" guide, as the capture itself would
+  if (route.query.then === "up") router.replace("/train/guided/up");
   // a dream that was saved opens to read; one left empty was never made
-  if (saveState[id.value] || j.dreams.data.value?.some((x) => x.id === id.value)) router.replace({ name: "journal-dream", params: { id: id.value } });
+  else if (saveState[id.value] || j.dreams.data.value?.some((x) => x.id === id.value)) router.replace({ name: "journal-dream", params: { id: id.value } });
   else if (history.state?.back) router.back(); else router.replace("/journal");
 }
 const closeRead = () => (history.state?.back ? router.back() : router.replace("/journal"));

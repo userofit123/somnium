@@ -1,14 +1,16 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
+import { localYmd } from "./core/format";
 
 const TrainPage = () => import("./pages/TrainPage.vue");
-// LDJ-80: a new dream for this morning (Home's "Write last night's dream", the WBTB guide's "Write down the last
-// dream", the Journal's today) starts in the morning capture, still and dim, key words first (RESEARCH.md C1, C2).
-// The capture's own "Write it out" opens the editor without new=1, so it is not sent round again.
+// LDJ-80: a new dream for today's date (Home's "Write last night's dream", the WBTB guide's "Write down the last
+// dream", the phone's + in the morning, the Journal's "+ Dream" on today's row, the morning reminder) starts in the
+// morning capture, still and dim, key words first (RESEARCH.md C1, C2). Without a date (the Journal's own "Write a
+// dream") it is the plain editor. The capture's "Write it out" opens the editor without new=1, so it is not sent round
+// again. From router.beforeEach, for the reason given below.
 function captureFirst(to: RouteLocationNormalized) {
-  const q = to.query, d = new Date();
-  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const q = to.query, today = localYmd(new Date());
   if (q.new !== "1" || q.date !== today) return true;
-  return { name: "capture", query: { date: today, id: String(to.params.id) } };
+  return { name: "capture", query: { date: today, id: String(to.params.id), new: "1" } };
 }
 // links from before Train's sub-screens had addresses: reminders, bookmarks, recommendations already shown. Run from
 // router.beforeEach, not the route's beforeEnter: vue-router skips beforeEnter when only the query changes, so a reminder
@@ -37,7 +39,7 @@ export const router = createRouter({
     { path: "/journal", name: "journal", component: () => import("./pages/JournalPage.vue") },
     // a dream to read, or to write (a new one gets its id before the first word, so a draft is never without one)
     { path: "/journal/dream/:id", name: "journal-dream", component: () => import("./pages/JournalPage.vue") },
-    { path: "/journal/write/:id", name: "journal-write", component: () => import("./pages/JournalPage.vue"), beforeEnter: captureFirst },
+    { path: "/journal/write/:id", name: "journal-write", component: () => import("./pages/JournalPage.vue") },
     // the morning capture (LDJ-80): full screen, drawn by App.vue in place of the shells, behind the lock
     { path: "/capture", name: "capture", component: () => import("./components/journal/CaptureView.vue") },
     { path: "/signs", name: "signs", component: () => import("./pages/SignsPage.vue") },
@@ -66,4 +68,7 @@ export const router = createRouter({
   ],
 });
 
-router.beforeEach((to) => (to.name === "train" && Object.keys(to.query).length ? oldTrainLink(to) : true));
+router.beforeEach((to) => {
+  if (to.name === "journal-write") return captureFirst(to);
+  return to.name === "train" && Object.keys(to.query).length ? oldTrainLink(to) : true;
+});
