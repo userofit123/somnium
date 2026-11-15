@@ -42,6 +42,8 @@ const router = useRouter();
 const PREF = "insights.period";
 const period = ref<Period>((PERIODS as readonly string[]).includes(readJson<string>(PREF, "3m")) ? readJson<Period>(PREF, "3m") : "3m");
 const periodPick = computed({ get: () => period.value, set: (p: Period) => { period.value = p; writeJson(PREF, p); } });
+// short wording for a tile subtitle ("in 3 months" reads oddly)
+const SINCE: Record<string, string> = { "4w": "last 4 weeks", "3m": "last 3 months", "1y": "last year", all: "all time" };
 const periodOpts = PERIODS.map((p) => ({ value: p, label: PERIOD_LABEL[p] }));
 // the reports are rare and optional, so they sit in the ⋮ menu rather than beside the period
 const menu = computed(() => (features.value.reports ? [{ label: "Month and year reports", icon: "stats", run: () => void router.push("/report") }] : []));
@@ -126,6 +128,7 @@ const kindBars = computed(() => checks.value.byKind.map((k) => ({ label: KIND[k.
 
 // ---------- night events ----------
 const sourcesOpen = ref<string[] | null>(null);
+const PM_SOURCES = ["D1"]; // RESEARCH.md 1.6, LaBerge and Rheingold 1990 ch. 3
 const cite = (sid: string) => { info.value = null; sourcesOpen.value = [sid]; };
 // nightmares (they woke you) apart from bad dreams (they didn't): RESEARCH.md C18
 const eventSets = computed(() => [
@@ -155,7 +158,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <div class="ph"><div><h1>Progress</h1><div class="sub">Worked out on this device from your journal.</div></div>
       <div class="acts">
         <AppSelect v-model="periodPick" :options="periodOpts" title="Period" style="width:auto" data-testid="period" />
-        <Menu v-if="menu.length" :items="menu" data-testid="reportlink" />
+        <Menu v-if="menu.length" :items="menu" />
       </div></div>
 
     <GoalCards v-if="features.goals" :today="today" />
@@ -166,9 +169,9 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <div v-if="!lucid.lucid" class="card empty sm"><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.</div>
       <template v-else>
         <div class="grid g4">
-          <div class="card hero stat"><div class="lbl">Lucid dreams</div><div class="val num">{{ lucid.lucid }}</div><div class="sub">in {{ PERIOD_LABEL[period].toLowerCase() }}</div></div>
+          <div class="card hero stat"><div class="lbl">Lucid dreams</div><div class="val num">{{ lucid.lucid }}</div><div class="sub">{{ SINCE[period] }}</div></div>
           <div class="card stat"><div class="lbl">Nights with one</div><div class="val num">{{ pct(lucid.lucidNights / Math.max(1, lucid.nights)) }}</div><div class="sub">{{ lucid.lucidNights }} of {{ plural(lucid.nights, "night") }}</div></div>
-          <div class="card stat"><div class="lbl">Of all dreams</div><div class="val num">{{ pct(lucid.lucid / Math.max(1, lucid.dreams)) }}</div><div class="sub">{{ plural(lucid.dreams, "dream") }} in all</div></div>
+          <div class="card stat"><div class="lbl">Of all dreams</div><div class="val num">{{ pct(lucid.lucid / Math.max(1, lucid.dreams)) }}</div><div class="sub">{{ plural(lucid.dreams, "dream") }}, all time</div></div>
           <div class="card stat"><div class="lbl">Average level</div><div class="val num">{{ avgLevel }}</div><div class="sub">from 1 to 5</div></div>
         </div>
         <div class="card spt"><div class="lbl hgap">Lucid dreams, by {{ bucket }}</div><BarChart :bars="lucidBars" :height="150" /></div>
@@ -208,8 +211,8 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <template v-else>
         <div class="grid g4">
           <div class="card stat"><div class="lbl">Nights with a dream</div><div class="val num">{{ pct(recall.withRecall / recall.nights) }}</div><div class="sub">{{ recall.withRecall }} of {{ recall.nights }}</div></div>
-          <div class="card stat"><div class="lbl">Dreams a night</div><div class="val num">{{ one(recall.dreams / recall.nights) }}</div><div class="sub">{{ plural(recall.dreams, "dream") }} in all</div></div>
-          <div class="card stat"><div class="lbl">Nights logged</div><div class="val num">{{ recall.nights }}</div><div class="sub">in {{ PERIOD_LABEL[period].toLowerCase() }}</div></div>
+          <div class="card stat"><div class="lbl">Dreams a night</div><div class="val num">{{ one(recall.dreams / recall.nights) }}</div><div class="sub">{{ plural(recall.dreams, "dream") }}, all time</div></div>
+          <div class="card stat"><div class="lbl">Nights logged</div><div class="val num">{{ recall.nights }}</div><div class="sub">{{ SINCE[period] }}</div></div>
           <div class="card stat"><div class="lbl">Dreams in naps</div><div class="val num">{{ recall.napDreams }}</div><div class="sub">counted as dreams, not nights</div></div>
         </div>
         <div class="grid g2 spt">
@@ -226,7 +229,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <template v-else>
         <div class="grid g4">
           <div class="card stat"><div class="lbl">A day</div><div class="val num">{{ one(checks.perDayAvg) }}</div><div class="sub">on average</div></div>
-          <div class="card stat"><div class="lbl">Checks</div><div class="val num">{{ checks.total }}</div><div class="sub">in {{ PERIOD_LABEL[period].toLowerCase() }}</div></div>
+          <div class="card stat"><div class="lbl">Checks</div><div class="val num">{{ checks.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
           <div class="card stat"><div class="lbl">Said "dreaming"</div><div class="val num">{{ checks.byOutcome.dreaming }}</div><div class="sub">{{ checks.byOutcome.dreaming ? "lucid moments" : "none yet" }}{{ checks.byOutcome.unsure ? ` · ${checks.byOutcome.unsure} unsure` : "" }}</div></div>
           <div class="card stat"><div class="lbl">From a reminder</div><div class="val num">{{ pct(checks.prompted / checks.total) }}</div><div class="sub">{{ checks.own }} on your own</div></div>
         </div>
@@ -251,13 +254,13 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <div v-if="!lucid.dreams" class="card empty sm"><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.</div>
       <template v-else>
         <div class="grid g4">
-          <div v-for="e in eventSets" :key="e.title" class="card stat"><div class="lbl">{{ e.title }}</div><div class="val num" :style="{ color: e.color }">{{ e.total }}</div><div class="sub">in {{ PERIOD_LABEL[period].toLowerCase() }}</div></div>
+          <div v-for="e in eventSets" :key="e.title" class="card stat"><div class="lbl">{{ e.title }}</div><div class="val num" :style="{ color: e.color }">{{ e.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
         </div>
         <div class="grid g2 spt">
           <template v-for="e in eventSets" :key="e.title">
             <div v-if="e.total" class="card"><div class="lbl hgap">{{ e.title }}, by {{ bucket }}</div><BarChart :bars="e.bars" :height="130" /></div>
           </template>
-          <div class="card"><div class="lbl hgap">How your dreams felt</div>
+          <div class="card span2"><div class="lbl hgap">How your dreams felt</div>
             <div v-if="emotionPoints.length < 2" class="tiny">{{ emotions.rated ? "Rate the feeling of dreams across more than one " + bucket + " to see a trend." : "Rate how each dream felt to see it over time." }}</div>
             <template v-else>
               <LineChart :points="emotionPoints" :fmt="feel" :height="130" color="var(--c3)" />
@@ -295,7 +298,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <p>A rate shows once there are {{ MIN_NIGHTS }} nights on each side. The grey bar is the nights without it.</p>
     </Sheet>
     <Sheet v-if="info === 'pm'" title="Memory targets" @close="info = null">
-      <p>A target you set and never logged counts as a miss once its day is over. LaBerge's exercise: hit most of the four before moving on.</p>
+      <p>A target you set and never logged counts as a miss once its day is over. LaBerge's exercise: keep going for at least a week, and if you still miss most targets, carry on until you hit most of them. <button v-for="sid in PM_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
     </Sheet>
     <Sheet v-if="info === 'events'" title="Nightmares and bad dreams" @close="info = null">
       <p>{{ UPSET_HINT }} <button v-for="sid in UPSET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>

@@ -13,7 +13,7 @@ export interface LagElement { id: string; name: string | null; aliases?: string 
 export const LAG_MIN_MENTIONS = 3;
 export const RESIDUE_DAYS: readonly [number, number] = [1, 2];
 export const LAG_DAYS: readonly [number, number] = [5, 7];
-export const LAG_SOURCES = ["23", "24", "48"] as const;
+export const LAG_SOURCES = ["C23", "C48", "C24"] as const;
 
 const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 /** The words an element answers to: its name and its aliases (split on commas, semicolons and new lines), 3+ letters. */
