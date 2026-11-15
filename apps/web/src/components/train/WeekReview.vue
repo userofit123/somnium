@@ -80,7 +80,7 @@ const done = useChange(async () => {
         <div class="s tiny hrv">Target dream sign</div>
         <template v-if="w.topSign">
           <div class="t"><router-link :to="'/signs/' + w.topSign.id">{{ w.topSign.name }}</router-link> <span class="tiny muted num">· {{ w.topSign.dreams }} {{ w.topSign.dreams === 1 ? "dream" : "dreams" }} this week</span></div>
-          <button v-if="!isTarget" type="button" class="qb acc" @click="setTarget(w.topSign.id)">Make it this week's target</button>
+          <button v-if="!isTarget" type="button" class="btn tonal s" @click="setTarget(w.topSign.id)">Make it this week's target</button>
           <div v-else class="tiny muted">This week's target. Look out for it during the day and check whenever you meet it.</div>
         </template>
         <div v-else class="t">{{ target ? `Still ${target.name}: no marked sign came up this week.` : "None this week. Signs you mark in your dreams appear here." }}</div>
@@ -93,5 +93,5 @@ const done = useChange(async () => {
 <style scoped>
 .wrev > section, .wrev-tiles { margin-top: var(--spg); }
 .wrev-note { margin: 0 0 var(--tdy); }
-.wrev .qb { margin-top: var(--tdy); }
+.wrev .btn.tonal { margin-top: var(--tdy); }
 </style>

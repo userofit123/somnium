@@ -150,16 +150,16 @@ onBeforeUnmount(() => {
 <template>
   <div v-if="on.any && (edit || items.length)" class="jmed">
     <div v-if="edit" class="jmadd">
-      <button v-if="on.photos" class="qb" :disabled="!!busy" @click="photoIn?.click()"><Icon name="camera" :size="16" />Photo</button>
+      <button v-if="on.photos" class="btn tonal s" :disabled="!!busy" @click="photoIn?.click()"><Icon name="camera" :size="16" />Photo</button>
       <input v-if="on.photos" ref="photoIn" type="file" accept="image/*" multiple hidden @change="onPhoto" />
-      <button v-if="on.sketches" class="qb" :disabled="!!busy" @click="sketching = true"><Icon name="edit" :size="16" />Sketch</button>
-      <button v-if="on.voice && canRecord && !rec" class="qb" :disabled="!!busy" @click="record"><Icon name="sound" :size="16" />Voice note</button>
+      <button v-if="on.sketches" class="btn tonal s" :disabled="!!busy" @click="sketching = true"><Icon name="edit" :size="16" />Sketch</button>
+      <button v-if="on.voice && canRecord && !rec" class="btn tonal s" :disabled="!!busy" @click="record"><Icon name="sound" :size="16" />Voice note</button>
       <span v-if="busy" class="tiny jmut" aria-live="polite">{{ busy }}...</span>
     </div>
     <div v-if="rec" class="card jrec" role="group" aria-label="Recording">
       <span class="jdot" aria-hidden="true" />
       <div class="grow">Recording {{ clock(rec.secs) }} <span class="tiny jmut">· stops at {{ clock(VOICE_MAX_SECONDS) }}</span></div>
-      <button class="qb" @click="drop">Cancel</button>
+      <button class="btn tonal s" @click="drop">Cancel</button>
       <button class="btn tonal s" @click="stop">Stop</button>
     </div>
 
@@ -170,7 +170,7 @@ onBeforeUnmount(() => {
           <Icon v-else name="image" :size="20" />
         </button>
         <div v-if="edit" class="jthact">
-          <button v-if="m.kind === 'photo'" class="qb sm" :aria-label="'Read the text'" @click="readPhoto(m)">{{ m.ocrText ? "Text" : "Read the text" }}</button>
+          <button v-if="m.kind === 'photo'" class="btn tonal s" :aria-label="'Read the text'" @click="readPhoto(m)">{{ m.ocrText ? "Text" : "Read the text" }}</button>
           <button class="jx" aria-label="Delete" @click="remove(m)"><Icon name="trash" :size="14" /></button>
         </div>
       </div>
@@ -211,7 +211,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .jmed { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
 .jmadd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px calc(var(--lpy) * 1.2); }
-.jmadd .qb { padding-left: 0; }
 .jmut { color: var(--tx2); }
 .jerr { color: var(--neg); }
 .jthumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--lpy); }
@@ -219,7 +218,7 @@ onBeforeUnmount(() => {
 .jthb { aspect-ratio: 1; width: 100%; padding: 0; border: 1px solid var(--ol); border-radius: var(--r); background: var(--s2); color: var(--tx2); overflow: hidden; display: grid; place-items: center; cursor: pointer; }
 .jthb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .jthact { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.jthact .qb { padding: 0; font-size: var(--fs-sm); min-width: 0; }
+.jthact .btn.tonal { min-width: 0; }
 .jx { border: 0; background: none; color: var(--tx2); padding: 2px; display: inline-grid; place-items: center; cursor: pointer; }
 .jx:hover, .jx:focus-visible { color: var(--neg); }
 .jvoice { display: flex; align-items: center; gap: var(--lpy); min-width: 0; }

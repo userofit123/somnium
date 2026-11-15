@@ -4,7 +4,7 @@
 .tplan .tpli { padding-inline: 0; }
 .tplan .tpname { text-decoration: none; color: inherit; }
 .tplan .tpname:hover { color: var(--acc); }
-.tplan .tpadd { margin-top: var(--tdy); margin-inline-start: calc(var(--lpy) / -2); }
+.tplan .tpadd { margin-top: var(--tdy); }
 .tplan .tprow { display: flex; align-items: center; gap: var(--lpy); }
 .tplan .tpsec { margin-top: var(--lpy); padding-top: var(--lpy); border-top: 1px solid var(--ol); }
 .tplan .tpx { overflow-wrap: anywhere; }

@@ -349,7 +349,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <InThisDream v-if="signRows.length" :rows="signRows" @mark="markSign" />
     </template>
     <template v-else-if="ready">
-      <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}<span class="muted" aria-hidden="true">·</span><span class="muted">Night details</span></button>
+      <button class="btn tonal s jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}<span class="muted" aria-hidden="true">·</span><span class="muted">Night details</span></button>
       <input v-model="f.title" class="jtitle" placeholder="Title" maxlength="200" />
       <p v-if="f.unfinished" class="tiny muted" style="margin:0">Saved as key words this morning. Write it out while some of it is still there.</p>
       <div v-if="prompts.length" class="jprompts" role="group" aria-label="Key words to write out">
@@ -437,7 +437,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
         </div>
       </div>
 
-      <button class="qb jmore" :aria-expanded="more" @click="more = !more"><Icon :name="more ? 'up' : 'down'" :size="16" />More</button>
+      <button class="btn tonal s jmore" :aria-expanded="more" @click="more = !more"><Icon :name="more ? 'up' : 'down'" :size="16" />More</button>
       <Collapse :open="more">
         <div class="fld">
           <label>Control</label>
@@ -471,7 +471,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jfull .ph { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); margin-bottom: 0; z-index: 2; align-items: center; }
 .jst { color: var(--tx2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jst.err { color: var(--neg); }
-.jnight { align-self: flex-start; padding-left: 0; }
+.jnight { align-self: flex-start; }
 .jtitle { font-size: calc(18px * var(--fsc)); font-weight: 600; }
 .jtext { min-height: 180px; resize: vertical; font-size: var(--fs-lg); line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
@@ -498,6 +498,6 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jan0 { color: var(--tx2); margin-top: calc(-1 * var(--tdy)); }
 .jopts { margin: 0; }
 .jtrig { margin-top: calc(var(--lpy) * .8); width: 100%; }
-.jmore { align-self: flex-start; padding-left: 0; }
+.jmore { align-self: flex-start; }
 .fld { margin-bottom: 0; }
 </style>

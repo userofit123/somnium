@@ -30,7 +30,7 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
       <div class="lbl"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
       <div class="tiny">Write it down before it fades - even a fragment counts.</div>
       <button class="btn o" @click="write"><Icon name="plus" :size="18" />Write last night's dream</button>
-      <button type="button" class="lnk inl tiny" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
+      <button type="button" class="lnk inl" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
     </div>
     <div v-else class="card">
       <div class="lbl hgap"><span class="bi"><Icon name="moon" :size="16" /></span>This morning</div>
@@ -42,9 +42,9 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
       <div v-if="state.kind === 'logged' && state.titled.length" class="htitles">
         <router-link v-for="d in state.titled" :key="d.id" :to="{ name: 'journal-dream', params: { id: d.id } }" class="tiny">{{ d.title }}</router-link>
       </div>
-      <button v-if="unfinished.length" type="button" class="lnk inl tiny hfin" @click="finish">Finish writing: {{ unfinished.length === 1 ? "1 dream" : `${unfinished.length} dreams` }}</button>
+      <button v-if="unfinished.length" type="button" class="lnk inl hfin" @click="finish">Finish writing: {{ unfinished.length === 1 ? "1 dream" : `${unfinished.length} dreams` }}</button>
       <NightCheckIn v-if="night" :key="night.id" :night="night" :nights="j.nights.data.value ?? []" class="hnci" />
-      <div class="hfoot"><router-link to="/journal" class="lnk inl tiny">Open the Journal</router-link><button type="button" class="lnk inl tiny" @click="write">Add another dream</button></div>
+      <div class="hfoot"><router-link to="/journal" class="lnk inl">Open the Journal</router-link><button type="button" class="lnk inl" @click="write">Add another dream</button></div>
     </div>
   </section>
 </template>

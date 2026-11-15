@@ -247,7 +247,7 @@ async function leaveReset() {
       <h1>Your recovery key</h1>
       <p class="muted auth-lede">Save it somewhere safe and private - a password manager, or printed. It is shown only now. Anyone with it and your username can open your journal.</p>
       <code class="key-display">{{ newKey }}</code>
-      <div class="auth-row"><button type="button" class="qb" @click="copyKey">Copy</button><button type="button" class="qb" @click="downloadRecoveryKey(f.username.trim().toLowerCase(), newKey)">Download as text</button></div>
+      <div class="auth-row"><button type="button" class="btn tonal s" @click="copyKey">Copy</button><button type="button" class="btn tonal s" @click="downloadRecoveryKey(f.username.trim().toLowerCase(), newKey)">Download as text</button></div>
       <label class="auth-check"><input v-model="saved" type="checkbox" /> I saved my recovery key</label>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="!saved" @click="leaveWithKey">Continue</button>

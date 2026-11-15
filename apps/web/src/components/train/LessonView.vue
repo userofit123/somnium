@@ -35,7 +35,7 @@ const readCount = computed(() => readings.value.filter((a) => read.value[a.id]).
     <div class="card tpr">
       <div class="tiny"><b>Today's practice</b></div>
       <ul><li v-for="(p, i) in lesson.practice" :key="i">{{ p }}</li></ul>
-      <router-link to="/train" class="lnk inl tiny">Tick them off in Train</router-link>
+      <router-link to="/train" class="lnk inl">Tick them off in Train</router-link>
     </div>
     <template v-if="readings.length">
       <div class="sh"><h2>Read for this lesson</h2><span class="s">{{ readCount }} of {{ readings.length }} read</span></div>

@@ -34,12 +34,12 @@ const nextOpen = computed(() => day.value.targets.find((t) => t.state === "open"
           <button class="btn pmbig" :class="t.id === nextOpen ? 'tonal' : 'o'" :disabled="log.busy.value" @click="log.run(t.id, 'hit')">Hit</button>
           <button class="btn o pmbig" :disabled="log.busy.value" @click="log.run(t.id, 'miss')">Miss</button>
         </div>
-        <button v-else class="lnk tiny" :aria-label="'Undo ' + t.state" @click="log.run(t.id, t.state)"><Icon :name="t.state === 'hit' ? 'check' : 'close'" :size="14" /> {{ t.state === "hit" ? "Hit" : "Miss" }}</button>
+        <button v-else class="lnk" :aria-label="'Undo ' + t.state" @click="log.run(t.id, t.state)"><Icon :name="t.state === 'hit' ? 'check' : 'close'" :size="14" /> {{ t.state === "hit" ? "Hit" : "Miss" }}</button>
         <button v-if="t.state === 'open'" class="ib sm plain" :aria-label="'Remove target'" :title="'Remove target'" @click="toggle.run(t.id, false)"><Icon name="close" :size="16" /></button>
       </div>
       <div v-if="!full" class="pmpick">
-        <button class="lnk tiny" @click="choosing = !choosing">{{ choosing ? "Close list" : `Choose targets (${day.targets.length} of ${PM_PER_DAY})` }}</button>
-        <button v-if="!day.targets.length" class="lnk tiny" @click="laberge.run()">Use LaBerge's example day</button>
+        <button class="lnk" @click="choosing = !choosing">{{ choosing ? "Close list" : `Choose targets (${day.targets.length} of ${PM_PER_DAY})` }}</button>
+        <button v-if="!day.targets.length" class="lnk" @click="laberge.run()">Use LaBerge's example day</button>
         <div v-if="choosing" class="pmlist"><button v-for="t in free" :key="t.id" class="chip" :disabled="toggle.busy.value" @click="toggle.run(t.id, true)">{{ t.text }}</button></div>
       </div>
       <p v-if="week.set" class="tiny pmweek">This week: {{ week.hit }} of {{ week.hit + week.miss }} hit<template v-if="week.rate != null"> · {{ Math.round(week.rate * 100) }}%</template></p>

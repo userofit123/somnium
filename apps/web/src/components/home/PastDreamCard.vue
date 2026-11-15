@@ -29,8 +29,8 @@ const open = ref<string[] | null>(null);
       </router-link>
       <p class="tiny muted">Re-reading old dreams is how you spot your dream signs. <CiteChips :ids="PAST_DREAM_SOURCES" @cite="open = $event" /></p>
       <div class="hkey-acts">
-        <button class="qb" type="button" @click="$emit('notNow')">Not now</button>
-        <button class="qb acc" type="button" @click="reread">Re-read</button>
+        <button class="btn tonal s" type="button" @click="$emit('notNow')">Not now</button>
+        <button class="btn tonal s" type="button" @click="reread">Re-read</button>
       </div>
     </div>
     <SourceSheet v-if="open" :ids="open" @close="open = null" />

@@ -88,7 +88,7 @@ function key(e: KeyboardEvent) {
           <button type="button" role="option" :aria-selected="val != null && val.h >= 12" :class="{ on: val != null && val.h >= 12 }" @click="pickPm(true)">PM</button>
         </div>
       </div>
-      <div v-if="clearable && modelValue" class="tpf"><button type="button" class="qb" @click="emit('update:modelValue', ''); emit('change', ''); close()">No time</button></div>
+      <div v-if="clearable && modelValue" class="tpf"><button type="button" class="btn tonal s" @click="emit('update:modelValue', ''); emit('change', ''); close()">No time</button></div>
     </div>
   </PickerPop>
 </template>

@@ -37,7 +37,7 @@ const ICON: Record<string, string> = { write: "plus", moveOn: "up", finish: "che
       <p class="hst-why tiny"><b>Why:</b> {{ step.why }} <CiteChips :ids="step.sources" @cite="open = $event" /></p>
       <div class="hst-foot">
         <button v-if="step.action" type="button" class="btn" :disabled="moving" @click="act">{{ step.action.label }}</button>
-        <router-link v-if="lesson && step.action?.to !== `/train/lesson/${lesson.id}`" :to="`/train/lesson/${lesson.id}`" class="lnk inl tiny">Read the lesson</router-link>
+        <router-link v-if="lesson && step.action?.to !== `/train/lesson/${lesson.id}`" :to="`/train/lesson/${lesson.id}`" class="lnk inl">Read the lesson</router-link>
       </div>
     </div>
     <SourceSheet v-if="open" :ids="open" @close="open = null" />

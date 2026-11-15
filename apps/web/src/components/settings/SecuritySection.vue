@@ -291,21 +291,21 @@ async function signOutEverywhere() {
     <div class="card flush">
       <div class="li"><Icon :name="localInfo?.recoveryMadeAt ? 'check' : 'info'" :size="18" :class="localInfo?.recoveryMadeAt ? 'sec-ok' : 'muted'" />
         <div class="grow"><div class="t">Recovery key saved</div><div class="s">{{ localInfo?.recoveryMadeAt ? `Made ${fmt.date(localInfo.recoveryMadeAt, { day: "numeric", month: "short", year: "numeric" })}` : "Not made yet - without it a forgotten password locks your journal for good" }}</div></div>
-        <button class="qb" :class="{ acc: !localInfo?.recoveryMadeAt }" :disabled="!journalOpen || busy" @click="makeLocalKey">{{ localInfo?.recoveryMadeAt ? "Replace" : "Make key" }}</button></div>
+        <button class="btn tonal s" :class="{ acc: !localInfo?.recoveryMadeAt }" :disabled="!journalOpen || busy" @click="makeLocalKey">{{ localInfo?.recoveryMadeAt ? "Replace" : "Make key" }}</button></div>
     </div>
     <div class="sh"><h2>Password</h2></div>
     <div class="card flush">
       <div class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Change password</div><div class="s">You need the current one</div></div>
-        <button class="qb" :disabled="busy" @click="changeLocal">Change</button></div>
+        <button class="btn tonal s" :disabled="busy" @click="changeLocal">Change</button></div>
       <div v-if="canSetFromDevice" class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Set a new password</div><div class="s">Forgot it? This phone holds your key, so its screen lock is enough</div></div>
-        <button class="qb" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
+        <button class="btn tonal s" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
     </div>
     <p class="tiny">Your dreams and notes are kept sealed in this device's database: a copy of its files holds no dream text without your password. Dates, counts and ratings stay plain, as on a server. While the journal is open, the key is in the app's memory, and it goes when the app locks.</p>
     <div v-if="recoveryKey" class="card sec-codes">
       <div class="t">Your recovery key</div>
       <p class="s">Save it somewhere safe and private - a password manager, or printed. It opens your journal and sets a new password if you forget yours. It is shown only now; any older key no longer works.</p>
       <code class="key-display sec-key-text">{{ recoveryKey }}</code>
-      <div class="sec-actions"><button class="qb" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="qb" @click="downloadRecoveryKey('your journal on this device', recoveryKey!)"><Icon name="download" :size="15" />Download as text</button></div>
+      <div class="sec-actions"><button class="btn tonal s" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="btn tonal s" @click="downloadRecoveryKey('your journal on this device', recoveryKey!)"><Icon name="download" :size="15" />Download as text</button></div>
       <label class="sec-check"><input v-model="keySaved" type="checkbox" /> I saved my recovery key</label>
       <div class="sec-actions"><button class="btn" :disabled="!keySaved" @click="keySavedDone">Done</button></div>
     </div>
@@ -317,7 +317,7 @@ async function signOutEverywhere() {
       <div v-for="c in checks" :key="c.key" class="li">
         <Icon :name="c.ok ? 'check' : 'info'" :size="18" :class="c.ok ? 'sec-ok' : 'muted'" />
         <div class="grow"><div class="t">{{ c.t }}</div><div class="s">{{ c.s }}</div></div>
-        <button v-if="c.action" class="qb" :class="{ acc: primary === c.key }" :disabled="c.disabled || busy" @click="c.run">{{ c.action }}</button>
+        <button v-if="c.action" class="btn tonal s" :class="{ acc: primary === c.key }" :disabled="c.disabled || busy" @click="c.run">{{ c.action }}</button>
       </div>
     </div>
     <p v-if="noWayBack" class="tiny sec-warn" role="status">None of these is set up. If you forget your password, your journal cannot be opened again. Making a recovery key takes a second.</p>
@@ -328,7 +328,7 @@ async function signOutEverywhere() {
       <div class="t">Your recovery key</div>
       <p class="s">Save it somewhere safe and private - a password manager, or printed. It opens your journal and sets a new password if you forget yours. It is shown only now; any older key no longer works.</p>
       <code class="key-display sec-key-text">{{ recoveryKey }}</code>
-      <div class="sec-actions"><button class="qb" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="qb" @click="downloadKey"><Icon name="download" :size="15" />Download as text</button></div>
+      <div class="sec-actions"><button class="btn tonal s" @click="copy(recoveryKey!, 'Recovery key')"><Icon name="copy" :size="15" />Copy</button><button class="btn tonal s" @click="downloadKey"><Icon name="download" :size="15" />Download as text</button></div>
       <label class="sec-check"><input v-model="keySaved" type="checkbox" /> I saved my recovery key</label>
       <div class="sec-actions"><button class="btn" :disabled="!keySaved" @click="keySavedDone">Done</button></div>
     </div>
@@ -337,10 +337,10 @@ async function signOutEverywhere() {
     <p class="tiny hgap">A code from an authenticator app on top of your password. Any app works - Aegis, Google Authenticator, 1Password, ...</p>
     <div class="card flush">
       <div class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Authenticator app</div><div class="s">{{ totp ? "On - every sign-in asks for a code" : "Off" }}</div></div>
-        <button v-if="!totp && !start" class="qb" @click="tfaStart">Set up</button>
-        <button v-else-if="totp" class="qb" @click="tfaDisable">Turn off</button></div>
+        <button v-if="!totp && !start" class="btn tonal s" @click="tfaStart">Set up</button>
+        <button v-else-if="totp" class="btn tonal s" @click="tfaDisable">Turn off</button></div>
       <div v-if="totp" class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Backup codes</div><div class="s">{{ sec.data.value?.backupCodesLeft ?? 0 }} of 8 left · each works once when the app is out of reach</div></div>
-        <button class="qb" @click="newCodes">New codes</button></div>
+        <button class="btn tonal s" @click="newCodes">New codes</button></div>
     </div>
 
     <!-- setting up: scan, then confirm with one code. The secret is shown only now. -->
@@ -350,10 +350,10 @@ async function signOutEverywhere() {
         <!-- Fixed white and black, not theme tokens: scanners need this contrast in every theme. -->
         <svg class="sec-qr" role="img" aria-label="QR code for the authenticator app" :viewBox="`-4 -4 ${qr.size + 8} ${qr.size + 8}`" shape-rendering="crispEdges"><rect x="-4" y="-4" :width="qr.size + 8" :height="qr.size + 8" fill="#fff" /><path :d="qr.d" fill="#000" /></svg>
         <div class="grow sec-key"><div class="tiny">Key</div><code class="mono sec-code">{{ keyGroups(start.secret) }}</code>
-          <div><button type="button" class="qb" @click="copy(start!.secret, 'Key')"><Icon name="copy" :size="15" />Copy key</button><a class="qb" :href="start.url">Open in app</a></div></div>
+          <div><button type="button" class="btn tonal s" @click="copy(start!.secret, 'Key')"><Icon name="copy" :size="15" />Copy key</button><a class="btn tonal s" :href="start.url">Open in app</a></div></div>
       </div>
       <div class="fld"><label>The code the app shows now</label><input aria-label="The code the app shows now" v-model="code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="123456" required /></div>
-      <div class="sec-actions"><button class="btn" :disabled="busy || code.length < 6">Turn on</button><button type="button" class="qb" @click="start = null">Cancel</button></div>
+      <div class="sec-actions"><button class="btn" :disabled="busy || code.length < 6">Turn on</button><button type="button" class="btn tonal s" @click="start = null">Cancel</button></div>
     </form>
 
     <!-- the backup codes, once: after this they are only kept hashed -->
@@ -361,22 +361,22 @@ async function signOutEverywhere() {
       <div class="t">Your backup codes</div>
       <p class="s">Keep them somewhere safe - a password manager, or printed. Each signs you in once if you lose the authenticator. They are shown only now.</p>
       <div class="sec-grid"><code v-for="c in codes" :key="c" class="mono sec-code">{{ c }}</code></div>
-      <div class="sec-actions"><button class="qb" @click="copy(codes!.join('\n'), 'Codes')"><Icon name="copy" :size="15" />Copy</button><button class="qb" @click="download"><Icon name="download" :size="15" />Download</button><button class="btn" @click="codes = null">I saved them</button></div>
+      <div class="sec-actions"><button class="btn tonal s" @click="copy(codes!.join('\n'), 'Codes')"><Icon name="copy" :size="15" />Copy</button><button class="btn tonal s" @click="download"><Icon name="download" :size="15" />Download</button><button class="btn" @click="codes = null">I saved them</button></div>
     </div>
 
     <div class="sh"><h2>Password</h2></div>
     <div class="card flush">
       <div class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Change password</div><div class="s">{{ sec.data.value?.passwordChangedAt ? `Last changed ${fmt.date(sec.data.value.passwordChangedAt, { day: "numeric", month: "short", year: "numeric" })}` : "You need the current one" }} · other devices are signed out</div></div>
-        <button class="qb" :disabled="!journalOpen || busy || !!sec.data.value?.sealed" @click="changePassword">Change</button></div>
+        <button class="btn tonal s" :disabled="!journalOpen || busy || !!sec.data.value?.sealed" @click="changePassword">Change</button></div>
       <div v-if="canSetFromDevice && !sec.data.value?.sealed" class="li"><Icon name="key" :size="18" class="muted" /><div class="grow"><div class="t">Set a new password</div><div class="s">Forgot it? This phone holds your key, so its screen lock is enough. Other devices are signed out.</div></div>
-        <button class="qb" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
+        <button class="btn tonal s" :disabled="!journalOpen || busy" @click="newPasswordFromDevice">Set</button></div>
       <div v-if="sec.data.value?.sealed" class="li"><Icon name="lock" :size="18" class="muted" /><div class="grow"><div class="t">Your journal is sealed</div><div class="s">The password was reset, so this device cannot open your dreams. Your recovery key opens them again.</div></div>
-        <button class="qb" :class="{ acc: primary === 'sealed' }" @click="lockNow()">Enter recovery key</button></div>
+        <button class="btn tonal s" :class="{ acc: primary === 'sealed' }" @click="lockNow()">Enter recovery key</button></div>
     </div>
     <p class="tiny">The server only ever sees a key made from your password, never the password itself. Your dreams are sealed on this device before they go anywhere. A phone that unlocks with fingerprint or screen lock keeps your journal's key behind its own screen lock; signing it out (or a password reset, which signs out every device) makes it forget the key. The desktop app never holds it: it can't make your computer ask for you.</p>
     <div class="sh"><h2>Sign out everywhere</h2></div>
     <div class="card flush">
-      <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too, and every API token. Use it if a device is lost.</div></div><button class="qb" @click="signOutEverywhere">Sign out everywhere</button></div>
+      <div class="li"><div class="grow"><div class="t">Sign out everywhere</div><div class="s">Ends every session, this one too, and every API token. Use it if a device is lost.</div></div><button class="btn tonal s" @click="signOutEverywhere">Sign out everywhere</button></div>
       <button type="button" class="li click" @click="router.push('/settings/log')"><div class="grow"><div class="t">Activity log</div><div class="s">Sign-ins and security changes</div></div><Icon name="right" :size="16" class="muted" /></button>
     </div>
   </template>

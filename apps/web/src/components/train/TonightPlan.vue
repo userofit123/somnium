@@ -115,32 +115,32 @@ const use = useChange(async (i: TonightIdea) => {
         <p v-if="suggestion.noWbtb" class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.noWbtb)" @cite="cite = $event" /></p>
         <div class="tprow">
           <button type="button" class="btn s" :class="{ tonal: compact }" :disabled="use.busy.value" @click="use.run(suggestion)">Use this plan</button>
-          <button type="button" class="qb acc" @click="picking = true">Change</button>
+          <button type="button" class="btn tonal s" @click="picking = true">Change</button>
         </div>
         <template v-if="suggestion.alt">
           <p class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.alt.reason)" @cite="cite = $event" /></p>
-          <button type="button" class="qb acc tpadd" :disabled="use.busy.value" @click="use.run(suggestion.alt)">Use {{ ideaTitle(suggestion.alt) }}</button>
+          <button type="button" class="btn tonal s tpadd" :disabled="use.busy.value" @click="use.run(suggestion.alt)">Use {{ ideaTitle(suggestion.alt) }}</button>
         </template>
       </div>
       <div v-else class="empty sm"><Icon name="moon" :size="34" /><b>No technique planned yet</b>Pick one to try tonight.<br /><button class="btn tonal" type="button" @click="picking = true">Pick a technique</button></div>
-      <button v-if="!compact && planned.length && (anything || !suggestion)" type="button" class="qb acc tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
+      <button v-if="!compact && planned.length && (anything || !suggestion)" type="button" class="btn tonal s tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
 
       <div class="tpsec">
         <div v-if="!editing" class="tprow">
           <div class="grow"><div class="t">Intention</div><div class="tiny tpx">{{ night?.intention || "None set" }}</div></div>
-          <button type="button" class="qb acc" @click="editing = true"><Icon name="edit" :size="16" />{{ night?.intention ? "Change" : "Set an intention" }}</button>
+          <button type="button" class="btn tonal s" @click="editing = true"><Icon name="edit" :size="16" />{{ night?.intention ? "Change" : "Set an intention" }}</button>
         </div>
         <form v-else class="tpedit" @submit.prevent="save.run()">
           <label class="t" :for="compact ? 'h-intention' : 't-intention'">Intention</label>
           <input :id="compact ? 'h-intention' : 't-intention'" v-model="text" type="text" maxlength="200" placeholder="Next time I dream, I will notice I am dreaming" autocomplete="off" @keydown.esc="cancel" />
-          <div class="tprow"><span class="grow" /><button type="button" class="qb" @click="cancel">Cancel</button><button type="submit" class="btn o s" :disabled="save.busy.value">Save</button></div>
+          <div class="tprow"><span class="grow" /><button type="button" class="btn tonal s" @click="cancel">Cancel</button><button type="submit" class="btn o s" :disabled="save.busy.value">Save</button></div>
         </form>
       </div>
 
       <div v-if="!compact" class="tpsec">
         <div v-if="!planning" class="tprow">
           <div class="grow"><div class="t">When I'm lucid I will</div><div class="tiny tpx">{{ night?.lucidPlan || "No plan yet" }}</div></div>
-          <button type="button" class="qb acc" @click="planning = true"><Icon name="edit" :size="16" />{{ night?.lucidPlan ? "Change" : "Plan it" }}</button>
+          <button type="button" class="btn tonal s" @click="planning = true"><Icon name="edit" :size="16" />{{ night?.lucidPlan ? "Change" : "Plan it" }}</button>
         </div>
         <form v-else class="tpedit" @submit.prevent="savePlan.run()">
           <label class="t" for="t-lucid-plan">When I'm lucid I will</label>
@@ -149,7 +149,7 @@ const use = useChange(async (i: TonightIdea) => {
             <button v-for="p in planIdeas" :key="p" type="button" class="fchip" :class="{ on: plan === p }" :aria-pressed="plan === p" @click="plan = p">{{ p }}</button>
           </div>
           <p class="tiny tpwhy"><LearnInline :nodes="parseInline(LUCID_PLAN_WHY)" @cite="cite = $event" /></p>
-          <div class="tprow"><span class="grow" /><button type="button" class="qb" @click="cancelPlan">Cancel</button><button type="submit" class="btn o s" :disabled="savePlan.busy.value">Save</button></div>
+          <div class="tprow"><span class="grow" /><button type="button" class="btn tonal s" @click="cancelPlan">Cancel</button><button type="submit" class="btn o s" :disabled="savePlan.busy.value">Save</button></div>
         </form>
       </div>
 
@@ -166,7 +166,7 @@ const use = useChange(async (i: TonightIdea) => {
         </div>
         <div class="tpsec tprow">
           <div class="grow"><div class="t">WBTB alarm</div><div class="tiny">{{ alarm ? fmt.time(alarm) : "No alarm" }}</div></div>
-          <router-link to="/train/guided/wbtb" class="qb acc"><Icon name="clock" :size="16" />{{ alarm ? "Change" : "Plan WBTB" }}</router-link>
+          <router-link to="/train/guided/wbtb" class="btn tonal s"><Icon name="clock" :size="16" />{{ alarm ? "Change" : "Plan WBTB" }}</router-link>
         </div>
       </template>
     </div>

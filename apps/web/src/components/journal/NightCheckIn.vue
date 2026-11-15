@@ -80,9 +80,9 @@ const detailsOpen = ref(false);
       </div>
     </template>
     <div class="nci-foot">
-      <button v-if="!ask.planned" type="button" class="lnk inl tiny" @click="finish">{{ ticked ? "Done" : "Nothing" }}</button>
-      <button v-else type="button" class="lnk inl tiny" @click="finish">Skip</button>
-      <button type="button" class="lnk inl tiny" @click="detailsOpen = true">Night details</button>
+      <button v-if="!ask.planned" type="button" class="lnk inl" @click="finish">{{ ticked ? "Done" : "Nothing" }}</button>
+      <button v-else type="button" class="lnk inl" @click="finish">Skip</button>
+      <button type="button" class="lnk inl" @click="detailsOpen = true">Night details</button>
     </div>
     <NightSheet v-if="detailsOpen" :date="night.date" :nap="night.nap" :night-id="night.id" @close="detailsOpen = false" />
   </div>

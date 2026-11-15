@@ -62,7 +62,7 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
   </section>
   <section v-else class="hextra" data-testid="goals">
     <!-- the header's link only once there is a goal: an empty list has its own button -->
-    <div class="sh"><h2>Goals</h2><button v-if="rows.length" class="lnk tiny" type="button" @click="open()">Add a goal</button></div>
+    <div class="sh"><h2>Goals</h2><button v-if="rows.length" class="lnk" type="button" @click="open()">Add a goal</button></div>
     <div v-if="!rows.length" class="card empty"><Icon name="trophy" :size="34" /><b>No goals yet</b>A goal is one number you would like to reach, such as 5 nights with a dream a week.<br /><button class="btn tonal" type="button" @click="open()">Add a goal</button></div>
     <div v-for="r in rows" :key="r.g.id" class="card goalc">
       <div class="goalh"><div class="grow"><div class="t">{{ GOAL_KIND_INFO[r.g.kind].label }}</div><div class="tiny num">{{ r.p.line }}<template v-if="r.left != null && !r.p.done"> · {{ r.left }} {{ r.left === 1 ? "day" : "days" }} left</template><template v-if="r.p.done"> · reached</template></div></div>

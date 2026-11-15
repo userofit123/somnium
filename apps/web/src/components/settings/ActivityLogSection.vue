@@ -60,5 +60,5 @@ const outbox = computed(() => waiting.value.map((x) => ({ ...x, what: WHAT.find(
       </div>
     </div></div>
   </template>
-  <div v-if="log.hasNextPage.value" class="center"><button class="qb" :disabled="log.isFetchingNextPage.value" @click="log.fetchNextPage()">{{ log.isFetchingNextPage.value ? "Loading…" : "Show older" }}</button></div>
+  <div v-if="log.hasNextPage.value" class="center"><button class="btn tonal s" :disabled="log.isFetchingNextPage.value" @click="log.fetchNextPage()">{{ log.isFetchingNextPage.value ? "Loading…" : "Show older" }}</button></div>
 </template>

@@ -21,7 +21,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
       <div class="tlh">
         <div class="t">{{ lesson.title }}</div>
         <div class="tiny">{{ lesson.summary }}</div>
-        <router-link :to="'/train/lesson/' + lesson.id" class="lnk inl tiny">Read the lesson</router-link>
+        <router-link :to="'/train/lesson/' + lesson.id" class="lnk inl">Read the lesson</router-link>
       </div>
       <div v-if="rule" class="tmove">
         <ProgressBar :percent="pct" label="Progress towards moving on" />
@@ -29,7 +29,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
           <div class="grow"><div class="tprog">{{ rule.progress }}</div><div class="tiny">{{ rule.reason }}</div></div>
           <button v-if="rule.ready" class="btn" :disabled="moving" @click="emit('moveOn')">{{ lesson.number === lessons.length ? "Finish the course" : "Move on" }}</button>
         </div>
-        <button v-if="!rule.ready" type="button" class="lnk inl tiny" :disabled="moving" @click="emit('moveOn')">{{ lesson.number === lessons.length ? "Finish the course now" : "Move on now" }}</button>
+        <button v-if="!rule.ready" type="button" class="lnk inl" :disabled="moving" @click="emit('moveOn')">{{ lesson.number === lessons.length ? "Finish the course now" : "Move on now" }}</button>
       </div>
     </div>
   </section>

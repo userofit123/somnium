@@ -61,8 +61,8 @@ async function restore(ev: Event) {
         <div class="li"><div class="grow"><div class="t">How often</div></div><AppSelect :model-value="s.backup.every" :options="[{ value: 'daily', label: 'Every day' }, { value: 'weekly', label: 'Every week' }]" title="How often" class="sel-auto" @update:model-value="(v) => set({ every: v })" /></div>
         <div class="li"><div class="grow"><div class="t">Keep</div><div class="s">Older backups are removed, the newest always stays</div></div><AppSelect :model-value="s.backup.keep" :options="[3, 7, 14, 30, 60].map((n) => ({ value: n, label: `The last ${n}` }))" title="Keep" class="sel-auto" @update:model-value="(v) => set({ keep: v })" /></div>
         <div class="li"><div class="grow"><div class="t">Where</div><div class="s" :class="{ neg: !automatic && !canPickFolder() }">{{ whereText }}</div></div>
-          <button v-if="canPickFolder() || N?.chooseBackupFolder" class="qb acc" @click="chooseFolder">{{ folder ? "Change" : "Pick folder" }}</button>
-          <button v-if="N?.openBackupFolder" class="qb" @click="N.openBackupFolder()">Open</button></div>
+          <button v-if="canPickFolder() || N?.chooseBackupFolder" class="btn tonal s" @click="chooseFolder">{{ folder ? "Change" : "Pick folder" }}</button>
+          <button v-if="N?.openBackupFolder" class="btn tonal s" @click="N.openBackupFolder()">Open</button></div>
       </template>
       <label class="tgl"><div class="grow"><div class="t">Extra passphrase</div><div class="s">Asked for each backup you make by hand; automatic ones can't ask, so they don't use it</div></div><span class="tg"><input type="checkbox" :checked="s.backup.passphrase" @change="set({ passphrase: ($event.target as HTMLInputElement).checked })" /></span></label>
       <div class="li"><div class="grow"><div class="t">Last backup</div><div class="s">{{ log.lastAt ? [`${fmt.date(log.lastAt)} ${fmt.time(log.lastAt)}`, size(log.size), log.where].filter(Boolean).join(" · ") : "None yet" }}<span v-if="log.error" class="neg"> · {{ log.error }}</span></div></div><button class="btn s" :disabled="busy" @click="now">{{ automatic ? "Back up now" : "Download one now" }}</button></div>

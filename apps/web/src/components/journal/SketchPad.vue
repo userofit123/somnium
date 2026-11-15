@@ -57,8 +57,8 @@ function save() {
     <div class="skbar">
       <div class="seg"><button :class="{ on: tool === 'pen' }" :aria-pressed="tool === 'pen'" @click="tool = 'pen'"><Icon name="edit" :size="14" />Pen</button><button :class="{ on: tool === 'eraser' }" :aria-pressed="tool === 'eraser'" @click="tool = 'eraser'">Eraser</button></div>
       <div class="grow" />
-      <button class="qb" :disabled="!canUndo" @click="back"><Icon name="left" :size="14" />Undo</button>
-      <button class="qb" @click="clear"><Icon name="trash" :size="14" />Clear</button>
+      <button class="btn tonal s" :disabled="!canUndo" @click="back"><Icon name="left" :size="14" />Undo</button>
+      <button class="btn tonal s" @click="clear"><Icon name="trash" :size="14" />Clear</button>
     </div>
     <canvas ref="cv" class="skc" aria-label="Drawing area" @pointerdown.prevent="down" @pointermove.prevent="move" @pointerup="up" @pointercancel="up" @pointerleave="up" />
     <div class="skfoot"><button class="btn o" @click="emit('close')">Cancel</button><button class="btn" :disabled="!drawn || busy" @click="save">Save sketch</button></div>

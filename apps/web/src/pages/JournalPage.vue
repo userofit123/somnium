@@ -194,7 +194,7 @@ const menu = computed(() => [
 
         <QueryState v-if="failed.isError.value" :q="failed" what="your journal" />
         <!-- the page's one No recall, also above an empty journal -->
-        <div v-else-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
+        <div v-else-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="btn tonal s" @click="noRecall(today)">No recall</button></div></div>
         <!-- once last night is logged: did you do its techniques (LDJ-79), asked once -->
         <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
         <div v-if="empty && !failed.isError.value" class="card empty">

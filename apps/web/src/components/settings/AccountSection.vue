@@ -65,12 +65,12 @@ async function deleteAccount() {
   <!-- flush cards: rows run edge to edge, so a tapped row lights up the full width like every other list -->
   <div class="card flush">
     <div class="li"><div class="grow t">Name</div><input class="ac-in" :value="user?.displayName ?? ''" placeholder="Your name" autocomplete="name" @change="saveName(val($event))" /></div>
-    <div class="li"><div class="grow"><div class="t">Sign out</div><div class="s">From this device</div></div><button class="qb" @click="signOut()">Sign out</button></div>
+    <div class="li"><div class="grow"><div class="t">Sign out</div><div class="s">From this device</div></div><button class="btn tonal s" @click="signOut()">Sign out</button></div>
   </div>
 
   <div v-if="sync.on" class="card"><div class="li"><Icon name="refresh" :size="18" class="muted" /><div class="grow"><div class="t">Works offline</div>
     <div class="s">{{ !sync.online ? "Can't reach the server: changes are saved on this device" : sync.syncing ? "Syncing…" : sync.lastAt ? `In sync · ${ago(new Date(sync.lastAt).toISOString())}` : "Getting ready" }}{{ sync.waiting ? ` · ${sync.waiting} waiting to be sent` : "" }}{{ sync.error ? ` · ${sync.error}` : "" }}</div></div>
-    <button class="qb" :disabled="sync.syncing" @click="schedule(0)">Sync now</button></div></div>
+    <button class="btn tonal s" :disabled="sync.syncing" @click="schedule(0)">Sync now</button></div></div>
 
   <template v-if="localAccount === false">
     <div class="sh"><h2>Signed-in devices</h2><button v-if="others" class="lnk" @click="endOthers">Sign out the others</button></div>
@@ -80,12 +80,12 @@ async function deleteAccount() {
       <div v-for="x in devices" :key="x.id" class="li"><Icon :name="icon(x)" :size="18" class="muted" />
         <div class="grow"><div class="t">{{ x.deviceName || x.platform }}</div>
           <div class="s">{{ (x.current ? "This device · active now" : `Last active ${ago(x.lastSeenAt)} · signed in ${fmt.date(x.createdAt, { day: "numeric", month: "short", year: "numeric" })}`) + (x.holdsKey ? " · holds your key" : "") }}</div></div>
-        <button v-if="!x.current" class="qb" @click="endSession(x.id)">Sign out</button></div>
+        <button v-if="!x.current" class="btn tonal s" @click="endSession(x.id)">Sign out</button></div>
     </div>
   </template>
 
-  <div v-if="localAccount === true" class="card"><div class="li"><div class="grow"><div class="t">Delete account</div><div class="s">This account is only on this device. Remove it under Servers & accounts.</div></div><button class="qb" @click="router.push('/settings/accounts')">Open</button></div></div>
-  <div v-else-if="localAccount === false" class="card"><div class="li"><div class="grow"><div class="t ac-neg">Delete account</div><div class="s">Deletes everything you have in Somnium</div></div><button class="qb danger" @click="deleteAccount">Delete</button></div></div>
+  <div v-if="localAccount === true" class="card"><div class="li"><div class="grow"><div class="t">Delete account</div><div class="s">This account is only on this device. Remove it under Servers & accounts.</div></div><button class="btn tonal s" @click="router.push('/settings/accounts')">Open</button></div></div>
+  <div v-else-if="localAccount === false" class="card"><div class="li"><div class="grow"><div class="t ac-neg">Delete account</div><div class="s">Deletes everything you have in Somnium</div></div><button class="btn r s" @click="deleteAccount">Delete</button></div></div>
 </template>
 
 <style scoped>

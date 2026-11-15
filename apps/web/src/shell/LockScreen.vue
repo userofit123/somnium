@@ -348,7 +348,7 @@ async function leave() {
       <h1>{{ firstKey ? "Your recovery key" : "Your new recovery key" }}</h1>
       <p class="muted auth-lede">{{ firstKey ? "Save it somewhere safe and private - a password manager, or printed. It is shown only now. Anyone with it can open your journal on this device." : "The one you typed no longer works. Save this one somewhere safe and private - it is shown only now." }}</p>
       <code class="key-display">{{ newKey }}</code>
-      <div class="lock-row"><button type="button" class="qb" @click="copyKey">Copy</button><button type="button" class="qb" @click="downloadRecoveryKey(keyOwner(), newKey)">Download as text</button></div>
+      <div class="lock-row"><button type="button" class="btn tonal s" @click="copyKey">Copy</button><button type="button" class="btn tonal s" @click="downloadRecoveryKey(keyOwner(), newKey)">Download as text</button></div>
       <label class="lock-check"><input v-model="saved" type="checkbox" /> I saved my recovery key</label>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="!saved" @click="leaveNewKey">Open journal</button>

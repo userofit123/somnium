@@ -205,8 +205,8 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
 
       <div v-if="pickedSug" class="card jpick" role="group" aria-label="Found in the text">
         <div class="grow"><b>{{ pickedSug.name }}</b><span class="tiny jmut"> · {{ ELEMENT_KIND_LABEL[pickedSug.kind] }}</span></div>
-        <button class="qb acc" :disabled="busy" @click="confirmSug(pickedSug)"><Icon name="check" :size="14" />Confirm</button>
-        <button class="qb" :disabled="busy" @click="rejectSug(pickedSug)"><Icon name="close" :size="14" />Not this</button>
+        <button class="btn tonal s" :disabled="busy" @click="confirmSug(pickedSug)"><Icon name="check" :size="14" />Confirm</button>
+        <button class="btn tonal s" :disabled="busy" @click="rejectSug(pickedSug)"><Icon name="close" :size="14" />Not this</button>
       </div>
       <div v-if="found.length" class="jfound">
         <div class="tiny jmut">Found in the text · tap to confirm or reject</div>
@@ -234,7 +234,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
       </section>
 
       <section v-if="night" class="jsec">
-        <div class="jnh"><span class="tiny jmut">The night</span><button type="button" class="lnk inl tiny" @click="nightOpen = true">{{ facts.length ? "Edit" : "Add bedtime and techniques" }}</button></div>
+        <div class="jnh"><span class="tiny jmut">The night</span><button type="button" class="lnk inl" @click="nightOpen = true">{{ facts.length ? "Edit" : "Add bedtime and techniques" }}</button></div>
         <div v-if="facts.length" class="card"><div class="list"><div v-for="m in facts" :key="m.label" class="li"><div class="grow"><div class="s">{{ m.label }}</div><div class="t">{{ m.value }}</div></div></div></div></div>
       </section>
       <NightSheet v-if="nightOpen && night" :date="night.date" :nap="night.nap" :night-id="night.id" @close="nightOpen = false" />

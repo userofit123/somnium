@@ -34,7 +34,7 @@ async function renameAcc(id: string, cur: string) { const n = await prompt("Name
         <h1>On this phone</h1>
         <div class="fld"><label>Your name</label><input aria-label="Your name" v-model="name" /></div>
         <button class="btn block lg" @click="addLocal(name)">Start</button>
-        <button class="qb mid" @click="mode = ''">Back</button>
+        <button class="btn tonal s mid" @click="mode = ''">Back</button>
       </template>
       <template v-else>
         <h1>Your server</h1>
@@ -42,7 +42,7 @@ async function renameAcc(id: string, cur: string) { const n = await prompt("Name
         <div class="fld"><label>Name (optional)</label><input aria-label="Name (optional)" v-model="label" placeholder="Home" /></div>
         <div v-if="err" class="err">{{ err }}</div>
         <button class="btn block lg" :disabled="busy || !url.trim()" @click="connect">Check and add</button>
-        <button class="qb mid" @click="mode = ''">Back</button>
+        <button class="btn tonal s mid" @click="mode = ''">Back</button>
       </template>
     </div>
   </div>

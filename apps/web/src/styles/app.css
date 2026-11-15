@@ -181,10 +181,6 @@ button.li { width: 100%; border-top: 0; border-inline: 0; background: none; font
 html[data-mode="light"] .pr { color: var(--gold-ink); }
 
 /* quiet buttons */
-.qb { border: 0; background: none; color: var(--tx2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-sm); font-size: var(--fs); font-weight: 500; }
-.qb:hover { background: var(--s2); color: var(--tx); }
-.qb.acc { color: var(--acc); }
-.qb.danger { color: var(--neg); }
 .ib.sm { width: 36px; height: 36px; }
 .ib.sm svg { width: 18px; height: 18px; }
 .ib.plain { border: 0; background: none; }
@@ -462,7 +458,7 @@ html.phone .scr.leaving .sht { animation: up .22s ease-in reverse forwards; }
   }
 }
 /* controls */
-.fchip, .cal .d, .stt, .qb, .ib, .tabs button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
+.fchip, .cal .d, .stt, .ib, .tabs button { transition: background .2s, color .2s, border-color .2s, transform .15s; }
 /* the page tabs' underline glides to the chosen tab (core/segSlide.ts) */
 .tabs { position: relative; }
 .tabs.tsl button.on { border-bottom-color: transparent; }
@@ -524,7 +520,7 @@ html.phone[data-den="compact"] { --lmh: 44px; }
 .fpick.sel-auto { width: auto; }
 .dlg-s { width: min(440px, 100%); }
 .scr.top { align-items: flex-start; padding-top: 12vh; }
-.qb.mid { margin: var(--hg) auto 0; display: flex; }
+.btn.mid { margin: var(--hg) auto 0; display: flex; }
 .apr.flush { margin-top: 0; }
 .grid.set-g { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
 .ring { transform: rotate(-90deg); }

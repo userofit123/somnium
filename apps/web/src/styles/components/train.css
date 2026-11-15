@@ -48,7 +48,6 @@
 .tview .tpr { margin: var(--spg) 0; }
 .tview .tpr ul { margin: var(--tdy) 0; padding-inline-start: 1.5em; }
 html.phone .tuse .btn { width: 100%; }
-.train .lnk.inl.tiny { font-size: var(--fs-xs); }
 
 /* memory targets, meditation (LDJ-26, LDJ-50) */
 .tpm .pmrow { display: flex; align-items: center; gap: calc(var(--lpy) * 1.2); padding: var(--lpy) 0; border-bottom: 1px solid var(--ol); }

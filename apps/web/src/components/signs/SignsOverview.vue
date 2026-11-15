@@ -112,7 +112,7 @@ async function dismissOne(e: Element) {
             <span class="t">A recurring dream</span>
             <span class="s">{{ seen(g.lastSeen) }} · add who and what was in it to make it a dream sign</span>
           </span>
-          <button v-if="unmarked(g).length" type="button" class="qb" :disabled="busy === g.dreamIds[0]" @click="markGroup(g)"><Icon name="sparkle" :size="16" />Mark as dream sign</button>
+          <button v-if="unmarked(g).length" type="button" class="btn tonal s" :disabled="busy === g.dreamIds[0]" @click="markGroup(g)"><Icon name="sparkle" :size="16" />Mark as dream sign</button>
           <span v-else-if="g.core.length" class="tiny sgacc sgmark"><Icon name="sparkle" :size="16" />Dream sign</span>
         </div>
       </div></div>
@@ -123,7 +123,7 @@ async function dismissOne(e: Element) {
       <div class="card"><div class="list">
         <div v-for="s in suggestions" :key="s.element.id" class="li sgrow" :class="{ on: selected === s.element.id }">
           <button type="button" class="grow sgmin sgopen sgcol" @click="emit('open', s.element.id)"><span class="t ellipsis">{{ s.element.name }}</span><span class="s">{{ KIND_ONE[s.element.kind] }} · found in {{ dreamsText(s.stat.dreamCount) }}</span></button>
-          <button type="button" class="qb" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
+          <button type="button" class="btn tonal s" :disabled="busy === s.element.id" @click="confirmOne(s.element)"><Icon name="check" :size="16" />Confirm</button>
           <Menu :items="[{ label: 'Confirm as a dream sign', icon: 'sparkle', run: () => confirmSign(s.element) }, { label: 'Merge into another', icon: 'layers', run: () => mergeOne(s.element) }, { label: 'Dismiss', icon: 'close', danger: true, run: () => dismissOne(s.element) }]" />
         </div>
       </div></div>

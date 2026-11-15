@@ -10,7 +10,7 @@ const emit = defineEmits<{ clear: [] }>();
     <div class="fbox"><slot /></div>
     <div v-if="count || active" class="row ffoot">
       <span class="tiny grow">{{ count }}</span>
-      <button v-if="active" class="qb" @click="emit('clear')">Clear filters</button>
+      <button v-if="active" class="btn tonal s" @click="emit('clear')">Clear filters</button>
     </div>
   </div>
 </template>
@@ -20,5 +20,5 @@ const emit = defineEmits<{ clear: [] }>();
 .fpanel { margin-bottom: var(--hg); }
 .fbox { display: flex; flex-direction: column; gap: var(--hg); padding: calc(var(--cpy) - 3px) calc(var(--cpx) - 4px); border-radius: var(--r-md); background: var(--s2); }
 .ffoot { margin: 2px 0 0; min-height: 28px; }
-.ffoot .qb { padding: calc(var(--tdy) * .67) calc(var(--hg) * .8); font-size: var(--fs-sm); }
+
 </style>

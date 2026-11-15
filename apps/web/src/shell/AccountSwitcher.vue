@@ -46,7 +46,7 @@ const items = computed<Item[]>(() => [
     <button v-for="r in others" :key="r.id" type="button" class="li click" :aria-label="`Switch to ${r.name}, ${r.where}`" @click="switchTo(r.id)">
       <span class="bi sg"><Icon name="swap" :size="17" /></span>
       <span class="grow"><span class="t">{{ r.name }}</span><span class="s">{{ r.where }}</span></span>
-      <span class="qb" aria-hidden="true">Switch</span>
+      <span class="btn tonal s" aria-hidden="true">Switch</span>
     </button>
     <button type="button" class="li click" @click="manage">
       <span class="bi sg"><Icon name="server" :size="17" /></span>

@@ -87,10 +87,10 @@ const host = location.host;
         <Icon name="device" :size="18" class="muted" />
         <div class="grow"><div class="t">{{ a.name }}</div><div class="s">Everything on this {{ dev }}</div></div>
         <span v-if="a.id === saved.active" class="tiny acc">In use</span>
-        <button v-else class="qb" @click="switchTo(a.id)">Switch</button>
+        <button v-else class="btn tonal s" @click="switchTo(a.id)">Switch</button>
         <Menu :items="[{ label: 'Rename', icon: 'edit', run: () => renameAccount(a) }, { label: 'Remove', icon: 'trash', danger: true, sep: true, run: () => removeAccount(a) }]" />
       </div>
-      <div v-if="!ordered.device.length" class="li"><div class="grow"><div class="s">No account on this {{ dev }}. Add one to keep a journal here with no server at all.</div></div><button class="qb" @click="addLocal">Add</button></div>
+      <div v-if="!ordered.device.length" class="li"><div class="grow"><div class="s">No account on this {{ dev }}. Add one to keep a journal here with no server at all.</div></div><button class="btn tonal s" @click="addLocal">Add</button></div>
     </div>
 
     <template v-for="g in ordered.servers" :key="g.server.id">
@@ -108,10 +108,10 @@ const host = location.host;
           <Icon name="user" :size="18" class="muted" />
           <div class="grow"><div class="t">{{ who(a) }}</div><div class="s">{{ labelFor(a) }}</div></div>
           <span v-if="a.id === saved.active" class="tiny acc">In use</span>
-          <button v-else class="qb" @click="switchTo(a.id)">Switch</button>
+          <button v-else class="btn tonal s" @click="switchTo(a.id)">Switch</button>
           <Menu :items="[{ label: 'Remove account', icon: 'trash', danger: true, run: () => removeAccount(a) }]" />
         </div>
-        <div v-if="!g.accounts.length" class="li"><div class="grow"><div class="s">No account on this server yet</div></div><button class="qb" @click="addAccount(g.server)">Sign in</button></div>
+        <div v-if="!g.accounts.length" class="li"><div class="grow"><div class="s">No account on this server yet</div></div><button class="btn tonal s" @click="addAccount(g.server)">Sign in</button></div>
       </div>
     </template>
 
@@ -120,7 +120,7 @@ const host = location.host;
       <div class="fld"><label for="srv-url">Address</label><input id="srv-url" v-model="url" placeholder="somnium.example.com" autocapitalize="off" autocomplete="off" spellcheck="false" inputmode="url" @keydown.enter="addServer" /></div>
       <p v-if="warn" class="tiny" role="note"><Icon name="info" :size="14" /> {{ warn }}</p>
       <div v-if="err" class="err" role="alert">{{ err }}</div>
-      <div class="row"><button class="btn" :disabled="busy || !url.trim()" @click="addServer">{{ busy ? "Checking…" : "Check and add" }}</button><button class="qb" @click="adding = false; err = ''">Cancel</button></div>
+      <div class="row"><button class="btn" :disabled="busy || !url.trim()" @click="addServer">{{ busy ? "Checking…" : "Check and add" }}</button><button class="btn tonal s" @click="adding = false; err = ''">Cancel</button></div>
     </div>
     <button v-else class="btn" @click="adding = true"><Icon name="plus" :size="16" />Add a server</button>
     <p class="tiny">Switch locks the open account and opens the other on its own lock screen, or its sign-in if it isn't signed in. Each account keeps its own copy of its journal, drafts and unsent changes on this {{ dev }}, so switching never mixes them and works without a connection. Removing an account deletes all of that from this {{ dev }}. Names and addresses are kept on this {{ dev }} only.</p>

@@ -87,8 +87,8 @@ function key(e: KeyboardEvent) {
           :disabled="!allowed(c.ymd)" :aria-label="fmt.dateLong(c.ymd)" :aria-pressed="c.ymd === modelValue" :aria-current="c.ymd === today ? 'date' : undefined" @click="pick(c.ymd)">{{ c.n }}</button>
       </div>
       <div class="dpf">
-        <button v-if="allowed(today)" type="button" class="qb acc" @click="pick(today)">Today</button>
-        <button v-if="clearable && modelValue" type="button" class="qb" @click="pick('')">Clear</button>
+        <button v-if="allowed(today)" type="button" class="btn tonal s" @click="pick(today)">Today</button>
+        <button v-if="clearable && modelValue" type="button" class="btn tonal s" @click="pick('')">Clear</button>
       </div>
     </div>
   </PickerPop>

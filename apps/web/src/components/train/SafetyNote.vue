@@ -11,6 +11,6 @@ const lines = safetyLines.map((l) => parseInline(l));
   <aside class="tsafe" aria-label="Sleep and safety">
     <div class="tiny"><b>Sleep and safety</b></div>
     <ul><li v-for="(l, i) in lines" :key="i" class="tiny"><LearnInline :nodes="l" @cite="emit('cite', $event)" /></li></ul>
-    <router-link to="/learn/safety/who-should-be-careful" class="lnk inl tiny">More in Learn</router-link>
+    <router-link to="/learn/safety/who-should-be-careful" class="lnk inl">More in Learn</router-link>
   </aside>
 </template>
