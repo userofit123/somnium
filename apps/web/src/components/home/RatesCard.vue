@@ -11,7 +11,7 @@ const recall = computed(() => recallLine(props.rates.recall));
 <template>
   <section class="hrates">
     <div class="sh"><h2>Your streaks</h2><router-link to="/progress" class="lnk">Progress<Icon name="right" :size="14" /></router-link></div>
-    <div class="grid g3 keep">
+    <div class="grid g3 keep hrt">
       <div class="card hero stat"><div class="lbl"><span class="bi"><Icon name="flame" :size="15" /></span>Streak</div><div class="val num">{{ rates.streak }}</div><div class="sub">{{ rates.streak === 1 ? "morning" : "mornings" }} logged</div></div>
       <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Recall</div><div class="val num">{{ recall.value }}</div><div class="sub">{{ recall.sub }}, {{ rates.recall.days }} days</div></div>
       <div class="card stat"><div class="lbl"><span class="bi"><Icon name="sparkle" :size="15" /></span>Lucid</div><div class="val num">{{ rates.lucidThisMonth }}</div><div class="sub">{{ rates.lucidThisMonth === 1 ? "dream" : "dreams" }} this month</div></div>
@@ -24,4 +24,8 @@ const recall = computed(() => recallLine(props.rates.recall));
 /* under the tiles, one quiet line */
 .hrecall { display: block; margin-top: var(--lpy); color: var(--tx2); text-decoration: none; }
 .hrecall b { color: var(--acc); font-weight: 600; }
+/* on a phone three tiles across leave each too narrow: two across (as Motus's phone grid), the streak alone on top,
+   so no tile is left on its own beside a hole */
+html.phone .hrt { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+html.phone .hrt > :first-child { grid-column: 1 / -1; }
 </style>

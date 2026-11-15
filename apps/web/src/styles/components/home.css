@@ -1,6 +1,5 @@
 /* Home (PLAN.md §6.1): theme and density tokens only. The course's tick list and progress bar come from train.css. */
 .home .hgrid { align-items: start; }
-.home .hcol > section:first-child > .sh:first-child { margin-top: 0; }
 .home .t { font-weight: 600; }
 
 /* this morning (the titles and links line up with the text beside the summary's icon) */
@@ -12,7 +11,8 @@
 /* tonal on the hero's own colour, so Today's step keeps the only filled button */
 .hwrite .hw-btn { background: color-mix(in srgb, var(--onc) 16%, transparent); color: var(--onc); }
 .hwrite .lnk { padding: 0; color: var(--onc); }
-html.phone .hwrite .hw-acts { flex-direction: column; align-items: stretch; }
+/* on a phone the row spans the card (the hero aligns its lines to the start, which would shrink it to the button) */
+html.phone .hwrite .hw-acts { align-self: stretch; flex-direction: column; align-items: stretch; gap: var(--tdy); }
 html.phone .hwrite .hw-acts .lnk { align-self: center; }
 html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 .hsum { display: flex; align-items: center; gap: var(--lpy); color: var(--tx); }
@@ -37,11 +37,9 @@ html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 .hed .hfix { visibility: hidden; }
 
 /* the recovery key reminder above the blocks (LDJ-151) */
-.hkey { margin-bottom: var(--spg); }
 .hkey-acts { display: flex; justify-content: flex-end; gap: var(--lpy); flex-wrap: wrap; }
 
 /* today's step (LDJ-107): above the blocks, full width; a quiet accent edge marks it as the one to start with */
-.hstep { margin-bottom: var(--spg); }
 .hstep > .sh { margin-top: 0; }
 .hstep > .card { display: flex; flex-direction: column; gap: var(--lpy); border-inline-start: 3px solid var(--acc); }
 .hst-head { display: flex; align-items: flex-start; gap: var(--lpy); color: var(--tx); }
@@ -50,8 +48,8 @@ html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 .hst-why { margin: 0; color: var(--tx2); }
 .hst-foot { display: flex; align-items: center; gap: var(--cpx); flex-wrap: wrap; }
 .hst-foot .lnk { padding: 0; }
+/* on a phone, as the This morning hero: the button across the card, its link centred under it */
+html.phone .hst-foot { flex-direction: column; align-items: stretch; gap: var(--tdy); }
+html.phone .hst-foot .lnk { align-self: center; }
 html.phone .hst-foot .btn { width: 100%; justify-content: center; }
 .hpast > p { margin: calc(var(--tdy) / 2) 0 0; }
-
-/* the self-assessment retake line, under For you: a bare card, so it keeps the gap the sections get from their titles */
-.hretake:not(:first-child) { margin-top: var(--spg); }

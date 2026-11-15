@@ -94,11 +94,11 @@ const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, ti
       <div class="tabs" role="tablist" aria-label="Train"><button v-for="[n, l, to] in TABS" :key="n" type="button" role="tab" :aria-selected="tab === n" :class="{ on: tab === n }" @click="router.replace(to)">{{ l }}</button></div>
       <Transition name="sw" mode="out-in">
         <div v-if="tab === 'train'" key="today" class="grid g2 tgrid">
-          <div class="tcol">
+          <div class="tcol stack">
             <CourseCard :lesson="lesson" :rule="rule" :moving="moving" @move-on="next" />
             <TodayChecklist :lesson="checklistLesson" />
           </div>
-          <div class="tcol">
+          <div class="tcol stack">
             <WeekReviewCard />
             <PmCard />
             <!-- the optional practices in one place (LDJ-169), absent while none is switched on; the sound cue is a
@@ -111,12 +111,12 @@ const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, ti
           </div>
         </div>
         <div v-else-if="tab === 'train-tonight'" key="tonight" class="grid g2 tgrid">
-          <div class="tcol"><TonightPlan :night="tonight" :date="tonightDate()" :title-of="titleOf" /></div>
-          <div class="tcol"><GuidedCard :wake-at="wbtbAt" group="tonight" /></div>
+          <div class="tcol stack"><TonightPlan :night="tonight" :date="tonightDate()" :title-of="titleOf" /></div>
+          <div class="tcol stack"><GuidedCard :wake-at="wbtbAt" group="tonight" /></div>
         </div>
         <div v-else key="techniques" class="grid g2 tgrid">
-          <div class="tcol"><TechniqueLibrary :planned="planned" /></div>
-          <div class="tcol"><GuidedCard :wake-at="wbtbAt" group="tools" /></div>
+          <div class="tcol stack"><TechniqueLibrary :planned="planned" /></div>
+          <div class="tcol stack"><GuidedCard :wake-at="wbtbAt" group="tools" /></div>
         </div>
       </Transition>
     </template>

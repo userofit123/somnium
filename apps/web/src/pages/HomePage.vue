@@ -162,7 +162,9 @@ const past = computed(() => {
   const p = pastDream(dreams.value, today.value, held, weekTarget(settings.value));
   return p ? { id: p.dream.id, date: p.dream.date, title: p.dream.title!.trim(), why: p.why } : null;
 });
-const empty: Record<string, () => boolean> = { lesson: () => !lessonCard.value, tip: () => !tip.value, lastLucid: () => !lucid.value, pastDream: () => !past.value };
+// while Today's step is the morning's write-down (with its own No recall), the This morning hero would only repeat it:
+// the block comes back as the night's summary once something is logged, or in the evening, when the step moves on
+const empty: Record<string, () => boolean> = { morning: () => morning.value.kind === "open" && step.value.kind === "write", lesson: () => !lessonCard.value, tip: () => !tip.value, lastLucid: () => !lucid.value, pastDream: () => !past.value };
 
 // ---- the time of day (LDJ-121), Motus's greeting, on the same hour as the page's other clocks
 const greeting = computed(() => { const hr = hour.value; return hr < NIGHT_CUTOFF ? "Good night" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening"; });
@@ -230,6 +232,9 @@ async function reset() {
       </div>
     </div>
 
+    <!-- every block on Home sits in one stack (and each column in a stack of its own), so the Spacing setting in
+         Appearance parts them all alike; no block brings a margin of its own -->
+    <div class="stack">
     <div v-if="editing" class="card"><TransitionGroup name="mv" tag="div" class="list">
       <div v-for="(x, i) in listed" :key="x.id" class="li hed" :class="{ off: !x.on && !FIXED_HOME_BLOCKS.has(x.id) }">
         <label class="grow" :for="`hb-${x.id}`"><div class="t">{{ META[x.id]!.name }}</div><div class="s">{{ META[x.id]!.desc }}</div></label>
@@ -250,7 +255,7 @@ async function reset() {
     <!-- the weekly review, on the review evening only (optional feature, LDJ-155) -->
     <WeekReviewCard v-if="!editing && h.ready.value" home />
     <div v-if="!editing && h.ready.value" class="grid hgrid" :class="{ g2: !isPhone }">
-      <div v-for="(col, ci) in columns" :key="ci" class="hcol">
+      <div v-for="(col, ci) in columns" :key="ci" class="hcol stack">
         <template v-for="id in col" :key="id">
           <ForYouCard v-if="id === 'forYou'" />
           <div v-else-if="id === 'retake'" class="card flush hretake"><router-link to="/progress/self-assessment" class="li click">
@@ -272,6 +277,7 @@ async function reset() {
           <PastDreamCard v-else-if="id === 'pastDream' && past" :past="past" @not-now="putPastDreamAway(today)" />
         </template>
       </div>
+    </div>
     </div>
   </div>
 </template>

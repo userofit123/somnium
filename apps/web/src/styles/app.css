@@ -92,7 +92,10 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 .sh { display: flex; align-items: center; justify-content: space-between; margin: calc(var(--spg) * 1.75) 0 var(--hg); }
 .sh h2 { margin: 0; }
 /* a link inside a sentence */
-.lnk.inl { display: inline; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; }
+.lnk.inl { display: inline; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; font-size: var(--fs-sm); }
+/* standing on its own (beside a button, under a block) it is as small as the other quiet links (.sh .lnk); inside a
+   sentence it takes the sentence's size */
+:is(p, .tiny, .s, .sub) .lnk.inl { font-size: inherit; }
 .sh .lnk { font-size: var(--fs-sm); font-weight: 600; color: var(--acc); cursor: pointer; background: none; border: 0; display: inline-flex; align-items: center; gap: 2px; }
 .sh.first { margin-top: 0; }
 /* the first heading under a page title, its tabs or its search: the bar above already leaves the gap (the same as above any
@@ -109,6 +112,9 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 /* a heading among a .stack's blocks: with the stack's gap, the same section gap above and --hg below as anywhere else */
 .stack > .sh { margin: calc(var(--spg) * .75) 0 calc(var(--hg) - var(--spg)); }
 .stack > .sh:first-child { margin-top: 0; }
+/* a section among a .stack's blocks whose heading leads it: the same, so a titled section and a bare card sit apart alike */
+.stack > section > .sh:first-child { margin-top: calc(var(--spg) * .75); }
+.stack > section:first-child > .sh:first-child { margin-top: 0; }
 /* the same for a description or filter row among a .stack's blocks: --hg to what it belongs to, not the stack's gap plus --hg */
 .stack > .hgap { margin-bottom: calc(var(--hg) - var(--spg)); }
 

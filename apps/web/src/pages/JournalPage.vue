@@ -180,18 +180,19 @@ const menu = computed(() => [
       <DreamEditor v-if="mode === 'write'" :id="id" :key="id" :date="date" :fresh="fresh" full @close="closeWrite" />
       <DreamView v-else :id="id" :key="'r' + id" back @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
     </template>
-    <div v-else class="jcols" :class="{ split: !isPhone }">
+    <template v-else>
+    <!-- the header spans the page above the list and the open dream, as on Motus's pages -->
+    <div class="ph">
+      <div><h1>Journal</h1></div>
+      <div class="acts">
+        <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" :aria-pressed="view === 'list'" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" :aria-pressed="view === 'calendar'" @click="setView('calendar')">Calendar</button></div>
+        <Menu :items="menu" />
+        <!-- with a dream open beside the list, its Edit or Done is the one primary button; this moves to the menu -->
+        <button v-if="!empty && !isPhone && !mode" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
+      </div>
+    </div>
+    <div class="jcols" :class="{ split: !isPhone }">
       <div>
-        <div class="ph">
-          <div><h1>Journal</h1></div>
-          <div class="acts">
-            <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" :aria-pressed="view === 'list'" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" :aria-pressed="view === 'calendar'" @click="setView('calendar')">Calendar</button></div>
-            <Menu :items="menu" />
-            <!-- with a dream open beside the list, its Edit or Done is the one primary button; this moves to the menu -->
-            <button v-if="!empty && !isPhone && !mode" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
-          </div>
-        </div>
-
         <QueryState v-if="failed.isError.value" :q="failed" what="your journal" />
         <!-- the page's one No recall, also above an empty journal -->
         <div v-else-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="btn tonal s" @click="noRecall(today)">No recall</button></div></div>
@@ -241,6 +242,7 @@ const menu = computed(() => [
         </div>
       </aside>
     </div>
+    </template>
 
     <NightSheet v-if="openNight" :key="openNight.id" :date="openNight.date" :nap="openNight.nap" :night-id="openNight.id" @close="nightOpen = null" />
 

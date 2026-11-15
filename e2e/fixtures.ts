@@ -28,12 +28,16 @@ export async function signUp(page: Page, a: Account): Promise<string> {
   await page.getByText("Have an invite? Create an account").click();
   await fld(page, "Username").fill(a.username);
   await fld(page, "Password").fill(a.password);
+  await fld(page, "Password again").fill(a.password);
   await fld(page, "Invite code").fill(a.invite);
   await page.getByRole("button", { name: "Create account" }).click();
   await page.getByRole("button", { name: "Make recovery key" }).click();
   const key = (await page.locator(".key-display").innerText()).trim();
   await page.getByLabel("I saved my recovery key").check();
   await page.getByRole("button", { name: "Continue" }).click();
+  // a new account opens the first-run setup: the specs start from a plain account, so skip it, then its last card
+  await page.getByText("Skip setup", { exact: true }).click();
+  await page.getByRole("button", { name: "Open Home" }).click();
   await waitOpen(page);
   // the app is still starting (first sync, the device copy, the dream lexicons): a navigation now can be swallowed
   await page.waitForTimeout(4000);

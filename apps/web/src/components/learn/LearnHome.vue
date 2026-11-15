@@ -128,7 +128,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
 
       <div class="sh"><h2>Start here</h2></div>
       <p class="s startlede">A short path through the most important articles, in order. {{ pathProg.read }} of {{ pathProg.total }} read.</p>
-      <ProgressBar :percent="pathProg.percent" class="pgap" />
+      <ProgressBar :percent="pathProg.percent" class="hgap" />
       <div class="card flush">
         <div v-for="(a, i) in path" :key="a.id" class="li lrow">
           <router-link :to="'/learn/' + a.id" class="grow rlink">

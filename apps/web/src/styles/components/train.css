@@ -1,6 +1,5 @@
 /* Train (PLAN.md §6.3): the course card, tonight's plan, the techniques library and a technique's page. Theme and
    density tokens only. */
-.train .tcol > section:first-child > .sh:first-child { margin-top: 0; }
 .train .tgrid { align-items: start; }
 /* Extra practice (LDJ-169): one section head, each practice under it with a small in-section title */
 .textra > section > .sh { margin: var(--spg) 0 var(--hg); }
@@ -33,7 +32,9 @@
 .tdtick { cursor: pointer; }
 .tdl { text-decoration: none; color: inherit; }
 .tday .tdchecks { flex-direction: column; align-items: stretch; gap: var(--lpy); }
-.tday .tdrow { display: flex; align-items: center; gap: var(--lpy); }
+/* the boxes line up with the header's icon, and a row inside a row keeps the list row's gap */
+.tday .li { padding-inline: 0; }
+.tday .tdrow { display: flex; align-items: center; gap: 12px; }
 .tday .tdstreak { flex: none; color: var(--acc); }
 .tday .tdall { margin: var(--lpy) 0 0; }
 
@@ -56,7 +57,7 @@ html.phone .tuse .btn { width: 100%; }
 .tpm .pmpick { display: flex; flex-direction: column; align-items: flex-start; gap: var(--tdy); margin-top: var(--lpy); }
 /* its text buttons (choose targets, the example day, undo) are links in the accent, like .lnk everywhere else; they
    were left with the browser's grey button look */
-.tpm .lnk { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-weight: 600; cursor: pointer; }
+.tpm .lnk { display: inline-flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; color: var(--acc); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; }
 .tpm .pmlist { display: flex; flex-wrap: wrap; gap: var(--tdy); }
 .tpm .pmsteps { margin: 0 0 var(--lpy); padding-left: 1.5em; }
 .tpm .pmweek, .tmed p, .tyoga > p { margin: var(--lpy) 0 0; }

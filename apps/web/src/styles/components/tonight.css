@@ -6,6 +6,9 @@
 .tplan .tpname:hover { color: var(--acc); }
 .tplan .tpadd { margin-top: var(--tdy); }
 .tplan .tprow { display: flex; align-items: center; gap: var(--lpy); }
+/* a picker in a row gives way to its label, as in a setting row (app.css .li > .fpick), instead of taking the whole width */
+.tplan .tprow > .grow { min-width: 42%; }
+.tplan .tprow > .fpick { flex: 0 1 auto; width: auto; min-width: 0; max-width: 56%; }
 .tplan .tpsec { margin-top: var(--lpy); padding-top: var(--lpy); border-top: 1px solid var(--ol); }
 .tplan .tpx { overflow-wrap: anywhere; }
 .tplan .tpsug { display: flex; flex-direction: column; gap: var(--tdy); }

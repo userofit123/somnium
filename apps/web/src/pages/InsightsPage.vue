@@ -228,11 +228,14 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         <Menu v-if="menu.length" :items="menu" />
       </div></div>
 
+    <!-- one stack for the page and one per section: the Spacing setting parts every block alike, headings sit --hg
+         above what they introduce -->
+    <div class="stack">
     <GoalCards v-if="features.goals" :today="today" />
     <PathCard />
 
     <!-- Lucidity -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>Lucidity</h2><ChartInfo id="lucidity" /></div>
       <div v-if="!lucid.lucid" class="card empty"><Icon name="sparkle" :size="34" /><b>No lucid dreams in this period</b>When you mark a dream as lucid, with its level and how you knew, it shows here.<br /><button class="btn tonal" type="button" @click="router.push('/train/tonight')">Plan tonight</button></div>
       <template v-else>
@@ -242,20 +245,20 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="layers" :size="15" /></span>Of all dreams</div><div class="val num">{{ pct(lucid.lucid / Math.max(1, lucid.dreams)) }}</div><div class="sub">{{ plural(lucid.dreams, "dream") }}, all time</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="stats" :size="15" /></span>Average level</div><div class="val num">{{ avgLevel }}</div><div class="sub">from 1 to 5</div></div>
         </div>
-        <div class="card spt"><div class="lbl hgap">Lucid dreams, by {{ bucket }}</div><BarChart :bars="lucidBars" :height="150" /></div>
-        <div class="grid g2 spt">
+        <div class="card"><div class="lbl hgap">Lucid dreams, by {{ bucket }}</div><BarChart :bars="lucidBars" :height="150" /></div>
+        <div class="grid g2">
           <div class="card"><div class="lbl hgap">How lucid (level 1-5)</div><BarChart :bars="levelBars" :height="140" /></div>
           <div class="card"><div class="lbl hgap">How it started</div><BarChart :bars="howBars" horizontal /></div>
         </div>
       </template>
       <!-- quality over time (LDJ-165): since the first lucid dream, so it shows even when this period had none -->
       <template v-if="quality.all.lucid">
-        <div class="grid g3 spt" data-testid="lucid-quality">
+        <div class="grid g3" data-testid="lucid-quality">
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>Control</div><div class="val num">{{ quality.recent.control == null ? "-" : one(quality.recent.control) }}<small v-if="quality.recent.control != null">of 5</small></div><div class="sub">{{ quality.recent.controlled ? `${plural(quality.recent.controlled, "lucid dream")} rated, last 3 months` : "none rated in the last 3 months" }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>A few minutes or longer</div><div class="val num">{{ quality.recent.timed ? pct(quality.recent.long / quality.recent.timed) : "-" }}</div><div class="sub">{{ quality.recent.timed ? `${quality.recent.long} of ${plural(quality.recent.timed, "lucid dream")} with a length, last 3 months` : "no length noted in the last 3 months" }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Most often ended</div><div class="val">{{ topEnd.label }}</div><div class="sub">{{ topEnd.noted ? `${topEnd.count} of ${topEnd.noted} with an ending noted, last 3 months` : "no ending noted in the last 3 months" }}</div></div>
         </div>
-        <div class="grid g2 spt">
+        <div class="grid g2">
           <div class="card"><div class="lbl hgap">How lucid, by month since your first</div>
             <div v-if="levelPoints.length < 2" class="empty sm">Give your lucid dreams a level in more than one month to see a trend.</div>
             <LineChart v-else :points="levelPoints" :fmt="one" :xfmt="monthX" :height="140" color="var(--acc2)" />
@@ -267,7 +270,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         </div>
         <p v-if="quality.text" class="tiny ins-note">{{ quality.text }}. <CiteChips :ids="QUALITY_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
-      <div v-if="planned.total" class="card spt" data-testid="plan-done"><div class="lbl hgap">Did your plan</div>
+      <div v-if="planned.total" class="card" data-testid="plan-done"><div class="lbl hgap">Did your plan</div>
         <div v-if="planned.enough" class="grid g3"><div v-for="k in (['yes', 'partly', 'no'] as const)" :key="k" class="stat"><div class="lbl">{{ PLAN_DONE_LABEL[k] }}</div><div class="val num">{{ pct(planned[k] / planned.total) }}</div><div class="sub">{{ planned[k] }} of {{ plural(planned.total, "lucid dream") }}</div></div></div>
         <p v-else class="tiny">{{ planned.yes }} yes · {{ planned.partly }} partly · {{ planned.no }} no, over {{ plural(planned.total, "lucid dream") }} on nights with a plan. Too few for a share: it shows from {{ PLAN_SHARE_MIN }}.</p>
         <p class="tiny ins-note">Rehearsing a task in a lucid dream was found to help, so noting whether you did it shows what to practise. <CiteChips :ids="PLAN_SOURCES" @cite="cite($event[0]!)" /></p>
@@ -275,9 +278,9 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </section>
 
     <!-- What works for you -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>What works for you</h2><ChartInfo id="works" /></div>
-      <div v-if="recipes.length || tally.length" class="grid g2" :class="{ 'ins-early': groups.length }" data-testid="early">
+      <div v-if="recipes.length || tally.length" class="grid g2" data-testid="early">
         <div v-if="recipes.length" class="card">
           <div class="lbl hgap">Your lucid dreams came after</div>
           <div class="list">
@@ -318,7 +321,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </section>
 
     <!-- Recall -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>Recall</h2><ChartInfo id="recall" /></div>
       <template v-if="progress.weekly.length">
         <div class="grid" :class="progress.said ? 'g4' : 'g3'">
@@ -327,7 +330,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div v-if="progress.said" class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>You said</div><div class="val num">{{ one(progress.said.perNight) }}</div><div class="sub">{{ progress.said.label }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="flame" :size="15" /></span>Nights in a row</div><div class="val num">{{ progress.run }}<small v-if="progress.run < RECALL_TARGETS.run">of {{ RECALL_TARGETS.run }}</small></div><div class="sub">{{ progress.reached.run ? `reached · best ${progress.bestRun}` : `with a dream · best ${progress.bestRun}` }}</div></div>
         </div>
-        <div class="card spt"><div class="lbl hgap">Dreams a night, by week since you started</div>
+        <div class="card"><div class="lbl hgap">Dreams a night, by week since you started</div>
           <div v-if="progressPoints.length < 2" class="empty sm">Log a second week of mornings to see the trend.</div>
           <LineChart v-else :points="progressPoints" :fmt="one" :marks="recallMarks" :height="150" zero />
           <p class="tiny ins-note">{{ progressLine ? progressLine + ". " : "" }}{{ progressRose ? "Part of the rise is counting: a journal catches dreams you would forget, so keep going." : "Keep writing each morning: for most people a journal helps them remember more." }} <CiteChips :ids="RECALL_COUNTING_SOURCES" @cite="cite($event[0]!)" /></p>
@@ -341,29 +344,29 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="calendar" :size="15" /></span>Nights logged</div><div class="val num">{{ recall.nights }}</div><div class="sub">{{ SINCE[period] }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>Dreams in naps</div><div class="val num">{{ recall.napDreams }}</div><div class="sub">counted as dreams, not nights</div></div>
         </div>
-        <div class="grid g2 spt">
+        <div class="grid g2">
           <div class="card"><div class="lbl hgap">Dreams a night, by {{ bucket }}, {{ SINCE[period] }}</div><BarChart :bars="recallBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">Nights with a dream, by weekday</div><BarChart :bars="weekdayBars" :fmt="pct" :height="150" /></div>
         </div>
-        <div v-if="wakes.timed" class="card spt" data-testid="wake-hours"><div class="lbl hgap">Hours after bedtime you woke from a dream, {{ SINCE[period] }}</div><BarChart :bars="wakeBars" :height="130" />
+        <div v-if="wakes.timed" class="card" data-testid="wake-hours"><div class="lbl hgap">Hours after bedtime you woke from a dream, {{ SINCE[period] }}</div><BarChart :bars="wakeBars" :height="130" />
           <p class="tiny ins-note">{{ plural(wakes.timed, "timed dream") }}, {{ wakes.hours.reduce((a, h) => a + h.lucid, 0) }} lucid. Dreams written up later have no time and are left out. <CiteChips :ids="WAKE_HOURS_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>
     </section>
 
     <!-- Sleep (LDJ-160) -->
-    <section data-testid="sleep">
+    <section class="stack" data-testid="sleep">
       <div class="sh"><h2>Sleep</h2><ChartInfo id="sleep" /></div>
       <div v-if="sleep.last.short" class="card" data-testid="sleep-first"><div class="lbl hgap">Sleep first</div><p class="tiny">Lucid dreams come in the long REM periods of the morning. Your last {{ SLEEP_MIN_NIGHTS }} nights averaged {{ one(sleep.last.hours!) }} h asleep: sleep longer before adding practice. <CiteChips :ids="sleepCites" @cite="cite($event[0]!)" /></p></div>
-      <div v-if="!sleep.enough" class="card empty" :class="{ spt: sleep.last.short }"><Icon name="moon" :size="34" /><b>Not enough nights with times yet</b>{{ sleep.timed }} of {{ SLEEP_MIN_NIGHTS }} nights in this period have a bedtime and a wake time. Add them to your nights to see how long and how regularly you sleep.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
+      <div v-if="!sleep.enough" class="card empty"><Icon name="moon" :size="34" /><b>Not enough nights with times yet</b>{{ sleep.timed }} of {{ SLEEP_MIN_NIGHTS }} nights in this period have a bedtime and a wake time. Add them to your nights to see how long and how regularly you sleep.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
-        <div class="grid g4" :class="{ spt: sleep.last.short }">
+        <div class="grid g4">
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Asleep a night</div><div class="val num">{{ one(sleep.hours!) }}<small>h</small></div><div class="sub">{{ plural(sleep.timed, "night") }} with times, {{ SINCE[period] }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="clock" :size="15" /></span>Usual bedtime</div><div class="val num">{{ sleep.bedtime == null ? "-" : hhmm(sleep.bedtime) }}</div><div class="sub">{{ sleep.spread == null ? "needs more bedtimes" : `varies by about ${sleep.spread} min` }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="history" :size="15" /></span>Last {{ SLEEP_MIN_NIGHTS }} nights</div><div class="val num">{{ sleep.last.hours == null ? "-" : one(sleep.last.hours) }}<small v-if="sleep.last.hours != null">h</small></div><div class="sub">{{ sleep.last.hours == null ? `needs ${SLEEP_MIN_NIGHTS} nights with times in 2 weeks` : "asleep a night, on average" }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="bell" :size="15" /></span>WBTB nights</div><div class="val num">{{ sleep.wbtb.timed }}</div><div class="sub">of {{ plural(sleep.timed, "night") }} with times</div></div>
         </div>
-        <div class="grid g2 spt">
+        <div class="grid g2">
           <div class="card"><div class="lbl hgap">Hours asleep, by {{ bucket }}</div><BarChart :bars="sleepBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">Bedtime, night by night</div><LineChart :points="bedPoints" :fmt="clockOf" :height="150" color="var(--c3)" /></div>
         </div>
@@ -372,7 +375,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </section>
 
     <!-- Checks -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>Checks</h2><ChartInfo id="checks" /></div>
       <div v-if="!checks.total" class="card empty"><Icon name="check" :size="34" /><b>No reality checks in this period</b>Log each check you do, and whether it said you were awake or dreaming.<br /><button class="btn tonal" type="button" @click="router.push('/check')">Log a check</button></div>
       <template v-else>
@@ -382,11 +385,11 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="eye" :size="15" /></span>Said "dreaming"</div><div class="val num">{{ checks.byOutcome.dreaming }}</div><div class="sub">{{ checks.byOutcome.dreaming ? "lucid moments" : "none yet" }}{{ checks.byOutcome.unsure ? ` · ${checks.byOutcome.unsure} unsure` : "" }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="bell" :size="15" /></span>From a reminder</div><div class="val num">{{ pct(checks.prompted / checks.total) }}</div><div class="sub">{{ checks.own }} on your own</div></div>
         </div>
-        <div class="grid g2 spt">
+        <div class="grid g2">
           <div class="card"><div class="lbl hgap">Checks a day{{ period === "4w" ? "" : ", weekly average" }}</div><BarChart :bars="checkBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">By kind</div><BarChart :bars="kindBars" horizontal /></div>
         </div>
-        <div v-if="signRows.rows.length" class="card spt" data-testid="checks-by-sign">
+        <div v-if="signRows.rows.length" class="card" data-testid="checks-by-sign">
           <div class="lbl hgap">By dream sign</div>
           <ul class="ins-signs">
             <li v-for="r in signRows.rows" :key="r.elementId"><b>{{ r.name }}</b>: {{ signLine(r) }}{{ r.dreaming ? ` · ${r.dreaming} said "dreaming"` : "" }}</li>
@@ -396,7 +399,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       </template>
     </section>
 
-    <section v-if="pm.set">
+    <section v-if="pm.set" class="stack">
       <div class="sh"><h2>Memory targets</h2><ChartInfo id="memory-targets" /></div>
       <div class="grid g2 keep">
         <div class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>Hit rate</div><div class="val num">{{ pm.rate == null ? "-" : pct(pm.rate) }}</div><div class="sub">last 7 days</div></div>
@@ -405,14 +408,14 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     </section>
 
     <!-- Night events -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>Night events</h2><ChartInfo id="events" /></div>
       <div v-if="!lucid.dreams" class="card empty"><Icon name="moon" :size="34" /><b>No dreams in this period</b>Mark nightmares, bad dreams, false awakenings and sleep paralysis on your dreams, and how each felt, to follow them here.<br /><button class="btn tonal" type="button" @click="write">Write a dream</button></div>
       <template v-else>
         <div class="grid g4">
           <div v-for="e in eventSets" :key="e.title" class="card stat"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>{{ e.title }}</div><div class="val num" :style="{ color: e.color }">{{ e.total }}</div><div class="sub">{{ SINCE[period] }}</div></div>
         </div>
-        <div class="grid g2 spt">
+        <div class="grid g2">
           <template v-for="e in eventSets" :key="e.title">
             <div v-if="e.total" class="card"><div class="lbl hgap">{{ e.title }}, by {{ bucket }}</div><BarChart :bars="e.bars" :height="130" /></div>
           </template>
@@ -430,7 +433,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <LagCard v-if="features.dayNotes" :today="today" />
 
     <!-- Self-assessment: the answers' one home; the questions open from here and from Learn (PLAN.md §6.5) -->
-    <section>
+    <section class="stack">
       <div class="sh"><h2>Self-assessment</h2><div class="row"><button v-if="answerSets.length" type="button" class="lnk" @click="answerAgain">Answer again</button><ChartInfo id="answers" /></div></div>
       <div v-if="!answerSets.length" class="card empty"><Icon name="map" :size="34" /><b>No answers yet</b>Two short questions about how often you remember dreams and have lucid ones. Answer them now and again to see how it changes.<br /><button class="btn tonal" type="button" @click="answerAgain">Answer them</button></div>
       <template v-else>
@@ -453,6 +456,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         <p v-if="answerSets.some((s) => s.compare.length)" class="tiny ins-note">A journal usually finds more than a question about your habits, so the two seldom match; watch how each one moves. <CiteChips :ids="DIARY_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
     </section>
+    </div>
 
     <Sheet v-if="tallyOpen" :title="tallyOpen.label" @close="tallyOpen = null">
       <p class="tiny">{{ tallyOpen.text }}, {{ SINCE[period] }}. The nights you did it, lucid or not: they show what went with your lucid nights, not what caused them.</p>
