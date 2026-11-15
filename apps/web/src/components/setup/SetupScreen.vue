@@ -3,7 +3,7 @@
 // unexplained app. Each step is skippable, with Back, and one primary button. Every answer goes through the normal
 // write paths (settings, the reminders rows, the course and tonight's night: outbox and live topics), so it syncs
 // and every screen updates; nothing here is sealed. Shown by App.vue only behind an open lock (useSetup.ts).
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import { DEFAULT_RC_SCHEDULE, PER_DAY_MAX, PER_DAY_MIN, nightRow, rcSchedule, type CourseLesson, type CourseProgress, type SetupExperience } from "@somnium/shared";
@@ -48,9 +48,19 @@ const onCourse = computed(() => !!course.data.value?.length);
 // 2. usual sleep times
 const bedtime = ref(settings.value.sleep.bedtime), wake = ref(settings.value.sleep.wake);
 
-// 3. reminders: on by default here, so the first morning has its prompt (NIGHT_DEFAULT_ON keeps them off elsewhere)
+// 3. reminders: on by default here when nothing is saved, so the first morning has its prompt (NIGHT_DEFAULT_ON keeps
+// them off elsewhere). Saved rows win, so running setup again never overwrites what the person chose.
 const rc = computed(() => rcSchedule(rcRow(rows.data.value)?.schedule ?? DEFAULT_RC_SCHEDULE));
 const rcOn = ref(true), perDay = ref(DEFAULT_RC_SCHEDULE.perDay), morning = ref(true), bed = ref(true);
+let seeded = false;
+watch(() => rows.data.value, (rs) => {
+  if (seeded || !rs) return; // the list arrives after the screen; take it once, before the person edits
+  seeded = true;
+  const r = rcRow(rs);
+  if (r) { rcOn.value = !!r.enabled; perDay.value = rc.value.perDay; }
+  for (const [kind, flag] of [["morning_journal", morning], ["bedtime", bed]] as const)
+    if (rs.some((x) => x.kind === kind && !x.deletedAt)) flag.value = nightRow(rs, kind).on;
+}, { immediate: true });
 const desktopApp = !!(globalThis as any).somniumNative?.reminders;
 const limits = desktopApp ? "They come while Somnium is running, in the tray too."
   : androidReminders() ? "Android shows them on time, also with the app closed."
@@ -64,14 +74,16 @@ const TECHS = [
   { value: "", label: "Nothing yet", hint: "Just the journal tomorrow morning" },
 ];
 
-// 5. extras: the optional features most people want, switched on here instead of in Settings → Features
+// 5. extras: the optional features most people want, switched on here instead of in Settings → Features, and the
+// Next lesson block on Home (Edit home's switch, settings.home.blocks; not a feature)
 const EXTRAS = [
   { value: "goals", label: "Goals", hint: "A lucid dream a week, a full journal month" },
   { value: "dayNotes", label: "Day notes", hint: "A line about your day, to spot it in dreams later" },
   { value: "photos", label: "Photos", hint: "Add photos, read a paper journal page" },
   { value: "homeLesson", label: "Next lesson on Home", hint: "The lesson you are on, on Home" },
 ];
-const extras = ref<string[]>(EXTRAS.map((e) => e.value).filter((k) => settings.value.features[k]));
+const LESSON_BLOCK = "lesson";
+const extras = ref<string[]>(EXTRAS.map((e) => e.value).filter((k) => k === "homeLesson" ? settings.value.home.blocks.some((b) => b.id === LESSON_BLOCK && b.on) : settings.value.features[k]));
 
 /** Saves the step's answers, then moves on. Skip moves on without saving. */
 async function next() {
@@ -87,7 +99,7 @@ async function next() {
       if ((rcOn.value || morning.value || bed.value) && !desktopApp) await askNotificationPermission();
       const rs = rows.data.value;
       await putRcReminder(rs, { ...rc.value, perDay: perDay.value }, rcOn.value);
-      await putNightReminder(rs, "morning_journal", {}, morning.value);
+      await putNightReminder(rs, "morning_journal", nightRow(rs, "morning_journal").s, morning.value);
       await putNightReminder(rs, "bedtime", nightRow(rs, "bedtime").s, bed.value);
       invalidate(["reminders"]);
     } else if (at.value === "technique") {
@@ -101,7 +113,11 @@ async function next() {
         }
       }
     } else if (at.value === "extras") {
-      void saveSettings({ features: Object.fromEntries(EXTRAS.map((e) => [e.value, extras.value.includes(e.value)])) }, { quiet: true });
+      const lessonOn = extras.value.includes("homeLesson");
+      void saveSettings({
+        features: Object.fromEntries(EXTRAS.filter((e) => e.value !== "homeLesson").map((e) => [e.value, extras.value.includes(e.value)])),
+        home: { blocks: settings.value.home.blocks.map((b) => (b.id === LESSON_BLOCK ? { ...b, on: lessonOn } : b)) },
+      }, { quiet: true });
     }
   } catch (e) { toastError(e); return; } finally { busy.value = false; }
   skip();
@@ -144,14 +160,14 @@ function finish(to: string) { setupRun.value = false; step.value = 0; void route
         <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">15 min before bed, with tonight's technique</div></div><span class="tg"><input v-model="bed" type="checkbox" /></span></label>
         <label class="tgl"><div class="grow"><div class="t">Reality checks</div><div class="s">A few times a day: "Are you dreaming?"</div></div><span class="tg"><input v-model="rcOn" type="checkbox" /></span></label>
         <div v-if="rcOn" class="li"><div class="grow"><div class="t">How many a day</div><div class="s">5 to 10 is usual</div></div><NumStep :value="perDay" :min="PER_DAY_MIN" :max="PER_DAY_MAX" label="Reality checks a day" @set="(v) => (perDay = v)" /></div>
-        <p class="tiny su-gap">{{ limits }} More in Settings · Notifications.</p>
+        <p class="tiny su-gap">{{ limits }} More in Settings · Reminders.</p>
       </template>
 
       <template v-else-if="at === 'technique'">
         <h1>Tonight</h1>
         <p class="muted su-lede">A technique for tonight, added to tonight's plan in Train.</p>
         <ChoiceTiles v-model="technique" :options="TECHS" :cols="1" label="Technique" />
-        <p class="tiny su-gap">MILD did best in the largest home study: a lucid dream on about one night in six in its practice week, SSILD close behind (Aspy 2020; RESEARCH.md Part B, 3.3, [38]).</p>
+        <p class="tiny su-gap">In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020; RESEARCH.md [38]).</p>
       </template>
 
       <template v-else-if="at === 'extras'">

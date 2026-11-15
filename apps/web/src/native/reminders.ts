@@ -53,7 +53,7 @@ export const REMINDERS_KEY = ["reminders", "list"] as const;
 export const fetchReminders = () => api.get<Reminder[]>("/reminders");
 export const rcRow = (rows: Reminder[] | undefined) => rows?.find((r) => r.kind === "reality_check" && !r.deletedAt) ?? null;
 
-// The two writes of a reminders row, shared by Settings → Notifications and the first-run setup. Through the outbox,
+// The two writes of a reminders row, shared by Settings → Reminders and the first-run setup. Through the outbox,
 // so they wait for a connection; the list on screen changes at once. The caller says "Saved" and reloads ["reminders"].
 /** The reality check row: one per person, made on first use with its own seed, so every device plans the same times. */
 export async function putRcReminder(rows: Reminder[] | undefined, schedule: RealityCheckSchedule, enabled: boolean) {
