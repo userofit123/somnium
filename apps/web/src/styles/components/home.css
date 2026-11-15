@@ -38,3 +38,15 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 /* the recovery key reminder above the blocks (LDJ-151) */
 .hkey { margin-bottom: var(--spg); }
 .hkey-acts { display: flex; justify-content: flex-end; gap: var(--hg); flex-wrap: wrap; }
+
+/* today's step (LDJ-107): above the blocks, full width; a quiet accent edge marks it as the one to start with */
+.hstep { margin-bottom: var(--spg); }
+.hstep > .sh { margin-top: 0; }
+.hstep > .card { display: flex; flex-direction: column; gap: var(--hg); border-inline-start: 3px solid var(--acc); }
+.hst-head { display: flex; align-items: flex-start; gap: var(--hg); color: var(--tx); }
+.hst-head > svg { color: var(--acc); flex: none; margin-top: calc(var(--hg) / 5); }
+.hst-t { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
+.hst-why { margin: 0; color: var(--tx2); }
+.hst-foot { display: flex; align-items: center; gap: var(--cpx); flex-wrap: wrap; }
+.hst-foot .lnk { padding: 0; }
+html.phone .hst-foot .btn { width: 100%; justify-content: center; }

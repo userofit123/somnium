@@ -1,7 +1,8 @@
 <script setup lang="ts">
-// "This morning" (PLAN.md §6.1): one primary button to write last night's dream, and a quiet "No recall", until the
-// night has a dream or the mark; then its summary. Titles only: Home never shows dream text. Under the summary, once,
-// the night's question: did you do last night's techniques (NightCheckIn, LDJ-79).
+// "This morning" (PLAN.md §6.1): a button to write last night's dream (outlined: Today's step above holds Home's
+// primary button, LDJ-107) and a quiet "No recall", until the night has a dream or the mark; then its summary.
+// Titles only: Home never shows dream text. Under the summary, once, the night's question: did you do last night's
+// techniques (NightCheckIn, LDJ-79).
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { morningLine, type MorningState } from "@somnium/shared";
@@ -24,7 +25,7 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
     <div class="sh"><h2>This morning</h2></div>
     <div v-if="state.kind === 'open'" class="card hwrite">
       <div class="tiny">Write it down before it fades - even a fragment counts.</div>
-      <button class="btn lg" @click="write"><Icon name="plus" :size="18" />Write last night's dream</button>
+      <button class="btn o" @click="write"><Icon name="plus" :size="18" />Write last night's dream</button>
       <button type="button" class="lnk inl tiny" :disabled="noRecall.busy.value" @click="noRecall.run()">No recall</button>
     </div>
     <div v-else class="card">
