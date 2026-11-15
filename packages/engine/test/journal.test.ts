@@ -107,10 +107,22 @@ describe("journal", () => {
     expect(await facts()).toMatchObject({ badDream: false, nightmare: true });
   });
 
+  it("keeps how a lucid dream started, how long it lasted and how it ended (LDJ-78)", async () => {
+    // a person of its own, so the counts the other tests check stay as they are
+    const L = uuidv7();
+    await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'l','L')", [L]);
+    const n = await call<Night>(L, "POST", "/nights", { date: "2026-11-05" });
+    const d = await call<Dream>(L, "POST", "/dreams", { nightId: n.id, lucid: true, lucidityLevel: 2, becameLucidHow: "reality_check", durationEst: 3, lucidEnd: "lost" });
+    expect(d).toMatchObject({ becameLucidHow: "reality_check", durationEst: 3, lucidEnd: "lost" });
+    const e = await call<Dream>(L, "PUT", `/dreams/${d.id}`, { lucidEnd: null });
+    expect(e.lucidEnd).toBeNull();
+  });
+
   it("refuses values off the scales and unknown enum words", async () => {
     expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidityLevel: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, control: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, wakeMethod: "parachute" })).toBe(400);
+    expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidEnd: "exploded" })).toBe(400);
     expect(await status(A, "POST", "/nights", {})).toBe(400);
   });
 

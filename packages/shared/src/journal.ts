@@ -1,7 +1,7 @@
 // The Journal's pure logic (PLAN.md §6.2): nights grouped with their dreams, searching on the device, the month
 // calendar, and how a draft kept on the device meets the row it belongs to. Nothing here reads the clock or storage.
 
-import type { ElementKind } from "./types";
+import type { BecameLucidHow, ElementKind, LucidEnd } from "./types";
 import { isPlanOnly, type NightLog } from "./rates";
 
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
@@ -206,6 +206,38 @@ export const RECALL_ANCHORS = ["Only a fragment", "A few scenes", "Most of the s
 export const SLEEP_ANCHORS = ["Very poor", "Poor", "Fair", "Good", "Very good"] as const;
 /** index 0 is -2 */
 export const EMOTION_ANCHORS = ["Very unpleasant", "Unpleasant", "Neutral or mixed", "Pleasant", "Very pleasant"] as const;
+
+// A lucid dream's own questions (LDJ-78), one tap each: how you knew, how long, how it ended. Knowing which route
+// gets you lucid is what personal training is built on: noticing a dream sign (LaBerge, RESEARCH.md C1) and asking
+// the critical question (Tholey, D1, D6) are separate routes, and after WBTB most lucidity starts in the dream
+// (Aspy, B38, D13).
+export const LUCID_SOURCES = ["C1", "D1", "D6", "B38", "D13"] as const;
+/** How you knew it was a dream, in the editor's words; "spontaneous" reads as "it just happened". */
+export const BECAME_LUCID_LABEL: Record<BecameLucidHow, string> = {
+  dream_sign: "A dream sign", reality_check: "A reality check", wild: "From waking (WILD)", nightmare: "A nightmare",
+  spontaneous: "It just happened", other: "Other",
+};
+/** The editor's order (the ways people train first). */
+export const BECAME_LUCID_ORDER: readonly BecameLucidHow[] = ["dream_sign", "reality_check", "wild", "nightmare", "spontaneous", "other"];
+/**
+ * How long it stayed lucid: rough steps, since nobody times a dream. Each is kept as whole minutes in the dream's
+ * duration_est (a plain number the engine already has), and read back by lucidLength.
+ */
+export const LUCID_LENGTHS = [
+  { key: "seconds", label: "Seconds", minutes: 0 },
+  { key: "under_minute", label: "Under a minute", minutes: 1 },
+  { key: "few_minutes", label: "A few minutes", minutes: 3 },
+  { key: "longer", label: "Longer", minutes: 10 },
+] as const;
+export type LucidLength = (typeof LUCID_LENGTHS)[number]["key"];
+/** The step a stored number of minutes falls in (a value typed elsewhere still lands on the nearest step). */
+export function lucidLength(minutes: number | null | undefined): LucidLength | null {
+  if (minutes == null) return null;
+  return minutes < 1 ? "seconds" : minutes < 2 ? "under_minute" : minutes < 10 ? "few_minutes" : "longer";
+}
+export const LUCID_END_LABEL: Record<LucidEnd, string> = {
+  woke: "Woke up", lost: "Lost lucidity", faded: "Faded", still_going: "Still going when I woke",
+};
 
 /** The techniques a night can name, by their Learn article ids. */
 export const TECHNIQUES: readonly { id: string; label: string }[] = [

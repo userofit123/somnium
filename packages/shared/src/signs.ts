@@ -15,7 +15,8 @@ export interface SignElement {
   note?: string | null;
 }
 export interface SignLink { dreamId: string; elementId: string; source: ElementSource; confidence?: number | null; span?: string | null }
-export interface SignDream { id: string; date: string; lucid: boolean }
+/** becameLucidHow: how a lucid dream started (LDJ-78), so a sign's lucid dreams can say which came from noticing a sign. */
+export interface SignDream { id: string; date: string; lucid: boolean; becameLucidHow?: string | null }
 /** A reality check from checks.json (its categories are written with a dash: "inner-awareness"). */
 export interface SignCheck { id: string; name: string; howTo: string; pairsWith: readonly string[] }
 /** A typical dream theme from themes.json (Nielsen et al. 2003, RESEARCH.md C13). */
@@ -208,12 +209,19 @@ export function mergePlan<L extends SignLink>(from: SignElement, into: SignEleme
 }
 
 // ---------- lucidity ----------
-export interface LucidSplit { with: { dreams: number; lucid: number }; without: { dreams: number; lucid: number } }
-/** Lucid dreams among the dreams with the element, and among those without it (sample sizes included). */
+export interface LucidSplit { with: { dreams: number; lucid: number; viaSign: number }; without: { dreams: number; lucid: number; viaSign: number } }
+/**
+ * Lucid dreams among the dreams with the element, and among those without it (sample sizes included). viaSign: the
+ * lucid ones marked as started by noticing a dream sign (LDJ-78), the route dreamsign training aims at (RESEARCH.md C1).
+ */
 export function lucidSplit(elementId: string, links: readonly SignLink[], dreams: readonly SignDream[]): LucidSplit {
   const mine = new Set(links.filter((l) => l.elementId === elementId).map((l) => l.dreamId));
-  const out: LucidSplit = { with: { dreams: 0, lucid: 0 }, without: { dreams: 0, lucid: 0 } };
-  for (const d of dreams) { const b = mine.has(d.id) ? out.with : out.without; b.dreams++; if (d.lucid) b.lucid++; }
+  const out: LucidSplit = { with: { dreams: 0, lucid: 0, viaSign: 0 }, without: { dreams: 0, lucid: 0, viaSign: 0 } };
+  for (const d of dreams) {
+    const b = mine.has(d.id) ? out.with : out.without;
+    b.dreams++;
+    if (d.lucid) { b.lucid++; if (d.becameLucidHow === "dream_sign") b.viaSign++; }
+  }
   return out;
 }
 

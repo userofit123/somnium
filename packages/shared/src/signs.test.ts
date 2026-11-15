@@ -144,7 +144,11 @@ describe("mergePlan", () => {
 describe("lucidity", () => {
   it("splits the lucid rate with and without an element, with sizes", () => {
     const dreams = [dream("a", TODAY, true), dream("b", TODAY), dream("c", TODAY, true), dream("d", TODAY)];
-    expect(lucidSplit("x", [link("a", "x"), link("b", "x")], dreams)).toEqual({ with: { dreams: 2, lucid: 1 }, without: { dreams: 2, lucid: 1 } });
+    expect(lucidSplit("x", [link("a", "x"), link("b", "x")], dreams)).toEqual({ with: { dreams: 2, lucid: 1, viaSign: 0 }, without: { dreams: 2, lucid: 1, viaSign: 0 } });
+  });
+  it("counts the lucid dreams that started from noticing a dream sign", () => {
+    const dreams = [{ ...dream("a", TODAY, true), becameLucidHow: "dream_sign" }, { ...dream("b", TODAY, true), becameLucidHow: "reality_check" }, { ...dream("c", TODAY), becameLucidHow: "dream_sign" }];
+    expect(lucidSplit("x", [link("a", "x"), link("b", "x"), link("c", "x")], dreams).with).toEqual({ dreams: 3, lucid: 2, viaSign: 1 });
   });
   it("says not enough dreams under 10", () => {
     expect(signsBeforeLucidity([], [], Array.from({ length: 9 }, (_, i) => dream(`d${i}`, TODAY)))).toEqual({ enough: false, dreams: 9, needed: 10 });

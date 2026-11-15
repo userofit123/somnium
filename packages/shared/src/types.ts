@@ -26,6 +26,9 @@ export interface Owned {
 export const BECAME_LUCID_HOW = ["dream_sign", "reality_check", "wild", "spontaneous", "nightmare", "other"] as const;
 export type BecameLucidHow = (typeof BECAME_LUCID_HOW)[number];
 export const WAKE_METHODS = ["alarm", "natural", "wbtb"] as const;
+/** How a lucid dream ended (LDJ-78): woke up, lost lucidity but kept dreaming, faded out, or still lucid at waking. */
+export const LUCID_ENDS = ["woke", "lost", "faded", "still_going"] as const;
+export type LucidEnd = (typeof LUCID_ENDS)[number];
 export type WakeMethod = (typeof WAKE_METHODS)[number];
 export const ELEMENT_KINDS = ["character", "place", "object", "action", "emotion", "theme", "sensation", "dream_sign"] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
@@ -87,7 +90,8 @@ export interface Dream extends Owned {
   vividness: number | null; // 1-5
   recallClarity: number | null; // 1-5
   emotionOverall: number | null; // -2..2
-  durationEst: number | null; // minutes
+  /** how long it was lucid, in minutes (the editor's chips, journal.ts LUCID_LENGTHS) */
+  durationEst: number | null;
   /** upsetting enough to wake you (Zadra and Donderi 2000, RESEARCH.md C18); never with badDream */
   nightmare: boolean;
   /** upsetting, but you slept on (C18); never with nightmare */
@@ -96,7 +100,10 @@ export interface Dream extends Owned {
   falseAwakening: boolean;
   sleepParalysis: boolean;
   becameLucidHow: BecameLucidHow | null;
+  /** what tipped you off, one line */
   lucidTrigger: string | null; // sealed
+  /** how the lucid part ended (LUCID_ENDS); absent on rows from before migration 020 */
+  lucidEnd?: LucidEnd | null;
   wakeMethod: WakeMethod | null;
   favourite: boolean;
   /** suggestion keys dismissed for this dream, a JSON list (LDJ-18) */

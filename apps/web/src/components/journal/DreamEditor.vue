@@ -3,7 +3,7 @@
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, type Element, type Suggestion } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, type Element, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, endDraft, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
@@ -24,8 +24,8 @@ const emit = defineEmits<{ close: [] }>();
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
 const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
@@ -83,6 +83,9 @@ function toggleChip(k: string) {
     if (other && f[k]) f[other] = false;
   }
 }
+// a lucid dream's own questions (LDJ-78): one tap picks, a second tap on the same chip clears
+const pickOne = (k: string, v: string | number) => { f[k] = f[k] === v ? null : v; };
+const lucidLen = computed(() => lucidLength(f.durationEst));
 const set = (k: string, v: number) => {
   f[k] = f[k] === v ? (k === "lucidityLevel" ? 0 : null) : v;
   if (k === "lucidityLevel" && !f[k]) f.lucid = false; // level 0 is "Not lucid"
@@ -236,6 +239,29 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
         <div class="seg jscale" role="group" aria-label="Lucidity"><button v-for="n in 6" :key="n" type="button" :class="{ on: f.lucidityLevel === n - 1 }" :aria-pressed="f.lucidityLevel === n - 1" @click="set('lucidityLevel', n - 1)">{{ n - 1 }}</button></div>
         <div class="tiny jan">{{ LUCIDITY_ANCHORS[f.lucidityLevel ?? 0] }}</div>
       </div>
+      <div v-if="f.lucid" class="jlucid" role="group" aria-label="Your lucid dream">
+        <div class="jlh">Your lucid dream</div>
+        <div class="tiny jan0">Which way gets you lucid shows you what to train. <button v-for="sid in LUCID_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="sourcesOpen = [sid]">{{ sid }}</button></div>
+        <div class="fld">
+          <label>How did you know?</label>
+          <div class="chips jopts" role="radiogroup" aria-label="How did you know?">
+            <button v-for="h in BECAME_LUCID_ORDER" :key="h" type="button" class="fchip" :class="{ on: f.becameLucidHow === h }" role="radio" :aria-checked="f.becameLucidHow === h" @click="pickOne('becameLucidHow', h)">{{ BECAME_LUCID_LABEL[h] }}</button>
+          </div>
+          <input v-model="f.lucidTrigger" class="jtrig" placeholder="What tipped you off? (optional)" maxlength="200" aria-label="What tipped you off" />
+        </div>
+        <div class="fld">
+          <label>About how long were you lucid?</label>
+          <div class="chips jopts" role="radiogroup" aria-label="About how long were you lucid?">
+            <button v-for="l in LUCID_LENGTHS" :key="l.key" type="button" class="fchip" :class="{ on: lucidLen === l.key }" role="radio" :aria-checked="lucidLen === l.key" @click="f.durationEst = lucidLen === l.key ? null : l.minutes">{{ l.label }}</button>
+          </div>
+        </div>
+        <div class="fld">
+          <label>How did it end?</label>
+          <div class="chips jopts" role="radiogroup" aria-label="How did it end?">
+            <button v-for="e in LUCID_ENDS" :key="e" type="button" class="fchip" :class="{ on: f.lucidEnd === e }" role="radio" :aria-checked="f.lucidEnd === e" @click="pickOne('lucidEnd', e)">{{ LUCID_END_LABEL[e] }}</button>
+          </div>
+        </div>
+      </div>
       <div class="fld">
         <label>Vividness</label>
         <div class="seg jscale" role="group" aria-label="Vividness"><button v-for="n in 5" :key="n" type="button" :class="{ on: f.vividness === n }" :aria-pressed="f.vividness === n" @click="set('vividness', n)">{{ n }}</button></div>
@@ -323,6 +349,12 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jsug .li.hi, .jnew.hi { background: var(--s2); }
 .jnew .li { background: none; }
 .jkinds { margin: 0; padding: 0 0 var(--hg); }
+/* a lucid dream's own questions sit under the lucidity scale, set in from the left so they read as part of it */
+.jlucid { display: flex; flex-direction: column; gap: var(--hg); padding-left: var(--hg); border-left: 2px solid var(--accc); }
+.jlh { font-weight: 600; }
+.jan0 { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
+.jopts { margin: 0; }
+.jtrig { margin-top: 8px; width: 100%; }
 .jmore { align-self: flex-start; padding-left: 0; }
 .fld { margin-bottom: 0; }
 </style>

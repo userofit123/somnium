@@ -19,6 +19,7 @@ import m016 from "./migrations/016_wbtb_mode";
 import m017 from "./migrations/017_day_note_per_date";
 import m018 from "./migrations/018_minutes_to_sleep";
 import m019 from "./migrations/019_bad_dream";
+import m020 from "./migrations/020_lucid_end";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
@@ -40,6 +41,7 @@ export const MIGRATIONS: [string, string][] = [
   ["017_day_note_per_date", m017],
   ["018_minutes_to_sleep", m018],
   ["019_bad_dream", m019],
+  ["020_lucid_end", m020],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

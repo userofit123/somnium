@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, type DreamDraft } from "./journal";
+import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, lucidLength, LUCID_LENGTHS, type DreamDraft } from "./journal";
 import { dreamMarks } from "./exportDream";
 
 const night = (id: string, date: string, nap = false) => ({ id, date, nap });
@@ -129,5 +129,16 @@ describe("a dream's marks", () => {
     const m = { lucid: false, lucidityLevel: 0, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false };
     expect(dreamMarks({ ...m, badDream: true })).toEqual([{ label: "Bad dream", value: "Yes" }]);
     expect(dreamMarks({ ...m, nightmare: true })).toEqual([{ label: "Nightmare", value: "Yes" }]);
+  });
+});
+
+describe("how long it was lucid", () => {
+  it("reads each step back from the minutes it keeps", () => {
+    for (const l of LUCID_LENGTHS) expect(lucidLength(l.minutes)).toBe(l.key);
+  });
+  it("puts other minutes on the nearest step and nothing on nothing", () => {
+    expect(lucidLength(null)).toBeNull();
+    expect(lucidLength(5)).toBe("few_minutes");
+    expect(lucidLength(45)).toBe("longer");
   });
 });
