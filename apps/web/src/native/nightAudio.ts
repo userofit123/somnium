@@ -37,6 +37,13 @@ export async function playNightTones(cues: readonly NightCue[], end: number): Pr
   try { await p.start({ cues: list, end }); return true; } catch { return false; }
 }
 
+/** Whether the service is playing a schedule just now (a screen coming back must not replace it by mistake). */
+export async function nightTonesRunning(): Promise<boolean> {
+  const p = nightAudio();
+  if (!p) return false;
+  try { return !!(await p.status()).running; } catch { return false; }
+}
+
 /** Stops the tones; the count played. */
 export async function stopNightTones(): Promise<number> {
   const p = nightAudio();

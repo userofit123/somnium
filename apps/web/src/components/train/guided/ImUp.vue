@@ -32,7 +32,18 @@ const target = Number(readStr("somniumWbtbAwake", "30")) || 30;
 const tones = useNightTones({ keep: true });
 const backCue = backToBedCue(t0, target);
 const toneAhead = backCue.at > Date.now();
-void tones.play([backCue], backCue.at + 10_000);
+// kept across mounts: the back-to-bed tone's start time, so a return can tell the running schedule is this one
+const TONE = "somniumWbtbUpTone", toneIsOurs = ref(false);
+void (async () => {
+  if (!toneAhead) return;
+  const r = await tones.playUnlessBusy([backCue], backCue.at + 10_000);
+  // a running schedule that is not this one (SSILD, a sound cue) is left alone and not promised
+  if (r.kept) { toneIsOurs.value = readStr(TONE, "") === String(t0); return; }
+  if (r.ok) { writeStr(TONE, String(t0)); toneIsOurs.value = true; }
+})();
+// a promise only when the tone will be heard; a page whose audio the browser holds still needs one tap
+const toneHeard = computed(() => toneAhead && toneIsOurs.value && tones.audible.value);
+const toneWaiting = computed(() => toneAhead && toneIsOurs.value && !tones.audible.value && !tones.offScreen);
 const date = nightNowDate();
 // the planner's mode (LDJ-49): the LaBerge nap ends with a nap, the others with MILD or SSILD
 const napMode = readStr("somniumWbtbMode", "") === "nap";
@@ -58,7 +69,8 @@ const writeDream = () => router.push({ name: "journal-write", params: { id: uuid
       <h1>You're up</h1>
       <div class="gbig" aria-live="off">{{ minutes }} min</div>
       <div class="gsub">awake · your plan was about {{ target }} min</div>
-      <p v-if="toneAhead" class="glabel">A soft tone at {{ target }} min says it's time to go back to bed{{ tones.offScreen ? ", with the screen off too" : ", while this page is open" }}.</p>
+      <p v-if="toneHeard" class="glabel">A soft tone at {{ target }} min says it's time to go back to bed{{ tones.offScreen ? ", with the screen off too" : ", while this page is open" }}.</p>
+      <p v-else-if="toneWaiting" class="glabel"><button type="button" class="ginl" @click="tones.enable()">Tap to turn on the soft tone</button> that says at {{ target }} min it's time to go back to bed.</p>
       <p class="glead">Keep the lights low. Use the time for dream work:</p>
       <ul class="glist gp">
         <li><button type="button" class="ginl" @click="writeDream">Write down the last dream</button>, while it is fresh.</li>

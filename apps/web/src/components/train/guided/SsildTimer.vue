@@ -38,7 +38,8 @@ function start() {
   clock.start(t0);
   // the tones are scheduled once, inside this tap (the audio needs it); playing off-screen, the phone may go dark
   const playing = tone.value ? tones.play(ssildCues(plan.value, t0), t0 + plan.value.total * 1000) : Promise.resolve(false);
-  void playing.then((ok) => { if (!(ok && tones.offScreen)) void wake.on(); });
+  // finish() may have run while the tones were being handed over: then the screen lock must stay released
+  void playing.then((ok) => { if (state.value === "run" && !(ok && tones.offScreen)) void wake.on(); });
 }
 async function finish(to: "end" | "stopped") {
   clock.stop(); state.value = to; emit("running", false);

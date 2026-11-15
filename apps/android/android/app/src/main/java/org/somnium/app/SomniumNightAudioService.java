@@ -72,8 +72,11 @@ public class SomniumNightAudioService extends Service {
     }
 
     static void stop(Context ctx) {
-        if (!running) return;
-        ctx.startService(new Intent(ctx, SomniumNightAudioService.class).setAction(ACTION_STOP));
+        // not guarded by `running`: right after start() the service may not have reached onStartCommand yet, and a
+        // schedule still pending would play after this Stop. Dropping it here and queueing a STOP covers both.
+        synchronized (LOCK) { pending = null; }
+        try { ctx.startService(new Intent(ctx, SomniumNightAudioService.class).setAction(ACTION_STOP)); }
+        catch (RuntimeException ignored) { /* app in the background and no service running: nothing to stop */ }
     }
 
     @Override

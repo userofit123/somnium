@@ -2,9 +2,9 @@
 // browser has it; nothing happens where it doesn't), a clock that counts from a start time (so a slowed background
 // tab or a sleeping phone catches up instead of drifting), and the quiet tones (LDJ-115: with the screen off on
 // Android, on the page's audio clock elsewhere).
-import { onBeforeUnmount, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import type { NightCue } from "@somnium/shared";
-import { nightAudio, playNightTones, stopNightTones } from "../../../native/nightAudio";
+import { nightAudio, nightTonesRunning, playNightTones, stopNightTones } from "../../../native/nightAudio";
 import { lock } from "../../../core/lock";
 
 interface Sentinel { released: boolean; release(): Promise<void>; addEventListener(t: "release", f: () => void): void }
@@ -55,7 +55,17 @@ export function useClock() {
 export function createCuePlayer() {
   let ctx: AudioContext | null = null;
   const scheduled = ref(0);
-  function prime() { try { ctx ??= new AudioContext(); void ctx.resume(); } catch { ctx = null; } return !!ctx; }
+  // false while the browser holds the context suspended (no tap yet since a reload): nothing is audible then
+  const running = ref(false);
+  function prime() {
+    try {
+      if (!ctx) { ctx = new AudioContext(); const c = ctx; c.onstatechange = () => { if (ctx === c) running.value = c.state === "running"; }; }
+      const c = ctx;
+      running.value = c.state === "running";
+      void c.resume().then(() => { if (ctx === c) running.value = c.state === "running"; }, () => {});
+    } catch { ctx = null; running.value = false; }
+    return !!ctx;
+  }
   function cue(tone: { notes: readonly number[]; type: string }, gain: number, at = Date.now()) {
     if (!ctx) return false;
     const t0 = ctx.currentTime + Math.max(0, (at - Date.now()) / 1000);
@@ -69,8 +79,8 @@ export function createCuePlayer() {
     return true;
   }
   /** Stops every cue still on the clock. */
-  async function close() { const c = ctx; ctx = null; await c?.close().catch(() => {}); }
-  return { prime, cue, close, scheduled, state: () => ctx?.state ?? "closed" };
+  async function close() { const c = ctx; ctx = null; running.value = false; await c?.close().catch(() => {}); }
+  return { prime, cue, close, scheduled, running, state: () => ctx?.state ?? "closed" };
 }
 /** The same, closed when the screen goes. */
 export function useCuePlayer() { const p = createCuePlayer(); onBeforeUnmount(() => { void p.close(); }); return p; }
@@ -85,15 +95,29 @@ export function useCuePlayer() { const p = createCuePlayer(); onBeforeUnmount(()
 export function useNightTones(o: { keep?: boolean } = {}) {
   const offScreen = !!nightAudio();
   const player = offScreen ? null : createCuePlayer();
-  let on = false;
+  let on = false, last: { cues: readonly NightCue[]; end: number } | null = null;
+  /** True only when the tones will really be heard: the service runs, or the page's audio is not held suspended. */
+  const audible = computed(() => (player ? player.running.value : on));
   /** False when nothing will play (no audio here, or nothing left in the schedule). */
   async function play(cues: readonly NightCue[], end: number): Promise<boolean> {
+    last = { cues, end };
     if (!player) { on = await playNightTones(cues, end); return on; }
     if (!player.prime()) return false;
     const now = Date.now();
     for (const c of cues) if (c.at >= now - 1000 && c.at < end) player.cue({ notes: c.notes, type: c.wave }, c.gain, c.at);
     on = true;
     return true;
+  }
+  /** Like play, but where a service already plays something it is left alone (`kept`: true, and `on` so Stop works). */
+  async function playUnlessBusy(cues: readonly NightCue[], end: number): Promise<{ ok: boolean; kept: boolean }> {
+    if (!player && await nightTonesRunning()) { last = { cues, end }; on = true; return { ok: true, kept: true }; }
+    return { ok: await play(cues, end), kept: false };
+  }
+  /** Inside a tap: a fresh audio context (the browser allows it now) with the same schedule. */
+  async function enable() {
+    if (!player || !last) return;
+    await player.close();
+    await play(last.cues, last.end);
   }
   async function stop() {
     if (!on) return;
@@ -104,5 +128,5 @@ export function useNightTones(o: { keep?: boolean } = {}) {
     if (player) { void player.close(); return; }
     if (on && !o.keep && !lock.locked) void stop();
   });
-  return { offScreen, play, stop };
+  return { offScreen, audible, play, playUnlessBusy, enable, stop };
 }
