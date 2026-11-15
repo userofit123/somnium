@@ -1,3 +1,6 @@
+// TARGET STRUCTURE: PLAN.md §6 is the target for the pages in the menu. Phone tabs: Home, Journal, [+], Train,
+// Progress, More (Dream signs, Learn, Settings). Desktop rail: Home, Journal, Train, Dream signs, Progress, Learn,
+// Settings, plus the + button. The list below is the current arrangement and moves to match in separate tasks.
 // The pages in the menu (PLAN.md §6): seven on a computer, five tabs plus More on the phone.
 export const NAV = [
   { name: "home", label: "Home", icon: "home", to: "/" },

@@ -213,73 +213,111 @@ Sealed columns are marked (S).
 
 ## 6. Screens and features
 
-Navigation (Motus §10.0 rules: short, calm, one primary action per screen):
+This section is the target structure for the app's pages, tabs and the order of sections on each page. It
+supersedes the earlier layout (seven rail entries with Signs and Insights, five phone tabs with Learn, Train as one
+long page of nine cards). The rule behind it: one obvious place per thing, a daily loop of under 10 taps on a
+phone, and the Motus layout. Navigation code and pages are moved to match in separate tasks; until each move
+lands, the code may still show the old arrangement. Navigation follows Motus §10.0: short, calm, one primary
+action per screen.
 
-- Desktop rail (7): **Home · Journal · Signs · Train · Insights · Learn · Settings**
-- Phone tabs (5 + More): **Home · Journal · Train · Insights · Learn**; More holds Signs and Settings; the Journal
-  tab's primary button is **Write a dream**.
+### 6.0 Navigation
+- **Phone tabs**: **Home · Journal · [+] · Train · Progress · More**. The centre **+** opens the quick-add sheet
+  (Motus StartSheet pattern). **More**: the account card, then Dream signs, Learn, Settings.
+- **Desktop rail (7)**: **Home · Journal · Train · Dream signs · Progress · Learn · Settings**, plus a **+** button
+  (Motus desktop FAB) opening the same quick-add sheet.
+- **Quick-add sheet**: Write a dream, No recall, Log a reality check, Plan tonight, Day note. These are the only
+  entry points for adding; pages do not repeat them as extra buttons.
+- **One home per thing**: reality checks, course practice, tonight's plan, goals, day notes, typical themes,
+  For you and the self-assessments each live on one page (below). Other pages show a short summary that links
+  there, never a second editor.
 
-### 6.1 Home
-- **This morning**: a big "Write last night's dream" button until a dream (or "no recall") is logged for today;
-  then the night's summary (dreams, lucid or not, recall streak).
-- **Today**: reality checks done / planned, the next reminder, today's practice (from the course or the plan).
-- **Tonight**: the plan (technique, bedtime, WBTB alarm if any) with one tap to change; "Set an intention".
-- **Streaks and rates**: journaling streak, recall rate (dreams per night, 14 days), lucid dreams this month.
-- Optional cards (Settings → Features): top dream signs, the next lesson, a tip from Learn, last lucid dream.
+### 6.1 Home (daily dashboard, in time-of-day order)
+1. **Greeting and date**.
+2. **This morning**: a big "Write last night's dream" button until a dream (or "no recall") is logged for today;
+   then last night's summary (dreams, lucid or not, recall streak) with **Night details**.
+3. **Today**: one checklist: reality checks x of y with the next reminder, course practice, the top dream sign,
+   memory targets. The same checklist is used on Train > Today.
+4. **Tonight**: techniques, intention, bedtime and WBTB alarm as a summary, with one **Plan tonight** button that
+   opens Train > Tonight.
+5. **Streaks and rates**: journaling streak, recall rate (dreams per night, 14 days), lucid dreams this month; links
+   to Progress.
+6. **For you**: the recommendations shown here (§8.2), with reasons and sources.
+7. Blocks the person adds with **Edit home** (top dream signs, the next lesson, a tip from Learn, last lucid dream,
+   pinned goals); the switches live on Home itself, not in Settings → Features.
 
 ### 6.2 Journal
-- List by night (newest first) with lucid / nightmare / favourite marks, a calendar month view with dots (Motus's
-  history calendar), search (text, elements, dates, lucid only) - all on the device replica.
+- **Last night strip** at the top, then search and filters (text, elements, dates, lucid, nightmare, recurring,
+  favourite), and the list by night (newest first) with lucid / nightmare / favourite marks, or the calendar month
+  view with dots (Motus's history calendar). All on the device replica.
 - **Write a dream** (phone: full-screen, opens with the keyboard; desktop: side panel): title, text (present
   tense is suggested in the placeholder), quick chips for lucid / vivid / nightmare / recurring / false awakening,
   sliders for lucidity 0-5 and vividness, emotions chips, elements (type-ahead from your taxonomy; suggestions
   appear as you write, §7), photos (camera / file; OCR offered), sketch (simple canvas), voice note. Saves as you
   type (draft), never loses text.
-- **No recall** button for a night (counts as a logged night; keeps the streak; matters for the recall rate).
-- Night details sheet: bedtime, wake time, sleep quality, WBTB, techniques used, substances, nap.
+- **No recall** for a night: one button (counts as a logged night; keeps the streak; matters for the recall rate).
+- **Night details** per night, opened from the night itself, also for no-recall nights: bedtime, wake time, sleep
+  quality, WBTB, techniques used, substances, nap.
+- **Day notes** are shown inside their day (added from the + sheet); only their lag analysis is in Progress.
 - Dream page: the text with detected elements underlined (tap to confirm / reject), the night's facts, related
-  dreams (sharing elements), "Mark as dream sign", export as Markdown, delete.
+  dreams (sharing elements), "Mark as dream sign", export as Markdown, delete (in the ⋮ menu).
 - Import: Markdown / text / CSV files, photos of handwritten pages (OCR → review → save), and files from other apps
-  (§12).
+  (§12), opened in place from the Journal.
 
-### 6.3 Signs (dream signs and elements)
-- Your elements by kind with counts, last seen, trend sparkline; the **dream sign shortlist** (elements marked as
-  signs, ranked by frequency × oddness), with LaBerge's category and the suggested reality check to pair with it.
-- **Suggestions**: elements the app found across dreams but you have not confirmed (minimum support rule, §7.2),
-  one tap to confirm, merge or dismiss.
-- A sign's page: every dream it appears in, co-occurring elements, how often it led to lucidity.
-- Typical-dream themes (Nielsen 2003 list) you have had, with the population prevalence beside yours.
+### 6.3 Train (three tabs)
+- **Today**: the course lesson with its "ready to move on" rule, today's checklist (the same one as Home), memory
+  targets, reminders setup, and meditation / dream yoga when switched on.
+- **Tonight** (the one place to plan the night): techniques, intention, bedtime and WBTB alarm (computed from
+  bedtime and sleep cycles, §9), guided bedtime starts (MILD flow with your dream sign and intention), and the
+  **Evening review** as the last step.
+- **Techniques**: the library (every technique with origin, evidence level, steps, when to do it, **Use tonight**),
+  the guided tools (SSILD cycle timer, WBTB planner, WILD relaxation with a soft timer) and the sound cue. Learn's
+  technique pages are this same page.
+- **The course** (behind Today; RESEARCH.md; §8.1): Recall → Journal habits → Dream signs and reality checks →
+  MILD + WBTB → Stabilisation → WILD/SSILD → Dream control and uses. Each lesson: what to do, why (with the
+  studies), today's practice items, a "ready to move on" rule from your own data.
+- **Reality checks** are logged through the single Log a check action (the + sheet, Home, Today) and return to the
+  screen they started from; the separate drill and header button are folded into it.
+- Sub-screens have real addresses, with a back button to where you came from.
 
-### 6.4 Train
-- **The course**: evidence-informed progression (RESEARCH.md; §8.1): Recall → Journal habits → Dream signs and
-  reality checks → MILD + WBTB → Stabilisation → WILD/SSILD → Dream control and uses. Each lesson: what to do,
-  why (with the studies), today's practice items, a "ready to move on" rule from your own data.
-- **Techniques library**: every technique with origin, evidence level, steps, when to do it, a guided mode where
-  it helps (MILD bedtime flow with your dream sign and intention; SSILD cycle timer; WBTB planner; WILD
-  relaxation with a soft timer; reality check drill), and "Use tonight".
-- **Tonight's plan**: technique(s), bedtime, WBTB alarm (computed from bedtime and sleep cycles, §9), intention.
-- **Practice habits**: daily checklist (journal, reality checks, read a sign, evening review) with streaks.
-- **Meditation timer** (plain) and the dream-yoga daytime practices as optional habits.
+### 6.4 Dream signs
+In action order:
+1. **Your signs**, each with the check to pair with it (LaBerge's category; the shortlist of elements marked as
+   signs, ranked by frequency × oddness).
+2. **To confirm**: elements the app found across dreams that you have not confirmed (minimum support rule, §7.2),
+   one tap to confirm, merge or dismiss.
+3. **Elements by kind** with counts, last seen, trend sparkline. A sign's page: every dream it appears in,
+   co-occurring elements, how often it led to lucidity.
+4. **Typical themes** (Nielsen 2003 list) you have had, with the population prevalence beside yours. Shown here
+   only, not in Progress.
 
-### 6.5 Insights
-- Recall: dreams per night, nights with recall, trend; weekday pattern.
-- Lucidity: lucid dreams per month, lucidity level distribution, how lucidity started (sign / check / WILD).
+### 6.5 Progress (was Insights)
+Ordered by what matters for lucid dreaming; numbers as stat tiles, one chart per card.
+- **Goals**: their one home (pinnable to Home).
+- **Lucidity**: lucid dreams per month, lucidity level distribution, how lucidity started (sign / check / WILD).
 - **What works for you**: lucidity rate on nights with each technique vs without, WBTB vs not, with wake duration
   bands, sleep length bands, nap vs no nap, bedtime bands - with sample sizes and a plain "not enough nights yet"
   when under 10. Honest, no p-values dressed up.
-- Elements over time, emotions over time, nightmares, false awakenings, sleep paralysis.
-- Reality checks: per day, by kind, prompted vs own, "dreaming" outcomes (these are the lucid moments).
-- Month report and year in review (optional features).
+- **Recall**: dreams per night, nights with recall, trend; weekday pattern.
+- **Checks**: reality checks per day, by kind, prompted vs own, "dreaming" outcomes (these are the lucid moments).
+- **Night events**: elements and emotions over time, nightmares, false awakenings, sleep paralysis.
+- **Day-note lag**: the analysis only; the notes themselves are in the Journal.
+- **Self-assessment answers** (LuCiD, DLQ, MADRE and the "Where am I" questionnaires), linked from Learn.
+- **Reports**: month report and year in review (optional features).
 
-### 6.6 Learn (§10): the knowledge base with search, reading progress and "try it" links into Train.
+### 6.6 Learn (§10)
+Reading only: sections, glossary, FAQ, resources, with search and reading progress. "Try it" links open the
+technique in Train (technique pages are the same page as Train's Techniques). Questionnaires are answered and
+their results kept in Progress, not here.
 
 ### 6.7 Settings
-Account (You, signed-in devices), **Servers & accounts** (named servers, add / rename / remove, switch between
-them and this device's local account, sync status per account), **Security** (app lock and delay, device verification, password, recovery key,
-two-factor and backup codes, "can you get back in?" checklist, sign out everywhere, activity log), Appearance
-(Money Manager's panel), Notifications (reality checks schedule, quiet hours, bedtime, WBTB, morning, practice),
-Sleep (usual bedtime and wake time, cycle length), Features, Backup & restore (automatic, encrypted), Data
-(export, import, delete account), App & versions (updates), Server admin, About (licences, sources).
+Grouped around dreaming first. Account (name, signed-in devices, sync), **Servers & accounts** (named servers, add /
+rename / remove, switch between them and this device's local account, sync status per account), **Security** (app
+lock and delay, device verification, password, recovery key, two-factor and backup codes, "can you get back in?"
+checklist, sign out everywhere, activity log), a **Practice** group (Sleep: usual bedtime and wake time, cycle
+length, kept in one place; Reminders: reality checks schedule, quiet hours, bedtime, WBTB, morning, practice;
+Training), Appearance (Money Manager's panel), Features (each switch says where it appears), Backup & restore
+(automatic, encrypted), Data (export, import, delete account), App & versions (updates), Server admin, About
+(licences, sources).
 
 ## 7. Dream analysis
 
@@ -454,3 +492,4 @@ The Focus list "Lucid Dreaming journal" holds the tasks (`LD-n`). Phases:
 - D6 English only; all UI strings in one file.
 - D7 No substance recommendations; evidence shown as information with risks.
 - D8 Dev ports 8800 / 8801, Tailscale 8444, site somnium.local.
+- D9 (2026-11-15) One target structure for pages and tabs (§6, supersedes the earlier layout): phone tabs Home · Journal · [+] · Train · Progress · More; desktop rail Home · Journal · Train · Dream signs · Progress · Learn · Settings with a + button; Train in three tabs (Today, Tonight, Techniques); Insights renamed Progress; Learn is reading only. Each thing has one home, and other pages summarise and link to it.
