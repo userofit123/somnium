@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bucketOf, bucketRange, periodStart, recallInsight, lucidityInsight, eventsInsight, emotionsInsight, checksInsight,
-  compareLucid, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, MIN_NIGHTS, type InsightNight, type InsightDream,
+  compareLucid, checksBySign, whatWorks, sleepHours, utcClock, recallProgress, recallChangeText, lucidRecipes, techniqueTally, MIN_NIGHTS, type InsightNight, type InsightDream,
 } from "./insights";
 import { addDays } from "./rates";
 
@@ -285,4 +285,20 @@ describe("insights: early results per technique (LDJ-109)", () => {
     expect(techniqueTally(ns, [], utcClock)[0]).toMatchObject({ id: "mild", nights: MIN_NIGHTS, lucid: 0, early: false });
     expect(techniqueTally(ns.slice(1), [], utcClock)[0]!.early).toBe(true);
   });
+});
+
+describe("insights: checks per dream sign (LDJ-200)", () => {
+  const c = (at: string, signId: string | null, outcome: "awake" | "dreaming" = "awake") => ({ at, kind: "nose" as const, outcome, prompted: true, signId });
+  const links = [{ dreamId: "d1", elementId: "teeth", source: "manual" as const }, { dreamId: "d2", elementId: "teeth", source: "manual" as const }];
+  const dreams = [{ id: "d1", date: "2026-11-02", lucid: true, becameLucidHow: "dream_sign" }, { id: "d2", date: "2026-11-03", lucid: true, becameLucidHow: "other" }, { id: "d3", date: "2026-11-04", lucid: false }];
+  it("counts checks and lucid dreams per sign, keeps unpaired apart and stays inside the range", () => {
+    const cs = [c("2026-11-05T09:00:00Z", "teeth"), c("2026-11-05T10:00:00Z", "teeth", "dreaming"), c("2026-11-06T10:00:00Z", "stairs"), c("2026-11-06T11:00:00Z", null), c("2026-10-01T10:00:00Z", "stairs")];
+    const r = checksBySign(cs, links, dreams, "2026-11-01", "2026-11-07", utcClock);
+    expect(r.unpaired).toBe(1);
+    expect(r.rows).toEqual([
+      { elementId: "teeth", checks: 2, dreaming: 1, lucidViaSign: 1 },
+      { elementId: "stairs", checks: 1, dreaming: 0, lucidViaSign: 0 },
+    ]);
+  });
+  it("is empty with no checks", () => { expect(checksBySign([], links, dreams, null, "2026-11-07")).toEqual({ rows: [], unpaired: 0 }); });
 });

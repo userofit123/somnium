@@ -14,3 +14,6 @@
 .insights .ins-pair .num { width: 36px; text-align: end; color: var(--tx); }
 /* early results (LDJ-109): the lucid nights' recipes and the per-technique counts sit above the rates */
 .insights .ins-early { margin-bottom: var(--spg); }
+
+/* checks per dream sign (LDJ-200): a plain list inside its card */
+.ins-signs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--hg); }

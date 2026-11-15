@@ -11,6 +11,7 @@
 // LDJ-27) read the same Comparison objects, so the threshold and wording stay in one place.
 import { loggedNights, addDays, minutesToSleep, type NightLog } from "./rates";
 import { TECHNIQUES } from "./journal";
+import { lucidSplit, type SignDream, type SignLink } from "./signs";
 import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome } from "./types";
 
 /** Fewer nights than this in either group: "not enough nights yet", and no rate. */
@@ -36,7 +37,7 @@ export interface InsightDream {
   sleepParalysis?: boolean;
   becameLucidHow?: BecameLucidHow | null;
 }
-export interface InsightCheck { at: string; kind: CheckKind; outcome: CheckOutcome; prompted: boolean }
+export interface InsightCheck { at: string; kind: CheckKind; outcome: CheckOutcome; prompted: boolean; /** the dream sign (element id) the reminder paired it with (LDJ-111) */ signId?: string | null }
 
 /** Reads an instant as the person's local clock: the date and the minutes since midnight. */
 export interface Clock { day(iso: string): string; minutes(iso: string): number }
@@ -297,6 +298,31 @@ export function checksInsight(checks: InsightCheck[], from: string | null, to: s
   const byKind = CHECK_KINDS.map((k) => ({ kind: k, count: cs.filter((c) => c.kind === k).length })).filter((k) => k.count > 0).sort((a, b) => b.count - a.count);
   const prompted = cs.filter((c) => c.prompted).length;
   return { total: cs.length, days: perDay.size, perDayAvg: perDay.size ? cs.length / perDay.size : 0, perDay: [...perDay].map(([key, count]) => ({ key, count })), byKind, prompted, own: cs.length - prompted, byOutcome };
+}
+
+export interface SignCheckRow {
+  elementId: string; checks: number; dreaming: number;
+  /** lucid dreams marked as started by noticing a dream sign, among the dreams with this sign (signs.ts lucidSplit) */
+  lucidViaSign: number;
+}
+/**
+ * Checks per paired dream sign (LDJ-200): how many were paired with each sign in the range, how many of those said
+ * "dreaming", and the lucid dreams that came from noticing it. Only ids here: the names are sealed and the screen adds
+ * them from the unlocked elements. Most checks first, then the sign with more lucid dreams; `unpaired` are the rest.
+ */
+export function checksBySign(checks: readonly InsightCheck[], links: readonly SignLink[], dreams: readonly SignDream[], from: string | null, to: string, clock: Clock = localClock): { rows: SignCheckRow[]; unpaired: number } {
+  const by = new Map<string, SignCheckRow>();
+  let unpaired = 0;
+  for (const c of checks) {
+    const day = clock.day(c.at);
+    if ((from != null && day < from) || day > to) continue;
+    if (!c.signId) { unpaired++; continue; }
+    const r = by.get(c.signId) ?? { elementId: c.signId, checks: 0, dreaming: 0, lucidViaSign: 0 };
+    r.checks++; if (c.outcome === "dreaming") r.dreaming++;
+    by.set(c.signId, r);
+  }
+  for (const r of by.values()) r.lucidViaSign = lucidSplit(r.elementId, links, dreams).with.viaSign;
+  return { rows: [...by.values()].sort((a, b) => b.checks - a.checks || b.lucidViaSign - a.lucidViaSign || a.elementId.localeCompare(b.elementId)), unpaired };
 }
 
 // ---------- what works for you (LDJ-22) ----------

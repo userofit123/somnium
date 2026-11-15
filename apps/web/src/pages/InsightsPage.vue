@@ -11,7 +11,7 @@ import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
   RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_WINDOW, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, RECALL_FIRST_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
-  checksInsight, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
+  checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
 import { useJournal } from "../api/journal";
@@ -60,7 +60,7 @@ const checksQ = useQuery({
   queryFn: () => api.get<RealityCheck[]>("/reality-checks", { ...(from.value ? { from: new Date(from.value + "T00:00:00").toISOString() } : {}), all: 1 }),
 });
 // every night (all=1) and every dream's plain facts (no limit): no sum here stops at an older dream
-await loaded(j.nights, j.facts);
+await loaded(j.nights, j.facts, j.elements, j.links);
 const { answers } = useLearn();
 
 const nights = computed(() => j.nights.data.value ?? []);
@@ -72,6 +72,15 @@ const lucid = computed(() => lucidityInsight(nights.value, dreams.value, from.va
 const events = computed(() => eventsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const emotions = computed(() => emotionsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const checks = computed(() => checksInsight(checksQ.data.value ?? [], from.value, today.value, localClock));
+// per paired dream sign (LDJ-200): the ids come from the checks; names only from the elements this device has decrypted,
+// so a sign whose name is not readable is left out rather than shown by id
+const signRows = computed(() => {
+  const names = new Map((j.elements.data.value ?? []).map((e) => [e.id, e.name]));
+  const inRange = dreams.value.filter((d) => (from.value == null || d.date >= from.value) && d.date <= today.value);
+  const r = checksBySign(checksQ.data.value ?? [], j.links.data.value ?? [], inRange, from.value, today.value, localClock);
+  return { rows: r.rows.flatMap((x) => (names.get(x.elementId) ? [{ ...x, name: names.get(x.elementId)! }] : [])), unpaired: r.unpaired };
+});
+const signLine = (r: { checks: number; lucidViaSign: number }) => `${plural(r.checks, "check")} · ${plural(r.lucidViaSign, "lucid dream")} from noticing it`;
 // memory targets (LDJ-50): the last 7 days, whatever period is chosen above
 const pm = computed(() => pmWeek(habitLog.data.value ?? [], today.value));
 const inPeriod = computed(() => nights.value.filter((n) => (from.value == null || n.date >= from.value) && n.date <= today.value));
@@ -292,6 +301,13 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         <div class="grid g2 spt">
           <div class="card"><div class="lbl hgap">Checks a day{{ period === "4w" ? "" : ", weekly average" }}</div><BarChart :bars="checkBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">By kind</div><BarChart :bars="kindBars" horizontal /></div>
+        </div>
+        <div v-if="signRows.rows.length" class="card spt" data-testid="checks-by-sign">
+          <div class="lbl hgap">By dream sign</div>
+          <ul class="ins-signs">
+            <li v-for="r in signRows.rows" :key="r.elementId"><b>{{ r.name }}</b>: {{ signLine(r) }}{{ r.dreaming ? ` · ${r.dreaming} said "dreaming"` : "" }}</li>
+          </ul>
+          <p class="tiny ins-note">Checks you did when a reminder paired them with a sign{{ signRows.unpaired ? `; ${plural(signRows.unpaired, "other check")} had none` : "" }}. Counts, not a rate: noticing a sign you already know is the route dream sign training aims at. <CiteChips :ids="SIGN_ADVICE_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>
     </section>
