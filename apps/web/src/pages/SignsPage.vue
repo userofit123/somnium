@@ -26,9 +26,11 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
 <template>
   <div class="page">
     <ElementPanel v-if="isPhone && id" :id="id" :key="id" back @close="close" @open="open" />
-    <div v-else :class="{ split: !isPhone }">
+    <template v-else>
+    <!-- the header spans the page above the list and the open element, as on Journal and Motus's pages -->
+    <div class="ph"><div><h1>Dream signs</h1><div class="sub">Elements are the people, places, things and feelings in your dreams. Dream signs are the ones that keep coming back, your cue to check whether you are dreaming.</div></div></div>
+    <div :class="{ split: !isPhone }">
       <div>
-        <div class="ph"><div><h1>Dream signs</h1><div class="sub">Elements are the people, places, things and feelings in your dreams. Dream signs are the ones that keep coming back, your cue to check whether you are dreaming.</div></div></div>
         <SignsOverview :selected="id || undefined" @open="open" />
       </div>
       <aside v-if="!isPhone" class="side">
@@ -38,5 +40,6 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
         </div>
       </aside>
     </div>
+    </template>
   </div>
 </template>

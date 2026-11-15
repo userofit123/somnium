@@ -20,7 +20,7 @@ describe("stepFor", () => {
   it("in the morning, an unwritten night comes first, even when ready to move on", () => {
     const s = stepFor(base({ hour: 7, wrote: false, ready: true }));
     expect(s.kind).toBe("write");
-    expect(s.action).toEqual({ label: "Write last night's dream", run: "write" });
+    expect(s.action).toEqual({ label: "Write it down", run: "write" });
     expect(s.sources.length).toBeGreaterThan(0);
   });
   it("does not ask for the dream in the evening or the small hours", () => {

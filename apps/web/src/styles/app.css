@@ -51,6 +51,9 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 .ph h1 { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.6px; line-height: 1.15; }
 .ph .sub { color: var(--tx2); font-size: var(--fs-sm); margin-top: 4px; }
 .ph .acts { display: flex; gap: 8px; align-items: center; flex: none; }
+/* a tab row in the header's actions (Journal's List/Calendar) drops its block margins, which would lift the actions
+   above the title's baseline */
+.ph .acts .seg { margin: 0; }
 /* Master-detail on a computer, from Motus (its Settings grid and the workout's sticky side): one layout for Journal,
    Dream signs, Learn and Settings. .split is a list beside a sticky detail card (.side); .split.nav is a sticky section
    nav (.snav) beside the page. The phone never gets it: each pane is a screen of its own there, with a Back pill. */
@@ -280,6 +283,8 @@ html.phone .sht .sh_b:last-child { padding-bottom: calc(var(--cpy) + 3px + var(-
 .fld { margin-bottom: 14px; }
 .fld > label, .flbl { display: block; font-size: var(--fs-sm); font-weight: 600; color: var(--tx2); margin-bottom: 6px; }
 .fld input, .fld select, .fld textarea, input.in, select.in, textarea.in { width: 100%; }
+/* fields in a card of list rows start where the rows' text does (.li's 4px inline padding), not 4px left of it */
+.card:has(> :is(.li, .tgl)) > :is(.fld, .frow) { padding-inline: 4px; }
 .frow { display: flex; gap: 10px; }
 .frow > * { flex: 1; min-width: 0; }
 .seg.block { display: flex; width: 100%; }
@@ -289,18 +294,25 @@ html.phone .sht .sh_b:last-child { padding-bottom: calc(var(--cpy) + 3px + var(-
 .tgl .t { font-weight: 500; font-size: calc(15px * var(--fsc)); }
 .tgl .s:not(.btn) { font-size: var(--fs-sm); color: var(--tx2); margin-top: 2px; }
 /* fields revealed by a switch sit one row-gap under the switch's separator line instead of touching it */
-.tgl + .fld, .tgl + .frow { margin-top: var(--lpy); }
+.tgl + .fld, .tgl + .frow, .li + .fld, .li + .frow { margin-top: var(--lpy); }
+/* a field's own description line, between its label and its control (Settings > Sleep): the rows' small grey text */
+.fld > .s { font-size: var(--fs-sm); color: var(--tx2); margin-bottom: var(--tdy); }
 .search { position: relative; }
 .search .ico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--tx2); }
 .search input { padding-inline-start: 38px; width: 100%; }
 
 /* ---------- toasts ---------- */
-.tst { position: fixed; left: 50%; bottom: calc(24px + var(--sb)); transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
-html.phone .tst { bottom: calc(var(--tabh) + 76px + var(--sb)); }
-.tst > div { pointer-events: auto; background: var(--tx); color: var(--bg); border-radius: 14px; padding: 11px 16px; font-size: var(--fs); font-weight: 500; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); max-width: min(520px, calc(100vw - 32px)); }
+/* the short messages (Saved, Undo, "A backup is due"): the look of Motus's docked notice (Motus toasts.css .upn): the main
+   colour's tint, so they sit in the dark and light themes alike instead of a light pill over the page. Desktop: at the
+   bottom, centred on the page column (clear of the rail and the + in the corner). Phone: docked just above the tab bar,
+   spanning the screen with the bar's side gaps. max-content keeps a short message on one line: a fixed box at left 50%
+   would otherwise only get half the width and wrap. */
+.tst { position: fixed; left: calc(48px + 50%); bottom: calc(24px + var(--sb)); transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; width: max-content; max-width: min(520px, calc(100vw - 32px)); pointer-events: none; }
+html.phone .tst { left: calc(10px + var(--sl)); right: calc(10px + var(--sr)); bottom: calc(var(--tabh) + var(--sb) + 8px); transform: none; width: auto; max-width: none; align-items: stretch; }
+.tst > div { pointer-events: auto; background: var(--accc); color: var(--onc); border-radius: 18px; padding: var(--lpy) calc(var(--lpy) + 4px); font-size: var(--fs); font-weight: 500; display: flex; gap: 14px; align-items: center; justify-content: space-between; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); }
 .tst > div.err { background: var(--neg); color: var(--on); }
 .tst > div.pr { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--on-gold); }
-.tst button { border: 0; background: none; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.tst button { border: 0; background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; }
 
 /* ---------- desktop rail extras ---------- */
 nav .navb .acct { width: 40px; height: 40px; border-radius: 50%; background: var(--s2); display: grid; place-items: center; font-weight: 700; font-size: var(--fs); cursor: pointer; border: 0; color: var(--tx); }

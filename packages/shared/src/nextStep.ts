@@ -65,9 +65,9 @@ export function stepFor(i: StepInput): Step {
   const evening = i.hour >= 18 || i.hour < NIGHT_CUTOFF;
 
   if (!i.wrote && !evening) return {
-    kind: "write", title: "Write down last night's dream", line: "Even a fragment counts, or mark No recall.",
+    kind: "write", title: "Write down last night's dream", line: "Even a fragment counts.",
     why: "Recall predicts success with every later technique, so every programme starts with the journal.",
-    sources: ["D12", "D5"], action: { label: "Write last night's dream", run: "write" },
+    sources: ["D12", "D5"], action: { label: "Write it down", run: "write" },
   };
 
   if (i.ready && i.lesson) return i.next ? {

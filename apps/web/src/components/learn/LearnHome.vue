@@ -12,6 +12,7 @@ import { currentLesson } from "@somnium/shared";
 import { useTrain } from "../../api/train";
 import { buildIndex, search, highlight, excerpt } from "@somnium/knowledge/search";
 import { useLearn } from "../../core/learn";
+import { isPhone } from "../../core/device";
 import Icon from "../Icon.vue";
 import PinButton from "./PinButton.vue";
 import ReadMark from "./ReadMark.vue";
@@ -71,7 +72,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
 
 <template>
   <div class="art wide">
-    <div class="ph"><div><h1>Learn</h1><div class="sub">What is known about lucid dreaming, with the sources behind it. Everything here works offline.</div></div></div>
+    <div v-if="isPhone" class="ph"><div><h1>Learn</h1><div class="sub">What is known about lucid dreaming, with the sources behind it. Everything here works offline.</div></div></div>
     <div class="search lsearch">
       <Icon name="search" />
       <input v-model="q" type="search" placeholder="Search titles, summaries and text" aria-label="Search Learn" autocomplete="off" />

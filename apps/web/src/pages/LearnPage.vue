@@ -48,6 +48,9 @@ const total = articles.length;
 
 <template>
   <div class="page learn">
+    <!-- on a computer the page title spans the page above the section nav and the view, as Settings and Journal do;
+         a phone has no nav column, so Learn home shows the title itself -->
+    <div v-if="!isPhone" class="ph"><div><h1>Learn</h1><div class="sub">What is known about lucid dreaming, with the sources behind it. Everything here works offline.</div></div></div>
     <!-- on a computer: app.css's .split.nav, the same section nav as Settings -->
     <div :class="{ 'split nav': !isPhone }">
       <aside v-if="!isPhone" class="card snav side" aria-label="Learn sections">

@@ -167,7 +167,7 @@ watch(() => [route.name, route.query.write, route.query.norecall], async () => {
 // the import opens over the Journal and closes back to it once saved (LDJ-129)
 const importOpen = ref(false);
 const menu = computed(() => [
-  { label: "Write a dream", icon: "plus", run: () => write(), hidden: !mode.value || isPhone.value },
+  { label: "Write a dream", icon: "plus", run: () => write(), hidden: isPhone.value },
   { label: "Search filters", icon: "filter", run: () => (filterOpen.value = true), hidden: empty.value },
   // the same import as Settings → Data (LDJ-16, LDJ-36): Markdown, text or CSV, dates found, a review before saving
   { label: "Import from a file", icon: "upload", run: () => (importOpen.value = true) },
@@ -187,8 +187,7 @@ const menu = computed(() => [
       <div class="acts">
         <div v-if="!empty" class="seg"><button :class="{ on: view === 'list' }" :aria-pressed="view === 'list'" @click="setView('list')">List</button><button :class="{ on: view === 'calendar' }" :aria-pressed="view === 'calendar'" @click="setView('calendar')">Calendar</button></div>
         <Menu :items="menu" />
-        <!-- with a dream open beside the list, its Edit or Done is the one primary button; this moves to the menu -->
-        <button v-if="!empty && !isPhone && !mode" class="btn" @click="write()"><Icon name="plus" :size="16" />Write a dream</button>
+        <!-- no Write button here: the shell's + is the page's one primary action (as on Motus); the menu keeps it too -->
       </div>
     </div>
     <div class="jcols" :class="{ split: !isPhone }">

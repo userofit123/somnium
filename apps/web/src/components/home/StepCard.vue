@@ -2,7 +2,8 @@
 // "Today's step" (LDJ-107): the one thing to do now, at the top of Home, worked out by stepFor (packages/shared/src/
 // nextStep.ts) from the lesson, the hour and what is logged. It holds Home's one primary button; the cards below stay
 // quieter. It names counts and plans only, never dream text. Its "why" cites its sources, which open the same sheet as
-// Learn. The Today checklist lists the practice items, so this card never repeats them. While the step is the morning's
+// Learn. It reads title, short line, why, one button: the label row carries the only icon, so nothing says it twice.
+// The Today checklist lists the practice items, so this card never repeats them. While the step is the morning's
 // write-down it also holds "No recall", and Home leaves the This morning hero out: one call to write, not two.
 import { ref } from "vue";
 import { useRouter } from "vue-router";
@@ -26,17 +27,13 @@ function act() {
   else if (a.to) void router.push(a.to);
 }
 const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
-const ICON: Record<string, string> = { write: "plus", moveOn: "up", finish: "check", checks: "check", plan: "moon", tonight: "moon", review: "moon", practice: "edit", done: "check" };
 </script>
 
 <template>
   <section class="hstep">
     <div class="card">
       <div class="lbl hgap"><span class="bi"><Icon name="target" :size="16" /></span><span class="grow">Today's step</span><span v-if="lesson" class="tiny">Lesson {{ lesson.number }} of {{ of }} · {{ lesson.title }}</span></div>
-      <div class="hst-head">
-        <Icon :name="ICON[step.kind] ?? 'check'" :size="20" />
-        <div class="grow"><div class="hst-t">{{ step.title }}</div><div v-if="step.line" class="tiny num">{{ step.line }}</div></div>
-      </div>
+      <div><div class="hst-t">{{ step.title }}</div><div v-if="step.line" class="tiny num">{{ step.line }}</div></div>
       <p class="hst-why tiny"><b>Why:</b> {{ step.why }} <CiteChips :ids="step.sources" @cite="open = $event" /></p>
       <div class="hst-foot">
         <button v-if="step.action" type="button" class="btn" :disabled="moving" @click="act">{{ step.action.label }}</button>

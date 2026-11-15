@@ -308,7 +308,8 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
           <div v-for="g in groups" :key="g.title" class="card">
             <div class="lbl hgap">{{ g.title }}</div>
             <div v-for="c in g.rows" :key="c.id" class="ins-cmp" :data-id="c.id" :class="{ few: !c.enough }">
-              <div class="t">{{ c.label }}</div>
+              <!-- a card of one comparison named as its card (WBTB) needs no second name -->
+              <div v-if="c.label !== g.title" class="t">{{ c.label }}</div>
               <div v-if="c.enough" class="ins-pair">
                 <div class="row"><span class="tiny">With</span><ProgressBar class="grow" :percent="c.with.rate! * 100" /><span class="num tiny">{{ pct(c.with.rate!) }}</span></div>
                 <div class="row"><span class="tiny">Without</span><ProgressBar class="grow" muted :percent="c.without.rate! * 100" /><span class="num tiny">{{ pct(c.without.rate!) }}</span></div>

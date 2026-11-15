@@ -48,7 +48,7 @@ const j = useJournal();
 const t = useTrain();
 const settings = useSettings();
 // the texts load while the queries run, not before them
-const [{ articles }, { lessons, findLesson, practiceItemId }, { findTechnique }] = await Promise.all([
+const [{ articles }, { lessons, findLesson, checklistItems }, { findTechnique }] = await Promise.all([
   import("@somnium/knowledge/content"), import("@somnium/knowledge/course"), import("@somnium/knowledge/techniques"),
   loaded(j.nights, j.dreams, t.course, t.practice, t.checks),
 ]);
@@ -67,9 +67,9 @@ const morning = computed(() => morningState(nights.value, dreams.value, when.val
 
 // today's checklist (the same one as Train > Today): the lesson's practice items come from the course texts loaded above
 // the lesson, its move-on rule and Move on, the same as Train works them out
-const course = useLesson(findLesson, practiceItemId);
+const course = useLesson(findLesson, checklistItems);
 const lesson = course.lesson;
-const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
+const checklistLesson = course.checklist;
 
 // tonight
 const tonight = computed(() => tonightNight(nights.value, when.value.tonight));

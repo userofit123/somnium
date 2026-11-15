@@ -22,6 +22,8 @@ html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 .htitles a:hover { color: var(--acc); }
 .hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--lpy); padding-inline-start: calc(26px + var(--lpy)); }
 .hfoot .lnk { padding: 0; }
+/* under the night's question the links start at the card's edge, as the question and its links do */
+.hnci ~ .hfoot { padding-inline-start: 0; }
 
 /* today */
 .hli { text-decoration: none; color: inherit; padding-inline: 0; }
@@ -41,9 +43,7 @@ html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 
 /* today's step (LDJ-107): above the blocks, full width; a quiet accent edge marks it as the one to start with */
 .hstep > .sh { margin-top: 0; }
-.hstep > .card { display: flex; flex-direction: column; gap: var(--lpy); border-inline-start: 3px solid var(--acc); }
-.hst-head { display: flex; align-items: flex-start; gap: var(--lpy); color: var(--tx); }
-.hst-head > svg { color: var(--acc); flex: none; margin-top: calc(var(--tdy) / 3); }
+.hstep > .card { display: flex; flex-direction: column; gap: var(--lpy); }
 .hst-t { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
 .hst-why { margin: 0; color: var(--tx2); }
 .hst-foot { display: flex; align-items: center; gap: var(--cpx); flex-wrap: wrap; }

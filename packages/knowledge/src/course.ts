@@ -29,6 +29,15 @@ export interface Lesson {
 
 export const practiceItemId = (lesson: string, index: number) => `lesson:${lesson}:${index + 1}`;
 
+// Practice items that say the same as one of the daily habits (packages/shared habits.ts). The lesson text keeps them,
+// but the Today checklist already has the habit's own row (which ticks itself), so listing both asks for one thing twice.
+// Keyed by item id, not text, so the other items keep their ids and their ticks.
+const sameAsHabit: Record<string, string> = { "lesson:recall:1": "habit:journal" };
+
+/** The lesson's practice items for the Today checklist: each with its tick id, less the ones a habit row already covers. */
+export const checklistItems = (lesson: Lesson) =>
+  lesson.practice.map((text, i) => ({ id: practiceItemId(lesson.id, i), text })).filter((p) => !sameAsHabit[p.id]);
+
 export function parseLesson(path: string, raw: string): Lesson {
   const m = /(?:^|\/)(\d{2})-([a-z0-9-]+)\.md$/.exec(path);
   if (!m) throw new Error(`${path}: expected course/<nn>-<id>.md`);

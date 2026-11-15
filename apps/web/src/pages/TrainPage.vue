@@ -8,7 +8,7 @@
 // Train shows (the lesson and article texts) loads with this page only: it is a lazy route, so the first screen stays small.
 import { computed, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { findLesson, practiceItemId } from "@somnium/knowledge/course";
+import { findLesson, checklistItems } from "@somnium/knowledge/course";
 import { findTechnique } from "@somnium/knowledge/techniques";
 import { articles } from "@somnium/knowledge/content";
 import { useJournal } from "../api/journal";
@@ -58,6 +58,8 @@ const openLesson = computed(() => (here.value.name === "train-lesson" ? findLess
 // the sound cue is an optional feature: absent while off, even by its address
 const guided = computed(() => (here.value.name !== "train-guided" ? undefined : (["bedtime", "wbtb", "up", "mild", "ssild", "wild", "cue", "cat"] as const)
   .find((m) => m === param("mode") && (m !== "cue" || !!useSettingsOn.value.features.soundCue)) as GuidedMode | undefined));
+// declared before `lost`, whose immediate watch reads it on /train/week (a later const throws there: TDZ)
+const features = computed(() => useSettingsOn.value.features);
 // an address that names nothing (a technique, lesson or mode that isn't there, the cue while off) goes to the tab it
 // would be opened from
 const lost = computed(() => {
@@ -70,15 +72,11 @@ watch(lost, (to) => { if (to && route.path === here.value.path) void router.repl
 // tonight's WBTB alarm, or, in the small hours and the morning after it, the one of the night now ending
 const wbtbAt = computed(() => tonightNight(j.nights.data.value)?.wbtbWakeAt ?? tonightNight(j.nights.data.value, nightNowDate())?.wbtbWakeAt ?? null);
 
-const features = computed(() => useSettingsOn.value.features);
 // the lesson, its move-on rule and Move on, the same as Home's step works them out
-const { lesson, rule, moving, next } = useLesson(findLesson, practiceItemId);
+const { lesson, checklist: checklistLesson, rule, moving, next } = useLesson(findLesson, checklistItems);
 const tonight = computed(() => tonightNight(j.nights.data.value, tonightDate()));
 const planned = computed(() => tonight.value?.techniquesPlanned ?? []);
 const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && articles.find((a) => a.id === "techniques/" + tq.slug)?.title) ?? id.replace(/-/g, " "); };
-
-// the lesson's practice items for the Today checklist (ticked there, not on the course card)
-const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
 
 </script>
 

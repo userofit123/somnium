@@ -10,13 +10,15 @@ import { localYmd } from "../../core/format";
 import { useToday } from "../../core/today";
 import { toastError } from "../../core/toast";
 
-export function useLesson(findLesson: (id: string) => Lesson | undefined, practiceItemId: (lesson: string, index: number) => string) {
+export function useLesson(findLesson: (id: string) => Lesson | undefined, checklistItems: (lesson: Lesson) => { id: string; text: string }[]) {
   const j = useJournal(), t = useTrain(), today = useToday();
   const rows = computed(() => t.course.data.value ?? []);
   const current = computed(() => currentLesson(rows.value));
   const lesson = computed(() => (current.value ? findLesson(current.value) ?? null : null));
   const row = computed(() => rows.value.find((r) => r.lessonId === current.value));
-  const itemIds = computed(() => (lesson.value ? lesson.value.practice.map((_, i) => practiceItemId(lesson.value!.id, i)) : []));
+  // the lesson's practice items as the Today checklist lists them (a habit row already covers some, knowledge course.ts)
+  const checklist = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: checklistItems(lesson.value) } : null));
+  const itemIds = computed(() => (checklist.value?.items ?? []).map((i) => i.id));
 
   const rule = computed(() => {
     if (!lesson.value) return null;
@@ -52,5 +54,5 @@ export function useLesson(findLesson: (id: string) => Lesson | undefined, practi
     } catch (e) { toastError(e); } finally { moving.value = false; }
   }
 
-  return { rows, current, lesson, row, itemIds, rule, moving, next };
+  return { rows, current, lesson, row, checklist, itemIds, rule, moving, next };
 }
