@@ -346,7 +346,7 @@ html.phone .cal .dots i.plan { background: none; border: 1px solid var(--ec, var
 .pbar { height: 8px; border-radius: 8px; background: var(--s2); overflow: hidden; }
 .pbar i { display: block; height: 100%; border-radius: 8px; background: linear-gradient(90deg, var(--acc), var(--acc2)); transition: width .5s var(--ease); }
 .pbar.ok i { background: var(--pos); }
-.pbar.muted i, .pbar.off i { background: var(--tx2); opacity: .55; }
+.pbar.muted i { background: var(--tx2); opacity: .55; }
 
 /* login */
 .auth { min-height: 100vh; width: 100%; display: grid; place-items: center; padding: 24px 16px; }

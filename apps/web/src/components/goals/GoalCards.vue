@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Goals (optional, LDJ-41): one progress card each, read from the same nights and checks Home and Insights use
-// (packages/shared/src/goals.ts). Used on Home and in Insights; shown only while Settings → Features → Goals is on.
+// (packages/shared/src/goals.ts). Used on Home and in Progress; shown only while Settings → Features → Goals is on.
 import { computed, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { GOAL_KIND_INFO, GOAL_KINDS, goalProgress, periodDaysLeft, type Goal, type GoalKind, type RealityCheck } from "@somnium/shared";
@@ -12,6 +12,7 @@ import { localYmd } from "../../core/format";
 import Sheet from "../Sheet.vue";
 import Menu from "../Menu.vue";
 import NumStep from "../NumStep.vue";
+import ProgressBar from "../ProgressBar.vue";
 
 const props = defineProps<{ today: string }>();
 const j = useJournal();
@@ -42,7 +43,7 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
     <div v-for="r in rows" :key="r.g.id" class="card goalc">
       <div class="goalh"><div class="grow"><div class="t">{{ GOAL_KIND_INFO[r.g.kind].label }}</div><div class="tiny num">{{ r.p.line }}<template v-if="r.left != null && !r.p.done"> · {{ r.left }} {{ r.left === 1 ? "day" : "days" }} left</template><template v-if="r.p.done"> · reached</template></div></div>
         <Menu :items="[{ label: 'Change goal', icon: 'edit', run: () => open(r.g) }, { label: 'Remove goal', icon: 'trash', danger: true, run: () => del(r.g) }]" /></div>
-      <div class="goalbar" role="progressbar" :aria-valuenow="r.p.value" :aria-valuemax="r.p.target"><i :style="{ width: Math.round(r.p.ratio * 100) + '%' }" /></div>
+      <ProgressBar :percent="r.p.ratio * 100" :label="GOAL_KIND_INFO[r.g.kind].label" />
     </div>
     <Sheet v-if="edit" :title="edit.g ? 'Change goal' : 'New goal'" @close="edit = null">
       <div class="fld"><label>What to count</label>
@@ -58,6 +59,4 @@ const del = async (g: Goal) => { try { await removeGoal(g); } catch (x) { toastE
 /* spacing from the density tokens, colours from the theme's (--s2 is a surface, not a size) */
 .goalc { display: grid; gap: var(--lpy); }
 .goalh { display: flex; align-items: center; gap: var(--lpy); }
-.goalbar { height: var(--lpy); border-radius: var(--pill); background: var(--s2); overflow: hidden; }
-.goalbar > i { display: block; height: 100%; background: var(--acc); border-radius: inherit; }
 </style>

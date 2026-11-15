@@ -8,6 +8,7 @@ import { useSettings, saveSettings } from "../../api/queries";
 import { session, isLocalAccount } from "../../core/session";
 import { updater } from "../../core/updater";
 import { useFmt } from "../../core/format";
+import ProgressBar from "../ProgressBar.vue";
 import { latestRelease, detectPlatform, downloads, newer, REPO, REPO_URL } from "../../core/releases";
 // the desktop app installs by restarting (electron-updater); Android hands the file to its installer
 const desktopApp = !!(globalThis as { somniumDesktop?: boolean }).somniumDesktop;
@@ -69,7 +70,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
         <div v-else-if="isNewer && !platform.app" class="s">{{ webHow }}</div>
         <div v-else-if="platform.key === 'ios'" class="s">There is no iPhone or iPad app yet. Somnium works in Safari: tap Share, then Add to Home Screen.</div>
         <div v-else-if="checkedAt" class="s">{{ checkedAt }}</div>
-        <div v-if="platform.app && updater.progress !== null" class="pbar" :style="{ marginTop: 'var(--lpy)' }"><i :style="{ width: Math.round(updater.progress * 100) + '%' }"></i></div>
+        <ProgressBar v-if="platform.app && updater.progress !== null" :percent="updater.progress * 100" label="Downloading the update" :style="{ marginTop: 'var(--lpy)' }" />
         </template></div>
         <button v-if="platform.app && (updater.ready || (isNewer && !checking))" class="btn s" :disabled="updater.downloading" @click="updater.install()">{{ updater.ready ? (desktopApp ? "Restart to update" : updater.stagedVersion ? `Install ${updater.stagedVersion}` : "Install") : "Download update" }}</button>
 </div>
