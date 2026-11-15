@@ -55,7 +55,7 @@ const sub = (d: DreamRow, els: number) => [...dreamListMarks(d), els ? `${els} e
         <button v-for="d in day.group.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="d.unfinished ? emit('finish', d.id) : emit('open', d.id)">
           <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" :class="d.lucid ? 'jacc' : 'jmut'" />
           <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s ellipsis"><span v-if="d.unfinished" class="jacc">Finish writing · </span>{{ sub(d, counts.get(d.id) ?? 0) }}</div></div>
-          <span class="r jmk"><Icon v-if="d.nightmare" name="flame" :size="16" class="jneg" :aria-label="'Nightmare'" /><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>
+          <span class="r jmk"><span v-if="d.nightmare" class="mchip nightmare">Nightmare</span><span v-else-if="d.lucid" class="mchip lucid">Lucid</span><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>
         </button>
       </template>
       <button v-if="day.note" class="li click jrow" :aria-label="`Day note: ${noteLine(day.note)}`" @click="emit('note', day.date)">
@@ -73,6 +73,4 @@ section + section .jnc.b { margin-top: var(--hg); }
 .jmin { min-width: 0; }
 .jmk { display: inline-flex; gap: 4px; }
 .jacc { color: var(--acc); }
-.jneg { color: var(--neg); }
-.jmut { color: var(--tx2); }
 </style>

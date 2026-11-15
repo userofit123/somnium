@@ -41,7 +41,7 @@ const byId = computed(() => new Map((j.elements.data.value ?? []).map((e) => [e.
 const els = computed(() => links.value.map((l) => byId.value.get(l.elementId)).filter((e): e is NonNullable<typeof e> => !!e?.name));
 
 const marks = computed(() => (d.value ? dreamMarks(d.value) : []));
-const flags = computed(() => (d.value?.favourite ? ["Favourite"] : []));
+const flags = computed(() => [d.value?.lucid && { label: "Lucid", tone: "lucid" }, d.value?.nightmare && { label: "Nightmare", tone: "nightmare" }, d.value?.favourite && { label: "Favourite", tone: "" }].filter((f): f is { label: string; tone: string } => !!f));
 // a dream marked sleep paralysis, false awakening or frightening keeps one calm line each on what helps (LDJ-158)
 const hard = computed<HardKind[]>(() => {
   const x = d.value;
@@ -192,7 +192,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
     <div v-if="!d" class="card empty"><Icon name="book" :size="34" /><b>This dream isn't here any more</b>It may have been deleted, here or on another device.<br /><button class="btn tonal" type="button" @click="emit('close')">Back to the journal</button></div>
     <template v-else>
       <h2 v-if="!back" class="ttl jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
-      <div v-if="flags.length" class="chips"><span v-for="m in flags" :key="m" class="fchip on">{{ m }}</span></div>
+      <div v-if="flags.length" class="chips"><span v-for="m in flags" :key="m.label" class="mchip" :class="m.tone">{{ m.label }}</span></div>
 
       <p class="jtx" :class="{ none: !d.text }">
         <template v-if="!d.text">No text yet.</template>
@@ -282,10 +282,8 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
 <style scoped>
 .jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--lpy); }
 .jview { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
-.jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .jtx.none { color: var(--tx2); }
-.jmut { color: var(--tx2); }
 .jon { color: var(--acc); font-weight: 600; }
 .jsec, .jfound { display: flex; flex-direction: column; gap: var(--tdy); }
 /* confirmed: a solid underline in the accent; found but not confirmed: dotted. Both are real buttons (keyboard, 44px reach by line height) */
@@ -294,15 +292,8 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
 .ds { text-decoration: underline dotted; text-decoration-color: var(--tx2); text-decoration-thickness: 2px; text-underline-offset: 3px; }
 .dl:hover, .dl:focus-visible { color: var(--acc); }
 .ds:hover, .ds:focus-visible, .ds.on { color: var(--acc); text-decoration-color: var(--acc); }
-.dl:focus-visible, .ds:focus-visible, .jsgo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
+.dl:focus-visible, .ds:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
 .jpick { display: flex; align-items: center; gap: var(--tdy); flex-wrap: wrap; }
-.jsg { display: inline-flex; align-items: center; gap: var(--tdy); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
-.jsg.on { border-color: var(--acc); }
-.jsgo { display: inline-flex; align-items: center; gap: var(--tdy); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
-.jsgo:hover { color: var(--acc); }
-.jx { border: 0; background: none; color: var(--tx2); padding: 2px; cursor: pointer; display: inline-flex; }
-.jx:hover, .jx:focus-visible { color: var(--tx); }
-.jkind { font-size: var(--fs-xs); color: var(--tx2); margin-inline-start: 4px; }
 .jrel { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--ol); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .jrel:last-child { border-bottom: 0; }
 </style>

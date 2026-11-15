@@ -277,9 +277,7 @@ const menu = computed(() => [
 .jnote { display: flex; gap: 8px; align-items: center; margin-bottom: var(--hg); color: var(--tx2); }
 .jtoday { margin-bottom: var(--hg); }
 .jtoday .t { font-weight: 500; }
-.jmut { color: var(--tx2); }
 .jcount { margin-bottom: 4px; }
-.lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
 .jg { gap: var(--lpy); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
 </style>

@@ -1,0 +1,20 @@
+/* Journal: the dream editor, the dream view, the night list and the journal page share these rules, so the editor and the
+   reader can't drift apart. Theme and density tokens only. */
+.jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
+.jmut { color: var(--tx2); }
+/* suggestions: quiet, so they read as an offer and not as part of the dream */
+.jsg { display: inline-flex; align-items: center; gap: var(--tdy); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
+.jsg.on { border-color: var(--acc); }
+.jsgo { display: inline-flex; align-items: center; gap: var(--tdy); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
+.jsgo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
+.jkind { color: var(--tx2); font-size: var(--fs-xs); margin-inline-start: 4px; }
+.jx { border: 0; background: none; color: inherit; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
+.jsg .jx { color: var(--tx2); padding: 2px; }
+.jsg .jx:hover, .jsg .jx:focus-visible { color: var(--tx); }
+/* the dream's flags (lucid, nightmare, favourite) are static labels, not filters: the same meta chip on Home, in the
+   Journal list and on the dream page */
+.mchip.lucid { color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); }
+.mchip.nightmare { color: var(--neg); background: color-mix(in srgb, var(--neg) 14%, transparent); }
+/* the day's quick links in the calendar view sit flush, in the text font */
+.jcols .sh .lnk { padding: 0; font-family: inherit; }

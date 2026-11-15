@@ -36,8 +36,8 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
       <div class="hsum">
         <Icon name="moon" :size="18" />
         <div class="grow"><div class="t">Last night</div><div class="tiny">{{ line }}</div></div>
-        <span v-if="state.kind === 'logged' && state.nightmare" class="hmark">Nightmare</span>
-        <span v-else-if="state.kind === 'logged' && state.lucid" class="hmark acc">Lucid</span>
+        <span v-if="state.kind === 'logged' && state.nightmare" class="mchip nightmare">Nightmare</span>
+        <span v-else-if="state.kind === 'logged' && state.lucid" class="mchip lucid">Lucid</span>
       </div>
       <div v-if="state.kind === 'logged' && state.titled.length" class="htitles">
         <router-link v-for="d in state.titled" :key="d.id" :to="{ name: 'journal-dream', params: { id: d.id } }" class="tiny">{{ d.title }}</router-link>
