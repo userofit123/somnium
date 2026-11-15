@@ -26,7 +26,7 @@ export const FEATURES: FeatureDef[] = [
   { id: "goals", group: "Progress", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", where: "Progress · Home when pinned", to: "/progress", on: false },
   // Advanced
   { id: "localModel", group: "Advanced", name: "Local AI model (advanced)", desc: "Summarise a dream, or ask for its elements, with a text model you run yourself on your own network (an Ollama address). Never a cloud service; only on request. Desktop app only for now.", where: "A dream's ⋮ menu", to: "/settings/local-model", on: false },
-  { id: "palette", group: "Advanced", name: "Command palette", desc: "Ctrl+K to jump anywhere (desktop).", where: "Anywhere on a computer", on: false },
+  { id: "palette", group: "Advanced", name: "Command palette", desc: "Ctrl+K (or ⌘K) to jump anywhere (desktop). On by default on a computer, with a Search hint in the side menu.", where: "Anywhere on a computer", on: true },
 ];
 /** Features that are built and can be switched on (the others are planned and not shown yet). */
 export const READY_FEATURES = FEATURES.filter((f) => f.ready !== false);

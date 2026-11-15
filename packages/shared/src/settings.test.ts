@@ -2,10 +2,10 @@ import { describe, expect, it } from "vitest";
 import { withDefaults, DEFAULT_SETTINGS, HOME_BLOCKS, cleanHomeBlocks, deviceFormats, resolveFormats } from "./settings";
 
 describe("settings", () => {
-  it("gives a new account the defaults, with every optional feature off", () => {
+  it("gives a new account the defaults, with every optional feature off except the palette", () => {
     const s = withDefaults({});
     expect(s).toEqual(DEFAULT_SETTINGS);
-    expect(Object.values(s.features).every((on) => on === false)).toBe(true);
+    expect(Object.entries(s.features).every(([k, on]) => on === (k === "palette"))).toBe(true);
   });
   it("keeps saved values and fills in missing ones", () => {
     const s = withDefaults({ firstDay: 0, backup: { keep: 3 }, features: { palette: true } });
@@ -14,6 +14,10 @@ describe("settings", () => {
     expect(s.backup.at).toBe("03:00");
     expect(s.features.palette).toBe(true);
     expect(s.clock).toBe("auto");
+  });
+  it("turns the palette on for an old saved off, and keeps one chosen in Settings", () => {
+    expect(withDefaults({ features: { palette: false } }).features.palette).toBe(true);
+    expect(withDefaults({ features: { palette: false, paletteSet: true } }).features.palette).toBe(false);
   });
   it("reads the formats from the language", () => {
     const { guessed: _g, ...us } = deviceFormats("en-US");

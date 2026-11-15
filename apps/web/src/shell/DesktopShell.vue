@@ -3,7 +3,8 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { NAV, section, TRAIN_TABS } from "./nav";
-import { appearanceOpen, startOpen } from "../core/ui";
+import { appearanceOpen, startOpen, paletteOpen } from "../core/ui";
+import { useSettings } from "../api/queries";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
 import SyncPill from "./SyncPill.vue";
@@ -23,6 +24,9 @@ const needsKey = useNeedsRecoveryKey();
 // how many elements wait in Dream signs' To confirm, on its entry (LDJ-125)
 const toConfirm = useToConfirmCount();
 const top = NAV.filter((p) => p.name !== "settings"), settings = NAV.find((p) => p.name === "settings")!;
+// the command palette's hint (⌘K on a Mac), only while that feature is on
+const settingsQ = useSettings();
+const mac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
 // the highlight glides from the previous page to the open one, stretching on the way (Money Manager's AppNav)
@@ -66,6 +70,7 @@ const arrived = (el: Element) => el.classList?.add("in");
         <span class="ic"><Icon :name="p.icon" :size="22" /><i v-if="p.name === 'signs' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm`">{{ toConfirm }}</i></span>{{ p.label }}
       </button>
       <div class="navb">
+        <button v-if="settingsQ.features.palette" type="button" class="nb srch" aria-label="Search" @click.stop="paletteOpen = true"><span class="ic"><Icon name="search" :size="22" /></span>Search<kbd>{{ mac ? "⌘K" : "Ctrl+K" }}</kbd></button>
         <UpdateButton />
         <!-- from the bottom up: Settings, the account, Appearance -->
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>

@@ -136,6 +136,10 @@ export function withDefaults(saved: unknown): Settings {
   const out: Settings = merge(DEFAULT_SETTINGS, saved);
   const blocks = saved && typeof saved === "object" ? (saved as { home?: { blocks?: unknown } }).home?.blocks : undefined;
   out.home = { ...out.home, blocks: cleanHomeBlocks(blocks, out.features) };
+  // The palette became on-by-default on a computer (PLAN.md D12). Every save writes the whole features object, so a saved
+  // "off" cannot be told from the old default; it counts as a choice only once Settings has set `paletteSet` with it.
+  const sf = saved && typeof saved === "object" ? (saved as { features?: Record<string, unknown> }).features : undefined;
+  if (sf?.palette === false && sf.paletteSet !== true) out.features.palette = true;
   for (const k of RETIRED_FEATURES) delete out.features[k];
   return out;
 }

@@ -13,12 +13,13 @@ import { DREAM_LIMIT, markNoRecall, uuidv7, type DreamRow, type NightRow } from 
 import { useToday } from "../core/today";
 import { toast, toastError } from "../core/toast";
 import { NAV } from "./nav";
+import { paletteOpen } from "../core/ui";
 import { SETTINGS_ENTRIES, knowledgeEntries, loadKnowledge } from "./paletteItems";
 import Icon from "../components/Icon.vue";
 
 const router = useRouter();
 const today = useToday();
-const open = ref(false), q = ref(""), sel = ref(0), inp = ref<HTMLInputElement | null>(null);
+const open = paletteOpen, q = ref(""), sel = ref(0), inp = ref<HTMLInputElement | null>(null);
 // the journal's own queries (same keys as the Journal and the + sheet, so one cache), read only while it is open
 const nights = useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights", { all: 1 }), enabled: open });
 const dreams = useQuery({ queryKey: ["journal", "dreams"], queryFn: () => api.get<DreamRow[]>("/dreams", { limit: DREAM_LIMIT }), enabled: open });
@@ -51,7 +52,7 @@ const items = computed<Item[]>(() => {
   return (t ? all.filter((i) => i.label.toLowerCase().includes(t)) : all).slice(0, 12);
 });
 function key(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); open.value = !open.value; q.value = ""; sel.value = 0; nextTick(() => inp.value?.focus()); return; }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); open.value = !open.value; return; }
   if (!open.value) return;
   if (e.key === "Escape") open.value = false;
   // the search field is the only stop inside, so Tab stays in it rather than wandering into the page behind
@@ -67,6 +68,7 @@ let unlock = () => {};
 let back: HTMLElement | null = null;
 watch(open, (o) => {
   unlock(); unlock = o ? lockScroll() : () => {};
+  if (o) { q.value = ""; sel.value = 0; nextTick(() => inp.value?.focus()); }
   if (o) { void loadKnowledge(); back = document.activeElement as HTMLElement | null; } else { const b = back; back = null; nextTick(() => { if (b?.isConnected) b.focus(); }); }
 });
 onMounted(() => addEventListener("keydown", key));

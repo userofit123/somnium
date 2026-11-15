@@ -230,3 +230,6 @@ html.nt *::before,
 html.nt *::after {
   transition: none !important;
 }
+
+/* the command palette's hint in the rail: the shortcut sits under the word, quiet */
+.nb.srch kbd { font: inherit; font-size: calc(10px * var(--fsc)); color: var(--tx2); opacity: .75; margin-top: -2px; }

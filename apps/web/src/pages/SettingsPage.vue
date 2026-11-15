@@ -145,7 +145,7 @@ await loaded(me);
           <template v-for="[g, fs] in groups" :key="g"><div class="sh"><h2>{{ g }}</h2></div>
             <div class="card"><label v-for="f in fs" :key="f.id" class="tgl"><div class="grow"><div class="t">{{ f.name }}</div><div class="s">{{ f.desc }}</div>
               <!-- where it shows, and once on a link there (nothing opens for a feature that has no screen of its own) -->
-              <div class="s">Shows in: {{ f.where }}<template v-if="s.features[f.id] && f.to"> · <router-link :to="f.to" class="lnk inl" @click.stop>Open</router-link></template></div></div><span class="tg"><input type="checkbox" :checked="!!s.features[f.id]" @change="set({ features: { [f.id]: ($event.target as HTMLInputElement).checked } })" /></span></label></div></template>
+              <div class="s">Shows in: {{ f.where }}<template v-if="s.features[f.id] && f.to"> · <router-link :to="f.to" class="lnk inl" @click.stop>Open</router-link></template></div></div><span class="tg"><input type="checkbox" :checked="!!s.features[f.id]" @change="set({ features: { [f.id]: ($event.target as HTMLInputElement).checked, ...(f.id === 'palette' ? { paletteSet: true } : {}) } })" /></span></label></div></template>
         </template>
 
         <LocalModelSection v-else-if="sec === 'local-model'" />
