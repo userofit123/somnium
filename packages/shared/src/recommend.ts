@@ -100,7 +100,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     id: "nightmares", title: "Nightmares: a lesson that may help",
     body: "Learning to become lucid has helped some people with recurring nightmares, though the studies are small. If they weigh on you, a therapist who knows imagery rehearsal is the best-tested help.",
     reason: `You noted ${n(nm, "nightmare")} that woke you${bad ? `, and ${n(bad, "bad dream")} that didn't,` : ""} in the last ${REC.nmDays} days.`,
-    sources: ["B57", "B62", "B63", "B61", "C18"], action: { label: "Open the lesson", to: "/train?lesson=dream-control" }, link: { label: "When to stop", to: "/learn/safety/when-to-stop" },
+    sources: ["B57", "B62", "B63", "B61", "C18"], action: { label: "Open the lesson", to: "/train/lesson/dream-control" }, link: { label: "When to stop", to: "/learn/safety/when-to-stop" },
   });
 
   // keep journaling, and recall before anything else
@@ -119,7 +119,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     id: "recall", title: "Work on recall first",
     body: "Before any technique, aim to remember a dream most mornings: lie still on waking, ask what you were just dreaming, and note even a fragment. Better recall went with more success with MILD in the studies.",
     reason: `You remembered a dream on ${recalled} of your ${n(last14.length, "logged night")} in the last ${REC.recallDays} days (${pct(recall)}).`,
-    sources: ["B37", "B38", "B48"], action: { label: "Open the recall lesson", to: "/train?lesson=recall" },
+    sources: ["B37", "B38", "B48"], action: { label: "Open the recall lesson", to: "/train/lesson/recall" },
   });
 
   // MILD + WBTB when recall is good, no lucid dream for 3 weeks, and no WBTB nights then
@@ -130,7 +130,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     id: "mild-wbtb", title: "Try MILD with WBTB",
     body: "On your next free night, when you can sleep in, set an alarm about 5 hours after bedtime, stay up 30-60 minutes quietly, then do MILD as you fall back asleep. Aim to be asleep within about 10 minutes of finishing it: in the largest study, falling asleep that quickly went with lucid dreams on 18% of nights against 11%. Log how long it took in the night details. It is the best-supported combination in the studies.",
     reason: `Your recall is good (${pct(recall)} of nights in the last ${REC.recallDays} days), you have had no lucid dream in the last 3 weeks and no WBTB nights.`,
-    sources: ["B37", "B38", "B39"], action: { label: "Plan WBTB", to: "/train?technique=wbtb" },
+    sources: ["B37", "B38", "B39"], action: { label: "Plan WBTB", to: "/train/technique/wbtb" },
   });
 
   // WBTB works for you (not while sleep says ease off)
@@ -138,7 +138,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   if (!ease && w.enough && w.with.rate! - w.without.rate! >= REC.wbtbLead - 1e-9) out.push({
     id: "wbtb-works", title: "WBTB works for you: plan 2-3 a week",
     body: "Lucid nights went with your WBTB nights more often than with other nights. Two or three a week, on nights you can sleep in, is what the sleep-first advice suggests.",
-    reason: w.text, sources: ["B38", "B39", "B69"], action: { label: "Plan WBTB", to: "/train?technique=wbtb" },
+    reason: w.text, sources: ["B38", "B39", "B69"], action: { label: "Plan WBTB", to: "/train/technique/wbtb" },
   });
 
   // false awakenings
@@ -147,7 +147,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     id: "false-awakenings", title: "Check every time you wake",
     body: "Do a reality check each time you seem to wake up, before anything else: a false awakening is a good moment to become lucid. Make \"waking up\" one of your dream signs.",
     reason: `You noted ${n(fa, "false awakening")} in the last ${REC.faDays} days.`,
-    sources: ["B8"], action: { label: "Open Signs", to: "/signs" }, link: { label: "False awakenings", to: "/learn/safety/false-awakenings-and-sleep-paralysis" },
+    sources: ["B8"], action: { label: "Open Dream signs", to: "/signs" }, link: { label: "False awakenings", to: "/learn/safety/false-awakenings-and-sleep-paralysis" },
   });
 
   // reality checks: the 7 days before today (today is not over yet)
@@ -162,7 +162,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
         ? "Raise the number of reminders, or add habit moments (walking through a door, after a meal) so checking becomes automatic. Checks on their own do little; the habit is what carries into dreams."
         : "Reminders spread checks over your day so you don't have to remember. Checks on their own do little; the habit is what carries into dreams.",
       reason: `You did ${n(checks, "reality check")} in the last ${REC.checkDays} days, about ${round1(perDay)} a day${r.on && r.perDay ? `, with ${n(r.perDay, "reminder")} a day` : ""}${r.on ? "" : ", and reminders are off"}.`,
-      sources: ["B36", "B37"], action: { label: r.on ? "Reminder settings" : "Turn on reminders", to: "/settings/notifications" },
+      sources: ["B36", "B37"], action: { label: r.on ? "Reminder settings" : "Turn on reminders", to: "/settings/reminders" },
     });
   }
 

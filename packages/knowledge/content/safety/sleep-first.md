@@ -35,4 +35,4 @@ The induction studies that measured it found no deterioration in sleep quality w
 
 ## The rest rule
 
-The app's progression keeps wake-back-to-bed and naps to no more than three or four nights a week unless sleep remains good, and drops to intention and reflection only for a week if sleep suffers [D1]. The Insights screen shows your hours slept next to your lucid rate, so the trade-off is visible rather than hidden.
+The app's progression keeps wake-back-to-bed and naps to no more than three or four nights a week unless sleep remains good, and drops to intention and reflection only for a week if sleep suffers [D1]. The Progress screen shows your hours slept next to your lucid rate, so the trade-off is visible rather than hidden.

@@ -242,7 +242,7 @@ const menu = computed((): MenuItem[] => [
       </div>
     </Sheet>
     <Sheet v-if="signOpen" title="Dream signs" @close="signOpen = false">
-      <p class="tiny jmut">Pick an element that keeps showing up. Signs are what you train to notice.</p>
+      <p class="tiny jmut">Pick an element that keeps showing up. Dream signs are what you train to notice.</p>
       <div class="list">
         <button v-for="e in signEls" :key="e.id" class="li click jrel" role="switch" :aria-checked="e.isDreamSign" :disabled="busy" @click="toggleSign(e)">
           <div class="grow"><div class="t">{{ e.name }}</div><div class="s">{{ ELEMENT_KIND_LABEL[e.kind] }}</div></div>

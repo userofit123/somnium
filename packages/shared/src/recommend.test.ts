@@ -58,7 +58,7 @@ describe("recommend: MILD + WBTB", () => {
     const ns = nights(25);
     expect(has(base({ nights: ns }), "mild-wbtb")).toBe(true);
     const r = all(base({ nights: ns })).find((x) => x.id === "mild-wbtb")!;
-    expect(r.action).toEqual({ label: "Plan WBTB", to: "/train?technique=wbtb" });
+    expect(r.action).toEqual({ label: "Plan WBTB", to: "/train/technique/wbtb" });
   });
   it("a lucid dream 20 days ago stops it, 21 days ago doesn't", () => {
     const ns = nights(25);
@@ -140,7 +140,7 @@ describe("recommend: reality checks", () => {
     expect(on.reason).toBe("You did 7 reality checks in the last 7 days, about 1 a day, with 8 reminders a day.");
     const off = all(base({ checkDays: [], reminders: { on: false } })).find((x) => x.id === "checks")!;
     expect(off.title).toBe("Turn on reality check reminders");
-    expect(off.action).toEqual({ label: "Turn on reminders", to: "/settings/notifications" });
+    expect(off.action).toEqual({ label: "Turn on reminders", to: "/settings/reminders" });
     expect(off.reason).toContain("reminders are off");
   });
 });
@@ -161,7 +161,7 @@ describe("recommend: false awakenings and nightmares", () => {
     expect(has(base({ nights: ns, dreams: nm(1, 29) }), "nightmares")).toBe(true);
     expect(has(base({ nights: ns, dreams: nm(1, 30) }), "nightmares")).toBe(false);
     const r = all(base({ nights: ns, dreams: nm(1, 2) })).find((x) => x.id === "nightmares")!;
-    expect(r.action!.to).toBe("/train?lesson=dream-control");
+    expect(r.action!.to).toBe("/train/lesson/dream-control");
     expect(r.link!.to).toBe("/learn/safety/when-to-stop");
     expect(r.sources).toEqual(expect.arrayContaining(["B61", "C18"]));
     expect(r.reason).toBe("You noted 2 nightmares that woke you in the last 30 days.");

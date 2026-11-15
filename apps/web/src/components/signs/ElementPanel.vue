@@ -93,7 +93,7 @@ const menu = computed(() => [
     </div>
     <div v-if="el.aliases" class="tiny sgmut">Also called {{ el.aliases }}</div>
     <div v-if="merging" class="sgbox"><div class="t"><Icon name="layers" :size="15" class="sgacc" /> Finishing a merge</div>
-      <div class="tiny">A merge into {{ merging }} was cut short. It finishes on its own when Signs opens with a connection.</div></div>
+      <div class="tiny">A merge into {{ merging }} was cut short. It finishes on its own when Dream signs opens with a connection.</div></div>
 
     <div class="sgstats">
       <div><div class="num sgbig">{{ stat?.dreamCount ?? 0 }}</div><div class="tiny sgmut">{{ (stat?.dreamCount ?? 0) === 1 ? "dream" : "dreams" }}</div></div>
