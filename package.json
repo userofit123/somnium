@@ -7,6 +7,7 @@
     "dev:server": "pnpm --filter @somnium/server dev",
     "dev:web": "pnpm --filter @somnium/web dev",
     "typecheck": "pnpm -r typecheck",
+    "audit:fallow": "corepack pnpm dlx fallow",
     "e2e": "playwright test -c e2e/playwright.config.ts"
   },
   "devDependencies": {

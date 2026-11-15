@@ -56,7 +56,7 @@ let started: Promise<unknown> | null = null;
 function askMetered(): Promise<unknown> {
   return Promise.resolve(nat()?.metered?.()).then((m: { known?: boolean } | undefined) => (updater.canTellMetered = !!m?.known)).catch(() => {});
 }
-export function startUpdater(): Promise<unknown> {
+function startUpdater(): Promise<unknown> {
   const u = nat();
   if (!u) return Promise.resolve();
   return (started ??= Promise.all([

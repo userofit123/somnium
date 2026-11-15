@@ -44,15 +44,3 @@ export const keyring = {
   /** Called (synchronously) just before the key is cleared, while get() still answers; returns an unsubscribe function. */
   onBeforeClear(cb: () => void): () => void { beforeClear.add(cb); return () => beforeClear.delete(cb); },
 };
-
-/**
- * Development and tests only: opens a fixed, throwaway key so sync can be exercised before sign-in hands over the
- * real one. Nothing sealed with it is worth anything, and the production build refuses it.
- */
-export function devOpenKeyring(seed = 7): Uint8Array {
-  if (!import.meta.env.DEV) throw new Error("The development key is not available in a production build");
-  const k = new Uint8Array(32);
-  for (let i = 0; i < k.length; i++) k[i] = (seed * 31 + i * 17) & 0xff;
-  keyring.set(k);
-  return k;
-}

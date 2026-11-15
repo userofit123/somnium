@@ -70,7 +70,7 @@ export async function saveCheckNote(checkId: string, note: string | null): Promi
 
 let sendingNotes = false;
 /** Sends the notes kept sealed here, once the outbox (with the checks they belong to) has gone out. */
-export async function flushCheckNotes() {
+async function flushCheckNotes() {
   if (sendingNotes || outboxWaiting.value.length || !Object.keys(readNotes()).length) return;
   const key = keyring.get();
   if (!key) return;

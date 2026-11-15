@@ -20,7 +20,7 @@ import { toast, toastError } from "../../../core/toast";
 import { useClock, useCuePlayer, useWakeLock } from "./useGuided";
 import Ev from "./Ev.vue";
 
-const emit = defineEmits<{ cite: [ids: string[]]; running: [on: boolean]; done: [] }>();
+const emit = defineEmits<{ cite: [ids: string[]]; running: [on: boolean] }>();
 const settings = useSettings();
 const player = useCuePlayer();
 const wake = useWakeLock();

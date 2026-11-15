@@ -18,7 +18,7 @@ let remote = (topics: string[]) => invalidate(topics);
 export const setRemoteHandler = (fn: (topics: string[]) => void) => { remote = fn; };
 
 let es: EventSource | null = null, retry = 1000, poll: ReturnType<typeof setInterval> | null = null;
-export const liveState = { connected: false };
+const liveState = { connected: false };
 export function startLive() {
   stopLive();
   try {

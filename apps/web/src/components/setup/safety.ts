@@ -69,7 +69,7 @@ export const safetyAnswers = computed(() => kept.value.items);
 export const safetyPage = computed(() => kept.value.page || undefined);
 
 /** The page a set of answers points to: the wider one when any answer is about health, else Sleep first. */
-export function pageFor(items: readonly SafetyItem[]): SafetyPage | "" {
+function pageFor(items: readonly SafetyItem[]): SafetyPage | "" {
   const pages = SAFETY_ITEMS.filter((x) => items.includes(x.id)).map((x) => x.page);
   return pages.includes("who-should-be-careful") ? "who-should-be-careful" : pages.length ? "sleep-first" : "";
 }

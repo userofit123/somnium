@@ -3,7 +3,7 @@
 // goes back to it; without, exactly one option is always on (a status or a sort). Scrolls sideways on phones.
 import Icon from "./Icon.vue";
 
-export interface FilterOption { value: string; label: string; icon?: string; count?: number }
+interface FilterOption { value: string; label: string; icon?: string; count?: number }
 const props = defineProps<{ label: string; options?: FilterOption[]; all?: string; modelValue?: string }>();
 const emit = defineEmits<{ "update:modelValue": [v: string] }>();
 const pick = (v: string) => emit("update:modelValue", props.all != null && props.modelValue === v ? "" : v);

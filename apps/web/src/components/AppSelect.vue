@@ -9,7 +9,7 @@ import { isPhone } from "../core/device";
 import Icon from "./Icon.vue";
 import PickerPop from "./PickerPop.vue";
 
-export interface SelectOption { value: any; label: string; hint?: string; group?: string; disabled?: boolean }
+interface SelectOption { value: any; label: string; hint?: string; group?: string; disabled?: boolean }
 defineOptions({ inheritAttrs: false });
 const props = defineProps<{ modelValue: any; options: (string | SelectOption)[]; placeholder?: string; disabled?: boolean; title?: string }>();
 const emit = defineEmits<{ "update:modelValue": [v: any]; change: [v: any] }>();

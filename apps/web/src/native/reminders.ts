@@ -127,7 +127,7 @@ async function topSigns(): Promise<PairedSign[]> {
 }
 
 /** The reality check reminders due from `now` over the coming `days` waking days (1: until the end of tomorrow's). */
-export async function upcoming(s: RealityCheckSchedule, settings: Settings, now = Date.now(), signs: readonly PairedSign[] = [], days = 1): Promise<DueReminder[]> {
+async function upcoming(s: RealityCheckSchedule, settings: Settings, now = Date.now(), signs: readonly PairedSign[] = [], days = 1): Promise<DueReminder[]> {
   const catalog = await checkCatalog();
   const today = new Date(now), out: DueReminder[] = [], owner = queueOwner();
   // yesterday too: its window may run past midnight into today
@@ -151,7 +151,7 @@ export async function upcoming(s: RealityCheckSchedule, settings: Settings, now 
 const CHECK_OUTCOMES = [["awake", "Awake"], ["unsure", "Not sure"], ["dreaming", "Dreaming!"]] as const;
 
 /** The night reminders (bedtime, WBTB, morning, practice) due from `now` over the coming `days` evenings. */
-export function upcomingNights(rows: Reminder[] | undefined, settings: Settings, now = Date.now(), days = 1): DueReminder[] {
+function upcomingNights(rows: Reminder[] | undefined, settings: Settings, now = Date.now(), days = 1): DueReminder[] {
   const out: DueReminder[] = [], today = new Date(now), wbtb = wbtbAlarm(), lead = nightRow(rows, "bedtime").s.lead, plans = nightPlans();
   for (let d = -1; d <= days; d++) {
     for (const p of planNight(rows, localDate(addDays(today, d)), settings.sleep, wbtb, plans)) {
@@ -180,7 +180,7 @@ export async function setCatPlan(p: CatPlan | null) {
   writeStr(CAT_KEY, p ? JSON.stringify(p) : "");
   if (tick) await replan();
 }
-export const CAT_URL = "/train/guided/cat";
+const CAT_URL = "/train/guided/cat";
 function catAlarms(today: Date, now: number, days: number): DueReminder[] {
   const p = catPlan(), out: DueReminder[] = [];
   if (!p) return out;
@@ -236,7 +236,7 @@ const queueOwner = (): { account?: string; user?: string } => {
   return account && user ? { account, user } : {};
 };
 let flushing = false;
-export async function flushPending() {
+async function flushPending() {
   const p = androidReminders();
   if (!p || flushing) return;
   flushing = true;
@@ -267,7 +267,6 @@ let current: { rows: Reminder[] | undefined; settings: Settings } = { rows: unde
 
 // ----- the WBTB alarm (LDJ-25): one time, kept on this device; nothing personal in its words -----
 const WBTB = "somniumWbtbAlarm";
-export const WBTB_URL = "/train/guided/up";
 /** The WBTB alarm set on this device (ms), or null. */
 export function wbtbAlarm(): number | null {
   dropLegacy();
@@ -286,7 +285,7 @@ export async function setWbtbAlarm(at: number | null) {
 // technique ids and the night's own bedtime), and kept here so a start while locked, before that list loads, still
 // says it. Ids and a time, nothing personal; only nights from today on. -----
 const PLANS = "somniumNightPlans";
-export const nightPlans = (): NightPlans => { dropLegacy(); return readOwned<NightPlans>(PLANS, {}) ?? {}; };
+const nightPlans = (): NightPlans => { dropLegacy(); return readOwned<NightPlans>(PLANS, {}) ?? {}; };
 function plansOf(nights: readonly Night[] | undefined): NightPlans | null {
   if (!nights) return null;
   const today = localDate(new Date()), out: NightPlans = {};
@@ -386,8 +385,6 @@ export function stopReminders() {
   void desktop()?.setPlan([]).catch(() => {});
   void androidReminders()?.schedule({ items: [] }).catch(() => {});
 }
-/** The planned times still to come here (Settings shows the next one). */
-export const plannedAhead = () => plan.slice();
 
 /** An account removed from this phone: the checks its notifications queued go too (native/accounts.ts drop). */
 export async function forgetQueuedChecks(account: string) {

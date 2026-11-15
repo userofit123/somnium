@@ -6,8 +6,8 @@
 import type { Router } from "../router";
 import { intOrNull, str } from "../util";
 
-export type LogKind = "settings" | "account";
-export interface LogEntry {
+type LogKind = "settings" | "account";
+interface LogEntry {
   kind: LogKind; action: "created" | "changed" | "deleted";
   text: string; detail: string; name: string | null; at: string; from: string; changes: number;
   /** where to open it, while it still exists */

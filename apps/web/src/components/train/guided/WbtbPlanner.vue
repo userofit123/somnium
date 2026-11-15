@@ -13,7 +13,7 @@
 // LDJ-220: once 5 or more dreams have the time you woke from them (wakings.ts), the time after bedtime they cluster is
 // one more choice, so the alarm can wake you from a dream as the tested timing did from REM [B39][D13].
 import { computed, ref } from "vue";
-import { addDays, bedtimeAt, durationText, wakeCluster, wbtbAfter, wbtbModePlan, wbtbOwnOption, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
+import { addDays, bedtimeAt, durationText, wakeCluster, wbtbAfter, wbtbModePlan, wbtbOwnOption, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode, clockOf } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
@@ -32,10 +32,9 @@ const settings = useSettings();
 const j = useJournal();
 const date = tonightDate();
 const night = computed(() => tonightNight(j.nights.data.value, date));
-const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 
 const usual = computed(() => settings.value.sleep.bedtime);
-const bed = ref(night.value?.bedtime ? hm(night.value.bedtime) : usual.value);
+const bed = ref(night.value?.bedtime ? clockOf(night.value.bedtime) : usual.value);
 const cycleLen = ref(keptWbtbCycle(settings.value.sleep.cycle));
 const bedAt = computed(() => bedtimeAt(date, bed.value || usual.value));
 // the mode: tonight's own when one is planned, else the last one used here, else Long (wbtbDefaults.ts)
@@ -59,7 +58,7 @@ const own = computed(() => wbtbOwnOption(bedAt.value, cluster.value, cycleLen.va
 const options = computed(() => [...new Set([def.value.sleepMin, sleepMin.value, ...WBTB_CYCLES.map((c) => c * cycleLen.value), ...(own.value ? [own.value.sleepMin] : [])])].sort((a, b) => a - b).map((m) => wbtbAfter(bedAt.value, m, cycleLen.value)));
 const plan = computed(() => wbtbModePlan(bedAt.value, mode.value, { sleepMin: sleepMin.value, awakeMin: awake.value, cycleMin: cycleLen.value }));
 const choice = computed(() => plan.value.alarm);
-const planned = computed(() => night.value?.wbtbWakeAt ? hm(night.value.wbtbWakeAt) : null);
+const planned = computed(() => night.value?.wbtbWakeAt ? clockOf(night.value.wbtbWakeAt) : null);
 const cyclesText = (c: number) => (Number.isInteger(c) ? `${c} cycles` : "");
 
 const AWAKE_EV: Record<WbtbMode, Record<number, string>> = {
@@ -184,7 +183,7 @@ async function clear() {
     <div class="glabel">Time awake</div>
     <div class="gchips" role="radiogroup" aria-label="Time awake">
       <button v-for="m in def.awake" :key="m" type="button" class="gchip" :class="{ on: m === awake }" role="radio" :aria-checked="m === awake" @click="awake = m">
-        <b>{{ m }} min</b><small>back in bed {{ hm(new Date(choice.at.getTime() + m * 60_000).toISOString()) }}</small>
+        <b>{{ m }} min</b><small>back in bed {{ clockOf(new Date(choice.at.getTime() + m * 60_000).toISOString()) }}</small>
       </button>
     </div>
     <Ev v-if="AWAKE_EV[mode][awake]" :text="AWAKE_EV[mode][awake]!" @cite="emit('cite', $event)" />
@@ -192,7 +191,7 @@ async function clear() {
     <div class="gbox">
       <div class="t">Next</div>
       <Ev :text="NEXT[mode]" @cite="emit('cite', $event)" />
-      <p v-if="plan.napEnd" class="gev">Nap from about {{ hm(plan.backAt.toISOString()) }} to {{ hm(plan.napEnd.toISOString()) }}.</p>
+      <p v-if="plan.napEnd" class="gev">Nap from about {{ clockOf(plan.backAt.toISOString()) }} to {{ clockOf(plan.napEnd.toISOString()) }}.</p>
     </div>
     <Ev text="Sleep comes first: only on nights when you can sleep in afterwards, two or three nights a week at most [B69][D1]." @cite="emit('cite', $event)" />
 

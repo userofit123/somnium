@@ -4,7 +4,7 @@
 // In a browser the server is the site itself: there is only "this server", whose name is kept in this browser.
 import { reactive, ref, watch } from "vue";
 import { syncLabel, syncStateOf, type AccountEntry, type ServerEntry, type SyncNote } from "@somnium/shared";
-import { session, unsentChanges, signOut } from "./session";
+import { session, unsentChanges } from "./session";
 import { sync } from "../api/replica";
 import { detachReplica } from "../api/replica";
 import { keyring } from "./keyring";
@@ -40,7 +40,7 @@ export async function refreshAccounts() {
 }
 
 /** The open account's sync, as the list says it. "Locked" means the journal key isn't open here (nothing sealed can travel). */
-export function openSyncNote(): SyncNote {
+function openSyncNote(): SyncNote {
   const local = saved.list.find((a) => a.id === saved.active)?.kind === "local";
   const pending = session.user ? unsentChanges() : 0;
   if (local) return { state: "local", pending: 0, at: Date.now() };
@@ -98,4 +98,3 @@ export function renameWebServer(name: string) {
   writeStr(NAME, n);
   webServerName.value = n;
 }
-export { signOut };

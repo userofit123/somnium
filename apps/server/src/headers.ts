@@ -7,7 +7,7 @@ import path from "node:path";
 
 /** The sha256 sources for the inline <script> and <style> blocks of a built index.html (the pre-paint script, the
  *  splash style). Taken from the file itself, never typed in, so they cannot drift from what the browser hashes. */
-export function inlineHashes(html: string): { scripts: string[]; styles: string[] } {
+function inlineHashes(html: string): { scripts: string[]; styles: string[] } {
   const hash = (body: string) => `'sha256-${crypto.createHash("sha256").update(body, "utf8").digest("base64")}'`;
   const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].filter((m) => !/\bsrc\s*=/i.test(m[1]!)).map((m) => hash(m[2]!));
   const styles = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => hash(m[1]!));
@@ -24,7 +24,7 @@ export function inlineHashes(html: string): { scripts: string[]; styles: string[
  * - connect-src: only the app's own server. The update check goes through the server (/api/update-check), so the
  *   browser never talks to GitHub; the Android app's policy adds what it needs (prepare-web.mjs).
  */
-export function cspFor(html: string | null): string {
+function cspFor(html: string | null): string {
   const { scripts, styles } = html ? inlineHashes(html) : { scripts: [], styles: [] };
   return [
     "default-src 'self'",
@@ -45,7 +45,7 @@ export function cspFor(html: string | null): string {
 }
 
 // What the app uses: the camera (photos of a page) and the microphone (voice notes), from its own pages only.
-export const PERMISSIONS_POLICY = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), display-capture=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()";
+const PERMISSIONS_POLICY = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), serial=(), hid=(), midi=(), display-capture=(), accelerometer=(), gyroscope=(), magnetometer=(), browsing-topics=()";
 
 /** The headers for every answer. The policy follows index.html: a rebuild while the server runs changes the hashes,
  *  so the file is looked at again when it changed (by time and size), not read once at start. The look is cheap and

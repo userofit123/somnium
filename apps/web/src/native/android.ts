@@ -189,6 +189,6 @@ export function installAndroidBridge() {
 }
 
 /** A page of this app from an address a notification handed over: its path and query on this origin, else null. */
-export function appPath(u: string): string | null {
+function appPath(u: string): string | null {
   try { const x = new URL(u, location.origin); return x.origin === location.origin ? x.pathname + x.search : null; } catch { return null; }
 }

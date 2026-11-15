@@ -27,8 +27,6 @@ export function sheetClosed(id: number) {
 }
 /** Close the sheet on top (the Android app's back button calls this directly) */
 export function closeTopSheet() { stack.at(-1)?.close(); }
-/** True while the router handles a Back (popstate), not a link or a button */
-export const backPressed = () => popped;
 
 // the router reacts to popstate first and runs its guards a moment later, so this flag is set by then
 addEventListener("popstate", () => { popped = true; setTimeout(() => (popped = false), 0); });

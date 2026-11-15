@@ -30,7 +30,7 @@ export type DreamFull = Dream & { elements: DreamElement[] };
 /** The engine sends at most this many dreams in one list (with their sealed text): the Journal's list says so. */
 export const DREAM_LIMIT = 2000;
 /** Every dream's plain facts (GET /dream-facts, no limit, nothing sealed): what Signs, Insights and Home sum over. */
-export interface DreamFact {
+interface DreamFact {
   id: string; nightId: string; date: string; nap: boolean; lucid: boolean; lucidityLevel: number; awareness: number | null; emotionOverall: number | null;
   nightmare: boolean; badDream: boolean; recurring: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
   /** when you woke from it, stamped by a capture in the night (LDJ-177); null for one written up later */
@@ -319,7 +319,7 @@ async function push(dreamId: string, fromStore?: DreamDraft & { nap: boolean }) 
 }
 
 /** Sends every draft kept sealed here (after an unlock, coming back online, or now and then). */
-export async function sendStored() {
+async function sendStored() {
   if (!keyring.isOpen()) return;
   storedIds.value = Object.keys(readStore());
   for (const id of storedIds.value) {
@@ -365,7 +365,7 @@ export function endDraft(dreamId: string) {
 }
 
 /** The page is going away or out of sight: what is waiting is sealed (it already is, see sealNow) and sent now. */
-export function flushDrafts() {
+function flushDrafts() {
   for (const d of drafts.values()) {
     if (!saveState[d.dreamId] || saveState[d.dreamId] === "saved") continue;
     sealNow(d);

@@ -5,7 +5,7 @@
 // Long single-choice lists belong in AppSelect, two to four short words in a .seg.
 import Icon from "./Icon.vue";
 
-export interface ChoiceOption { value: any; label: string; icon?: string; hint?: string }
+interface ChoiceOption { value: any; label: string; icon?: string; hint?: string }
 const props = defineProps<{ modelValue: any; options: ChoiceOption[]; multiple?: boolean; compact?: boolean; cols?: number; min?: string; label?: string }>();
 const emit = defineEmits<{ "update:modelValue": [v: any] }>();
 

@@ -15,7 +15,7 @@ keyring.onChange((open) => { if (!open) forgetAll(); });
 
 /** Stores a file, on a dream if one is given. Sealing happens in the transport, so no caller can skip it.
  *  kind: "sketch" tells a drawing from a photo (both are pictures); duration: a recording's length in seconds. */
-export const uploadMedia = (file: Blob, dreamId?: string, extra: { kind?: "sketch"; duration?: number } = {}) => {
+const uploadMedia = (file: Blob, dreamId?: string, extra: { kind?: "sketch"; duration?: number } = {}) => {
   const qs = new URLSearchParams();
   if (dreamId) qs.set("dreamId", dreamId);
   if (extra.kind) qs.set("kind", extra.kind);

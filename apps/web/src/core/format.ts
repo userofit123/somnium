@@ -8,7 +8,7 @@ export function useFmt() {
   return computed(() => makeFmt(s.value));
 }
 // "Automatic" formats become this device's values here, so every screen reads concrete ones
-export function makeFmt(raw: Settings) {
+function makeFmt(raw: Settings) {
   const s = resolveFormats(raw);
   const locale = s.dateFormat === "mdy" ? "en-US" : s.dateFormat === "ymd" ? "sv-SE" : "en-GB";
   const hour12 = s.clock === "12";
@@ -22,7 +22,6 @@ export function makeFmt(raw: Settings) {
     num,
   };
 }
-export type Fmt = ReturnType<typeof makeFmt>;
 
 export function ago(iso: string | null | undefined): string {
   if (!iso) return "never";

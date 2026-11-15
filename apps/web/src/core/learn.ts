@@ -15,7 +15,7 @@ export function useLearn() {
   return { read, last, answers, pinned };
 }
 
-export function recordRead(read: ReadMap, id: string) {
+function recordRead(read: ReadMap, id: string) {
   const next = markRead(read, id, localYmd(new Date()));
   if (next !== read) void saveSettings({ learn: { read: { [id]: next[id] } } }, { quiet: true });
 }

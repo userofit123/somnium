@@ -15,7 +15,7 @@ import { previewImport } from "../sync/sealedApi";
 import { fromOtherAccount, rekeyForAccount } from "../sync/rekey";
 import { SEALED_TABLES } from "../sealed";
 
-export const EXPORT_FORMAT = 1;
+const EXPORT_FORMAT = 1;
 const TABLES = ["nights", "dreams", "elements", "dream_elements", "media", "reality_checks", "practice_log", "course_progress", "goals", "reminders", "day_notes"] as const;
 
 export async function exportAll(q: Sql, userId: string, sealed = false) {

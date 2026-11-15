@@ -2,7 +2,6 @@
 // uploaded media, update checks, and (in production) the web app itself.
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from "fastify";
 import cookie from "@fastify/cookie";
 import fstatic from "@fastify/static";
@@ -608,4 +607,3 @@ export async function buildApp(o: Options): Promise<{ app: FastifyInstance; engi
   return { app, engine };
 }
 
-export const randomId = () => crypto.randomUUID();

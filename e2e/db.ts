@@ -16,7 +16,7 @@ const safe = (s: string) => s.replace(/[^a-z0-9-]/gi, "");
 /** A fresh database has no users, and then the app shows its first-run "create the admin" screen instead of the sign-in
  * screen with the invite link. This stand-in admin (no password, so nobody can sign in as it) keeps that screen away;
  * the sweep never deletes it. Local runs against a used server already have users, so this does nothing there. */
-export function ensureAdmin() {
+function ensureAdmin() {
   sql(`INSERT INTO users (id, username, role) SELECT gen_random_uuid(), 'harness-admin', 'admin' WHERE NOT EXISTS (SELECT 1 FROM users WHERE username <> 'harness-admin' AND username NOT LIKE 'e2e-%') AND NOT EXISTS (SELECT 1 FROM users WHERE username = 'harness-admin')`);
 }
 export function makeInvite(): string {
@@ -34,4 +34,4 @@ export function deleteUser(username: string) {
 export function sweep() {
   sql(`DELETE FROM users WHERE username LIKE 'e2e-%'; DELETE FROM invites WHERE code LIKE 'e2e%' AND used_by IS NULL`);
 }
-export const count = (table: string, uid: string) => Number(sql(`SELECT count(*) FROM ${safe(table)} WHERE user_id = '${safe(uid)}' AND deleted_at IS NULL`)[0]![0]);
+const count = (table: string, uid: string) => Number(sql(`SELECT count(*) FROM ${safe(table)} WHERE user_id = '${safe(uid)}' AND deleted_at IS NULL`)[0]![0]);

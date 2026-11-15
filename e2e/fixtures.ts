@@ -2,7 +2,7 @@ import { test as base, expect, type Locator, type Page } from "@playwright/test"
 import { deleteUser, makeInvite } from "./db";
 
 export { expect };
-export const PASSWORD = "e2e-correct-horse-1";
+const PASSWORD = "e2e-correct-horse-1";
 
 export interface Account { username: string; password: string; invite: string }
 
@@ -62,7 +62,7 @@ export async function navTo(page: Page, path: string, ready: Locator) {
   await ready.waitFor();
 }
 
-export const uuid7 = () => {
+const uuid7 = () => {
   const t = Date.now().toString(16).padStart(12, "0");
   const r = [...crypto.getRandomValues(new Uint8Array(10))].map((b) => b.toString(16).padStart(2, "0")).join("");
   return `${t.slice(0, 8)}-${t.slice(8)}-7${r.slice(0, 3)}-${(8 + (parseInt(r[3]!, 16) & 3)).toString(16)}${r.slice(4, 7)}-${r.slice(7, 19)}`;

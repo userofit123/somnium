@@ -26,7 +26,7 @@ import m023 from "./migrations/023_check_sign";
 import m024 from "./migrations/024_dream_woke_at";
 import m025 from "./migrations/025_lucid_plan";
 
-export const MIGRATIONS: [string, string][] = [
+const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
   ["002_isolation", m002],
   ["003_sync", m003],

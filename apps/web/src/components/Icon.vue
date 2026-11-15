@@ -4,7 +4,7 @@ defineProps<{ name: string; size?: number }>();
 </script>
 
 <script lang="ts">
-export const ICONS: Record<string, string> = {
+const ICONS: Record<string, string> = {
   home: "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z",
   history: "M3 12a9 9 0 1 0 3-6.7M3 4v4h4M12 7v5l3 2",
   calendar: "M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM4 10h16M8 2v4M16 2v4",

@@ -5,7 +5,7 @@ import type { Sql } from "../db";
 import { str } from "../util";
 import { bad } from "../errors";
 
-export async function getSettings(q: Sql, userId: string): Promise<Settings> {
+async function getSettings(q: Sql, userId: string): Promise<Settings> {
   const r = (await q.query<{ data: unknown }>("SELECT data FROM user_settings WHERE user_id = $1", [userId])).rows[0];
   return withDefaults(r?.data ?? {});
 }

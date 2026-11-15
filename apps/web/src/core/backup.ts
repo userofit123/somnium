@@ -43,7 +43,7 @@ async function accountBlock(): Promise<BackupAccount> {
 }
 
 /** The backup file. Needs the journal open here; passphrase: the optional extra wrap of the whole file. */
-export async function makeBackup(passphrase?: string): Promise<Blob> {
+async function makeBackup(passphrase?: string): Promise<Blob> {
   if (!keyring.isOpen()) throw new Error("Unlock Somnium to make a backup");
   const plain = await api.get("/export");
   tellLeftOut(plain);
@@ -57,7 +57,7 @@ export async function makeBackup(passphrase?: string): Promise<Blob> {
 }
 
 const owner = () => `${saved.active ?? ""}|${session.user?.id ?? ""}`;
-export const backupName = (d = new Date()) => `somnium-backup-${d.toISOString().slice(0, 16).replace(/[T:]/g, "-")}.somniumbackup`;
+const backupName = (d = new Date()) => `somnium-backup-${d.toISOString().slice(0, 16).replace(/[T:]/g, "-")}.somniumbackup`;
 export function download(blob: Blob, name: string) {
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = name; a.click();
@@ -88,7 +88,7 @@ export async function pickFolder(): Promise<string | null> {
 }
 export async function folderName(): Promise<string | null> { try { return (await idb<any>((s) => s.get("dir")))?.name ?? null; } catch { return null; } }
 /** Whether backups can be written without asking: the apps' folder, or a picked folder still allowed. */
-export async function canBackUpSilently(): Promise<boolean> {
+async function canBackUpSilently(): Promise<boolean> {
   if (nativeSave()) return true;
   const h = await idb<any>((s) => s.get("dir")).catch(() => null);
   return !!h && (await h.queryPermission?.({ mode: "readwrite" }).catch(() => "denied")) === "granted";
@@ -135,7 +135,7 @@ export async function backupNow(o: { passphrase?: string; keep?: number; interac
 }
 
 /** True when an automatic backup is due under the person's settings. */
-export function backupDue(cfg: { on: boolean; every: "daily" | "weekly" }): boolean {
+function backupDue(cfg: { on: boolean; every: "daily" | "weekly" }): boolean {
   if (!cfg.on) return false;
   const last = backupLog().lastAt ? new Date(backupLog().lastAt!).getTime() : 0;
   return Date.now() - last > (cfg.every === "daily" ? 86400000 : 7 * 86400000) - 3600000;
@@ -144,7 +144,7 @@ export function backupDue(cfg: { on: boolean; every: "daily" | "weekly" }): bool
 let offered = false; // the download is offered once per visit
 let running = false;
 /** Runs an automatic backup when one is due and the journal is open: silently where it can, else offers a download. */
-export async function maybeAutoBackup(cfg: { on: boolean; every: "daily" | "weekly"; keep: number }, offer?: (run: () => void) => void) {
+async function maybeAutoBackup(cfg: { on: boolean; every: "daily" | "weekly"; keep: number }, offer?: (run: () => void) => void) {
   if (running || !backupDue(cfg) || !keyring.isOpen()) return;
   running = true;
   try {

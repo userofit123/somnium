@@ -42,11 +42,6 @@ export function isoTime(v: unknown, fallback?: string): string {
   if (Number.isNaN(d.getTime())) throw bad("Invalid time");
   return d.toISOString();
 }
-/** The instant a calendar day (YYYY-MM-DD) starts for an app tzMin minutes behind UTC. */
-export const startOfDay = (day: string, tzMin: number) => new Date(new Date(day + "T00:00:00Z").getTime() + tzMin * 60000);
-/** The app's offset: the one it sends, else (an older app) the process's, which is the device's own on the device. */
-export const tzOf = (qs: Record<string, string>) => (qs.tz != null && qs.tz !== "" && Number.isFinite(Number(qs.tz)) ? Number(qs.tz) : new Date().getTimezoneOffset());
-export const secondsBetween = (a: string, b: string | Date) => Math.max(0, Math.round((new Date(b).getTime() - new Date(a).getTime()) / 1000));
 
 /** Refuses a reference to a row this person cannot see (row-level security hides other people's rows,
  *  but foreign keys are checked without it, so references are checked here). A removed row (deleted_at set)

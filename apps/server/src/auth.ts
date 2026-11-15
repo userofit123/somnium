@@ -32,7 +32,7 @@ export const COOKIE = "somnium_session";
 export const SESSION_DAYS = Number(process.env.SESSION_DAYS ?? 60);
 /** A sign-in that is never used again after its first hour ends this many days after it began (LDJ-68): scripts and
  *  one-off browsers otherwise left a session each that lingered the full SESSION_DAYS in the devices list. */
-export const UNUSED_SESSION_DAYS = Math.min(SESSION_DAYS, Number(process.env.UNUSED_SESSION_DAYS ?? 14));
+const UNUSED_SESSION_DAYS = Math.min(SESSION_DAYS, Number(process.env.UNUSED_SESSION_DAYS ?? 14));
 const DEVICE_LABEL_MAX = 80;
 
 export interface SessionUser { id: string; username: string; role: "admin" | "user"; sessionId: string }
@@ -193,7 +193,7 @@ const markMac = (nonce: string, userId: string, key: Buffer) =>
   crypto.createHmac("sha256", key).update(`known-device|${nonce}|${userId}`).digest("base64url").slice(0, 32);
 const marksOf = (cookie: string | undefined) =>
   (cookie ?? "").slice(0, 600).split("~").filter((m) => /^[A-Za-z0-9_-]{16}\.[A-Za-z0-9_-]{32}$/.test(m));
-export function hasDeviceMark(cookie: string | undefined, userId: string, key: Buffer): boolean {
+function hasDeviceMark(cookie: string | undefined, userId: string, key: Buffer): boolean {
   return marksOf(cookie).some((m) => {
     const [nonce, mac] = m.split(".") as [string, string];
     return crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(markMac(nonce, userId, key)));
@@ -301,8 +301,8 @@ export const standInRecoverySalt = (username: string, key: Buffer): string =>
 
 // ---------- TOTP (RFC 6238, SHA-1, 6 digits, 30 s) ----------
 const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-export const b32encode = (buf: Buffer): string => { let bits = "", out = ""; for (const b of buf) bits += b.toString(2).padStart(8, "0"); for (let i = 0; i < bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5).padEnd(5, "0"), 2)]; return out; };
-export const b32decode = (s: string): Buffer => { let bits = ""; for (const ch of s.replace(/=+$/, "").toUpperCase()) bits += B32.indexOf(ch).toString(2).padStart(5, "0"); const out: number[] = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(out); };
+const b32encode = (buf: Buffer): string => { let bits = "", out = ""; for (const b of buf) bits += b.toString(2).padStart(8, "0"); for (let i = 0; i < bits.length; i += 5) out += B32[parseInt(bits.slice(i, i + 5).padEnd(5, "0"), 2)]; return out; };
+const b32decode = (s: string): Buffer => { let bits = ""; for (const ch of s.replace(/=+$/, "").toUpperCase()) bits += B32.indexOf(ch).toString(2).padStart(5, "0"); const out: number[] = []; for (let i = 0; i + 8 <= bits.length; i += 8) out.push(parseInt(bits.slice(i, i + 8), 2)); return Buffer.from(out); };
 export function totp(secretB32: string, t = Date.now(), step = 30, digits = 6): string {
   const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(t / 1000 / step)));
   const h = crypto.createHmac("sha1", b32decode(secretB32)).update(counter).digest();
@@ -333,16 +333,16 @@ export const newTotpSecret = () => b32encode(crypto.randomBytes(20));
 export const otpauthUrl = (username: string, secret: string) => `otpauth://totp/Somnium:${encodeURIComponent(username)}?secret=${secret}&issuer=Somnium&digits=6&period=30`;
 
 // ---------- backup codes and reset codes: 10 characters from the recovery key's alphabet, shown once, kept hashed ----------
-export const BACKUP_CODES = 8;
-export const CODE_LENGTH = 10;
-export function newCode(): string {
+const BACKUP_CODES = 8;
+const CODE_LENGTH = 10;
+function newCode(): string {
   let s = "";
   while (s.length < CODE_LENGTH) for (const b of crypto.randomBytes(CODE_LENGTH)) if (b < 248 && s.length < CODE_LENGTH) s += RECOVERY_KEY_CHARS[b % RECOVERY_KEY_CHARS.length]; // 248 = 8 × 31: no bias
   return s;
 }
 /** What was typed, without spaces, dashes or case. */
 export const plainCode = (typed: unknown): string => String(typed ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-export const formatCode = (code: string) => `${code.slice(0, 5)}-${code.slice(5)}`;
+const formatCode = (code: string) => `${code.slice(0, 5)}-${code.slice(5)}`;
 
 /** Eight fresh backup codes for the account, replacing any older ones. Returns the codes to show once. */
 export async function issueBackupCodes(db: Db, userId: string): Promise<string[]> {

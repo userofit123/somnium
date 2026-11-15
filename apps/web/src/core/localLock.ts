@@ -100,7 +100,7 @@ export async function checkLocalPassword(password: string): Promise<boolean> {
   try { (await openLocalWithPassword(keys, password)).fill(0); return true; } catch (e) { if (e instanceof SealError) return false; throw e; }
 }
 
-export const hasLocalRecoveryKey = (k: LocalKeys | null) => !!k?.wrappedByRecovery;
+const hasLocalRecoveryKey = (k: LocalKeys | null) => !!k?.wrappedByRecovery;
 
 /**
  * An account made before passwords holds plaintext: everything in it goes out through the transport (which opens what

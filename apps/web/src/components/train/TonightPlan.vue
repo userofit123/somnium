@@ -15,7 +15,7 @@
 // beside it (api/home.ts), with ideas from the current lesson (packages/shared/src/tonight.ts lucidPlanIdeas). The
 // dream editor asks afterwards whether it was done; the MILD flow repeats it after its sentence.
 import { computed, defineAsyncComponent, ref, watch } from "vue";
-import { bedtimeAt, currentLesson, freeNightsOf, lucidPlanIdeas, LUCID_PLAN_WHY, suggestTonight, wbtbNightsOf, type TonightIdea } from "@somnium/shared";
+import { bedtimeAt, currentLesson, freeNightsOf, lucidPlanIdeas, LUCID_PLAN_WHY, suggestTonight, wbtbNightsOf, type TonightIdea, clockOf } from "@somnium/shared";
 import { parseInline } from "@somnium/knowledge/markdown";
 import { applyTonightPlan, planTonight, setTonightBedtime, useCourse } from "../../api/train";
 import { useJournal } from "../../api/journal";
@@ -58,9 +58,8 @@ const savePlan = useChange(async () => { await saveLucidPlan(props.date, plan.va
 const cancelPlan = () => { plan.value = props.night?.lucidPlan ?? ""; planning.value = false; };
 
 // ---- bedtime and the WBTB alarm
-const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const usual = computed(() => settings.value.sleep.bedtime);
-const bed = computed(() => (props.night?.bedtime ? hm(props.night.bedtime) : usual.value));
+const bed = computed(() => (props.night?.bedtime ? clockOf(props.night.bedtime) : usual.value));
 const bedIso = computed(() => bedtimeAt(props.date, bed.value).toISOString());
 const alarm = computed(() => props.night?.wbtbWakeAt ?? null);
 const setBed = useChange((v: string) => setTonightBedtime(!v || v === usual.value ? null : bedtimeAt(props.date, v)), ["journal", "train", "home"]);

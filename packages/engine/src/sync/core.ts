@@ -69,7 +69,7 @@ export function overrule(c: Change, here: { row: Record<string, unknown> | null;
  * at these rows, so the loser can simply be marked removed. (nights also has one live row per date, but dreams hang off
  * a night, so two nights are merged instead: settleNight below.)
  */
-export const NATURAL_KEYS: Readonly<Record<string, readonly string[]>> = {
+const NATURAL_KEYS: Readonly<Record<string, readonly string[]>> = {
   course_progress: ["user_id", "lesson_id"],
   dream_elements: ["dream_id", "element_id"],
   // a day note's loser also says which note stayed (merged_into), so a device holding the key joins its text (joinDayNotes)

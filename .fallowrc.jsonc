@@ -1,0 +1,14 @@
+// Fallow (codebase analyzer): what it cannot see on its own. Run: ./scripts/pnpm.sh audit:fallow  (or dlx fallow dead-code / dupes / health)
+{
+  "$schema": "https://fallow.tools/schema.json",
+  // loaded by path, not imported: Electron's preload (built to preload.cjs), the service worker (/sw.js), and the
+  // server's admin commands (docs/self-hosting.md: node --import tsx apps/server/src/cli.ts ...)
+  "entry": ["apps/desktop/src/preload.ts", "apps/web/public/sw.js", "apps/server/src/cli.ts"],
+  // run by hand or by dev-setup.sh: release bump, release notes, dev file-watcher nudge
+  "supportEntry": ["scripts/*.mjs"],
+  // native Capacitor plugins: `cap sync android` builds them into the app; the web code reaches them through Capacitor
+  // and the OCR model, read from node_modules by path in apps/web/vite.config.ts (ocrModel), never imported
+  "ignoreDependencies": ["@capacitor/*", "@tesseract.js-data/eng"],
+  // the router loads pages on demand, so a page that imports something using the router is not a load-time cycle
+  "circularDependencies": { "ignoreLazyImports": true }
+}

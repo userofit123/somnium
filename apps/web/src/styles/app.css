@@ -142,7 +142,6 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 .stat .sub { font-size: var(--fs-sm); color: var(--tx2); margin-top: 2px; position: relative; z-index: 1; }
 .stat.hero .sub { color: color-mix(in srgb, var(--onc) 75%, transparent); }
 .stat .spark { position: absolute; right: 0; bottom: 0; width: 55%; height: 46px; opacity: .9; pointer-events: none; }
-.ring { flex: none; }
 
 /* ---------- lists ---------- */
 .list { display: flex; flex-direction: column; }
@@ -497,13 +496,6 @@ html.phone .scr.leaving .sht { animation: up .22s ease-in reverse forwards; }
   .tabi { transition: none; }
 }
 
-/* dragging to reorder (core/drag.ts): the list shows its drop area, the item lifts, a dashed slot marks where it lands */
-.dragging { position: relative; outline: 2px dashed color-mix(in srgb, var(--acc) 40%, transparent); outline-offset: 6px; border-radius: var(--r-md); user-select: none; }
-.drag-slot { position: absolute; top: 0; left: 0; right: 0; border: 2px dashed var(--acc); border-radius: var(--r-md); background: color-mix(in srgb, var(--acc) 7%, transparent); pointer-events: none; z-index: 0; transition: transform .18s; }
-/* no transition on the lifted item: it must stay under the finger (cards otherwise ease their transform) */
-.lifted { position: relative; z-index: 5; box-shadow: var(--shadow-pop); scale: 1.02; cursor: grabbing; background: var(--s1); border-radius: var(--r-md); transition: none !important; }
-.dragh { touch-action: none; cursor: grab; }
-
 /* a dot between items (name · count): its own element with the same space on both sides. In a flex row the row's gap
    does it (no margin here, so it isn't doubled); in running text write " · " with one space each side instead */
 .sep { color: var(--tx2); flex: none; }
@@ -550,8 +542,6 @@ html.phone[data-den="compact"] { --lmh: 44px; }
 .scr.top { align-items: flex-start; padding-top: 12vh; }
 .btn.mid { margin: var(--hg) auto 0; display: flex; }
 .apr.flush { margin-top: 0; }
-.ring { transform: rotate(-90deg); }
-.ring circle { transition: stroke-dashoffset .5s; }
 #splash i { color: var(--on); }
 /* command palette */
 .cmd-s { margin: 14px; }

@@ -13,7 +13,7 @@ function readVersion(): string {
 export const VERSION = process.env.SOMNIUM_VERSION ?? readVersion();
 /** Raised when the API changes in a way older apps cannot follow; apps compare it with the level they were built for. */
 export const API_LEVEL = 1;
-export const REPO = process.env.SOMNIUM_REPO ?? "userofit123/somnium";
+const REPO = process.env.SOMNIUM_REPO ?? "userofit123/somnium";
 
 type GhAsset = { name: string; browser_download_url: string; size?: number };
 let cache: { at: number; value: unknown } | null = null;
