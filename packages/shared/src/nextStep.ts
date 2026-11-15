@@ -68,6 +68,12 @@ export function tonightLine(t: StepInput["tonight"]): string {
   return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] ?? "";
 }
 
+/** The "Plan tonight" step with tonight's suggested plan (tonight.ts suggestTonight) as its line, so Home says what Train ·
+ * Tonight suggests (WBTB only on a free night). Any other step is returned as it is. */
+export function withSuggestion(step: Step, title: string | null): Step {
+  return step.kind === "plan" && title ? { ...step, line: `Suggested: ${title}` } : step;
+}
+
 /**
  * Today's step. In order: write last night's dream (daytime, until it is written); move on once the lesson's rule is
  * met; in the evening (from 18:00 until the night turns at 05:00) tonight's plan or, before MILD, the evening review

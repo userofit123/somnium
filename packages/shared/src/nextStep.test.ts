@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stepFor, tonightLine, type StepInput, type StepLesson } from "./nextStep";
+import { stepFor, tonightLine, withSuggestion, type StepInput, type StepLesson } from "./nextStep";
 
 const L = (id: string, number: number, title: string): StepLesson => ({ id, number, title });
 const recall = L("recall", 1, "Remember your dreams");
@@ -87,5 +87,15 @@ describe("tonightLine", () => {
     expect(tonightLine({ titles: [], wbtbAt: null })).toBe("");
     expect(tonightLine({ titles: ["MILD"], wbtbAt: null })).toBe("MILD");
     expect(tonightLine({ titles: ["SSILD", "MILD"], wbtbAt: "04:00" })).toBe("WBTB at 04:00, SSILD and MILD");
+  });
+});
+
+describe("withSuggestion", () => {
+  it("puts tonight's suggested plan on the Plan tonight step only", () => {
+    const plan = stepFor(base({ hour: 21, lesson: mild, next: ssild }));
+    expect(withSuggestion(plan, "MILD at bedtime").line).toBe("Suggested: MILD at bedtime");
+    expect(withSuggestion(plan, null)).toBe(plan);
+    const done = stepFor(base({ hour: 21, lesson: mild, next: ssild, tonight: { titles: ["MILD"], wbtbAt: null } }));
+    expect(withSuggestion(done, "WBTB + MILD")).toBe(done);
   });
 });
