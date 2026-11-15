@@ -1,22 +1,5 @@
 /* Chips, tags, badges and small pills. */
 
-.badge {
-  position: absolute;
-  z-index: 2;
-  top: -2px;
-  right: 12px; /* fixed side */
-  min-width: 17px;
-  height: 17px;
-  border-radius: 9px;
-  background: var(--neg);
-  color: #fff;
-  font-size: calc(10px * var(--fsc));
-  font-weight: 700;
-  display: none;
-  place-items: center;
-  padding: 0 4px;
-}
-
 .chip {
   display: inline-flex;
   align-items: center;
@@ -53,7 +36,7 @@
 }
 
 .live.warn {
-  background: #e6a100;
+  background: var(--warn);
   animation: none;
 }
 
@@ -137,7 +120,7 @@ i.live.spin {
 }
 
 .sev.med {
-  background: #e68a00;
+  background: var(--warn);
 }
 
 .sev.low {
@@ -162,11 +145,6 @@ i.live.spin {
   text-decoration: none;
   background: var(--acc);
   color: var(--on);
-}
-
-html.he .badge {
-  right: auto; /* fixed side */
-  left: 12px; /* fixed side */
 }
 
 html.he .tag,
@@ -233,7 +211,7 @@ html.he .chip {
   z-index: 40;
   margin-top: 0;
   background: var(--bg);
-  box-shadow: 0 16px 36px -14px rgba(0, 0, 0, .45);
+  box-shadow: var(--shadow-lift);
 }
 
 .bd {

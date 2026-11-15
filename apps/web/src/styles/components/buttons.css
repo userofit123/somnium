@@ -24,11 +24,6 @@
   stroke-linejoin: round;
 }
 
-.ib .badge {
-  top: -3px;
-  right: -3px; /* fixed side */
-}
-
 .btn {
   transition: transform .12s, filter .15s, background .2s, opacity .2s;
 }

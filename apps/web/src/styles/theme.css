@@ -167,10 +167,6 @@ html[data-nav="mini"]:not(.phone) .pop {
   left: calc(80px + var(--sl)); /* fixed side */
 }
 
-html[data-nav="mini"]:not(.phone) .badge {
-  right: 10px; /* fixed side */
-}
-
 html[data-tex="dots"] {
   --texi: radial-gradient(color-mix(in srgb,var(--tx) calc(20% * var(--toa)),transparent) 1.3px,transparent 1.9px);
   --texs: calc(22px / var(--tsc)) calc(22px / var(--tsc));

@@ -28,6 +28,7 @@ import RemindersSection from "../components/settings/RemindersSection.vue";
 import RealityChecksSection from "../components/settings/RealityChecksSection.vue";
 import FreeNights from "../components/settings/FreeNights.vue";
 import { startSafetyCheck, startSetup } from "../components/setup/useSetup";
+import { settingsGroups, type Section } from "./settingsSections";
 
 const route = useRoute(), router = useRouter();
 const me = useMe();
@@ -40,23 +41,10 @@ watch(() => route.params.section, (k) => { if (typeof k === "string" && OLD[k]) 
 // What's new opens from About and updates, and the Local AI model from its Features row: own screens, not list entries
 const SUB: Record<string, [parent: string, title: string]> = { changelog: ["about", "What's new"], "local-model": ["features", "Local AI model"] };
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
-type Section = [key: string, name: string, icon: string, hint: string];
 // local accounts have no server: the server-only sections (admin) stay out of the list
 const local = ref(false);
 isLocalAccount().then((v) => { local.value = v; });
-// order as in PLAN.md §6.7
-const ALL = computed<[string, Section[]][]>(() => [
-  ["You", [["account", "Account", "user", "Name, devices, sync"],
-    // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
-    (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", "Where your journal syncs"],
-    ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
-  // what changes how the app helps you dream, before how it looks
-  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length, nights to sleep in"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, wake-up alarm, morning"],
-    ["reality-checks", "Reality checks", "eye", "How many, when, which checks"], ["features", "Features", "sparkle", "Voice notes, photos, goals and more"]]],
-  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"]]],
-  ["Your data", [["backup", "Backups", "download", "Back up, restore"], ["data", "Export & import", "upload", "Save your dreams as files, bring in another journal"], ["log", "Activity log", "history", "Everything you changed"]]],
-  ["About", [...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About and updates", "info", "Version, updates, release notes, credits"]]],
-]);
+const ALL = computed(() => settingsGroups({ multiServer: !!(globalThis as any).somniumNative?.accounts, admin: session.user?.role === "admin" && !local.value }));
 // words people look for that the names don't carry
 const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification fingerprint face screen lock windows hello touch id password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",

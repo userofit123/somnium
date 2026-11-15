@@ -1,16 +1,12 @@
 // What the command palette lists besides the actions and pages (LDJ-130): techniques, Learn articles and the Settings
 // sections. The knowledge base is loaded only when the palette first opens, so none of it is in the first download.
 import { shallowRef } from "vue";
+import { settingsGroups } from "../pages/settingsSections";
 
 export type PaletteEntry = { label: string; hint: string; icon: string; to: string };
 
-/** Settings' sections, as SettingsPage lists them (the admin and server ones stay out: they depend on the account). */
-export const SETTINGS_ENTRIES: PaletteEntry[] = ([
-  ["account", "Account", "user"], ["security", "Security", "lock"], ["sleep", "Sleep schedule", "moon"],
-  ["reminders", "Reminders", "bell"], ["reality-checks", "Reality checks", "eye"], ["features", "Features", "sparkle"],
-  ["appearance", "Appearance", "palette"], ["formats", "Formats", "calendar"], ["backup", "Backups", "download"],
-  ["data", "Export & import", "upload"], ["log", "Activity log", "history"], ["about", "About and updates", "info"],
-] as const).map(([id, label, icon]) => ({ label, hint: "Settings", icon, to: `/settings/${id}` }));
+/** Settings' sections, the same list SettingsPage shows (the admin one stays out: it depends on the account). */
+export const SETTINGS_ENTRIES: PaletteEntry[] = settingsGroups().flatMap(([, xs]) => xs).map(([id, label, icon]) => ({ label, hint: "Settings", icon, to: `/settings/${id}` }));
 
 /** Techniques (each opens its Train page) then the other Learn articles; empty until loadKnowledge() has run. */
 export const knowledgeEntries = shallowRef<PaletteEntry[]>([]);
