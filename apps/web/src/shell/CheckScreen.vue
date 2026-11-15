@@ -8,6 +8,7 @@ import type { CheckOutcome } from "@somnium/shared";
 import { logCheck } from "../api/checks";
 import { checkCatalog } from "../native/reminders";
 import { lock } from "../core/lock";
+import { goBack } from "../core/leave";
 import Icon from "../components/Icon.vue";
 
 const route = useRoute(), router = useRouter();
@@ -25,8 +26,9 @@ async function pick(outcome: CheckOutcome) {
   catch (e) { err.value = (e as Error).message || "It couldn't be saved"; }
   finally { busy.value = false; }
 }
-// leaving: the lock screen comes back by itself if the app is locked (App.vue)
-const close = () => router.replace(lock.locked ? "/" : "/train");
+// leaving: back to the screen the check started from (the note takes this screen's place, so it returns there too);
+// from a reminder, to Train. The lock screen comes back by itself if the app is locked (App.vue)
+const close = () => (lock.locked ? router.replace("/") : goBack(router, "/train"));
 const addNote = () => router.replace(`/check/note/${done.value!.id}`);
 </script>
 

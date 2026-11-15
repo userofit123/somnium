@@ -1,4 +1,4 @@
-/* Train (PLAN.md §6.4): the course card, tonight's plan, the techniques library and a technique's page. Theme and
+/* Train (PLAN.md §6.3): the course card, tonight's plan, the techniques library and a technique's page. Theme and
    density tokens only. */
 .train .tcol > section:first-child > .sh:first-child { margin-top: 0; }
 .train .tgrid { align-items: start; }

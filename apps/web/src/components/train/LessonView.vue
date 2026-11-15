@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // A course lesson in full: what to do and why, with its sources, and the safety note where the lesson needs it.
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { sources } from "@somnium/knowledge/content";
 import { parseMarkdown } from "@somnium/knowledge/markdown";
 import { lessons, type Lesson } from "@somnium/knowledge/course";
@@ -8,7 +9,11 @@ import LearnBlocks from "../learn/LearnBlocks.vue";
 import SourceSheet from "../learn/SourceSheet.vue";
 import SafetyNote from "./SafetyNote.vue";
 import Icon from "../Icon.vue";
+import { goBack, backLabel } from "../../core/leave";
 const props = defineProps<{ lesson: Lesson }>();
+// Back returns to where it was opened from (Train, Home, Learn); opened directly, to Train's Today tab
+const router = useRouter();
+const back = backLabel(router, "Train");
 const blocks = computed(() => parseMarkdown(props.lesson.body));
 const listed = computed(() => props.lesson.sources.filter((id) => sources.has(id)));
 const open = ref<string[] | null>(null);
@@ -17,7 +22,7 @@ const showSources = ref(false);
 
 <template>
   <article class="art tview">
-    <router-link to="/train" class="lback"><Icon name="left" /> Train</router-link>
+    <button type="button" class="back" @click="goBack(router, '/train')"><Icon name="left" :size="16" /><span>{{ back }}</span></button>
     <div class="eyebrow">Lesson {{ lesson.number }} of {{ lessons.length }}</div>
     <h1>{{ lesson.title }}</h1>
     <p class="lede">{{ lesson.summary }}</p>

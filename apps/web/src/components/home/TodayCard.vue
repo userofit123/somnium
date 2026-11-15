@@ -40,7 +40,7 @@ const tick = useChange((id: string, on: boolean, row?: PracticeLog) => tickPract
             <span class="box"><Icon v-if="it.row" name="check" :size="14" /></span><span class="txt">{{ it.text }}</span>
           </button>
         </div>
-        <router-link :to="{ path: '/train', query: { lesson: lesson.id } }" class="lnk inl tiny hmore">Lesson: {{ lesson.title }}</router-link>
+        <router-link :to="'/train/lesson/' + lesson.id" class="lnk inl tiny hmore">Lesson: {{ lesson.title }}</router-link>
       </template>
     </div>
   </section>

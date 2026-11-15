@@ -3,6 +3,7 @@ import { onBeforeUnmount } from "vue";
 import { onBeforeRouteLeave, onBeforeRouteUpdate, type Router, type RouteLocationNormalized } from "vue-router";
 import { confirm } from "./ask";
 import { sheetIsOpen, backPressed } from "./sheets";
+import { NAV, section } from "../shell/nav";
 
 export function useLeaveGuard(dirty: () => boolean, o: { title?: string; text?: string; onDiscard?: () => void } = {}) {
   const ask = async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
@@ -25,4 +26,13 @@ export function useLeaveGuard(dirty: () => boolean, o: { title?: string; text?: 
 /** A page's own Back: one step back, or to `fallback` when the page was opened directly (nothing to go back to). */
 export function goBack(router: Router, fallback: string) {
   if (history.state?.back) router.back(); else router.replace(fallback);
+}
+
+/** What a page's own Back says: the page it returns to (Learn, Home, Train...), or `fallback` (the page `goBack`'s
+ *  fallback leads to) when it was opened directly. Read once when the page opens: history.state isn't reactive. */
+export function backLabel(router: Router, fallback: string): string {
+  const back = history.state?.back;
+  if (typeof back !== "string") return fallback;
+  const s = section(router.resolve(back).name as string | undefined);
+  return NAV.find((n) => n.name === s)?.label ?? (s === "more" ? "More" : "Back");
 }

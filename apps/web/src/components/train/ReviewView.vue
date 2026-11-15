@@ -4,17 +4,21 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { tonightNight, tickPractice } from "../../api/train";
 import { useChange } from "../../api/queries";
+import { goBack, backLabel } from "../../core/leave";
+import Icon from "../Icon.vue";
 import { useHabits } from "./useHabits";
 
 const router = useRouter();
 const h = useHabits();
 const intention = computed(() => tonightNight(h.j.nights.data.value)?.intention?.trim() || "");
-const done = useChange(async () => { await tickPractice("habit:review", h.today.value, true, h.rowOf("habit:review")); router.push("/train"); }, ["practice"]);
+// Back and Done return to where the review was opened from (Train's checklist, Home); opened directly, to Train
+const back = backLabel(router, "Train");
+const done = useChange(async () => { await tickPractice("habit:review", h.today.value, true, h.rowOf("habit:review")); goBack(router, "/train"); }, ["practice"]);
 </script>
 
 <template>
   <div class="tview">
-    <div class="ph"><div><h1>Evening review</h1></div><div class="acts"><button class="btn s keep" :disabled="done.busy.value" @click="done.run()">Done</button></div></div>
+    <div class="ph"><div><button type="button" class="back" @click="goBack(router, '/train')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>Evening review</h1></div><div class="acts"><button class="btn s keep" :disabled="done.busy.value" @click="done.run()">Done</button></div></div>
     <div class="card">
       <div class="s tiny">Tomorrow's intention</div>
       <div class="t">{{ intention || "None set. Open a technique such as MILD and choose Use tonight to plan one." }}</div>
@@ -22,6 +26,5 @@ const done = useChange(async () => { await tickPractice("habit:review", h.today.
       <div v-if="h.topSign.value" class="t"><router-link :to="'/signs/' + h.topSign.value.id">{{ h.topSign.value.name }}</router-link></div>
       <div v-else class="t">None yet. Dream signs appear as you log dreams.</div>
     </div>
-    <router-link to="/train" class="lnk inl tiny">Back to Train</router-link>
   </div>
 </template>

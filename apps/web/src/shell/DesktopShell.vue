@@ -2,7 +2,7 @@
 // The computer layout: Money Manager's rail with its gliding highlight, and the page.
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { NAV, section } from "./nav";
+import { NAV, section, TRAIN_TABS } from "./nav";
 import { appearanceOpen } from "../core/ui";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
@@ -46,7 +46,7 @@ onMounted(() => {
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });
 // one key per page, so moving between pages animates; settings sections animate inside the page instead
 // the Journal's dream panel opens beside its list, so the list stays put
-const pageKey = (r: any) => (r.name === "settings" ? "settings" : String(r.name ?? "").startsWith("journal") ? "journal" : r.path);
+const pageKey = (r: any) => (r.name === "settings" ? "settings" : String(r.name ?? "").startsWith("journal") ? "journal" : TRAIN_TABS.includes(r.name) ? "train" : r.path);
 // once a page has moved in, anything that appears on it later rises in by itself (see app.css)
 const arrived = (el: Element) => el.classList?.add("in");
 </script>

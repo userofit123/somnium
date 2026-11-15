@@ -16,17 +16,17 @@ const cancel = () => { text.value = props.intention; editing.value = false; };
 
 <template>
   <section class="htonight">
-    <div class="sh"><h2>Tonight</h2><router-link v-if="planned.length" to="/train" class="lnk">Change</router-link></div>
+    <div class="sh"><h2>Tonight</h2><router-link v-if="planned.length" to="/train/tonight" class="lnk">Change</router-link></div>
     <div class="card">
       <div v-if="same" class="tiny hnote">Before 05:00 tonight is the night you are in.</div>
       <div v-if="planned.length" class="hplan">
-        <router-link v-for="p in planned" :key="p.id" :to="{ path: '/train', query: { technique: p.id } }" class="li hli">
+        <router-link v-for="p in planned" :key="p.id" :to="'/train/technique/' + p.id" class="li hli">
           <Icon name="moon" :size="18" /><span class="grow t">{{ p.title }}</span><Icon name="right" :size="16" />
         </router-link>
       </div>
       <div v-else class="hrow">
         <div class="grow tiny">Nothing planned yet.</div>
-        <router-link to="/train" class="btn o s">Plan tonight</router-link>
+        <router-link to="/train/tonight" class="btn o s">Plan tonight</router-link>
       </div>
       <div class="hint">
         <div v-if="!editing" class="hrow">

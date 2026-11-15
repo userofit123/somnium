@@ -21,7 +21,7 @@ const remove = useChange((id: string) => planTonight(id, false), ["journal", "tr
     <div v-else class="card flush">
       <div v-for="r in rows" :key="r.id" class="li">
         <Icon name="moon" :size="18" />
-        <router-link :to="{ path: '/train', query: { technique: r.id } }" class="grow t tname">{{ r.title }}</router-link>
+        <router-link :to="'/train/technique/' + r.id" class="grow t tname">{{ r.title }}</router-link>
         <button type="button" class="cx" :aria-label="'Remove ' + r.title" :disabled="remove.busy.value" @click="remove.run(r.id)"><Icon name="close" :size="16" /></button>
       </div>
     </div>

@@ -39,7 +39,7 @@ const days = (n: number) => (n === 1 ? "1 day" : `${n} days`);
     <div class="card flush">
       <div v-for="i in items" :key="i.id" class="li hrow">
         <span class="hbox" :class="{ on: i.on }" aria-hidden="true"><Icon v-if="i.on" name="check" :size="14" /></span>
-        <router-link v-if="i.id === 'habit:review'" to="/train?review=1" class="grow hl"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></router-link>
+        <router-link v-if="i.id === 'habit:review'" to="/train/review" class="grow hl"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></router-link>
         <router-link v-else-if="i.id === 'habit:sign'" :to="h.topSign.value ? '/signs/' + h.topSign.value.id : '/signs'" class="grow hl" @click="tickToday(i.id)"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></router-link>
         <div v-else class="grow"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></div>
         <span v-if="i.streak" class="tiny hstreak num">{{ days(i.streak) }}</span>

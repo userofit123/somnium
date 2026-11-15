@@ -2,7 +2,7 @@
 // The phone layout: the page, and the tabs Home, Journal, +, Train, Progress, More (PLAN.md §6.0).
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { section } from "./nav";
+import { section, TRAIN_TABS } from "./nav";
 import { uuidv7 } from "../api/journal";
 import Icon from "../components/Icon.vue";
 import SyncPill from "./SyncPill.vue";
@@ -28,8 +28,8 @@ const add = () => router.push({ name: "journal-write", params: { id: uuidv7() },
 // the pages listed on the More tab
 const IN_MORE = ["more", "signs", "learn", "settings"];
 const moreOn = computed(() => IN_MORE.includes(cur.value));
-// one key per page, so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
-const pageKey = (r: any) => r.path;
+// one key per page (Train's three tabs share one, which switches them itself), so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
+const pageKey = (r: any) => (TRAIN_TABS.includes(r.name) ? "train" : r.path);
 // once a page has moved in, anything that appears on it later rises in by itself (see app.css)
 const arrived = (el: Element) => el.classList?.add("in");
 
@@ -49,7 +49,7 @@ let x0 = 0, y0 = 0, t0 = 0, ok = false;
 function ts(e: TouchEvent) {
   const t = e.touches[0]!;
   x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
-  ok = e.touches.length === 1 && ORDER.includes(route.name as string) && !sheetIsOpen()
+  ok = e.touches.length === 1 && (ORDER.includes(route.name as string) || TRAIN_TABS.includes(route.name as string)) && !sheetIsOpen()
     && !(e.target as HTMLElement).closest(".dock, input, textarea, select, .hscroll, .chips, .seg, .tabs, .cal, .chart, [data-noswipe]")
     && x0 > 24 && x0 < innerWidth - 24; // the screen edges belong to the phone's own back gesture
 }
@@ -57,7 +57,7 @@ function te(e: TouchEvent) {
   if (!ok) return;
   const t = e.changedTouches[0]!, dx = t.clientX - x0, dy = t.clientY - y0;
   if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.3 || Date.now() - t0 > 900) return; // a natural thumb swipe drifts a little
-  const next = ORDER[ORDER.indexOf(route.name as string) + (dx < 0 ? 1 : -1)];
+  const next = ORDER[ORDER.indexOf(section(route.name as string)) + (dx < 0 ? 1 : -1)];
   const tab = TABS.find((x) => x.name === next);
   if (tab?.to) router.push(tab.to);
 }

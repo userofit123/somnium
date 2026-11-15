@@ -2,6 +2,7 @@
 // One technique (LDJ-23): its Learn article rendered with the same renderer and source sheet, the evidence badge and
 // where it comes from, the safety note where it applies, and the screen's one primary button: "Use tonight".
 import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 import { articles, sources } from "@somnium/knowledge/content";
 import { parseMarkdown, parseInline } from "@somnium/knowledge/markdown";
 import { families, evidenceLabel, type Technique } from "@somnium/knowledge/techniques";
@@ -13,8 +14,12 @@ import Icon from "../Icon.vue";
 import { planTonight } from "../../api/train";
 import { useChange } from "../../api/queries";
 import { toast } from "../../core/toast";
+import { goBack, backLabel } from "../../core/leave";
 
 const props = defineProps<{ technique: Technique; planned: boolean }>();
+// Back returns to where it was opened from (Learn's "Try it", Home's Tonight card, Train); opened directly, to the library
+const router = useRouter();
+const back = backLabel(router, "Train");
 const article = computed(() => articles.find((a) => a.id === "techniques/" + props.technique.slug)!);
 const blocks = computed(() => parseMarkdown(article.value.body));
 const basis = computed(() => parseInline(props.technique.basis));
@@ -32,7 +37,7 @@ async function use(add: boolean) {
 
 <template>
   <article class="art tview">
-    <router-link to="/train" class="lback"><Icon name="left" /> Train</router-link>
+    <button type="button" class="back" @click="goBack(router, '/train/techniques')"><Icon name="left" :size="16" /><span>{{ back }}</span></button>
     <div class="eyebrow">{{ family }}</div>
     <h1>{{ article.title }}</h1>
     <p class="lede">{{ article.summary }}</p>

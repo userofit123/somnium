@@ -9,10 +9,14 @@ export const NAV = [
   { name: "learn", label: "Learn", icon: "graduation", to: "/learn" },
   { name: "settings", label: "Settings", icon: "settings", to: "/settings" },
 ];
-/** Which menu item a page belongs to (a dream's own page belongs to the Journal, an element's to Dream signs, a report to Progress) */
+/** Which menu item a page belongs to (a dream's own page belongs to the Journal, an element's to Dream signs, a report to Progress,
+ *  Train's tabs and sub-screens to Train) */
 export function section(routeName: string | undefined): string {
   if (routeName?.startsWith("journal")) return "journal";
   if (routeName?.startsWith("signs")) return "signs";
   if (routeName === "report") return "progress";
+  if (routeName?.startsWith("train")) return "train";
   return routeName ?? "";
 }
+/** Train's three tabs (PLAN.md §6.3): one page between them in the shells, so moving between tabs doesn't swap the page */
+export const TRAIN_TABS = ["train", "train-tonight", "train-techniques"];

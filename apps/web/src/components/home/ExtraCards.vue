@@ -1,12 +1,12 @@
 <script setup lang="ts">
-// Home's optional cards (PLAN.md §6.1, §11): each one only while its switch is on in Settings → Features.
+// Home's optional cards (PLAN.md §6.1): Home passes one at a time, as its own block, while it is on in Edit home.
 import { useFmt } from "../../core/format";
 defineProps<{
-  lesson: { id: string; number: number; of: number; title: string; summary: string } | null;
-  tip: { id: string; title: string; summary: string } | null;
-  lucid: { id: string; date: string; title: string } | null;
+  lesson?: { id: string; number: number; of: number; title: string; summary: string } | null;
+  tip?: { id: string; title: string; summary: string } | null;
+  lucid?: { id: string; date: string; title: string } | null;
   /** the top of the Signs shortlist (shared signs.ts signShortlist): name and how often */
-  signs: { id: string; name: string; line: string }[] | null;
+  signs?: { id: string; name: string; line: string }[] | null;
 }>();
 const fmt = useFmt();
 </script>
@@ -21,7 +21,7 @@ const fmt = useFmt();
   </section>
   <section v-if="lesson" class="hextra">
     <div class="sh"><h2>Next lesson</h2><span class="tiny">Lesson {{ lesson.number }} of {{ lesson.of }}</span></div>
-    <router-link :to="{ path: '/train', query: { lesson: lesson.id } }" class="card hcard"><div class="t">{{ lesson.title }}</div><div class="tiny hclamp">{{ lesson.summary }}</div></router-link>
+    <router-link :to="'/train/lesson/' + lesson.id" class="card hcard"><div class="t">{{ lesson.title }}</div><div class="tiny hclamp">{{ lesson.summary }}</div></router-link>
   </section>
   <section v-if="tip" class="hextra">
     <div class="sh"><h2>A tip from Learn</h2></div>

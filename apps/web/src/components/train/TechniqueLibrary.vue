@@ -14,7 +14,7 @@ const byFamily = computed(() => families.map((f) => ({
   <section v-for="f in byFamily" :key="f.id" class="tfam">
     <div class="sh"><h2>{{ f.title }}</h2></div>
     <div class="card flush">
-      <router-link v-for="t in f.items" :key="t.id" :to="{ path: '/train', query: { technique: t.id } }" class="li click tlink">
+      <router-link v-for="t in f.items" :key="t.id" :to="'/train/technique/' + t.id" class="li click tlink">
         <div class="grow">
           <div class="t">{{ t.article.title }}</div>
           <div class="tiny tsum">{{ t.article.summary }}</div>

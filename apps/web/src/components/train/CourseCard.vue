@@ -27,7 +27,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
       <div class="tlh">
         <div class="t">{{ lesson.title }}</div>
         <div class="tiny">{{ lesson.summary }}</div>
-        <router-link :to="{ path: '/train', query: { lesson: lesson.id } }" class="lnk inl tiny">Read the lesson</router-link>
+        <router-link :to="'/train/lesson/' + lesson.id" class="lnk inl tiny">Read the lesson</router-link>
       </div>
       <div class="tiny tsub">Today's practice</div>
       <div class="tcheck">

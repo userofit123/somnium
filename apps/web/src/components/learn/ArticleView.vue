@@ -48,7 +48,7 @@ const go = (a: Article) => router.push("/learn/" + a.id);
     <LearnBlocks :blocks="blocks" @cite="open = $event" />
     <div v-if="article.tryIt" class="tryit card">
       <div><b>Try it</b><div class="s">Put this into practice with the {{ techLabel }} technique.</div></div>
-      <router-link class="btn" :to="{ path: '/train', query: { technique: article.tryIt } }">Try it in Train</router-link>
+      <router-link class="btn" :to="'/train/technique/' + article.tryIt">Try it in Train</router-link>
     </div>
     <section class="srcs">
       <button type="button" class="srch" :aria-expanded="showSources" @click="showSources = !showSources">

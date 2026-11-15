@@ -1,4 +1,15 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
+
+const TrainPage = () => import("./pages/TrainPage.vue");
+// links from before Train's sub-screens had addresses: reminders, bookmarks, recommendations already shown
+function oldTrainLink(to: RouteLocationNormalized) {
+  const q = to.query, one = (k: string) => (typeof q[k] === "string" && q[k] ? encodeURIComponent(q[k] as string) : "");
+  if (one("technique")) return `/train/technique/${one("technique")}`;
+  if (one("lesson")) return `/train/lesson/${one("lesson")}`;
+  if (one("guided")) return `/train/guided/${one("guided")}`;
+  if (q.review) return "/train/review";
+  return true;
+}
 
 export const router = createRouter({
   history: createWebHistory(),
@@ -19,7 +30,15 @@ export const router = createRouter({
     { path: "/signs", name: "signs", component: () => import("./pages/SignsPage.vue") },
     // an element's page: beside the list on a computer, a step of its own on the phone
     { path: "/signs/:id", name: "signs-element", component: () => import("./pages/SignsPage.vue") },
-    { path: "/train", name: "train", component: () => import("./pages/TrainPage.vue") },
+    // Train's three tabs (PLAN.md §6.3), each its own address so Home and reminders can link straight to one, and its
+    // sub-screens. The old query links (/train?technique=, ?lesson=, ?guided=, ?review=1) still land on them.
+    { path: "/train", name: "train", component: TrainPage, beforeEnter: oldTrainLink },
+    { path: "/train/tonight", name: "train-tonight", component: TrainPage },
+    { path: "/train/techniques", name: "train-techniques", component: TrainPage },
+    { path: "/train/technique/:id", name: "train-technique", component: TrainPage },
+    { path: "/train/lesson/:id", name: "train-lesson", component: TrainPage },
+    { path: "/train/guided/:mode", name: "train-guided", component: TrainPage },
+    { path: "/train/review", name: "train-review", component: TrainPage },
     { path: "/progress", name: "progress", component: () => import("./pages/InsightsPage.vue") },
     // the page was called Insights; old links and bookmarks still land on it
     { path: "/insights", redirect: "/progress" },

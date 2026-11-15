@@ -42,7 +42,7 @@ const faqs = computed(() => faqItems(findArticle("faq/faq")?.body ?? ""));
 const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => {
   if (id.startsWith("lesson:")) {
     const l = lessons.find((x) => x.id === id.slice(7));
-    return l ? [{ id, title: l.title, kind: "Course lesson " + l.number, to: { path: "/train", query: { lesson: l.id } } }] : [];
+    return l ? [{ id, title: l.title, kind: "Course lesson " + l.number, to: "/train/lesson/" + l.id }] : [];
   }
   if (id.startsWith("term:")) {
     const t = terms.value.find((x) => slug(x.term) === id.slice(5));
@@ -130,7 +130,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       <div class="sh"><h2>Course lessons</h2></div>
       <div class="card flush">
         <div v-for="l in lessons" :key="l.id" class="li lrow">
-          <router-link :to="{ path: '/train', query: { lesson: l.id } }" class="grow rlink"><div class="t"><span class="num">{{ l.number }}.</span> {{ l.title }}</div><div class="s">{{ l.summary }}</div></router-link>
+          <router-link :to="'/train/lesson/' + l.id" class="grow rlink"><div class="t"><span class="num">{{ l.number }}.</span> {{ l.title }}</div><div class="s">{{ l.summary }}</div></router-link>
           <PinButton :id="pinId.lesson(l.id)" :label="l.title" />
         </div>
       </div>
