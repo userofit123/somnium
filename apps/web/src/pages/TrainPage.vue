@@ -26,7 +26,7 @@ import GuidedCard from "../components/train/guided/GuidedCard.vue";
 import { defineAsyncComponent } from "vue";
 import { nightNowDate } from "../api/train";
 import type { GuidedMode } from "../components/train/guided/GuidedView.vue";
-// the guided modes (LDJ-25) load when one opens: /train/guided/wbtb|up|mild|ssild|wild|drill|cat|cue
+// the guided modes (LDJ-25) load when one opens: /train/guided/bedtime|wbtb|up|mild|ssild|wild|drill|cat|cue
 const GuidedView = defineAsyncComponent(() => import("../components/train/guided/GuidedView.vue"));
 import TodayChecklist from "../components/train/TodayChecklist.vue";
 import PmCard from "../components/train/PmCard.vue";
@@ -54,7 +54,7 @@ const param = (k: string) => String(here.value.params[k] ?? "");
 const technique = computed(() => (here.value.name === "train-technique" ? findTechnique(param("id")) : undefined));
 const openLesson = computed(() => (here.value.name === "train-lesson" ? findLesson(param("id")) : undefined));
 // the sound cue is an optional feature: absent while off, even by its address
-const guided = computed(() => (here.value.name !== "train-guided" ? undefined : (["wbtb", "up", "mild", "ssild", "wild", "drill", "cue", "cat"] as const)
+const guided = computed(() => (here.value.name !== "train-guided" ? undefined : (["bedtime", "wbtb", "up", "mild", "ssild", "wild", "drill", "cue", "cat"] as const)
   .find((m) => m === param("mode") && (m !== "cue" || !!useSettingsOn.value.features.soundCue)) as GuidedMode | undefined));
 // an address that names nothing (a technique, lesson or mode that isn't there, the cue while off) goes to the tab it
 // would be opened from

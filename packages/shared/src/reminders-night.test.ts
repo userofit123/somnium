@@ -80,7 +80,7 @@ describe("rows, words and links", () => {
   it("says nothing personal: the planned techniques' names, never an intention", () => {
     expect(nightText({ kind: "bedtime", techniques: ["mild"] })).toEqual({ title: "Bed in 15 minutes", body: "Tonight: MILD", lockTitle: "Bedtime" });
     expect(nightText({ kind: "bedtime", techniques: ["mild", "wbtb"] }).body).toBe("Tonight: MILD · WBTB");
-    expect(nightText({ kind: "bedtime", techniques: [] }).body).toBe("Nothing planned yet. Tap to plan tonight.");
+    expect(nightText({ kind: "bedtime", techniques: [] }).body).toBe("Nothing planned yet. Tap for the bedtime routine.");
     expect(nightText({ kind: "morning_journal" }).title).toBe("Write your dream");
   });
   it("the bedtime reminder follows tonight's plan, not the row's old technique (LDJ-104)", () => {
@@ -91,7 +91,7 @@ describe("rows, words and links", () => {
     // a bedtime chosen for that night moves the reminder
     expect(hm(bed({ "2026-06-11": { bedtime: new Date(2026, 5, 10, 22, 0).getTime() } }).at)).toBe("21:45");
     expect(hm(bed().at)).toBe("22:45");
-    expect(nightUrl({ kind: "bedtime", morning: "2026-06-11" })).toBe("/train/tonight");
+    expect(nightUrl({ kind: "bedtime", morning: "2026-06-11" })).toBe("/train/guided/bedtime");
   });
   it("links each to its screen", () => {
     expect(nightUrl({ kind: "wbtb", morning: "2026-06-11" })).toBe("/capture?date=2026-06-11&then=up");

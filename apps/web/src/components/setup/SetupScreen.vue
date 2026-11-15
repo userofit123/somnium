@@ -184,7 +184,7 @@ function finish(to: string) { close(); void router.push(to); }
         <h1>Reminders</h1>
         <p class="muted su-lede">Nothing from your journal is ever in them.</p>
         <label class="tgl"><div class="grow"><div class="t">Morning journal</div><div class="s">At your wake time: "Write your dream"</div></div><span class="tg"><input v-model="morning" type="checkbox" /></span></label>
-        <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">15 min before bed, with tonight's technique</div></div><span class="tg"><input v-model="bed" type="checkbox" /></span></label>
+        <label class="tgl"><div class="grow"><div class="t">Bedtime</div><div class="s">15 min before bed: a 2-minute routine with tonight's plan</div></div><span class="tg"><input v-model="bed" type="checkbox" /></span></label>
         <label class="tgl"><div class="grow"><div class="t">Reality checks</div><div class="s">A few times a day: "Are you dreaming?"</div></div><span class="tg"><input v-model="rcOn" type="checkbox" /></span></label>
         <div v-if="rcOn" class="li"><div class="grow"><div class="t">How many a day</div><div class="s">5 to 10 is usual</div></div><NumStep :value="perDay" :min="PER_DAY_MIN" :max="PER_DAY_MAX" label="Reality checks a day" @set="(v) => (perDay = v)" /></div>
         <p class="tiny su-gap">{{ limits }} More in Settings · Reminders.</p>

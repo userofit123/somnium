@@ -283,7 +283,7 @@ export function nightText(p: Pick<PlannedNightReminder, "kind" | "techniques">, 
   switch (p.kind) {
     case "bedtime": {
       const names = (p.techniques ?? []).map((id) => TECHNIQUES.find((x) => x.id === id)?.label).filter(Boolean);
-      return { title: `Bed in ${lead} minutes`, body: names.length ? `Tonight: ${names.join(" · ")}` : "Nothing planned yet. Tap to plan tonight.", lockTitle: "Bedtime" };
+      return { title: `Bed in ${lead} minutes`, body: names.length ? `Tonight: ${names.join(" · ")}` : "Nothing planned yet. Tap for the bedtime routine.", lockTitle: "Bedtime" };
     }
     case "wbtb": return { title: "Time for WBTB", body: "Get up for a while, then back to bed. Tap for the guide.", lockTitle: "Alarm" };
     case "morning_journal": return { title: "Write your dream", body: "Even a fragment counts. Nothing came back? Say no recall.", lockTitle: "Morning" };
@@ -299,7 +299,8 @@ export function nightText(p: Pick<PlannedNightReminder, "kind" | "techniques">, 
 export function nightUrl(p: Pick<PlannedNightReminder, "kind" | "morning">, action?: "norecall" | "up"): string {
   if (p.kind === "wbtb") return action === "up" ? "/train/guided/up" : `/capture?date=${p.morning}&then=up`;
   if (p.kind === "morning_journal") return action === "norecall" ? `/journal?norecall=${p.morning}` : `/capture?date=${p.morning}`;
-  return p.kind === "bedtime" ? "/train/tonight" : "/train";
+  // bedtime opens the short routine (LDJ-167): tonight's intention, the dream sign, the plan, then dark
+  return p.kind === "bedtime" ? "/train/guided/bedtime" : "/train";
 }
 
 /** A reality check logged from a notification's button (Android), waiting in the plugin's queue. account and user say

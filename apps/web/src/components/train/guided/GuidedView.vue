@@ -18,10 +18,11 @@ import WildTimer from "./WildTimer.vue";
 import CheckDrill from "./CheckDrill.vue";
 import SoundCue from "./SoundCue.vue";
 import CatPlan from "./CatPlan.vue";
+import BedtimeRoutine from "./BedtimeRoutine.vue";
 
-export type GuidedMode = "wbtb" | "up" | "mild" | "ssild" | "wild" | "drill" | "cue" | "cat";
+export type GuidedMode = "bedtime" | "wbtb" | "up" | "mild" | "ssild" | "wild" | "drill" | "cue" | "cat";
 const props = defineProps<{ mode: GuidedMode }>();
-const NAMES: Record<GuidedMode, string> = { wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", drill: "Reality check", cue: "Sound cue", cat: "CAT plan" };
+const NAMES: Record<GuidedMode, string> = { bedtime: "Bedtime", wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", drill: "Reality check", cue: "Sound cue", cat: "CAT plan" };
 const router = useRouter();
 const cite = ref<string[] | null>(null);
 // sound cue is an optional feature: absent while off, even by its address (Train sends it back; this never shows another
@@ -31,7 +32,7 @@ const cueOn = computed(() => !!settings.value.features.soundCue);
 const shown = computed((): GuidedMode | null => (props.mode === "cue" && !cueOn.value ? null : props.mode));
 // the header and the accessible name follow the screen actually shown
 const name = computed(() => (shown.value ? NAMES[shown.value] : ""));
-const close = () => goBack(router, ["wbtb", "up", "mild"].includes(props.mode) ? "/train/tonight" : "/train/techniques");
+const close = () => goBack(router, ["bedtime", "wbtb", "up", "mild"].includes(props.mode) ? "/train/tonight" : "/train/techniques");
 // one mode handing over to the next (I'm up → MILD) takes this one's place, so Close still returns to where it began
 const go = (m: GuidedMode) => router.replace(`/train/guided/${m}`);
 const running = ref(false);
@@ -44,7 +45,8 @@ const running = ref(false);
       <span class="grow" />
       <span class="gname">{{ name }}</span>
     </div>
-    <WbtbPlanner v-if="mode === 'wbtb'" @cite="cite = $event" @done="close" />
+    <BedtimeRoutine v-if="mode === 'bedtime'" @cite="cite = $event" @go="go" @running="running = $event" @done="close" />
+    <WbtbPlanner v-else-if="mode === 'wbtb'" @cite="cite = $event" @done="close" />
     <ImUp v-else-if="mode === 'up'" @cite="cite = $event" @go="go" />
     <MildFlow v-else-if="mode === 'mild'" @cite="cite = $event" @done="close" />
     <SsildTimer v-else-if="mode === 'ssild'" @cite="cite = $event" @running="running = $event" @done="close" />
