@@ -7,9 +7,12 @@
 // LDJ-159: the night's plan for once lucid (sealed, set on Tonight's plan) follows the sentence, so what to do once
 // lucid is part of what you fall asleep with: a task set before sleep is what lucid practice relies on [B64][D1].
 import { computed, ref } from "vue";
-import { topSigns } from "@somnium/shared";
+import { useRouter } from "vue-router";
+import { topSigns, lastLucid, pastDream, weekTarget, type PastSign } from "@somnium/shared";
 import { useSigns } from "../../signs/useSigns";
 import { useJournal } from "../../../api/journal";
+import { useSettings } from "../../../api/queries";
+import { useToday } from "../../../core/today";
 import { saveIntention } from "../../../api/home";
 import { nightNowDate, tonightDate } from "../../../api/train";
 import { toastError } from "../../../core/toast";
@@ -24,6 +27,27 @@ const { elements, links, dreams, today, stats, target } = useSigns();
 const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value, target: target.value })[0]?.element.name ?? null);
 // the night up in the small hours is in (nightNowDate); but when the bedtime routine handed over between 05:00 and 12:00,
 // the plan (and the intention it saved) is on tonightDate's night, so MILD follows the one that plans it
+// LDJ-223: one dream to re-read before the rehearsal, by title only (decrypted here, never in a notification): your latest
+// lucid dream, else one that held this week's target or a dream sign (pastDream, as Home's "From your past"). Recalling a
+// dream is MILD's first step [D1]; the dream page's Back returns here.
+const router = useRouter();
+const settings = useSettings();
+const todayYmd = useToday();
+const reread = computed(() => {
+  const all = j.dreams.data.value ?? [];
+  const l = lastLucid(all);
+  if (l) return { id: l.id, title: l.title?.trim() || "Untitled dream", why: "Your latest lucid dream" };
+  const sign = new Map((j.elements.data.value ?? []).filter((e) => e.isDreamSign).map((e) => [e.id, e.name ?? ""]));
+  const held = new Map<string, PastSign[]>();
+  for (const k of j.links.data.value ?? []) {
+    const name = sign.get(k.elementId);
+    if (name === undefined) continue;
+    const list = held.get(k.dreamId) ?? [];
+    if (!list.some((x) => x.id === k.elementId)) held.set(k.dreamId, [...list, { id: k.elementId, name }]);
+  }
+  const p = pastDream(all, todayYmd.value, held, weekTarget(settings.value));
+  return p ? { id: p.dream.id, title: p.dream.title!.trim(), why: p.why } : null;
+});
 const date = (() => {
   const planned = (d: string) => j.nights.data.value?.find((n) => n.date === d && !n.nap)?.techniquesPlanned?.includes("mild");
   const now = nightNowDate(), tonight = tonightDate();
@@ -57,6 +81,7 @@ async function next() {
       <template v-if="step === 0">
         <h1>Remember a dream</h1>
         <p class="glead">Sit up with a light on and try to remember a dream from just before waking, or any recent dream.</p>
+        <div v-if="reread" class="gbox"><div class="glabel">Re-read before bed</div><div class="gsign">{{ reread.title }}</div><div class="gev">{{ reread.why }}</div><button type="button" class="btn o" @click="router.push(`/journal/dream/${reread.id}`)">Open dream</button><Ev text="Recalling a dream is the first step of MILD, and rehearsing it helps you spot what would show it is a dream [D1]." @cite="emit('cite', $event)" /></div>
         <p class="gp">Go to the bathroom if you need to. Then turn the light off and lie down comfortably.</p>
       </template>
       <template v-else-if="step === 1">
