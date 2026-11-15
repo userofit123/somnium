@@ -4,9 +4,10 @@ import { FEATURE_DEFAULTS } from "./features";
 import type { Dismissal } from "./recommend";
 
 export interface Settings {
-  firstDay: 0 | 1;
-  dateFormat: "dmy" | "mdy" | "ymd";
-  clock: "24" | "12";
+  /** "auto" (the default) follows the device's language: see deviceFormats. Older accounts keep what they chose. */
+  firstDay: 0 | 1 | "auto";
+  dateFormat: "dmy" | "mdy" | "ymd" | "auto";
+  clock: "24" | "12" | "auto";
   features: Record<string, boolean>;
   notifications: { updates: boolean };
   backup: { on: boolean; every: "daily" | "weekly"; at: string; keep: number; /** encrypt: the old password-encrypted backups, no longer read; passphrase: wrap backups made by hand with an extra passphrase (LDJ-35) */
@@ -36,6 +37,17 @@ export interface Settings {
   setup: { done: boolean; experience: SetupExperience };
   /** blocks: Home's blocks in the order shown, each shown or hidden (Edit home, from Home's ⋮ menu). Plain ids. */
   home: { blocks: HomeBlock[] };
+  /** The morning capture (LDJ-80): dim, whether it opens on the still moment ("lie still and rewind") before the key
+   *  words. A plain choice, nothing personal. */
+  capture: { dim: boolean };
+  /**
+   * The safety check (LDJ-116, in setup and before WBTB). Only its outcome syncs: checked (it has been answered or
+   * skipped) and sleepFirst (keep the techniques that cut into sleep, WBTB, the CAT alarm and naps, out of
+   * suggestions). sleepFirst is a training preference anyone may choose and says nothing about why; the answers
+   * themselves (which item was a yes) are personal health information, so they never reach the server, not even
+   * sealed: they stay on the device (apps/web/src/components/setup/safety.ts).
+   */
+  safety: { checked: boolean; sleepFirst: boolean };
 }
 
 export interface HomeBlock { id: string; on: boolean }
@@ -52,8 +64,9 @@ const LEGACY_HOME: Record<string, string> = { signs: "homeSigns", lesson: "homeL
 // shown on every Home, so Edit home gives them no switch
 export const FIXED_HOME_BLOCKS = new Set(["morning", "today"]);
 
-/** Home's blocks made safe (they sync from any device): unknown ids and repeats dropped, missing ones appended with
- *  their default. With no saved layout, the old Features switches (features.homeSigns ...) carry over. */
+/** Home's blocks made safe (they sync from any device): repeats and malformed entries dropped, missing ones appended
+ *  with their default. Ids this version doesn't know are kept as saved (a newer device added them; dropping them here
+ *  would lose that device's choice when this one saves); the screens ignore them, and Reset replaces the list. With no saved layout, the old Features switches (features.homeSigns ...) carry over. */
 export function cleanHomeBlocks(saved: unknown, features: Record<string, boolean> = {}): HomeBlock[] {
   const known = new Map(HOME_BLOCKS.map((x) => [x.id, x.on]));
   const out: HomeBlock[] = [];
@@ -62,8 +75,9 @@ export function cleanHomeBlocks(saved: unknown, features: Record<string, boolean
     for (const x of saved) {
       const item: { id?: unknown; on?: unknown } = x && typeof x === "object" ? x : {};
       const id = item.id;
-      if (typeof id !== "string" || !known.has(id) || seen.has(id)) continue;
+      if (typeof id !== "string" || seen.has(id)) continue;
       seen.add(id);
+      if (!known.has(id)) { out.push({ id, on: item.on === true }); continue; }
       out.push({ id, on: FIXED_HOME_BLOCKS.has(id) || (typeof item.on === "boolean" ? item.on : known.get(id)!) });
     }
   }
@@ -75,9 +89,9 @@ export function cleanHomeBlocks(saved: unknown, features: Record<string, boolean
 export type SetupExperience = "" | "new" | "some" | "regular";
 
 export const DEFAULT_SETTINGS: Settings = {
-  firstDay: 1,
-  dateFormat: "dmy",
-  clock: "24",
+  firstDay: "auto",
+  dateFormat: "auto",
+  clock: "auto",
   features: FEATURE_DEFAULTS,
   notifications: { updates: true },
   backup: { on: true, every: "daily", at: "03:00", keep: 7, passphrase: false, media: true },
@@ -88,6 +102,8 @@ export const DEFAULT_SETTINGS: Settings = {
   recommend: { dismissed: [] },
   setup: { done: false, experience: "" },
   home: { blocks: HOME_BLOCKS },
+  capture: { dim: true },
+  safety: { checked: false, sleepFirst: false },
 };
 
 /** Deep-merges saved settings over the defaults, so new settings get their default value. */
@@ -105,4 +121,33 @@ export function withDefaults(saved: unknown): Settings {
   const blocks = saved && typeof saved === "object" ? (saved as { home?: { blocks?: unknown } }).home?.blocks : undefined;
   out.home = { ...out.home, blocks: cleanHomeBlocks(blocks, out.features) };
   return out;
+}
+
+/** The three formats as concrete values: what "Automatic" means on one device. */
+export interface DeviceFormats { firstDay: 0 | 1; dateFormat: "dmy" | "mdy" | "ymd"; clock: "24" | "12" }
+export type ResolvedSettings = Omit<Settings, "firstDay" | "dateFormat" | "clock"> & DeviceFormats;
+
+/**
+ * Week start, date order and clock for a language, read from Intl (a locale such as "en-US"; the device's own when
+ * omitted). Anything Intl cannot tell falls back to Monday, day-month-year and 24 hours, the old fixed defaults.
+ */
+export function deviceFormats(locale?: string): DeviceFormats {
+  const out: DeviceFormats = { firstDay: 1, dateFormat: "dmy", clock: "24" };
+  try {
+    const loc = locale ?? (typeof navigator !== "undefined" ? navigator.language : undefined);
+    const l = new Intl.Locale(loc || "en-GB") as Intl.Locale & { getWeekInfo?: () => { firstDay: number }; weekInfo?: { firstDay: number } };
+    const w = l.getWeekInfo?.() ?? l.weekInfo; // 1 Monday ... 7 Sunday; the picker offers Sunday or Monday
+    if (w) out.firstDay = w.firstDay === 7 ? 0 : 1;
+    const cycle = new Intl.DateTimeFormat(l.toString(), { hour: "numeric" }).resolvedOptions().hourCycle;
+    if (cycle) out.clock = cycle === "h11" || cycle === "h12" ? "12" : "24";
+    const order = new Intl.DateTimeFormat(l.toString(), { year: "numeric", month: "numeric", day: "numeric", timeZone: "UTC" }).formatToParts(Date.UTC(2026, 11, 31))
+      .map((p) => p.type).filter((x) => x === "year" || x === "month" || x === "day");
+    out.dateFormat = order[0] === "year" ? "ymd" : order[0] === "month" ? "mdy" : "dmy";
+  } catch { /* keep the fallbacks */ }
+  return out;
+}
+
+/** The settings with "auto" in the three formats replaced by this device's values. */
+export function resolveFormats(s: Settings, device: DeviceFormats = deviceFormats()): ResolvedSettings {
+  return { ...s, firstDay: s.firstDay === "auto" ? device.firstDay : s.firstDay, dateFormat: s.dateFormat === "auto" ? device.dateFormat : s.dateFormat, clock: s.clock === "auto" ? device.clock : s.clock };
 }

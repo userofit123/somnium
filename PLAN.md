@@ -242,8 +242,9 @@ action per screen.
 5. **Streaks and rates**: journaling streak, recall rate (dreams per night, 14 days), lucid dreams this month; links
    to Progress.
 6. **For you**: the recommendations shown here (§8.2), with reasons and sources.
-7. Blocks the person adds with **Edit home** (top dream signs, the next lesson, a tip from Learn, last lucid dream,
-   pinned goals); the switches live on Home itself, not in Settings → Features.
+7. Blocks the person shows, hides and orders with **Edit home** (top dream signs, the next lesson, a tip from Learn,
+   last lucid dream, pinned goals, day note); the layout is `settings.home.blocks`, so the switches live on Home itself,
+   not in Settings → Features. Block ids a version doesn't know are kept when it saves (only Reset drops them).
 
 ### 6.2 Journal
 - **Last night strip** at the top, then search and filters (text, elements, dates, lucid, nightmare, recurring,
@@ -428,7 +429,8 @@ Anti-bloat rules of Motus §10.0 apply. Optional features (Settings → Features
 voice notes, sketches, photos and OCR, meditation timer, dream-yoga practices, month report and year in review,
 day notes (for lag analysis), goals, typical-dream themes comparison, Markdown export per dream, sharing a dream
 as text, the optional local text model hook (a user-run Ollama URL on the LAN; off by default; the app never
-ships a cloud key).
+ships a cloud key). Home's extra cards (dream signs, next lesson, tip, last lucid dream) are not features: they are
+shown, hidden and ordered in Edit home on Home (§6.1).
 
 ## 12. Backup, restore, export and import
 

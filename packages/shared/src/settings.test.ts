@@ -13,7 +13,14 @@ describe("settings", () => {
     expect(s.backup.keep).toBe(3);
     expect(s.backup.at).toBe("03:00");
     expect(s.features.palette).toBe(true);
-    expect(s.clock).toBe("24");
+    expect(s.clock).toBe("auto");
+  });
+  it("reads the formats from the language", () => {
+    expect(deviceFormats("en-US")).toEqual({ firstDay: 0, dateFormat: "mdy", clock: "12" });
+    expect(deviceFormats("de-DE")).toEqual({ firstDay: 1, dateFormat: "dmy", clock: "24" });
+    expect(deviceFormats("sv-SE").dateFormat).toBe("ymd");
+    const s = resolveFormats(withDefaults({ clock: "12" }), { firstDay: 0, dateFormat: "mdy", clock: "24" });
+    expect([s.firstDay, s.dateFormat, s.clock]).toEqual([0, "mdy", "12"]);
   });
   it("gives Home its blocks in the default order", () => {
     expect(withDefaults({}).home.blocks).toEqual(HOME_BLOCKS);
@@ -26,8 +33,14 @@ describe("settings", () => {
     const t = withDefaults({ features: { homeTip: true }, home: { blocks: [{ id: "tip", on: false }] } });
     expect(t.home.blocks.find((b) => b.id === "tip")?.on).toBe(false);
   });
-  it("cleans a synced layout: unknown ids and repeats dropped, missing ones appended, fixed blocks always on", () => {
-    const out = cleanHomeBlocks([{ id: "rates", on: false }, { id: "nope", on: true }, { id: "rates", on: true }, { id: "today", on: false }]);
+  it("keeps ids it doesn't know (a newer device's cards) when cleaning, and Reset's list drops them", () => {
+    const out = cleanHomeBlocks([{ id: "rates", on: false }, { id: "newer", on: true }, { id: "newer", on: false }]);
+    expect(out.slice(0, 2)).toEqual([{ id: "rates", on: false }, { id: "newer", on: true }]);
+    expect(out.filter((b) => b.id === "newer")).toHaveLength(1);
+    expect(cleanHomeBlocks(HOME_BLOCKS).some((b) => b.id === "newer")).toBe(false);
+  });
+  it("cleans a synced layout: repeats dropped, missing ones appended, fixed blocks always on", () => {
+    const out = cleanHomeBlocks([{ id: "rates", on: false }, { id: "rates", on: true }, { id: "today", on: false }]);
     expect(out.slice(0, 2)).toEqual([{ id: "rates", on: false }, { id: "today", on: true }]);
     expect(out.map((b) => b.id).sort()).toEqual(HOME_BLOCKS.map((b) => b.id).sort());
   });
