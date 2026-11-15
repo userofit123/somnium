@@ -13,13 +13,14 @@
 .hwrite .hw-btn { background: color-mix(in srgb, var(--onc) 16%, transparent); color: var(--onc); }
 .hwrite .lnk { padding: 0; color: var(--onc); }
 html.phone .hwrite .hw-acts { flex-direction: column; align-items: stretch; }
+html.phone .hwrite .hw-acts .lnk { align-self: center; }
 html.phone .hwrite .hw-btn { width: 100%; justify-content: center; }
 .hsum { display: flex; align-items: center; gap: var(--lpy); color: var(--tx); }
-.hsum > .bi { flex: none; }
-.htitles { display: flex; flex-direction: column; gap: var(--tdy); margin-top: var(--lpy); padding-inline-start: calc(var(--cpx) + var(--lpy) + var(--lpy) / 2); }
+.hsum > .bi { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; background: var(--s2); color: var(--acc); flex: none; }
+.htitles { display: flex; flex-direction: column; gap: var(--tdy); margin-top: var(--lpy); padding-inline-start: calc(26px + var(--lpy)); }
 .htitles a { color: var(--tx); text-decoration: none; }
 .htitles a:hover { color: var(--acc); }
-.hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--lpy); padding-inline-start: calc(var(--cpx) + var(--lpy) + var(--lpy) / 2); }
+.hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--lpy); padding-inline-start: calc(26px + var(--lpy)); }
 .hfoot .lnk { padding: 0; }
 
 /* today */
