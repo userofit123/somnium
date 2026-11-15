@@ -48,7 +48,7 @@ async function noRecall() {
   </Sheet>
   <Sheet v-else title="Add" @close="emit('close')">
     <div class="opt-list">
-      <button class="optb" @click="write"><span class="oi"><Icon name="book" /></span><div class="grow"><div class="t">{{ night ? "I woke up" : "Write a dream" }}</div><div class="s">{{ night ? "Notes the time, then a few key words if you were dreaming" : morning ? "Last night's, while it is still there. A fragment counts." : "Any night's dream, or a nap" }}</div></div></button>
+      <button class="optb" @click="write"><span class="oi"><Icon name="book" /></span><div class="grow"><div class="t">{{ night ? "I woke up" : "Write a dream" }}</div><div class="s">{{ night ? "A few key words, with the time you woke" : morning ? "Last night's, while it is still there. A fragment counts." : "Any night's dream, or a nap" }}</div></div></button>
       <button v-if="!lastLogged && !nights.isPending.value" class="optb" @click="noRecall"><span class="oi"><Icon name="moon" /></span><div class="grow"><div class="t">No recall last night</div><div class="s">Logs the night with no dreams remembered</div></div></button>
       <button class="optb" @click="go('/check')"><span class="oi"><Icon name="eye" /></span><div class="grow"><div class="t">Log a reality check</div><div class="s">Whether it said you were awake or dreaming</div></div></button>
       <button class="optb" @click="go('/train/tonight')"><span class="oi"><Icon name="target" /></span><div class="grow"><div class="t">Plan tonight</div><div class="s">Your intention and the technique for tonight</div></div><Icon name="right" /></button>

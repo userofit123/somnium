@@ -11,20 +11,26 @@ const MIN = 60_000, HOUR = 60 * MIN;
 const AFTER_WAKE = HOUR;
 // the longest a night can be: a bedtime further back than this is another night's
 const LONGEST = 16 * HOUR;
-// without a bedtime or wake time to go by, the night is these hours on the clock (a nap is not stamped)
-const NIGHT_FROM = 20, NIGHT_TO = 11;
+// without a wake time the morning can't be told from the night, and a capture written up mid-morning would be kept as
+// a night waking hours after the fact: so only this long after bedtime counts (a full night's sleep)
+const UNSURE_NIGHT = 9 * HOUR;
+// without a bedtime or wake time to go by, the night is these hours on the clock (as Start's "I woke up"; a nap is
+// not stamped). It ends early for the same reason: a 10:30 capture is the morning's write-up, not a waking
+const NIGHT_FROM = 22, NIGHT_TO = 7;
 
 const ms = (iso: string | null | undefined) => { if (!iso) return null; const t = Date.parse(iso); return Number.isNaN(t) ? null : t; };
 
 /**
  * The moment to keep as when you woke from a dream whose capture opens now, or null when now isn't in the night:
- * after the night's bedtime and before its wake time (with an hour's grace), or else the clock's night hours.
+ * after the night's bedtime and before its wake time (with an hour's grace); without a wake time, within a night's
+ * sleep of bedtime; without either, the clock's night hours.
  */
 export function wakeStamp(now: Date, night?: (Times & { nap?: boolean }) | null): string | null {
   if (night?.nap) return null;
   const t = now.getTime(), bed = ms(night?.bedtime), wake = ms(night?.wakeTime);
   if (bed != null && (t < bed || t - bed > LONGEST)) return null;
-  if (wake != null && t > wake + AFTER_WAKE) return null;
+  if (wake != null && (t > wake + AFTER_WAKE || t < wake - LONGEST)) return null;
+  if (wake == null && bed != null && t - bed > UNSURE_NIGHT) return null;
   if (bed == null && wake == null) { const h = now.getHours(); if (h < NIGHT_FROM && h >= NIGHT_TO) return null; }
   return now.toISOString();
 }

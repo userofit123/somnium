@@ -9,7 +9,11 @@ describe("wakeStamp (LDJ-177)", () => {
   it("stamps a capture opened in the night's clock hours when the night has no times", () => {
     expect(wakeStamp(at("2026-11-15", "03:10"))).toBe(iso("2026-11-15", "03:10"));
     expect(wakeStamp(at("2026-11-14", "23:30"))).not.toBeNull();
+    expect(wakeStamp(at("2026-11-15", "06:30"))).not.toBeNull();
     expect(wakeStamp(at("2026-11-15", "15:00"))).toBeNull();
+    // the morning's write-up and the evening before bed are not night wakings
+    expect(wakeStamp(at("2026-11-15", "10:30"))).toBeNull();
+    expect(wakeStamp(at("2026-11-14", "21:00"))).toBeNull();
   });
   it("goes by the night's bedtime and wake time when they are logged", () => {
     const night = { bedtime: iso("2026-11-14", "23:00"), wakeTime: iso("2026-11-15", "07:00") };
@@ -17,8 +21,14 @@ describe("wakeStamp (LDJ-177)", () => {
     expect(wakeStamp(at("2026-11-15", "07:45"), night)).not.toBeNull();
     expect(wakeStamp(at("2026-11-15", "08:30"), night)).toBeNull();
     expect(wakeStamp(at("2026-11-14", "22:00"), night)).toBeNull();
-    // a bedtime alone: from bedtime on, even past the clock's night hours (a late sleeper)
-    expect(wakeStamp(at("2026-11-15", "12:00"), { bedtime: iso("2026-11-15", "03:00") })).not.toBeNull();
+    // a bedtime alone: a night's sleep from bedtime on, even past the clock's night hours (a late sleeper)
+    expect(wakeStamp(at("2026-11-15", "11:00"), { bedtime: iso("2026-11-15", "03:00") })).not.toBeNull();
+    expect(wakeStamp(at("2026-11-15", "12:30"), { bedtime: iso("2026-11-15", "03:00") })).toBeNull();
+    // ...but not the mid-morning write-up after an ordinary bedtime
+    expect(wakeStamp(at("2026-11-15", "05:30"), { bedtime: iso("2026-11-14", "23:00") })).not.toBeNull();
+    expect(wakeStamp(at("2026-11-15", "10:30"), { bedtime: iso("2026-11-14", "23:00") })).toBeNull();
+    // a wake time alone: not a day before it
+    expect(wakeStamp(at("2026-11-14", "07:00"), { wakeTime: iso("2026-11-15", "07:00") })).toBeNull();
   });
   it("never stamps a nap", () => {
     expect(wakeStamp(at("2026-11-15", "03:10"), { nap: true })).toBeNull();

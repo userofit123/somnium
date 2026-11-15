@@ -39,8 +39,10 @@ const afterUp = route.query.then === "up";
 const carry = afterUp ? { then: "up" } : {};
 
 const STILL_SECONDS = 20;
-// the still moment is for waking: the morning and the night's alarm, not a dream written up in the afternoon
-const wantStill = settings.value.capture.dim && (afterUp || new Date().getHours() < 14);
+// the still moment is for waking: the morning, the night (from 22:00, as Start's "I woke up") and the night's alarm,
+// not a dream written up in the afternoon or evening
+const openedAt = new Date().getHours();
+const wantStill = settings.value.capture.dim && (afterUp || openedAt < 14 || openedAt >= 22);
 const step = ref<"still" | "words">(wantStill ? "still" : "words");
 const words = ref<string[]>([]);
 const typed = ref("");
@@ -98,6 +100,7 @@ let made = false;
 // taken up from the server or from this device's storage: some of it may be on the server already, so emptied it is
 // deleted there; one only ever made here (dropLocalDraft knows whether any of it was sent) just loses its draft
 let earlier = false;
+const nightsNow = async () => j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
 async function open(): Promise<boolean> {
   const live = liveDraft(id), stored = live ? null : await openStored(id), draft = live ?? stored;
   if (draft) {
@@ -105,6 +108,8 @@ async function open(): Promise<boolean> {
     const d = draft.dream as Record<string, unknown>;
     if (!captureShaped(d)) { toEditor(); return false; }
     takeUp(d);
+    // a new one closed before its first word kept no time (a draft from before the time went into it): stamped now
+    if (!wokeAt.value && !started && fresh) wokeAt.value = wakeStamp(new Date(), nightOfDate(await nightsNow(), date));
     made = started; earlier = true;
     if (!live) beginDraft(draft);
     if (stored && started) changeDream(id, fields(true));
@@ -114,11 +119,14 @@ async function open(): Promise<boolean> {
     try { row = await api.get<DreamFull>(`/dreams/${id}`); }
     catch (e) { if (!(e instanceof ApiError && e.status === 404) && !fresh) { toEditor(); return false; } }
     if (row && (!captureShaped(row as unknown as Record<string, unknown>) || row.elements.length)) { toEditor(); return false; }
-    const nights: NightRow[] = j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
+    const nights: NightRow[] = await nightsNow();
     const night = row ? nights.find((n) => n.id === row!.nightId) : null;
     if (row) { takeUp(row as unknown as Record<string, unknown>); made = earlier = true; }
     else wokeAt.value = wakeStamp(new Date(), nightOfDate(nights, date));
-    beginDraft({ dreamId: id, nightId: row?.nightId ?? nightOfDate(nights, date)?.id ?? uuidv7(), date: night?.date ?? date, nap: night?.nap ?? false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
+    // the draft starts with the time in it, so a capture closed in the still moment (the lock, switching away) and
+    // opened again before the first word keeps when you woke; nothing is saved until the first change all the same
+    const dream = !row && wokeAt.value ? { wokeAt: wokeAt.value } : {};
+    beginDraft({ dreamId: id, nightId: row?.nightId ?? nightOfDate(nights, date)?.id ?? uuidv7(), date: night?.date ?? date, nap: night?.nap ?? false, dream, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
   }
   ready.value = true;
   return true;
