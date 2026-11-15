@@ -16,7 +16,8 @@ export interface SignElement {
 }
 export interface SignLink { dreamId: string; elementId: string; source: ElementSource; confidence?: number | null; span?: string | null }
 /** becameLucidHow: how a lucid dream started (LDJ-78), so a sign's lucid dreams can say which came from noticing a sign. */
-export interface SignDream { id: string; date: string; lucid: boolean; becameLucidHow?: string | null }
+/** recurring: the person marked it a dream they keep having (LDJ-164); grouped by recurringGroups below. */
+export interface SignDream { id: string; date: string; lucid: boolean; becameLucidHow?: string | null; recurring?: boolean }
 /** A reality check from checks.json (its categories are written with a dash: "inner-awareness"). */
 export interface SignCheck { id: string; name: string; howTo: string; pairsWith: readonly string[] }
 /** A typical dream theme from themes.json (Nielsen et al. 2003, RESEARCH.md C13). */
@@ -139,13 +140,21 @@ export function pairedCheck<C extends SignCheck>(category: SignCategory | null, 
 export interface ShortlistEntry<C extends SignCheck = SignCheck, E extends SignElement = SignElement> {
   element: E; stat: ElementStat; score: number; category: SignCategory | null;
   frequency: SignFrequency; advice: string; check: C | null;
+  /** at the heart of a recurring dream (recurringSignIds below) */
+  recurring: boolean;
 }
-export function signShortlist<C extends SignCheck, E extends SignElement>(elements: readonly E[], stats: ReadonlyMap<string, ElementStat>, dreams: readonly SignDream[], checks: readonly C[], today: string, size = SHORTLIST_SIZE): ShortlistEntry<C, E>[] {
+/**
+ * `recurring`: the elements at the heart of recurring dreams (recurringSignIds). They count as candidates once in 2
+ * dreams, sign-ish or not, and rank RECURRING_WEIGHT higher: content that keeps coming back in the same dream is the most reliable cue there is
+ * (RESEARCH.md C1, C17).
+ */
+export function signShortlist<C extends SignCheck, E extends SignElement>(elements: readonly E[], stats: ReadonlyMap<string, ElementStat>, dreams: readonly SignDream[], checks: readonly C[], today: string, size = SHORTLIST_SIZE, recurring: ReadonlySet<string> = new Set()): ShortlistEntry<C, E>[] {
   const out: ShortlistEntry<C, E>[] = [];
   for (const e of elements) {
-    const s = stats.get(e.id);
-    if (!s || !isSignCandidate(e, s)) continue;
-    out.push({ element: e, stat: s, score: signScore(e, s, today), category: e.signCategory, frequency: signFrequency(s, dreams), advice: SIGN_ADVICE[e.signCategory ?? "none"], check: pairedCheck(e.signCategory, checks) });
+    const s = stats.get(e.id), rec = recurring.has(e.id);
+    // a recurring dream's content needs only to have come back once: the person already says it keeps returning
+    if (!s || !((hasSignSupport(s) && isSignish(e)) || (rec && s.dreamCount >= 2))) continue;
+    out.push({ element: e, stat: s, score: signScore(e, s, today) * (rec ? RECURRING_WEIGHT : 1), category: e.signCategory, frequency: signFrequency(s, dreams), advice: SIGN_ADVICE[e.signCategory ?? "none"], check: pairedCheck(e.signCategory, checks), recurring: rec });
   }
   return out.sort((a, b) => b.score - a.score || (b.stat.lastSeen ?? "").localeCompare(a.stat.lastSeen ?? "") || (a.element.name ?? "").localeCompare(b.element.name ?? "")).slice(0, size);
 }
@@ -292,3 +301,54 @@ export function signsInDream<E extends SignElement>(dreamId: string, linked: rea
   }
   return { known: known.sort((a, b) => b.seen - a.seen), offer };
 }
+
+// ---------- recurring dreams (LDJ-164) ----------
+/**
+ * A recurrent dream (the same dream again, marked "recurring") is distinct from a recurring dream sign (the same element
+ * across different dreams), and most adults have had at least one (RESEARCH.md C17). Its repeated content is a ready
+ * made dream sign: LaBerge's practice targets exactly the features that keep coming back (C1, C2).
+ * Two recurring dreams are the same one when they share RECURRING_SHARED_MIN elements (or every element of the smaller
+ * one, when it has fewer). Emotions and sensations don't join dreams on their own: fear is in many different dreams.
+ */
+export const RECURRING_SHARED_MIN = 2, RECURRING_CORE_MAX = 3, RECURRING_WEIGHT = 1.5;
+const RECURRING_NO_JOIN: ReadonlySet<ElementKind> = new Set(["emotion", "sensation"]);
+export interface RecurringGroup<E extends SignElement = SignElement> {
+  /** newest first */
+  dreamIds: string[];
+  firstSeen: string; lastSeen: string;
+  /** what keeps coming back: in at least 2 of the group's dreams (any, in a group of one), most dreams first */
+  core: { element: E; dreams: number }[];
+}
+/** Recurring dreams grouped into the same dream by shared elements; most dreams first, then the latest. */
+export function recurringGroups<E extends SignElement>(elements: readonly E[], links: readonly SignLink[], dreams: readonly SignDream[]): RecurringGroup<E>[] {
+  const rec = dreams.filter((d) => d.recurring).sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id));
+  const byId = new Map(elements.filter((e) => e.name).map((e) => [e.id, e]));
+  const of = new Map(rec.map((d) => [d.id, new Set<string>()]));
+  for (const l of links) if (byId.has(l.elementId)) of.get(l.dreamId)?.add(l.elementId);
+  const joins = (id: string) => [...of.get(id)!].filter((e) => !RECURRING_NO_JOIN.has(byId.get(e)!.kind));
+  // union-find over the recurring dreams
+  const parent = rec.map((_, i) => i);
+  const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i]!)));
+  for (let i = 0; i < rec.length; i++) {
+    const a = joins(rec[i]!.id);
+    for (let j = i + 1; j < rec.length; j++) {
+      const b = new Set(joins(rec[j]!.id));
+      const need = Math.min(RECURRING_SHARED_MIN, a.length, b.size);
+      if (need > 0 && a.filter((x) => b.has(x)).length >= need) parent[root(j)] = root(i);
+    }
+  }
+  const groups = new Map<number, SignDream[]>();
+  rec.forEach((d, i) => (groups.get(root(i)) ?? groups.set(root(i), []).get(root(i))!).push(d));
+  const out: RecurringGroup<E>[] = [];
+  for (const ds of groups.values()) {
+    const n = new Map<string, number>();
+    for (const d of ds) for (const e of of.get(d.id)!) n.set(e, (n.get(e) ?? 0) + 1);
+    const core = [...n].filter(([, c]) => ds.length === 1 || c >= 2).map(([id, c]) => ({ element: byId.get(id)!, dreams: c }))
+      .sort((a, b) => b.dreams - a.dreams || Number(isSignish(b.element)) - Number(isSignish(a.element)) || (a.element.name ?? "").localeCompare(b.element.name ?? ""))
+      .slice(0, RECURRING_CORE_MAX);
+    out.push({ dreamIds: ds.map((d) => d.id), firstSeen: ds[ds.length - 1]!.date, lastSeen: ds[0]!.date, core });
+  }
+  return out.sort((a, b) => b.dreamIds.length - a.dreamIds.length || b.lastSeen.localeCompare(a.lastSeen));
+}
+/** The elements at the heart of recurring dreams, for the shortlist's ranking (signShortlist). */
+export const recurringSignIds = (groups: readonly RecurringGroup[]): Set<string> => new Set(groups.flatMap((g) => g.core.map((c) => c.element.id)));

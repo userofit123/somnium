@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as lex from "@somnium/knowledge/lexicons";
 import { daysBetween } from "./course";
 import {
-  categoryWeight, coOccurrence, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
+  categoryWeight, coOccurrence, recurringGroups, recurringSignIds, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
   mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison,
   type SignDream, type SignElement, type SignLink,
 } from "./signs";
@@ -191,5 +191,40 @@ describe("signsInDream", () => {
   it("this dream being lucid is not 'lucid before'", () => {
     const r = signsInDream("d1", [el("hands", { isDreamSign: true })], [link("d1", "hands")], dreams);
     expect(r.known[0]).toMatchObject({ seen: 1, lucidBefore: false });
+  });
+});
+
+describe("recurringGroups (LDJ-164)", () => {
+  const rd = (id: string, date: string, recurring = true): SignDream => ({ id, date, lucid: false, recurring });
+  const els = [el("house"), el("stairs"), el("mother", { kind: "character" }), el("fear", { kind: "emotion" }), el("exam"), el("school", { kind: "place" })];
+  const dreams = [rd("a", "2026-11-01"), rd("b", "2026-10-01"), rd("c", "2026-09-01"), rd("d", "2026-11-05"), rd("e", "2026-11-06", false), rd("f", "2026-08-01")];
+  const links = [
+    link("a", "house"), link("a", "stairs"), link("a", "fear"),
+    link("b", "house"), link("b", "stairs"), link("b", "mother"),
+    link("c", "stairs"), link("c", "mother"), link("c", "house"),
+    link("d", "exam"), link("d", "school"), link("d", "fear"),
+    link("e", "house"), link("e", "stairs"), // not marked recurring: left out
+    link("f", "fear"), // shares only an emotion: its own group
+  ];
+  const g = recurringGroups(els, links, dreams);
+  it("joins recurring dreams that share elements, most dreams first", () => {
+    expect(g.map((x) => x.dreamIds)).toEqual([["a", "b", "c"], ["d"], ["f"]]);
+    expect(g[0]).toMatchObject({ firstSeen: "2026-09-01", lastSeen: "2026-11-01" });
+  });
+  it("keeps what comes back as the core", () => {
+    expect(g[0]!.core.map((c) => [c.element.id, c.dreams])).toEqual([["house", 3], ["stairs", 3], ["mother", 2]]);
+    expect(g[1]!.core.map((c) => c.element.id)).toEqual(["exam", "fear", "school"]);
+  });
+  it("joins a dream with a single element on that element", () => {
+    const g2 = recurringGroups(els, [...links, link("x", "exam")], [...dreams, rd("x", "2026-07-01")]);
+    expect(g2.find((x) => x.dreamIds.includes("x"))!.dreamIds).toEqual(["d", "x"]);
+  });
+  it("ranks a recurring dream's core in the shortlist even when not marked", () => {
+    const stats = elementStats(els, links, dreams, TODAY);
+    const plain = signShortlist(els, stats, dreams, [], TODAY);
+    expect(plain).toEqual([]);
+    const ranked = signShortlist(els, stats, dreams, [], TODAY, 5, recurringSignIds(g));
+    expect(ranked.map((s) => s.element.id).sort()).toEqual(["fear", "house", "mother", "stairs"]); // fear: at the heart of two one-dream groups
+    expect(ranked.every((s) => s.recurring)).toBe(true);
   });
 });

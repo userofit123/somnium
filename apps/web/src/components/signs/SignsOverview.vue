@@ -1,10 +1,10 @@
 <script setup lang="ts">
 // The Signs list (PLAN.md §6.4), in the order to act on: the dream sign shortlist with the check to pair with each,
-// suggestions to confirm, merge or dismiss, which signs turned up in lucid dreams, the typical themes beside Nielsen's
+// recurring dreams grouped with what keeps coming back in them (LDJ-164), suggestions to confirm, merge or dismiss, which signs turned up in lucid dreams, the typical themes beside Nielsen's
 // figures, and last every element by kind with its trend, folded by kind.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { elementsByKind, elementSuggestions, frequencyText, signsBeforeLucidity, signShortlist, themeComparison, type Element, type ElementKind } from "@somnium/shared";
+import { elementsByKind, elementSuggestions, frequencyText, recurringGroups, recurringSignIds, signsBeforeLucidity, signShortlist, themeComparison, type Element, type ElementKind, type RecurringGroup } from "@somnium/shared";
 import { confirmElement, dismissElement, mergeElements, setElementFlags, signLexicons } from "../../api/signs";
 import { choose, confirm } from "../../core/ask";
 import { useFmt } from "../../core/format";
@@ -19,7 +19,9 @@ const emit = defineEmits<{ open: [id: string] }>();
 const fmt = useFmt();
 const { today, elements, links, dreams, byId, stats } = useSigns();
 
-const shortlist = computed(() => signShortlist(elements.value, stats.value, dreams.value, signLexicons.value?.checks ?? [], today.value));
+// recurring dreams (marked "recurring") joined by shared elements; their content ranks first (shared signs.ts, RESEARCH.md C17)
+const recurring = computed(() => recurringGroups(elements.value, links.value, dreams.value));
+const shortlist = computed(() => signShortlist(elements.value, stats.value, dreams.value, signLexicons.value?.checks ?? [], today.value, undefined, recurringSignIds(recurring.value)));
 const search = ref("");
 const groups = computed(() => elementsByKind(elements.value, stats.value, search.value));
 const suggestions = computed(() => elementSuggestions(elements.value, links.value, stats.value));
@@ -47,6 +49,12 @@ async function run(id: string, f: () => Promise<void>, done: string) {
 const confirmOne = (e: Element) => run(e.id, () => confirmElement(e.id), "Confirmed");
 // confirmed and marked in one step; both are plain flags, so this saves offline too (api/signs.ts setElementFlags)
 const confirmSign = (e: Element) => run(e.id, () => setElementFlags(e.id, { confirmed: true, isDreamSign: true }), "Marked as a dream sign");
+// a recurring dream's content marked in one step, each a plain flag through the outbox, so it saves offline too
+const unmarked = (g: RecurringGroup<Element>) => g.core.filter((c) => !c.element.isDreamSign).map((c) => c.element);
+const groupOn = (g: RecurringGroup<Element>) => g.core.some((c) => c.element.id === props.selected);
+const markGroup = (g: RecurringGroup<Element>) => run(g.dreamIds[0]!, async () => {
+  for (const e of unmarked(g)) await setElementFlags(e.id, { confirmed: true, isDreamSign: true });
+}, "Marked as a dream sign");
 async function mergeOne(e: Element) {
   // the same kind first, most dreams first: what it is most likely a second name for
   const others = elements.value.filter((x) => x.id !== e.id && x.name)
@@ -77,13 +85,32 @@ async function dismissOne(e: Element) {
           <span class="grow sgmin sgcol">
             <button type="button" class="sgopen sgcol" :aria-current="(selected === s.element.id) || undefined" @click="emit('open', s.element.id)">
               <span class="t">{{ s.element.name }}</span>
-              <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : "Marked by you", frequencyText(s.frequency)].join(" · ") }}</span>
+              <span class="s">{{ [s.category ? CATEGORY_LABEL[s.category] : s.element.isDreamSign ? "Marked by you" : "", s.recurring ? "Recurring dream" : "", frequencyText(s.frequency)].filter(Boolean).join(" · ") }}</span>
             </button>
             <span v-if="s.check" class="tiny sgcheck"><Icon name="target" :size="13" /><span>Check: {{ s.check.name }}. {{ s.advice }} <button type="button" class="lnk inl" @click="doCheck(s.check.id, s.element.id)">Do this check</button></span></span>
           </span>
         </div>
       </div>
     </div>
+
+    <!-- recurring dreams (LDJ-164): absent until a dream is marked recurring -->
+    <template v-if="recurring.length">
+      <div class="sh"><h2>Recurring dreams</h2><span class="tiny">What keeps coming back is your most reliable dream sign</span></div>
+      <div class="card"><div class="list">
+        <div v-for="g in recurring" :key="g.dreamIds[0]" class="li sgrow" :class="{ on: groupOn(g) }">
+          <button v-if="g.core.length" type="button" class="grow sgmin sgopen sgcol" :aria-current="groupOn(g) || undefined" @click="emit('open', g.core[0]!.element.id)">
+            <span class="t ellipsis">{{ g.core.map((c) => c.element.name).join(" · ") }}</span>
+            <span class="s">{{ [dreamsText(g.dreamIds.length), seen(g.lastSeen)].filter(Boolean).join(" · ") }}</span>
+          </button>
+          <span v-else class="grow sgmin sgcol">
+            <span class="t">A recurring dream</span>
+            <span class="s">{{ seen(g.lastSeen) }} · add who and what was in it to make it a dream sign</span>
+          </span>
+          <button v-if="unmarked(g).length" type="button" class="qb" :disabled="busy === g.dreamIds[0]" @click="markGroup(g)"><Icon name="sparkle" :size="16" />Mark as dream sign</button>
+          <span v-else-if="g.core.length" class="tiny sgacc sgmark"><Icon name="sparkle" :size="13" />Dream sign</span>
+        </div>
+      </div></div>
+    </template>
 
     <template v-if="suggestions.length">
       <div class="sh"><h2>To confirm<span class="ncnt sgcnt" :aria-label="`${suggestions.length} to confirm`">{{ suggestions.length }}</span></h2><span class="tiny">Found by the app in more than one dream</span></div>
@@ -161,6 +188,7 @@ button.sgrow { cursor: pointer; }
 /* the Motus sparkline sits at the foot of a stat card; here it is a small trend in the row */
 .sgspark :deep(.spark) { position: static; display: block; width: 100%; height: 100%; }
 .sgacc { color: var(--acc); margin-inline-start: var(--tdy); vertical-align: -0.1em; display: inline-block; }
+.sgmark { display: inline-flex; align-items: center; gap: var(--tdy); flex: none; }
 .sgmut { color: var(--tx2); margin: 0 0 var(--hg); }
 .sgsearch { margin-bottom: var(--hg); }
 /* the icon's room comes from the shared .search rule */
