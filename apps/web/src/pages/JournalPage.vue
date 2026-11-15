@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // Journal (PLAN.md §6.2): nights newest first or a month calendar, search on the device, "no recall" in one tap,
-// and writing a dream. On a computer the dream opens in a panel beside the list; on the phone it is a step of its
+// and writing a dream. No recall has one button here, on the Last night strip (LDJ-129): adding otherwise lives in the
+// + sheet (§6.0), which offers the same No recall last night. On a computer the dream opens in a panel beside the list; on the phone it is a step of its
 // own (read, or write full screen). Everything shown and searched is the journal as opened on this device: a
 // search never goes to the server.
 import { computed, reactive, ref, watch } from "vue";
@@ -22,6 +23,7 @@ import NightList from "../components/journal/NightList.vue";
 import NightSheet from "../components/journal/NightSheet.vue";
 import NightCheckIn from "../components/journal/NightCheckIn.vue";
 import JournalCalendar from "../components/journal/JournalCalendar.vue";
+import ImportFlow from "../components/settings/ImportFlow.vue";
 import DreamView from "../components/journal/DreamView.vue";
 import DreamEditor from "../components/journal/DreamEditor.vue";
 
@@ -113,12 +115,13 @@ watch(() => [route.name, route.query.write, route.query.norecall], async () => {
     try { await markNoRecall(d); toast("No recall logged"); } catch (e) { toastError(e); }
   }
 }, { immediate: true });
+// the import opens over the Journal and closes back to it once saved (LDJ-129)
+const importOpen = ref(false);
 const menu = computed(() => [
-  { label: "No recall last night", icon: "moon", run: () => noRecall(today.value), hidden: todayLogged.value },
   { label: "Write a dream", icon: "plus", run: () => write(), hidden: !mode.value || isPhone.value },
   { label: "Search filters", icon: "filter", run: () => (filterOpen.value = true), hidden: empty.value },
   // the same import as Settings → Data (LDJ-16, LDJ-36): Markdown, text or CSV, dates found, a review before saving
-  { label: "Import from a file", icon: "upload", run: () => router.push({ name: "settings", params: { section: "data" } }) },
+  { label: "Import from a file", icon: "upload", run: () => (importOpen.value = true) },
 ]);
 </script>
 
@@ -140,17 +143,17 @@ const menu = computed(() => [
           </div>
         </div>
 
+        <!-- the page's one No recall, also above an empty journal -->
+        <div v-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
+        <!-- once last night is logged: did you do its techniques (LDJ-79), asked once -->
+        <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
         <div v-if="empty" class="card empty">
           <Icon name="book" :size="34" /><b>No dreams yet</b>Write down what you remember as soon as you wake. A fragment counts.
           <!-- the editor beside it has the screen's one primary button while it is open -->
           <div v-if="mode !== 'write'"><button class="btn" @click="write()">Write a dream</button></div>
-          <div v-if="!todayLogged"><button class="qb" @click="noRecall(today)">No recall last night</button></div>
         </div>
         <template v-else>
           <div v-if="unsent.ids.length" class="card tiny jnote"><Icon name="lock" :size="14" />{{ unsent.ids.length === 1 ? "1 dream is" : `${unsent.ids.length} dreams are` }} kept sealed on this device until the server can take {{ unsent.ids.length === 1 ? "it" : "them" }}.</div>
-          <div v-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
-          <!-- once last night is logged: did you do its techniques (LDJ-79), asked once -->
-          <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
 
           <template v-if="view === 'list'">
             <div class="jsearch">
@@ -164,7 +167,7 @@ const menu = computed(() => [
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
             <div class="sh"><h2>{{ fmt.date(sel, { weekday: "long", day: "numeric", month: "long" }) }}</h2>
-              <span v-if="sel <= today" class="row"><button v-if="!loggedOn(sel)" class="lnk" @click="noRecall(sel)">No recall</button><button class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button></span>
+              <button v-if="sel <= today" class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button>
             </div>
             <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
             <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @night="(n) => (nightOpen = n)" />
@@ -181,6 +184,10 @@ const menu = computed(() => [
     </div>
 
     <NightSheet v-if="openNight" :key="openNight.id" :date="openNight.date" :nap="openNight.nap" :night-id="openNight.id" @close="nightOpen = null" />
+
+    <Sheet v-if="importOpen" title="Import from a file" @close="importOpen = false">
+      <div class="stack"><ImportFlow first @done="importOpen = false" /></div>
+    </Sheet>
 
     <Sheet v-if="filterOpen" title="Search filters" @close="filterOpen = false">
       <label class="tgl"><div class="grow"><div class="t">Lucid dreams only</div></div><span class="tg"><input v-model="filter.lucidOnly" type="checkbox" /></span></label>
@@ -210,7 +217,6 @@ const menu = computed(() => [
 .jtoday .t { font-weight: 500; }
 .jmut { color: var(--tx2); }
 .lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: 12.5px; font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
-.sh .row { gap: var(--hg); }
 .jg { gap: var(--hg); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
 </style>
