@@ -7,6 +7,7 @@ import { useRoute, useRouter } from "vue-router";
 import { loaded } from "../api/queries";
 import { finishMerges, loadSignLexicons } from "../api/signs";
 import { isPhone } from "../core/device";
+import Icon from "../components/Icon.vue";
 import SignsOverview from "../components/signs/SignsOverview.vue";
 import ElementPanel from "../components/signs/ElementPanel.vue";
 import { useSigns } from "../components/signs/useSigns";
@@ -33,7 +34,7 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
       <aside v-if="!isPhone" class="sgside">
         <div class="card">
           <ElementPanel v-if="id" :id="id" :key="id" @close="close" @open="open" />
-          <div v-else class="empty sm">Pick a sign or an element to see its dreams here.</div>
+          <div v-else class="empty sm"><Icon name="sparkle" :size="34" /><b>No sign open</b>Pick a sign or an element to see its dreams here.</div>
         </div>
       </aside>
     </div>

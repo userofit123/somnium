@@ -182,8 +182,8 @@ const menu = computed(() => [
         <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
         <div v-if="empty" class="card empty">
           <Icon name="book" :size="34" /><b>No dreams yet</b>Write down what you remember as soon as you wake. A fragment counts.
-          <!-- the editor beside it has the screen's one primary button while it is open -->
-          <div v-if="mode !== 'write'"><button class="btn" @click="write()">Write a dream</button></div>
+          <!-- the editor beside it has the screen's one action while it is open -->
+          <template v-if="mode !== 'write'"><br /><button class="btn tonal" type="button" @click="write()">Write a dream</button></template>
         </div>
         <template v-else>
           <div v-if="unsent.ids.length" class="card tiny jnote"><Icon name="lock" :size="14" />{{ unsent.ids.length === 1 ? "1 dream is" : `${unsent.ids.length} dreams are` }} kept sealed on this device until the server can take {{ unsent.ids.length === 1 ? "it" : "them" }}.</div>
@@ -198,7 +198,7 @@ const menu = computed(() => [
             </FilterPanel>
             <div v-else-if="active" class="tiny jmut jcount">{{ countLine }}</div>
             <div v-if="searchNote" class="tiny jmut">{{ searchNote }}</div>
-            <div v-if="active && !shown.length" class="card empty sm">Nothing matches.</div>
+            <div v-if="active && !shown.length" class="card empty sm"><Icon name="search" :size="34" /><b>Nothing matches</b>No dream fits this search and these filters.<br /><button class="btn tonal" type="button" @click="clearFilter">Clear filters</button></div>
             <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
           </template>
           <template v-else>
@@ -210,7 +210,7 @@ const menu = computed(() => [
                 <button v-if="sel <= today" class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button>
               </span>
             </div>
-            <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
+            <div v-if="!dayGroups.length" class="card empty sm"><Icon name="book" :size="34" /><b>Nothing written for this night</b>Add what you remember from this night.<br /><button v-if="sel <= today" class="btn tonal" type="button" @click="write(sel)">Write a dream</button></div>
             <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
           </template>
         </template>
@@ -219,7 +219,7 @@ const menu = computed(() => [
         <div class="card">
           <DreamEditor v-if="mode === 'write'" :id="id" :key="id" :date="date" :fresh="fresh" @close="closeWrite" />
           <DreamView v-else-if="mode === 'read'" :id="id" :key="'r' + id" @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
-          <div v-else class="empty sm">Pick a dream to read it here.</div>
+          <div v-else class="empty sm"><Icon name="book" :size="34" /><b>No dream open</b>Pick a dream from the list to read it here.</div>
         </div>
       </aside>
     </div>

@@ -111,8 +111,8 @@ const use = useChange(async (i: TonightIdea) => {
           <button type="button" class="qb acc tpadd" :disabled="use.busy.value" @click="use.run(suggestion.alt)">Use {{ ideaTitle(suggestion.alt) }}</button>
         </template>
       </div>
-      <div v-else class="tiny tpnone">No technique planned yet.</div>
-      <button v-if="!compact && (anything || !suggestion)" type="button" class="qb acc tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
+      <div v-else class="empty sm"><Icon name="moon" :size="34" /><b>No technique planned yet</b>Pick one to try tonight.<br /><button class="btn tonal" type="button" @click="picking = true">Pick a technique</button></div>
+      <button v-if="!compact && planned.length && (anything || !suggestion)" type="button" class="qb acc tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
 
       <div class="tpsec">
         <div v-if="!editing" class="tprow">

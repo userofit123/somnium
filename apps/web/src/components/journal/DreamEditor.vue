@@ -326,7 +326,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <Menu v-if="!after" :items="menu" />
       <button class="btn" @click="done">Done</button>
     </div>
-    <div v-if="loadError" class="card empty sm">{{ loadError }}</div>
+    <div v-if="loadError" class="card empty sm"><Icon name="book" :size="34" /><b>Couldn't open this dream</b>{{ loadError }}<br /><button class="btn tonal" type="button" @click="emit('close')">Back to the journal</button></div>
     <template v-else-if="after">
       <Milestone v-if="milestone" :id="milestone" :how="howLabel" :trigger="f.lucidTrigger" :recipe="nightRecipe(night)" @lesson="close" />
       <InThisDream v-if="signRows.length" :rows="signRows" @mark="markSign" />
