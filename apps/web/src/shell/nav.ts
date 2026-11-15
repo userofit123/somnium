@@ -1,18 +1,18 @@
-// TARGET STRUCTURE: PLAN.md §6 is the target for the pages in the menu. Phone tabs: Home, Journal, [+], Train,
-// Progress, More (Dream signs, Learn, Settings). Desktop rail: Home, Journal, Train, Dream signs, Progress, Learn,
-// Settings, plus the + button. The list below is the current arrangement and moves to match in separate tasks.
-// The pages in the menu (PLAN.md §6): seven on a computer, five tabs plus More on the phone.
+// The pages in the menu (PLAN.md §6.0): seven on a computer (daily pages first, reference pages last), and on the
+// phone the tabs below plus More (Dream signs, Learn, Settings). The command palette lists NAV, so it follows.
 export const NAV = [
   { name: "home", label: "Home", icon: "home", to: "/" },
   { name: "journal", label: "Journal", icon: "book", to: "/journal" },
-  { name: "signs", label: "Signs", icon: "eye", to: "/signs" },
   { name: "train", label: "Train", icon: "target", to: "/train" },
-  { name: "insights", label: "Insights", icon: "stats", to: "/insights" },
+  { name: "signs", label: "Dream signs", icon: "eye", to: "/signs" },
+  { name: "progress", label: "Progress", icon: "stats", to: "/progress" },
   { name: "learn", label: "Learn", icon: "graduation", to: "/learn" },
   { name: "settings", label: "Settings", icon: "settings", to: "/settings" },
 ];
-/** Which menu item a page belongs to (a dream's own page belongs to the Journal, say) */
+/** Which menu item a page belongs to (a dream's own page belongs to the Journal, an element's to Dream signs, a report to Progress) */
 export function section(routeName: string | undefined): string {
   if (routeName?.startsWith("journal")) return "journal";
+  if (routeName?.startsWith("signs")) return "signs";
+  if (routeName === "report") return "progress";
   return routeName ?? "";
 }

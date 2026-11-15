@@ -20,7 +20,9 @@ export const router = createRouter({
     // an element's page: beside the list on a computer, a step of its own on the phone
     { path: "/signs/:id", name: "signs-element", component: () => import("./pages/SignsPage.vue") },
     { path: "/train", name: "train", component: () => import("./pages/TrainPage.vue") },
-    { path: "/insights", name: "insights", component: () => import("./pages/InsightsPage.vue") },
+    { path: "/progress", name: "progress", component: () => import("./pages/InsightsPage.vue") },
+    // the page was called Insights; old links and bookmarks still land on it
+    { path: "/insights", redirect: "/progress" },
     { path: "/report", name: "report", component: () => import("./pages/ReportPage.vue") },
     { path: "/learn/:sub(.*)?", name: "learn", component: () => import("./pages/LearnPage.vue") },
     // a reality check from a reminder or by hand: App.vue shows it over the lock screen; its note is a page behind the lock

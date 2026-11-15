@@ -76,7 +76,7 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
     <div v-if="n.techniquesDone.length || n.wbtbUsed" class="fld">
       <label>Minutes to fall asleep after the technique</label>
       <NumStep :value="n.minutesToSleep" :min="0" :max="600" :step="5" unit="min" @set="(v) => (n.minutesToSleep = v)" />
-      <div class="tiny jan">A guess is fine. Insights compares nights asleep within 10 minutes with longer ones.</div>
+      <div class="tiny jan">A guess is fine. Progress compares nights asleep within 10 minutes with longer ones.</div>
     </div>
     <div class="fld"><label>Substances</label><input aria-label="Substances" v-model="n.substances" placeholder="Caffeine, alcohol, supplements, medicines" maxlength="500" /></div>
     <div class="fld"><label>Notes</label><textarea aria-label="Notes" v-model="n.notes" rows="3" placeholder="Anything else about the night" /></div>

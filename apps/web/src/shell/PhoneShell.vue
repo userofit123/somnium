@@ -1,8 +1,9 @@
 <script setup lang="ts">
-// The phone layout: the page, and five tabs plus More (PLAN.md §6).
+// The phone layout: the page, and the tabs Home, Journal, +, Train, Progress, More (PLAN.md §6.0).
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { section } from "./nav";
+import { uuidv7 } from "../api/journal";
 import Icon from "../components/Icon.vue";
 import SyncPill from "./SyncPill.vue";
 import { sheetIsOpen } from "../core/sheets";
@@ -12,16 +13,20 @@ useAutoUpdate();
 
 const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
-const TABS = [
+// the centre + is an action, not a page (Motus's Start tab)
+const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
   { name: "home", label: "Home", icon: "home", to: "/" },
   { name: "journal", label: "Journal", icon: "book", to: "/journal" },
+  { name: "add" },
   { name: "train", label: "Train", icon: "target", to: "/train" },
-  { name: "insights", label: "Insights", icon: "stats", to: "/insights" },
-  { name: "learn", label: "Learn", icon: "graduation", to: "/learn" },
+  { name: "progress", label: "Progress", icon: "stats", to: "/progress" },
   { name: "more", label: "More", icon: "moreH", to: "/more" },
 ];
+// the + writes a dream for now. LDJ-92 turns it into the quick-add sheet (Write a dream, No recall, Log a reality
+// check, Plan tonight, Day note; PLAN.md §6.0) shared with the desktop's + button: open that sheet here instead
+const add = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
 // the pages listed on the More tab
-const IN_MORE = ["more", "signs", "settings"];
+const IN_MORE = ["more", "signs", "learn", "settings"];
 const moreOn = computed(() => IN_MORE.includes(cur.value));
 // one key per page, so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
 const pageKey = (r: any) => r.path;
@@ -29,7 +34,8 @@ const pageKey = (r: any) => r.path;
 const arrived = (el: Element) => el.classList?.add("in");
 
 // moving between tabs slides sideways, towards the tab you chose; anything else rises in
-const ORDER = ["home", "journal", "train", "insights", "learn", "more"];
+// the + is not in it, so a swipe from Journal goes straight to Train
+const ORDER = ["home", "journal", "train", "progress", "more"];
 const tabOf = (name: unknown) => { const c = section(name as string); return ORDER.indexOf(IN_MORE.includes(c) ? "more" : c); };
 const motion = ref("page");
 const stop = router.beforeEach((to, from) => {
@@ -62,7 +68,10 @@ function te(e: TouchEvent) {
     <div class="pmain" role="main"><router-view v-slot="{ Component, route: r }"><Suspense><Transition :name="motion" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></div>
     <div class="dock">
       <div class="tabbar">
-        <button v-for="t in TABS" :key="t.name" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to)"><span class="ic"><Icon :name="t.icon" :size="22" /></span>{{ t.label }}</button>
+        <template v-for="t in TABS" :key="t.name">
+          <button v-if="t.name === 'add'" type="button" aria-label="Write a dream" @click="add"><span class="start"><Icon name="plus" /></span></button>
+          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /></span>{{ t.label }}</button>
+        </template>
       </div>
     </div>
     <SyncPill />

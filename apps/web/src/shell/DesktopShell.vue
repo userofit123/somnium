@@ -15,6 +15,8 @@ useAutoUpdate();
 
 const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
+// Settings sits at the bottom of the rail, under the account (Motus's rail)
+const top = NAV.filter((p) => p.name !== "settings"), settings = NAV.find((p) => p.name === "settings")!;
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
 // the highlight glides from the previous page to the open one, stretching on the way (Money Manager's AppNav)
@@ -54,13 +56,15 @@ const arrived = (el: Element) => el.classList?.add("in");
     <nav ref="nav" aria-label="Menu">
       <i ref="pill" class="nbi" style="transform-origin:0 0" />
       <Logo shuffle />
-      <button v-for="p in NAV" :key="p.name" type="button" class="nb" :class="{ on: cur === p.name }" :aria-current="cur === p.name ? 'page' : undefined" @click="router.push(p.to)">
+      <button v-for="p in top" :key="p.name" type="button" class="nb" :class="{ on: cur === p.name }" :aria-current="cur === p.name ? 'page' : undefined" @click="router.push(p.to)">
         <span class="ic"><Icon :name="p.icon" :size="22" /></span>{{ p.label }}
       </button>
       <div class="navb">
         <UpdateButton />
-        <AccountSwitcher variant="rail" />
+        <!-- from the bottom up: Settings, the account, Appearance -->
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>
+        <AccountSwitcher variant="rail" />
+        <button type="button" class="nb" :class="{ on: cur === 'settings' }" :aria-current="cur === 'settings' ? 'page' : undefined" @click="router.push(settings.to)"><span class="ic"><Icon :name="settings.icon" :size="22" /></span>{{ settings.label }}</button>
       </div>
     </nav>
     <main><router-view v-slot="{ Component, route: r }"><Suspense><Transition name="page" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></main>

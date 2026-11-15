@@ -27,7 +27,7 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
     <div v-if="isPhone && id" class="card"><ElementPanel :id="id" :key="id" back @close="close" @open="open" /></div>
     <div v-else class="sgcols" :class="{ split: !isPhone }">
       <div class="sglist">
-        <div class="ph"><div><h1>Signs</h1><div class="sub">What keeps showing up in your dreams</div></div></div>
+        <div class="ph"><div><h1>Dream signs</h1><div class="sub">What keeps showing up in your dreams</div></div></div>
         <SignsOverview :selected="id || undefined" @open="open" />
       </div>
       <aside v-if="!isPhone" class="sgside">

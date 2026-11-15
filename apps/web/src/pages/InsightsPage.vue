@@ -133,7 +133,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
 
 <template>
   <div class="page insights">
-    <div class="ph"><div><h1>Insights</h1><div class="sub">Worked out on this device from your journal.</div></div><router-link v-if="features.reports" to="/report" class="lnk" data-testid="reportlink">Month and year reports</router-link></div>
+    <div class="ph"><div><h1>Progress</h1><div class="sub">Worked out on this device from your journal.</div></div><router-link v-if="features.reports" to="/report" class="lnk" data-testid="reportlink">Month and year reports</router-link></div>
     <div class="seg ins-period" role="tablist" aria-label="Period">
       <button v-for="p in PERIODS" :key="p" type="button" role="tab" :class="{ on: period === p }" :aria-selected="period === p" @click="setPeriod(p)">{{ PERIOD_LABEL[p] }}</button>
     </div>

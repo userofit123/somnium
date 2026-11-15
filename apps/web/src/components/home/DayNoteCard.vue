@@ -59,7 +59,7 @@ onBeforeUnmount(() => { if (dirty()) void save(); });
     <div class="card">
       <div class="fld"><label for="h-daynote">What happened {{ date === today ? "today" : "that day" }}</label>
         <textarea id="h-daynote" v-model="text" rows="2" maxlength="1000" placeholder="A line is enough: people, places, things you did" @blur="save()" /></div>
-      <div class="tiny">{{ waiting ? "Kept sealed on this device. Sent when you're back online." : "Kept sealed like your dreams. Insights uses it to see what comes back in dreams days later." }}</div>
+      <div class="tiny">{{ waiting ? "Kept sealed on this device. Sent when you're back online." : "Kept sealed like your dreams. Progress uses it to see what comes back in dreams days later." }}</div>
     </div>
   </section>
 </template>

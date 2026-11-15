@@ -294,6 +294,9 @@ html.phone .fab { bottom: calc(var(--tabh) + var(--sb) + 16px); }
 .tabbar button .ic { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
 .tabbar button.on { color: var(--tx); font-weight: 600; }
 .tabbar button.on .ic { background: var(--accc); color: var(--onc); }
+/* the centre + (Motus's Start tab) */
+.tabbar .start { width: 46px; height: 46px; border-radius: 15px; margin: 0 auto; background: linear-gradient(135deg, var(--acc), var(--acc2)); color: var(--on); display: grid; place-items: center; box-shadow: 0 6px 16px -8px var(--acc); }
+.tabbar .start svg { width: 24px; height: 24px; }
 
 /* ---------- start sheet ---------- */
 .opt-list { display: flex; flex-direction: column; gap: 8px; }
