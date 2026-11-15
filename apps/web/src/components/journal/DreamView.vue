@@ -20,6 +20,7 @@ import Icon from "../Icon.vue";
 import Menu, { type MenuItem } from "../Menu.vue";
 import Sheet from "../Sheet.vue";
 import DreamMedia from "./DreamMedia.vue";
+import NightSheet from "./NightSheet.vue";
 import { lexiconsReady, loadLexicons, suggestElements } from "./detect";
 
 const props = defineProps<{ id: string; back?: boolean }>();
@@ -38,6 +39,8 @@ const els = computed(() => links.value.map((l) => byId.value.get(l.elementId)).f
 const marks = computed(() => (d.value ? dreamMarks(d.value) : []));
 const flags = computed(() => (d.value?.favourite ? ["Favourite"] : []));
 const facts = computed(() => nightFacts(night.value));
+// the night's details are edited here too, without opening the dream to write (LDJ-99)
+const nightOpen = ref(false);
 
 // "the app reads your dream": suggestions from the text, on this device, not yet confirmed (the editor's own rules)
 const found = ref<Suggestion[]>([]);
@@ -208,10 +211,11 @@ const menu = computed((): MenuItem[] => [
         <div class="card"><div class="list"><div v-for="m in marks" :key="m.label" class="li"><div class="grow"><div class="s">{{ m.label }}</div><div class="t">{{ m.value }}</div></div></div></div></div>
       </section>
 
-      <section v-if="facts.length" class="jsec">
-        <div class="tiny jmut">The night</div>
-        <div class="card"><div class="list"><div v-for="m in facts" :key="m.label" class="li"><div class="grow"><div class="s">{{ m.label }}</div><div class="t">{{ m.value }}</div></div></div></div></div>
+      <section v-if="night" class="jsec">
+        <div class="jnh"><span class="tiny jmut">The night</span><button type="button" class="lnk inl tiny" @click="nightOpen = true">{{ facts.length ? "Edit" : "Add bedtime and techniques" }}</button></div>
+        <div v-if="facts.length" class="card"><div class="list"><div v-for="m in facts" :key="m.label" class="li"><div class="grow"><div class="s">{{ m.label }}</div><div class="t">{{ m.value }}</div></div></div></div></div>
       </section>
+      <NightSheet v-if="nightOpen && night" :date="night.date" :nap="night.nap" :night-id="night.id" @close="nightOpen = false" />
 
       <section v-if="related.length" class="jsec">
         <div class="tiny jmut">Related dreams</div>
@@ -254,6 +258,7 @@ const menu = computed((): MenuItem[] => [
 </template>
 
 <style scoped>
+.jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--hg); }
 .jview { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
 .jbar { display: flex; align-items: center; gap: 8px; }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }

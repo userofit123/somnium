@@ -1,20 +1,24 @@
 <script setup lang="ts">
 // The night a dream belongs to (PLAN.md §6.2): its date (which night), bedtime, wake time, sleep quality, WBTB,
 // whether it was a nap, techniques used and the minutes to fall asleep after them, substances and notes. Saved as it changes, with the dream (api/journal.ts).
-import { computed, reactive, ref, watch } from "vue";
+// Without a dream (LDJ-99: opened from the Journal list, a dream being read, or the morning's question, so a no-recall
+// night can be filled in too) it changes the night itself (putNight), and which night it is stays fixed.
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { clockOf, minutesToSleep, nightClock, nightOfDate, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
-import { changeNight, liveDraft, moveDream, useJournal, uuidv7 } from "../../api/journal";
-import { localYmd } from "../../core/format";
+import { changeNight, liveDraft, moveDream, putNight, useJournal, uuidv7 } from "../../api/journal";
+import { localYmd, useFmt } from "../../core/format";
+import { toastError } from "../../core/toast";
 import Sheet from "../Sheet.vue";
 import DatePicker from "../DatePicker.vue";
 import TimePicker from "../TimePicker.vue";
 import NumStep from "../NumStep.vue";
 import ChoiceTiles from "../ChoiceTiles.vue";
 
-const props = defineProps<{ dreamId: string; date: string; nap: boolean; nightId: string }>();
+const props = defineProps<{ dreamId?: string; date: string; nap: boolean; nightId: string }>();
 const emit = defineEmits<{ close: []; moved: [date: string, nap: boolean, nightId: string] }>();
 const j = useJournal();
 const today = localYmd(new Date());
+const fmt = useFmt();
 
 const n = reactive({ date: props.date, nap: props.nap, nightId: props.nightId, bedtime: "", wakeTime: "", sleepQuality: null as number | null, wbtbUsed: false, wbtbMinutesAwake: null as number | null, minutesToSleep: null as number | null, techniquesDone: [] as string[], substances: "", notes: "" });
 const ready = ref(false);
@@ -22,7 +26,7 @@ const ready = ref(false);
 function fill() {
   ready.value = false;
   const row = (j.nights.data.value ?? []).find((x) => x.id === n.nightId);
-  const own = liveDraft(props.dreamId)?.night ?? {};
+  const own = (props.dreamId && liveDraft(props.dreamId)?.night) || {};
   const v = { ...(row ?? {}), ...own } as Record<string, any>;
   n.bedtime = clockOf(v.bedtime); n.wakeTime = clockOf(v.wakeTime);
   n.sleepQuality = v.sleepQuality ?? null; n.wbtbUsed = !!v.wbtbUsed; n.wbtbMinutesAwake = v.wbtbMinutesAwake ?? null;
@@ -33,7 +37,7 @@ function fill() {
 fill();
 
 function move(date: string, nap: boolean) {
-  if (!date) return;
+  if (!date || !props.dreamId) return;
   const nights = j.nights.data.value ?? [];
   const id = nap ? uuidv7() : nightOfDate(nights, date)?.id ?? uuidv7();
   Object.assign(n, { date, nap, nightId: id });
@@ -41,7 +45,21 @@ function move(date: string, nap: boolean) {
   emit("moved", date, nap, id);
   fill();
 }
-const put = (patch: Record<string, unknown>) => { if (ready.value) changeNight(props.dreamId, patch); };
+// on its own, the changes of a moment go together (typing in Notes is one change, not one per key)
+let pending: Record<string, unknown> = {};
+let timer: ReturnType<typeof setTimeout> | undefined;
+function flush() {
+  clearTimeout(timer); timer = undefined;
+  if (!Object.keys(pending).length) return;
+  const patch = pending; pending = {};
+  putNight(n.nightId, patch).catch(toastError);
+}
+onBeforeUnmount(flush);
+const put = (patch: Record<string, unknown>) => {
+  if (!ready.value) return;
+  if (props.dreamId) { changeNight(props.dreamId, patch); return; }
+  Object.assign(pending, patch); clearTimeout(timer); timer = setTimeout(flush, 600);
+};
 watch(() => n.bedtime, (v) => put({ bedtime: v ? nightClock(n.date, v, "bed") : null }));
 watch(() => n.wakeTime, (v) => put({ wakeTime: v ? nightClock(n.date, v, "wake") : null }));
 watch(() => n.sleepQuality, (v) => put({ sleepQuality: v }));
@@ -58,9 +76,12 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
 </script>
 
 <template>
-  <Sheet title="Night details" @close="emit('close')">
-    <div class="fld"><label>Night of (the morning's date)</label><DatePicker :model-value="n.date" :max="today" @update:model-value="(v) => move(v, n.nap)" /></div>
-    <label class="tgl"><div class="grow"><div class="t">A nap</div><div class="s">Kept apart from the night of the same date</div></div><span class="tg"><input type="checkbox" :checked="n.nap" @change="move(n.date, ($event.target as HTMLInputElement).checked)" /></span></label>
+  <Sheet title="Night details" @close="flush(); emit('close')">
+    <template v-if="dreamId">
+      <div class="fld"><label>Night of (the morning's date)</label><DatePicker :model-value="n.date" :max="today" @update:model-value="(v) => move(v, n.nap)" /></div>
+      <label class="tgl"><div class="grow"><div class="t">A nap</div><div class="s">Kept apart from the night of the same date</div></div><span class="tg"><input type="checkbox" :checked="n.nap" @change="move(n.date, ($event.target as HTMLInputElement).checked)" /></span></label>
+    </template>
+    <div v-else class="tiny jan">{{ fmt.date(n.date, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) }}{{ n.nap ? " · Nap" : "" }}</div>
     <div class="g2 jg">
       <div class="fld"><label>Went to bed</label><TimePicker v-model="n.bedtime" clearable /></div>
       <div class="fld"><label>Woke up</label><TimePicker v-model="n.wakeTime" clearable /></div>

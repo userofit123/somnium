@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, lucidLength, LUCID_LENGTHS, type DreamDraft } from "./journal";
+import { checkInTechniques, checkInAnswered, ASLEEP_CHIPS, asleepChip, nightLine } from "./journal";
+import { ASLEEP_WITHIN } from "./insights";
 import { dreamMarks } from "./exportDream";
 
 const night = (id: string, date: string, nap = false) => ({ id, date, nap });
@@ -140,5 +142,29 @@ describe("how long it was lucid", () => {
     expect(lucidLength(null)).toBeNull();
     expect(lucidLength(5)).toBe("few_minutes");
     expect(lucidLength(45)).toBe("longer");
+  });
+});
+
+describe("the morning's night question (LDJ-79)", () => {
+  it("asks about the plan, or the most logged techniques topped up from the defaults", () => {
+    expect(checkInTechniques({ techniquesPlanned: ["mild", "wbtb", "nope"] }, [])).toEqual({ planned: true, ids: ["mild", "wbtb"] });
+    const nights = [{ techniquesDone: ["fild"] }, { techniquesDone: ["fild", "vild"] }, { techniquesDone: ["vild", "fild"] }];
+    expect(checkInTechniques({ techniquesPlanned: [] }, nights).ids).toEqual(["fild", "vild", "mild", "wbtb"]);
+    expect(checkInTechniques({ techniquesDone: ["cat"] }, nights).ids).toEqual(["cat", "fild", "vild", "mild"]);
+  });
+  it("is answered once the plan is logged, with the minutes after MILD or SSILD", () => {
+    expect(checkInAnswered({ techniquesPlanned: ["wbtb"], techniquesDone: [] })).toBe(false);
+    expect(checkInAnswered({ techniquesPlanned: ["wbtb"], techniquesDone: ["wbtb"] })).toBe(true);
+    expect(checkInAnswered({ techniquesPlanned: ["mild"], techniquesDone: ["mild"] })).toBe(false);
+    expect(checkInAnswered({ techniquesPlanned: ["mild"], techniquesDone: ["mild"], minutesToSleep: "8" })).toBe(true);
+  });
+  it("files each answer in its band and reads it back", () => {
+    ASLEEP_CHIPS.forEach((c, i) => expect(asleepChip(c.minutes)).toBe(i));
+    expect(ASLEEP_CHIPS.filter((c) => c.minutes <= ASLEEP_WITHIN).length).toBe(2);
+    expect(asleepChip(null)).toBe(-1);
+  });
+  it("puts a night's details on one line", () => {
+    expect(nightLine({})).toBe("");
+    expect(nightLine({ techniquesDone: ["mild"], wbtbUsed: true })).toBe("MILD · WBTB");
   });
 });

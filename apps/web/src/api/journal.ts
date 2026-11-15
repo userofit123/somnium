@@ -15,7 +15,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { nightOfDate, sealText, unsealText, type Dream, type DreamDraft, type DreamElement, type Element, type Night } from "@somnium/shared";
-import { uuidv7 } from "@somnium/engine/sealed-api";
+import { plaintextSealedFields, uuidv7 } from "@somnium/engine/sealed-api";
 import { api, ApiError, isLocalDevice, server, usingHttp } from "./client";
 import { invalidate } from "./live";
 import { send } from "./outbox";
@@ -95,6 +95,23 @@ export async function markNoRecall(date: string) {
   try { const id = await ensureNight(date, false, uuidv7()); await api.put(`/nights/${id}`, { noRecall: true }); }
   catch (e) { if (!isWaitable(e) || onDevice()) throw e; await send("post", "/nights", { id: uuidv7(), date, noRecall: true }); }
   invalidate(["journal", "home"]);
+}
+
+/**
+ * Changes a night that is edited on its own (no dream being written: Night details opened from the Journal list, a
+ * dream being read, or the morning's question). The plain fields go through the outbox and wait offline; a sealed
+ * one (substances, notes, minutes to sleep) never waits in this browser's storage in the clear, so it goes to the
+ * journal now: with the device copy that works offline, on the direct path it needs the connection.
+ */
+export async function putNight(nightId: string, patch: Record<string, unknown>) {
+  const sealed = new Set(plaintextSealedFields("put", `/nights/${nightId}`, patch));
+  // a sealed column being cleared carries nothing to hide: it goes with the plain ones
+  const plain = Object.fromEntries(Object.entries(patch).filter(([k]) => !sealed.has(k)));
+  const secret = Object.fromEntries(Object.entries(patch).filter(([k]) => sealed.has(k)));
+  try {
+    if (Object.keys(plain).length) await send("put", `/nights/${nightId}`, plain);
+    if (Object.keys(secret).length) await needsServer(() => api.put(`/nights/${nightId}`, secret));
+  } finally { invalidate(["journal", "home", "train"]); }
 }
 
 // ---------- drafts ----------

@@ -1,16 +1,20 @@
 <script setup lang="ts">
 // "This morning" (PLAN.md §6.1): one primary button to write last night's dream, and a quiet "No recall", until the
-// night has a dream or the mark; then its summary. Titles only: Home never shows dream text.
+// night has a dream or the mark; then its summary. Titles only: Home never shows dream text. Under the summary, once,
+// the night's question: did you do last night's techniques (NightCheckIn, LDJ-79).
 import { computed } from "vue";
 import { useRouter } from "vue-router";
 import { morningLine, type MorningState } from "@somnium/shared";
-import { markNoRecall, uuidv7 } from "../../api/journal";
+import { markNoRecall, useJournal, uuidv7 } from "../../api/journal";
 import { useChange } from "../../api/queries";
 import Icon from "../Icon.vue";
+import NightCheckIn from "../journal/NightCheckIn.vue";
 
 const props = defineProps<{ state: MorningState; date: string }>();
 const router = useRouter();
 const line = computed(() => morningLine(props.state));
+const j = useJournal();
+const night = computed(() => j.nights.data.value?.find((n) => n.date === props.date && !n.nap));
 const write = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", date: props.date } });
 const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
 </script>
@@ -33,7 +37,12 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
       <div v-if="state.kind === 'logged' && state.titled.length" class="htitles">
         <router-link v-for="d in state.titled" :key="d.id" :to="{ name: 'journal-dream', params: { id: d.id } }" class="tiny">{{ d.title }}</router-link>
       </div>
+      <NightCheckIn v-if="night" :key="night.id" :night="night" :nights="j.nights.data.value ?? []" class="hnci" />
       <div class="hfoot"><router-link to="/journal" class="lnk inl tiny">Open the Journal</router-link><button type="button" class="lnk inl tiny" @click="write">Add another dream</button></div>
     </div>
   </section>
 </template>
+
+<style scoped>
+.hnci { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+</style>

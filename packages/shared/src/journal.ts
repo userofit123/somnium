@@ -2,7 +2,7 @@
 // calendar, and how a draft kept on the device meets the row it belongs to. Nothing here reads the clock or storage.
 
 import type { BecameLucidHow, ElementKind, LucidEnd } from "./types";
-import { isPlanOnly, type NightLog } from "./rates";
+import { isPlanOnly, minutesToSleep, type NightLog } from "./rates";
 
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
 export interface NightRef { id: string; date: string; nap: boolean; dreamCount?: number }
@@ -247,6 +247,60 @@ export const TECHNIQUES: readonly { id: string; label: string }[] = [
   { id: "autosuggestion", label: "Autosuggestion" }, { id: "meditation", label: "Meditation" }, { id: "sound-cue", label: "Sound cue" },
   { id: "re-entry", label: "Re-entry" }, { id: "ada", label: "All-day awareness" }, { id: "cat", label: "CAT" },
 ];
+
+const techLabel = (id: string) => TECHNIQUES.find((t) => t.id === id)?.label ?? id;
+
+// ---------- the morning's night question (LDJ-79) ----------
+// "What works for you" compares nights with and without each technique, so it needs every night's techniques, not
+// only the ones a guided screen logged. The morning asks once, in a tap per technique.
+
+/** The fields of a night the question reads. */
+export interface CheckInNight { techniquesPlanned?: string[] | null; techniquesDone?: string[] | null; minutesToSleep?: string | number | null }
+/** Techniques asked about when nothing was planned and too little was logged to know the person's own (Learn's core four). */
+export const CHECK_IN_DEFAULTS = ["mild", "wbtb", "reality-testing", "ssild"] as const;
+/** After these, how long it took to fall asleep is asked: Aspy's studies tie it to lucid nights (RESEARCH.md [37][38]). */
+export const ASKS_ASLEEP: readonly string[] = ["mild", "ssild"];
+/** The answers to "How long to fall asleep after it?", each stored as a number of minutes that lands in its band
+ *  (Insights compares within 10 minutes with longer, ASLEEP_WITHIN). */
+export const ASLEEP_CHIPS = [
+  { label: "Under 5 min", minutes: 4 }, { label: "5-10 min", minutes: 8 }, { label: "10-20 min", minutes: 15 }, { label: "Longer", minutes: 30 },
+] as const;
+/** Which chip a stored number of minutes reads as (-1 when none is logged). */
+export function asleepChip(minutes: number | null): number {
+  if (minutes == null) return -1;
+  return minutes < 5 ? 0 : minutes <= 10 ? 1 : minutes <= 20 ? 2 : 3;
+}
+
+/**
+ * What the morning asks about a night: the techniques planned for it (Tonight's "Use tonight"), or with no plan the
+ * four the person logs most (topped up from CHECK_IN_DEFAULTS), with anything already logged on the night first.
+ */
+export function checkInTechniques(night: CheckInNight, nights: readonly CheckInNight[]): { planned: boolean; ids: string[] } {
+  const known = (id: string) => TECHNIQUES.some((t) => t.id === id);
+  const planned = [...new Set((night.techniquesPlanned ?? []).filter(known))];
+  if (planned.length) return { planned: true, ids: planned };
+  const used = new Map<string, number>();
+  for (const n of nights) for (const t of new Set(n.techniquesDone ?? [])) if (known(t)) used.set(t, (used.get(t) ?? 0) + 1);
+  const top = [...used].sort((a, b) => b[1] - a[1]).map(([t]) => t);
+  const ids = [...new Set([...(night.techniquesDone ?? []).filter(known), ...top.slice(0, 4), ...CHECK_IN_DEFAULTS])];
+  return { planned: false, ids: ids.slice(0, Math.max(4, (night.techniquesDone ?? []).length)) };
+}
+
+/** Whether the night already holds the answer: every planned technique logged, and the minutes to sleep when MILD or
+ *  SSILD was. A "No" leaves nothing on the night, so the screens also remember on the device that it was answered. */
+export function checkInAnswered(night: CheckInNight): boolean {
+  const done = night.techniquesDone ?? [];
+  if (!done.length) return false;
+  if (!(night.techniquesPlanned ?? []).every((t) => done.includes(t))) return false;
+  return !done.some((t) => ASKS_ASLEEP.includes(t)) || minutesToSleep(night) != null;
+}
+
+/** A night's details on one line for the Journal (LDJ-99): "Bed 23:10 · Woke 07:05 · MILD", "" when none are logged. */
+export function nightLine(n: { bedtime?: string | null; wakeTime?: string | null; techniquesDone?: string[] | null; wbtbUsed?: boolean | null }): string {
+  const tech = [...(n.techniquesDone ?? [])];
+  if (n.wbtbUsed && !tech.includes("wbtb")) tech.push("wbtb");
+  return [n.bedtime ? `Bed ${clockOf(n.bedtime)}` : "", n.wakeTime ? `Woke ${clockOf(n.wakeTime)}` : "", ...tech.map(techLabel)].filter(Boolean).join(" · ");
+}
 
 /** The kinds of element, as the person reads them. */
 export const ELEMENT_KIND_LABEL: Record<ElementKind, string> = {

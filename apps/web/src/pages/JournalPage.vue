@@ -19,6 +19,8 @@ import Menu from "../components/Menu.vue";
 import Sheet from "../components/Sheet.vue";
 import DatePicker from "../components/DatePicker.vue";
 import NightList from "../components/journal/NightList.vue";
+import NightSheet from "../components/journal/NightSheet.vue";
+import NightCheckIn from "../components/journal/NightCheckIn.vue";
 import JournalCalendar from "../components/journal/JournalCalendar.vue";
 import DreamView from "../components/journal/DreamView.vue";
 import DreamEditor from "../components/journal/DreamEditor.vue";
@@ -66,6 +68,9 @@ const searchNote = computed(() => {
 const empty = computed(() => !groups.value.length);
 const fab = computed(() => isPhone.value && !mode.value && !empty.value);
 const todayLogged = computed(() => !!loggedOn(today.value));
+// Night details of any night, a no-recall one too (LDJ-99): opened from its row in the list or the calendar's day
+const nightOpen = ref<string | null>(null);
+const openNight = computed(() => (nightOpen.value ? j.nights.data.value?.find((n) => n.id === nightOpen.value) : undefined));
 
 // the calendar
 const month = ref(today.value.slice(0, 7)), sel = ref(today.value);
@@ -143,6 +148,8 @@ const menu = computed(() => [
         <template v-else>
           <div v-if="unsent.ids.length" class="card tiny jnote"><Icon name="lock" :size="14" />{{ unsent.ids.length === 1 ? "1 dream is" : `${unsent.ids.length} dreams are` }} kept sealed on this device until the server can take {{ unsent.ids.length === 1 ? "it" : "them" }}.</div>
           <div v-if="!todayLogged" class="card jtoday"><div class="row"><Icon name="moon" :size="18" /><div class="grow"><div class="t">Last night</div><div class="tiny">Nothing written yet</div></div><button class="qb acc" @click="noRecall(today)">No recall</button></div></div>
+          <!-- once last night is logged: did you do its techniques (LDJ-79), asked once -->
+          <NightCheckIn v-else :key="loggedOn(today)!.id" :night="loggedOn(today)!" :nights="j.nights.data.value ?? []" card class="jtoday" />
 
           <template v-if="view === 'list'">
             <div class="jsearch">
@@ -151,7 +158,7 @@ const menu = computed(() => [
             </div>
             <div v-if="searchNote" class="tiny jmut">{{ searchNote }}<template v-if="narrowed"> · <button class="lnk" @click="clearFilter">Clear filters</button></template></div>
             <div v-if="active && !shown.length" class="card empty sm">Nothing matches.</div>
-            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" />
+            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" @night="(n) => (nightOpen = n)" />
           </template>
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
@@ -159,7 +166,7 @@ const menu = computed(() => [
               <span v-if="sel <= today" class="row"><button v-if="!loggedOn(sel)" class="lnk" @click="noRecall(sel)">No recall</button><button class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button></span>
             </div>
             <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
-            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" />
+            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @night="(n) => (nightOpen = n)" />
           </template>
         </template>
       </div>
@@ -174,6 +181,8 @@ const menu = computed(() => [
     <!-- on the body, as in Motus's shell: inside the page, a transform from the page transition would make the page,
          not the screen, what it is fixed to, and it would float over the list -->
     <Teleport to="body"><button v-if="fab" class="fab" aria-label="Write a dream" @click="write()"><Icon name="plus" :size="26" /></button></Teleport>
+
+    <NightSheet v-if="openNight" :key="openNight.id" :date="openNight.date" :nap="openNight.nap" :night-id="openNight.id" @close="nightOpen = null" />
 
     <Sheet v-if="filterOpen" title="Search filters" @close="filterOpen = false">
       <label class="tgl"><div class="grow"><div class="t">Lucid dreams only</div></div><span class="tg"><input v-model="filter.lucidOnly" type="checkbox" /></span></label>
