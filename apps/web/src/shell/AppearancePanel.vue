@@ -26,7 +26,7 @@ const out = ref(false);
 const el = ref<HTMLElement | null>(null);
 // on the phone it is a bottom sheet: pull it down to close, like the others
 const pull = usePullDown(() => el.value, () => document.querySelector<HTMLElement>(".apscr"), () => appearanceOpen.value, close);
-const outside = (e: Event) => { if (appearanceOpen.value && el.value && !el.value.contains(e.target as Node) && !(e.target as HTMLElement).closest?.("#themeBtn,[data-theme-open]")) close(); };
+const outside = (e: Event) => { if (appearanceOpen.value && el.value && !el.value.contains(e.target as Node) && !(e.target as HTMLElement).closest?.("#themeBtn")) close(); };
 const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && appearanceOpen.value) close(); };
 onMounted(() => { document.addEventListener("click", outside, true); addEventListener("keydown", esc); });
 onBeforeUnmount(() => { unlock(); document.removeEventListener("click", outside, true); removeEventListener("keydown", esc); });

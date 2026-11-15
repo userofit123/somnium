@@ -2,6 +2,7 @@
 // The Appearance options (ported from Money Manager): mode, colour set, background, texture, surface, corners, font,
 // density, spacing, navigation, screen layout and saved looks. Shown in the rail's quick panel (AppearancePanel) and
 // inline in Settings → Appearance, so there is one home for every look option. Styled by styles/components/appearance.css.
+defineProps<{ inline?: boolean }>(); // inline: Settings shows its own page title, so the body drops its own
 import { ref, computed, nextTick } from "vue";
 import { theme, ATM, ST0, CP, AKEYS, BGS, FONTS, looks, lookFor, saveLooks, copy, isDark, atmOf, cpOf, custVal, lookPal, setTheme, themeSwap, PKEYS, type Theme } from "../core/theme";
 import { layoutChoice, setLayout } from "../core/device";
@@ -69,8 +70,8 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
 
 <template>
   <div class="apin">
-  <div class="aph"><b>Appearance</b><span class="aphb"><button class="btn o s" @click="openSave">Save…</button><button class="btn o s" @click="reset">Reset</button></span></div>
-  <div id="apTabs" class="seg apseg aptabs">
+  <div class="aph" :class="{ inl: inline }"><b v-if="!inline">Appearance</b><span class="aphb"><button class="btn o s" @click="openSave">Save…</button><button class="btn o s" @click="reset">Reset</button></span></div>
+  <div class="seg apseg aptabs">
     <button v-for="(l, x) in TABS" :key="x" :class="{ on: tab === x }" :aria-pressed="tab === x" @click="tab = x">{{ l }}</button>
   </div>
   <div class="apb">
@@ -154,7 +155,7 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
         <div class="sm" style="margin-top:8px">The mode (light, dark, auto) is not saved with a look.</div>
       </div>
       <div class="aps"><h4>Your looks</h4>
-        <div id="tpList">
+        <div class="tplist">
           <div v-for="x in looks" :key="x.id" class="tpr">
             <span class="tpd" :style="lookDot(x)" /><b>{{ x.name }}</b>
             <span class="tpa">

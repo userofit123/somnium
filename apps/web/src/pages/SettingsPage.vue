@@ -155,7 +155,7 @@ await loaded(me);
         </template>
 
         <!-- the same options as the rail's quick panel, inline (Layout is in its Layout tab) -->
-        <div v-else-if="sec === 'appearance'" class="card apset"><AppearanceBody /></div>
+        <div v-else-if="sec === 'appearance'" class="card apset"><AppearanceBody inline /></div>
 
         <Suspense v-else-if="sec === 'reminders'"><RemindersSection /></Suspense>
         <Suspense v-else-if="sec === 'reality-checks'"><RealityChecksSection /></Suspense>

@@ -87,7 +87,7 @@ refused, the package may still be private: the owner makes it public once in the
 
 ## Backups
 
-- Each person makes their own backups in Settings → Backup & restore (to their device).
+- Each person makes their own backups in Settings → Backups (to their device).
 - For the whole server, back up both volumes, `db` (the database) and `appdata` (`/data`, which holds `app.key`).
   A database dump alone cannot be used without `app.key` for two-factor sign-in. For example:
   ```sh

@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * In-app updates from GitHub Releases: downloads the new APK into the app's cache, checks its SHA-256 against the
  * release's android-latest.json, and hands it to Android's installer (which always asks the person to confirm).
  * While it downloads, a notification shows how far it is (so leaving the app doesn't hide it), then that it's ready or
- * that it failed; a tap opens Settings, App & Versions, where Install is. The downloaded file is remembered here (not
+ * that it failed; a tap opens Settings, About and updates, where Install is. The downloaded file is remembered here (not
  * only in the page), so after Android closes the app that page still offers Install instead of downloading again.
  */
 @CapacitorPlugin(name = "SomniumUpdater")
@@ -158,7 +158,7 @@ public class SomniumUpdaterPlugin extends Plugin {
     private void notice(Context ctx, String title, String text, int pct, boolean busy) {
         Intent open = new Intent(ctx, MainActivity.class);
         open.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        open.putExtra(EXTRA_PATH, "/settings/versions");
+        open.putExtra(EXTRA_PATH, "/settings/about");
         // its own request code, so this intent's page never ends up on another notification's tap
         PendingIntent pi = PendingIntent.getActivity(ctx, 3, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         NotificationCompat.Builder b = new NotificationCompat.Builder(ctx, CHANNEL)
@@ -248,7 +248,7 @@ public class SomniumUpdaterPlugin extends Plugin {
                 r.put("path", out.getAbsolutePath());
                 ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(K_PATH, out.getAbsolutePath()).putString(K_VERSION, version).apply();
                 if (GEN.compareAndSet(gen, gen + 1)) DOWNLOADING.set(false);
-                notice(ctx, "Update ready to install", "Tap to open App & Versions, then Install", 0, false);
+                notice(ctx, "Update ready to install", "Tap to open About and updates, then Install", 0, false);
                 call.resolve(r);
             } catch (InterruptedException e) {
                 out.delete(); // its own file: no newer download writes here

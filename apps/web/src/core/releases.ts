@@ -1,4 +1,4 @@
-// The latest GitHub release and which of its downloads fits this device (Settings → App & Versions).
+// The latest GitHub release and which of its downloads fits this device (Settings → About and updates).
 // A server account asks its server (/update-check proxies GitHub and caches it, which spares GitHub's rate limit);
 // a local account has no server, so it asks GitHub directly. No release yet (or a private repo: 404) is not an error.
 // Never throws: whatever goes wrong comes back as `error`, so the screen always has something to say.

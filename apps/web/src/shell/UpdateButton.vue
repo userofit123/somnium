@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Shows only when a newer version exists (no badge otherwise, PLAN.md §10.0). In the apps it follows the app's own
-// checks (automatic ones only when switched on, App & Versions), so turning those off means no checking here either;
+// checks (automatic ones only when switched on, About and updates), so turning those off means no checking here either;
 // in a browser it asks the server whether it is behind.
 import { computed } from "vue";
 import { useQuery } from "@tanstack/vue-query";

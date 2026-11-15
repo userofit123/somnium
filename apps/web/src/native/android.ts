@@ -158,7 +158,7 @@ export function installAndroidBridge() {
     },
   };
   // the hardware back button closes an open sheet, goes back in the app, and leaves it from the home page
-  // a tap on the update download's notification names a page (App & Versions): open it
+  // a tap on the update download's notification names a page (About and updates): open it
   // only a page of this app, reduced to its path and query: "//elsewhere" starts with "/" too
   P("SomniumUpdater")?.addListener?.("open", ({ path }: { path?: string }) => { const p = typeof path === "string" ? appPath(path) : null; if (p) void router.push(p); });
   // leaving the app and coming back, from the activity itself (SomniumLockPlugin): the page's lock waits out the delay

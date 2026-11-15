@@ -28,7 +28,7 @@ The same panel can start Somnium at login. Where the desktop has no tray, the se
 
 ## Updates
 
-- The apps check GitHub for a new version (Settings → App & Versions) and can download it automatically.
+- The apps check GitHub for a new version (Settings → About and updates) and can download it automatically.
 - Desktop: the update installs when you restart the app (or press Install).
 - Android: Android always asks you to confirm an install; Somnium downloads the APK, checks it, and opens the installer.
   The first time, Android asks you to allow Somnium to install apps.
@@ -40,7 +40,7 @@ The repository has to be public for the apps to see new releases.
 
 ## Backups
 
-- Desktop: to `Documents/Somnium Backups` (change it in Settings → Backup & restore).
+- Desktop: to `Documents/Somnium Backups` (change it in Settings → Backups).
 - Android: to `Documents/Somnium` on the phone.
 - Backups are encrypted files (`.somniumbackup`); see [import-export.md](import-export.md) for restoring and the other formats.
 

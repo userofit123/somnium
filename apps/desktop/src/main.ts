@@ -350,7 +350,7 @@ ipcMain.handle("backup:save", (_e, name: string, bytes: Uint8Array, keep: number
 ipcMain.handle("backup:open", () => shell.openPath(backupDir()));
 
 // ----- updates from GitHub Releases -----
-// the screens decide when to check and download (Settings, App & Versions: automatic checks, downloads, Only on
+// the screens decide when to check and download (Settings, About and updates: automatic checks, downloads, Only on
 // Wi-Fi); a download only ever ends in "ready to install", and only the person's Install installs it, never a quit
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
@@ -368,13 +368,13 @@ let updateNotice: Notification | null = null;
 let guidedBusy = false;
 let heldNotice: { title: string; body: string } | null = null;
 /** When it's done or failed, a system notification if Somnium isn't in front (in front, the page already says so); a
- *  click brings the window back on Settings, App & Versions, where Restart to update is. */
+ *  click brings the window back on Settings, About and updates, where Restart to update is. */
 function updateDone(title: string, body: string) {
   win?.setProgressBar(-1);
   if (guidedBusy) { heldNotice = { title, body }; return; }
   if (!Notification.isSupported() || (win?.isVisible() && win.isFocused())) return;
   updateNotice = new Notification({ title, body, icon: path.join(__dirname, "icon.png") });
-  updateNotice.on("click", () => showWindow("/settings/versions"));
+  updateNotice.on("click", () => showWindow("/settings/about"));
   updateNotice.show();
 }
 ipcMain.handle("app:busy", (_e, busy: unknown) => {
@@ -434,7 +434,7 @@ ipcMain.handle("update:download", async () => {
   try { const r = await autoUpdater.checkForUpdates(); version = r?.updateInfo?.version ?? null; await autoUpdater.downloadUpdate(); }
   catch (e) { updateDone("Update failed", "The download didn't finish. Click to try again."); throw e; }
   staged = version ?? staged;
-  updateDone("Update ready", "Click to open App & Versions, then Restart to update");
+  updateDone("Update ready", "Click to open About and updates, then Restart to update");
   return staged ?? true;
 });
 // only ever from the person's own tap; never on quit (autoInstallOnAppQuit is off) and never during a guided timer

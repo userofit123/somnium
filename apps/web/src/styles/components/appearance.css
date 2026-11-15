@@ -663,3 +663,9 @@ details.closing.kvd > summary::after {
 html.phone .apin .only-d {
   display: none;
 }
+
+/* inline in Settings the page already has the title: keep Save and Reset, to the right, without the divider */
+.aph.inl {
+  justify-content: flex-end;
+  border-bottom: 0;
+}

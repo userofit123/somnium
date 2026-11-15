@@ -63,7 +63,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
 <template>
   <div class="stack">
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">Installed version</div><div class="s">{{ installed }} · {{ platform.name }}<template v-if="serverVersion"> · server {{ serverVersion }}</template></div></div><button class="btn o s" :disabled="checking" @click="checkNow">Check now</button></div>
+      <div class="li"><div class="grow"><div class="t">Installed version</div><div class="s">{{ installed }} · {{ platform.name }} · API level {{ session.apiLevel }}<template v-if="serverVersion"> · server {{ serverVersion }}</template></div></div><button class="btn o s" :disabled="checking" @click="checkNow">Check now</button></div>
       <div class="li"><div class="grow"><div class="t">{{ status }}</div>
         <template v-if="!checking">
         <div v-if="platform.app && updater.status" class="s">{{ updater.status }}</div>
@@ -101,7 +101,6 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
       <div class="li"><div class="grow"><div class="t">What's new</div><div class="s">Release notes for every version</div></div><button class="btn o s" @click="router.push('/settings/changelog')">Open</button></div>
     </div>
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">Somnium</div><div class="s">Version {{ session.version }} · API level {{ session.apiLevel }}</div></div></div>
       <div class="li"><div class="grow"><div class="t">Look and feel</div><div class="s">From Money Manager and Motus. Fonts: Inter and Nunito (SIL Open Font License)</div></div></div>
       <div class="li"><div class="grow"><div class="t">Reading text from photos</div><div class="s">tesseract.js, its engine and the English model from tessdata (Apache License 2.0), kept in the app and run on this device</div></div></div>
       <div class="li"><div class="grow"><div class="t">Source</div><div class="s">Source code, all releases and installation help</div></div><a class="btn o s" :href="REPO_URL" target="_blank" rel="noopener">GitHub</a></div>

@@ -12,7 +12,7 @@ export const updater = reactive({
   ready: false,
   // the version of the downloaded file that is ready (so Install names what it installs, also offline after a restart)
   stagedVersion: "" as string,
-  // the newest release, kept here by the App & Versions screen: a download for another version is then not the one to install
+  // the newest release, kept here by the About and updates screen: a download for another version is then not the one to install
   latest: "" as string,
   // share downloaded (0-1) while a download runs; null when idle or when the size is unknown
   progress: null as number | null,
@@ -69,7 +69,7 @@ export function startUpdater(): Promise<unknown> {
 }
 startUpdater();
 
-// Automatic updates in the apps (Settings, App & Versions). "Check for updates automatically": on start and then every
+// Automatic updates in the apps (Settings, About and updates). "Check for updates automatically": on start and then every
 // 6 hours (PLAN.md §12.3), never otherwise (only Check now). "Download updates automatically": what such a check finds is
 // downloaded in the background and left ready to install; installing is always the person's tap. "Only on Wi-Fi": that
 // download waits while the connection is metered (mobile data); the check itself is a few kilobytes and doesn't wait.
@@ -98,7 +98,7 @@ export function useAutoUpdate() {
       await startUpdater();
       if (!updater.canTellMetered) await askMetered();
       if (Date.now() - lastCheck >= CHECK_EVERY && Date.now() - lastFail >= RETRY_GAP) {
-        // the same answer App & Versions shows (its "Checked at" follows); a check that failed (offline) is tried
+        // the same answer About and updates shows (its "Checked at" follows); a check that failed (offline) is tried
         // again after RETRY_GAP, not 6 hours later
         const r = await qc.fetchQuery({ queryKey: ["static", "release"], queryFn: latestRelease, staleTime: 0 }).catch(() => null);
         const v = r?.latest ?? "";
