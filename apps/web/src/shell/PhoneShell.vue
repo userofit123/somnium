@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// The phone layout: the page, and the tabs Home, Journal, +, Train, Progress, More (PLAN.md §6.0).
+// The phone layout: the page, and the tabs Home, Journal, Train, +, Dream signs, Progress, More: three, the +, three (PLAN.md §6.0).
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { section, TRAIN_TABS } from "./nav";
@@ -17,19 +17,21 @@ const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
 // the centre + is an action, not a page (Motus's Start tab): the + sheet (StartSheet.vue, PLAN.md §6.0), shared with
 // the desktop's + button
-const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
+const TABS: { name: string; label?: string; icon?: string; to?: string; aria?: string }[] = [
   { name: "home", label: "Home", icon: "home", to: "/" },
   { name: "journal", label: "Journal", icon: "book", to: "/journal" },
-  { name: "add" },
   { name: "train", label: "Train", icon: "target", to: "/train" },
+  { name: "add" },
+  // "Dream signs" is wider than a seventh of a 360px phone, so the tab says Signs (the screen reader still hears the full name)
+  { name: "signs", label: "Signs", icon: "eye", to: "/signs", aria: "Dream signs" },
   { name: "progress", label: "Progress", icon: "stats", to: "/progress" },
   { name: "more", label: "More", icon: "moreH", to: "/more" },
 ];
 // the pages listed on the More tab
-const IN_MORE = ["more", "signs", "learn", "settings"];
+const IN_MORE = ["more", "learn", "settings"];
 // Settings is under More here: the dot for a missing recovery key goes on More (LDJ-151)
 const needsKey = useNeedsRecoveryKey();
-// how many elements wait in Dream signs' To confirm (LDJ-125): on More while the recovery key dot isn't there
+// how many elements wait in Dream signs' To confirm (LDJ-125): on the Dream signs tab
 const toConfirm = useToConfirmCount();
 const moreOn = computed(() => IN_MORE.includes(cur.value));
 // one key per page (Train's three tabs share one, which switches them itself), so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
@@ -38,8 +40,8 @@ const pageKey = (r: any) => (TRAIN_TABS.includes(r.name) ? "train" : r.path);
 const arrived = (el: Element) => el.classList?.add("in");
 
 // moving between tabs slides sideways, towards the tab you chose; anything else rises in
-// the + is not in it, so a swipe from Journal goes straight to Train
-const ORDER = ["home", "journal", "train", "progress", "more"];
+// the + is not in it, so a swipe from Train goes straight to Dream signs
+const ORDER = ["home", "journal", "train", "signs", "progress", "more"];
 const tabOf = (name: unknown) => { const c = section(name as string); return ORDER.indexOf(IN_MORE.includes(c) ? "more" : c); };
 const motion = ref("page");
 const stop = router.beforeEach((to, from) => {
@@ -74,7 +76,7 @@ function te(e: TouchEvent) {
       <div class="tabbar">
         <template v-for="t in TABS" :key="t.name">
           <button v-if="t.name === 'add'" type="button" aria-label="Add" @click="startOpen = true"><span class="start"><Icon name="plus" /></span></button>
-          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /><i v-else-if="t.name === 'more' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm in Dream signs`">{{ toConfirm }}</i></span>{{ t.label }}</button>
+          <button v-else type="button" :aria-label="t.aria" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /><i v-else-if="t.name === 'signs' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm`">{{ toConfirm }}</i></span>{{ t.label }}</button>
         </template>
       </div>
     </div>

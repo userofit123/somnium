@@ -318,7 +318,7 @@ html.phone { --tabh: 64px; }
 .pmain .ph .acts .btn.lg { min-height: 44px; padding: 10px 20px; font-size: calc(15px * var(--fsc)); }
 /* the bottom dock: the tab bar on one blurred background */
 .dock { position: fixed; left: 0; right: 0; bottom: 0; padding-inline: var(--sl) var(--sr); z-index: 50; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--ol); }
-.tabbar { display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; height: calc(var(--tabh) + var(--sb)); padding: 0 4px var(--sb); }
+.tabbar { display: grid; grid-template-columns: repeat(7, 1fr); align-items: center; height: calc(var(--tabh) + var(--sb)); padding: 0 4px var(--sb); }
 .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: calc(10.5px * var(--fsc)); color: var(--tx2); padding: 4px 0; min-width: 0; cursor: pointer; }
 .tabbar button .ic { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
 .tabbar button.on { color: var(--tx); font-weight: 600; }

@@ -221,8 +221,8 @@ lands, the code may still show the old arrangement. Navigation follows Motus §1
 action per screen.
 
 ### 6.0 Navigation
-- **Phone tabs**: **Home · Journal · [+] · Train · Progress · More**. The centre **+** opens the quick-add sheet
-  (Motus StartSheet pattern). **More**: the account card, then Dream signs, Learn, Settings.
+- **Phone tabs** (3 + 3 around the centre, as Motus): **Home · Journal · Train · [+] · Dream signs (label "Signs") · Progress · More**. The centre **+**
+  opens the quick-add sheet (Motus StartSheet pattern). **More**: the account card, then Learn, Settings.
 - **Desktop rail (7)**: **Home · Journal · Train · Dream signs · Progress · Learn · Settings**, plus a **+** button
   (Motus desktop FAB) opening the same quick-add sheet.
 - **Quick-add sheet**: Write a dream, No recall, Log a reality check, Plan tonight, Day note. These are the only
@@ -499,3 +499,4 @@ The Focus list "Lucid Dreaming journal" holds the tasks (`LD-n`). Phases:
 - D7 No substance recommendations; evidence shown as information with risks.
 - D8 Dev ports 8800 / 8801, Tailscale 8444, site somnium.local.
 - D9 (2026-11-15) One target structure for pages and tabs (§6, supersedes the earlier layout): phone tabs Home · Journal · [+] · Train · Progress · More; desktop rail Home · Journal · Train · Dream signs · Progress · Learn · Settings with a + button; Train in three tabs (Today, Tonight, Techniques); Insights renamed Progress; Learn is reading only. Each thing has one home, and other pages summarise and link to it.
+- D10 (2026-11-15) The developer asked for an even 3+3 phone bar with Dream signs on it and Learn under More: Home · Journal · Train · [+] · Dream signs · Progress · More (amends D9's phone tabs).

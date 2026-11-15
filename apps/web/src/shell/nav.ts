@@ -1,5 +1,5 @@
 // The pages in the menu (PLAN.md §6.0): seven on a computer (daily pages first, reference pages last), and on the
-// phone the tabs below plus More (Dream signs, Learn, Settings). The command palette lists NAV, so it follows.
+// phone three tabs, the +, Dream signs, Progress and More (Learn, Settings). The command palette lists NAV, so it follows.
 export const NAV = [
   { name: "home", label: "Home", icon: "home", to: "/" },
   { name: "journal", label: "Journal", icon: "book", to: "/journal" },
