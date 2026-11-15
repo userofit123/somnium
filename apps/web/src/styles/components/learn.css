@@ -112,3 +112,12 @@
 .rsrc .rnote { margin-top: 2px; color: var(--tx); }
 .rlinks { display: flex; align-items: center; gap: var(--lpy); margin-top: var(--tdy); }
 .rlinks .srcurl { display: inline; margin-top: 0; }
+
+/* phone: the article fills the screen width (no desktop measure), cards and prev/next stack, tap targets reach 44px */
+html.phone .art, html.phone .art.wide { max-width: none; }
+html.phone .art .ph h1 { overflow-wrap: anywhere; }
+html.phone .lpn { grid-template-columns: minmax(0, 1fr); }
+html.phone .lpn .next, html.phone .lpn .prev { grid-column: 1; text-align: start; }
+html.phone .lmd { overflow-wrap: break-word; }
+html.phone .jump button { min-width: 44px; height: 44px; }
+html.phone .srch { min-height: 44px; }

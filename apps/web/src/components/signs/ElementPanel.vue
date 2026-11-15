@@ -93,8 +93,8 @@ const meta = computed(() => { const e = el.value; return e ? [KIND_ONE[e.kind], 
       <h1>{{ el?.name ?? "Element" }}</h1><div v-if="el" class="sub">{{ meta }}</div></div>
     <div v-if="el" class="acts"><Menu :items="menu" /><button class="btn keep" @click="edit"><Icon name="edit" :size="16" />Edit</button></div>
   </div>
-  <div v-if="!el" class="empty sm" :class="{ card: back }"><Icon name="layers" :size="34" /><b>Element not found</b>This element isn't in your journal any more.<br /><button class="btn tonal" type="button" @click="emit('close')">Back to dream signs</button></div>
-  <div v-else class="sgp" :class="{ card: back }">
+  <div v-if="!el" class="empty sm"><Icon name="layers" :size="34" /><b>Element not found</b>This element isn't in your journal any more.<br /><button class="btn tonal" type="button" @click="emit('close')">Back to dream signs</button></div>
+  <div v-else class="sgp">
     <div v-if="!back" class="sgph">
       <div class="grow sgmin"><div class="ttl sgt">{{ el.name }}</div><div class="tiny sgmut">{{ meta }}</div></div>
       <Menu :items="menu" />

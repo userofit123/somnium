@@ -281,6 +281,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
 
 <style scoped>
 .jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--lpy); }
+.jview :is(h1, h2) { overflow-wrap: anywhere; }
 .jview { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .jtx.none { color: var(--tx2); }
