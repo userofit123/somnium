@@ -4,9 +4,9 @@
 // (LDJ-103); here they are shown, with a way there. Nothing here is personal: habit labels come from a fixed list, and
 // the dream signs' names stay out of reminders unless switched on. Guided checks (LDJ-112, on by default): a tap opens
 // the 15-second check; off, the reminder logs with one tap as before.
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { HABIT_LABELS, PER_DAY_MAX, PER_DAY_MIN, planDay, wakingWindow } from "@somnium/shared";
+import { HABIT_LABELS, HABIT_WHY, habitSuggestions, PER_DAY_MAX, PER_DAY_MIN, planDay, wakingWindow } from "@somnium/shared";
 import { useSettings } from "../../api/queries";
 import { useFmt } from "../../core/format";
 import { checkCatalog, localDate, androidReminders } from "../../native/reminders";
@@ -15,6 +15,7 @@ import AppSelect from "../AppSelect.vue";
 import NumStep from "../NumStep.vue";
 import TimePicker from "../TimePicker.vue";
 import Icon from "../Icon.vue";
+import Sheet from "../Sheet.vue";
 
 const fmt = useFmt();
 const router = useRouter();
@@ -31,7 +32,10 @@ const toggleCheck = (id: string) => {
   const next = has ? s.value.checks.filter((c) => c !== id) : [...s.value.checks, id];
   if (next.length) void save({ checks: next });
 };
-const addHabit = () => save({ habits: [...s.value.habits, { at: "12:30", label: HABIT_LABELS[1] }] });
+// Add opens a small sheet of suggestions, each with a sensible time; the time and label stay editable on the row
+const adding = ref(false);
+const suggestions = computed(() => habitSuggestions(settings.value.sleep.wake));
+const addHabit = (h: { at: string; label: (typeof HABIT_LABELS)[number] }) => { adding.value = false; return save({ habits: [...s.value.habits, h] }); };
 const setHabit = (i: number, patch: Record<string, unknown>) => save({ habits: s.value.habits.map((h, j) => (j === i ? { ...h, ...patch } : h)) });
 const dropHabit = (i: number) => save({ habits: s.value.habits.filter((_, j) => j !== i) });
 
@@ -78,13 +82,13 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
 
     <div class="sh"><h2>Habit moments</h2></div>
     <div class="card">
-      <p class="tiny" style="margin:0">Fixed times on top of the random ones, tied to something you do then.</p>
+      <p class="tiny" style="margin:0">A fixed reminder for something you do anyway, on top of the random ones. {{ HABIT_WHY }} (RESEARCH.md Part C, 7, [1])</p>
       <div v-for="(h, i) in s.habits" :key="i" class="frow" style="align-items:end">
         <div class="fld"><label>At</label><TimePicker :model-value="h.at" title="Habit time" @update:model-value="(v) => setHabit(i, { at: v })" /></div>
         <div class="fld grow"><label>When</label><AppSelect :model-value="h.label" :options="[...HABIT_LABELS]" title="Habit" @update:model-value="(v) => setHabit(i, { label: v })" /></div>
         <button class="btn o s" type="button" :aria-label="`Remove ${h.label}`" @click="dropHabit(i)"><Icon name="close" :size="15" /></button>
       </div>
-      <div><button class="btn o s" type="button" @click="addHabit">Add a habit moment</button></div>
+      <div><button class="btn o s" type="button" @click="adding = true">Add a habit moment</button></div>
     </div>
 
     <div class="sh"><h2>Checks</h2></div>
@@ -96,4 +100,9 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
       <label class="tgl"><div class="grow"><div class="t">Show my dream signs in reminders</div><div class="s">Names the dream sign each reminder is paired with, and its triggers. Off by default: they can be read on a locked screen.</div></div><span class="tg"><input type="checkbox" :checked="s.showSign" @change="save({ showSign: ($event.target as HTMLInputElement).checked })" /></span></label>
     </div>
   </template>
+
+  <Sheet v-if="adding" title="Add a habit moment" @close="adding = false">
+    <p>{{ HABIT_WHY }}</p>
+    <div class="card flush"><button v-for="x in suggestions" :key="x.label" type="button" class="li click" @click="addHabit(x)"><div class="grow"><div class="t">{{ x.label }}</div><div class="s">Reminds you at {{ hm(x.at) }}; change the time after</div></div><Icon name="plus" :size="16" class="muted" /></button></div>
+  </Sheet>
 </template>

@@ -11,9 +11,24 @@ import { TECHNIQUES } from "./journal";
 /** A fixed reminder at a time the person picked, tied to something they do then. Labels come from a fixed list: a
  *  free-text label would be personal and would have to be sealed (packages/engine/src/sealed.ts), and the label is
  *  shown in a notification, which can appear on a locked screen. */
-export const HABIT_LABELS = ["Walking through a door", "After a meal", "Washing your hands", "Checking your phone", "Getting up from a chair", "Arriving somewhere"] as const;
+export const HABIT_LABELS = ["Walking through a door", "After a meal", "Washing your hands", "Checking your phone", "Getting up from a chair", "Arriving somewhere", "After waking", "Going through a door", "After lunch", "Washing hands"] as const;
 export type HabitLabel = (typeof HABIT_LABELS)[number];
 export interface HabitMoment { at: string; label: HabitLabel }
+
+/** The moments Settings offers when adding one, each with a time that fits a usual day (LDJ-174). The first follows the
+ *  wake time; the rest are fixed. The older labels stay valid so habit moments saved earlier still load. */
+export function habitSuggestions(wake: string): { label: HabitLabel; at: string }[] {
+  const [h = 7, m = 0] = wake.split(":").map(Number), t = (h * 60 + m + 20) % 1440;
+  const hh = (n: number) => String(n).padStart(2, "0");
+  return [
+    { label: "After waking", at: `${hh(Math.floor(t / 60))}:${hh(t % 60)}` },
+    { label: "Going through a door", at: "10:30" },
+    { label: "After lunch", at: "13:30" },
+    { label: "Washing hands", at: "18:00" },
+  ];
+}
+/** Why a habit moment helps, in one line; the source is LaBerge's reflection-intention technique (RESEARCH.md Part C, 7, [1]). */
+export const HABIT_WHY = "Checks tied to something you do every day turn into a habit, which is how LaBerge's reflection-intention technique carries over into dreams.";
 
 /** What the reminders row (kind "reality_check") holds in its schedule JSON. Nothing in it is personal. */
 export interface RealityCheckSchedule {

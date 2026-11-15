@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // Settings card for the optional local text model (LDJ-42): the address of an Ollama computer the person runs, a model
 // name, the warning (ticked once) and a Test. The desktop app keeps it, in this account's own record on this computer
-// (main.ts localModel:set), and calls only the address saved there. Shown under Features once the feature is on.
+// (main.ts localModel:set), and calls only the address saved there. Opened from its row in Features (its own screen, LDJ-143).
 import { computed, onMounted, ref } from "vue";
 import { LOCAL_MODEL_WARNING, checkModelAddress } from "@somnium/shared";
 import { loadLocalModel, localModel, modelPlace, saveLocalModel, testModel } from "../../core/localModel";
@@ -29,7 +29,6 @@ async function test() {
 </script>
 
 <template>
-  <div class="sh"><h2>Local AI model</h2></div>
   <div class="card">
     <div class="li"><div class="grow"><div class="t">{{ place === "desktop" ? "Your own Ollama address" : place === "android" ? "Not yet on Android" : "Available in the desktop and Android apps" }}</div>
       <div class="s">{{ place === "desktop" ? "Used only when you ask, from a dream's ⋮ menu. Never a cloud service, never a key. Saved for this account on this computer only." : place === "android" ? "The Android app can't reach your own computer for this yet." : "The web page can only talk to its own server, so it can't call your computer. Android support is planned." }}</div></div></div>

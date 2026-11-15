@@ -1,6 +1,6 @@
 // A person's settings, with defaults. Stored as JSON per user; missing keys fall back to these.
 // Nothing personal lives here (PLAN.md §4): these are preferences, and they sync in the clear.
-import { FEATURE_DEFAULTS } from "./features";
+import { FEATURE_DEFAULTS, RETIRED_FEATURES } from "./features";
 import type { Dismissal } from "./recommend";
 import type { Milestones } from "./milestones";
 
@@ -127,6 +127,7 @@ export function withDefaults(saved: unknown): Settings {
   const out: Settings = merge(DEFAULT_SETTINGS, saved);
   const blocks = saved && typeof saved === "object" ? (saved as { home?: { blocks?: unknown } }).home?.blocks : undefined;
   out.home = { ...out.home, blocks: cleanHomeBlocks(blocks, out.features) };
+  for (const k of RETIRED_FEATURES) delete out.features[k];
   return out;
 }
 

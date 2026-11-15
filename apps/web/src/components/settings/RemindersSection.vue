@@ -7,8 +7,9 @@
 // Nothing here is personal: no journal text, no intention.
 import { computed, onMounted, onUnmounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { nightTimes, reminderText, wakingWindow } from "@somnium/shared";
+import { COURSE_LESSONS, currentLesson, nightTimes, reminderText, wakingWindow } from "@somnium/shared";
 import { useSettings } from "../../api/queries";
+import { useCourse } from "../../api/train";
 import { toastError, savedToast } from "../../core/toast";
 import { useFmt } from "../../core/format";
 import { isPhone } from "../../core/device";
@@ -73,6 +74,13 @@ const times = computed(() => nightTimes(today(), settings.value.sleep));
 const win = computed(() => wakingWindow(rc.value, settings.value.sleep));
 const rcLine = computed(() => `${rc.value.perDay} a day · ${win.value.from} to ${win.value.to}${rc.value.pausedOn === today() ? " · paused today" : ""}`);
 const wbtbSet = computed(() => { void rows.data.value; return wbtbAlarm(); });
+// the practice reminder belongs to the course: shown once a lesson has been started (or while it is still on, so it can be
+// switched off), otherwise a line says where to start (LDJ-172)
+const course = useCourse();
+const courseKnown = computed(() => course.data.value !== undefined);
+const lessonNo = computed(() => { const l = currentLesson(course.data.value ?? []); return l ? COURSE_LESSONS.indexOf(l) + 1 : null; });
+const started = computed(() => (course.data.value ?? []).some((c) => c.state === "active" || c.state === "done"));
+const practiceShown = computed(() => night("practice").on || (started.value && lessonNo.value !== null));
 const checked = (e: Event) => (e.target as HTMLInputElement).checked;
 </script>
 
@@ -87,12 +95,15 @@ const checked = (e: Event) => (e.target as HTMLInputElement).checked;
       <div class="fld"><label>Minutes before bed</label><NumStep :value="night('bedtime').s.lead" :step="5" :min="5" :max="60" unit="min" @set="(v) => saveNight('bedtime', { lead: v })" /></div>
     </div>
 
-    <label class="tgl"><div class="grow"><div class="t">WBTB alarm</div><div class="s">Only on nights you plan WBTB in Train<template v-if="wbtbSet"> · set for {{ clock(wbtbSet) }}</template><template v-if="androidApp"> · rings like an alarm</template></div></div><span class="tg"><input type="checkbox" :checked="night('wbtb').on" @change="saveNight('wbtb', {}, checked($event))" /></span></label>
+    <label class="tgl"><div class="grow"><div class="t">Wake back to bed (WBTB) alarm</div><div class="s">Wakes you in the night for a short stretch awake, only on nights you plan it in Train<template v-if="wbtbSet"> · set for {{ clock(wbtbSet) }}</template><template v-if="androidApp"> · rings like an alarm</template> · <router-link to="/learn/techniques/wbtb" class="lnk inl" @click.stop>What is WBTB?</router-link></div></div><span class="tg"><input type="checkbox" :checked="night('wbtb').on" @change="saveNight('wbtb', {}, checked($event))" /></span></label>
 
     <label class="tgl"><div class="grow"><div class="t">Morning journal</div><div class="s">{{ clock(times.wake) }}, your wake time · "Write your dream", with No recall</div></div><span class="tg"><input type="checkbox" :checked="night('morning_journal').on" @change="saveNight('morning_journal', {}, checked($event))" /></span></label>
 
-    <label class="tgl"><div class="grow"><div class="t">Practice</div><div class="s">{{ night("practice").on ? `${hm(night("practice").s.at)} · once a day, for the course` : "Once a day, for the course" }}</div></div><span class="tg"><input type="checkbox" :checked="night('practice').on" @change="saveNight('practice', {}, checked($event))" /></span></label>
-    <div v-if="night('practice').on" class="frow"><div class="fld"><label>Practice at</label><TimePicker :model-value="night('practice').s.at" title="Practice" @update:model-value="(v) => saveNight('practice', { at: v })" /></div></div>
+    <template v-if="practiceShown">
+      <label class="tgl"><div class="grow"><div class="t">Daily lesson practice</div><div class="s">A nudge to do today's practice{{ lessonNo ? ` from lesson ${lessonNo}` : "" }}{{ night("practice").on ? ` · ${hm(night("practice").s.at)}` : "" }}</div></div><span class="tg"><input type="checkbox" :checked="night('practice').on" @change="saveNight('practice', {}, checked($event))" /></span></label>
+      <div v-if="night('practice').on" class="frow"><div class="fld"><label>Practice at</label><TimePicker :model-value="night('practice').s.at" title="Practice" @update:model-value="(v) => saveNight('practice', { at: v })" /></div></div>
+    </template>
+    <div v-else-if="courseKnown" class="li"><div class="grow"><div class="s">Start the course in Train to get a daily practice reminder</div></div><button class="btn o s" type="button" @click="router.push('/train')">Open Train</button></div>
 
     <!-- the sleep times are edited only in Sleep schedule; here they are only shown -->
     <div class="li"><div class="grow"><div class="s">Uses your sleep times, {{ hm(settings.sleep.bedtime) }} to {{ hm(settings.sleep.wake) }}. Nothing from your journal or your intention is shown.</div></div><button class="btn o s" type="button" @click="router.push('/settings/sleep')">Change</button></div>

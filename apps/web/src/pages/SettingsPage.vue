@@ -37,8 +37,8 @@ const s = useSettings();
 const OLD: Record<string, string> = { notifications: "reminders", versions: "about" };
 const sec = computed(() => { const k = String(route.params.section || (isPhone.value ? "" : "account")); return OLD[k] ?? k; });
 watch(() => route.params.section, (k) => { if (typeof k === "string" && OLD[k]) void router.replace(`/settings/${OLD[k]}`); }, { immediate: true });
-// What's new opens from About and updates as its own screen, not a list entry
-const SUB: Record<string, [parent: string, title: string]> = { changelog: ["about", "What's new"] };
+// What's new opens from About and updates, and the Local AI model from its Features row: own screens, not list entries
+const SUB: Record<string, [parent: string, title: string]> = { changelog: ["about", "What's new"], "local-model": ["features", "Local AI model"] };
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
 type Section = [key: string, name: string, icon: string, hint: string];
 // local accounts have no server: the server-only sections (admin) stay out of the list
@@ -48,21 +48,21 @@ isLocalAccount().then((v) => { local.value = v; });
 const ALL = computed<[string, Section[]][]>(() => [
   ["You", [["account", "Account", "user", "Name, devices, sync"],
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
-    (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host],
+    (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", "Where your journal syncs"],
     ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
   // what changes how the app helps you dream, before how it looks
-  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length, waking"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, WBTB alarm, morning"],
-    ["reality-checks", "Reality checks", "eye", "How many, when, which checks"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
+  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length, nights to sleep in"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, wake-up alarm, morning"],
+    ["reality-checks", "Reality checks", "eye", "How many, when, which checks"], ["features", "Features", "sparkle", "Voice notes, photos, goals and more"]]],
   ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"]]],
-  ["Your data", [["backup", "Backups", "download", "Back up, restore"], ["data", "Export & import", "upload", "JSON, Markdown, CSV, other journals"], ["log", "Activity log", "history", "Everything you changed"]]],
+  ["Your data", [["backup", "Backups", "download", "Back up, restore"], ["data", "Export & import", "upload", "Save your dreams as files, bring in another journal"], ["log", "Activity log", "history", "Everything you changed"]]],
   ["About", [...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About and updates", "info", "Version, updates, release notes, credits"]]],
 ]);
 // words people look for that the names don't carry
 const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification fingerprint face screen lock windows hello touch id password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
-  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
+  accounts: "server sync local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm wake-up bedtime wbtb wake back to bed morning journal practice lesson tray login test",
   "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
-  sleep: "sleep times bedtime wake cycle 90 minutes free nights sleep in lie-in weekend setup first run onboarding start again morning capture still dim", features: "optional extras", backup: "backups restore automatic encrypted", data: "export import json delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
+  sleep: "sleep times bedtime wake cycle 90 minutes free nights sleep in lie-in weekend setup first run onboarding start again morning capture still dim", features: "optional extras voice notes sketches photos goals reports themes command palette local ai model switches", backup: "backups restore automatic encrypted", data: "export import save files json markdown csv delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
 };
 // what "Automatic" means here, said under the formats
 const device = deviceFormats();
@@ -126,15 +126,15 @@ await loaded(me);
         </template>
 
         <template v-else-if="sec === 'sleep'">
-          <p class="muted" style="margin:0">The one place for your sleep times. Used by the reality check window, the bedtime, WBTB and morning reminders, Home and the WBTB planner.</p>
+          <p class="muted" style="margin:0">Your usual night. Reminders and the wake-up alarm are timed from it.</p>
           <div class="card">
             <div class="frow">
               <div class="fld"><label>I usually go to bed at</label><TimePicker :model-value="s.sleep.bedtime" title="Bedtime" @update:model-value="(v) => set({ sleep: { bedtime: v } })" /></div>
               <div class="fld"><label>I usually wake at</label><TimePicker :model-value="s.sleep.wake" title="Wake time" @update:model-value="(v) => set({ sleep: { wake: v } })" /></div>
             </div>
-            <div class="li"><div class="grow"><div class="t">Sleep cycle</div><div class="s">{{ CYCLE_RANGE.min }} to {{ CYCLE_RANGE.max }} min; 90 is usual. The WBTB planner counts alarms in whole cycles.</div></div>
+            <div class="li"><div class="grow"><div class="t">Sleep cycle</div><div class="s">{{ CYCLE_RANGE.min }} to {{ CYCLE_RANGE.max }} min; 90 is usual. One cycle is a round of lighter and deeper sleep. Wake back to bed (WBTB), waking in the night to practise, counts its alarm in whole cycles. <router-link to="/learn/techniques/wbtb" class="lnk inl">What is WBTB?</router-link></div></div>
               <NumStep :value="cycleOf(s.sleep.cycle)" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => set({ sleep: { cycle: v } })" /></div>
-            <div class="fld"><label>Nights I can sleep in</label><div class="s">The evenings after which you can lie in. Tonight's plan suggests WBTB only on these.</div><FreeNights /></div>
+            <div class="fld"><label>Nights I can sleep in</label><div class="s">The evenings after which you can lie in. Tonight's plan suggests waking in the night (WBTB) only on these.</div><FreeNights /></div>
           </div>
           <div class="card">
             <label class="tgl"><div class="grow"><div class="t">Lie still before writing</div><div class="s">The morning capture opens on a dim screen that asks what you were dreaming, for 20 seconds you can skip. Off, it opens on the key words.</div></div>
@@ -143,7 +143,7 @@ await loaded(me);
           <div class="card">
             <div class="li"><div class="grow"><div class="t">First-run setup</div><div class="s">Sleep times, reminders, tonight's technique and extras, in a few short steps</div></div>
               <button type="button" class="btn o s" @click="startSetup">Run setup again</button></div>
-            <div class="li"><div class="grow"><div class="t">Safety check</div><div class="s">{{ s.safety.sleepFirst ? "Sleep first is on: no WBTB, CAT alarm or nap suggestions" : "A few yes/no questions; the answers stay on this device" }}</div></div>
+            <div class="li"><div class="grow"><div class="t">Safety check</div><div class="s">{{ s.safety.sleepFirst ? "Sleep first is on: no waking in the night (WBTB), CAT alarm or nap suggestions" : "A few yes/no questions; the answers stay on this device" }}</div></div>
               <button type="button" class="btn o s" @click="startSafetyCheck">{{ s.safety.checked ? "Answer again" : "Take it" }}</button></div>
           </div>
         </template>
@@ -152,9 +152,12 @@ await loaded(me);
           <p class="muted" style="margin:0">Somnium shows only what you use. Switch on what you want; switched off, a feature is gone from every screen.</p>
           <p v-if="!groups.length" class="tiny">Nothing to switch on yet: the optional features come with their own tasks.</p>
           <template v-for="[g, fs] in groups" :key="g"><div class="sh"><h2>{{ g }}</h2></div>
-            <div class="card"><label v-for="f in fs" :key="f.id" class="tgl"><div class="grow"><div class="t">{{ f.name }}</div><div class="s">{{ f.desc }}</div></div><span class="tg"><input type="checkbox" :checked="!!s.features[f.id]" @change="set({ features: { [f.id]: ($event.target as HTMLInputElement).checked } })" /></span></label></div></template>
-          <LocalModelSection v-if="s.features.localModel" />
+            <div class="card"><label v-for="f in fs" :key="f.id" class="tgl"><div class="grow"><div class="t">{{ f.name }}</div><div class="s">{{ f.desc }}</div>
+              <!-- where it shows, and once on a link there (nothing opens for a feature that has no screen of its own) -->
+              <div class="s">Shows in: {{ f.where }}<template v-if="s.features[f.id] && f.to"> · <router-link :to="f.to" class="lnk inl" @click.stop>Open</router-link></template></div></div><span class="tg"><input type="checkbox" :checked="!!s.features[f.id]" @change="set({ features: { [f.id]: ($event.target as HTMLInputElement).checked } })" /></span></label></div></template>
         </template>
+
+        <LocalModelSection v-else-if="sec === 'local-model'" />
 
         <!-- the same options as the rail's quick panel, inline (Layout is in its Layout tab) -->
         <div v-else-if="sec === 'appearance'" class="card apset"><AppearanceBody inline /></div>
