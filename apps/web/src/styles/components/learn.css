@@ -116,4 +116,3 @@
 .rsrc .rnote { margin-top: 2px; color: var(--tx); }
 .rlinks { display: flex; align-items: center; gap: var(--hg); margin-top: 6px; }
 .rlinks .srcurl { display: inline; margin-top: 0; }
-@media (prefers-reduced-motion: reduce) { .pfill { transition: none; } }

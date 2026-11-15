@@ -7,7 +7,7 @@ import { useLearn } from "../../core/learn";
 import Icon from "../Icon.vue";
 import PinButton from "./PinButton.vue";
 import ReadMark from "./ReadMark.vue";
-import ProgressBar from "./ProgressBar.vue";
+import ProgressBar from "../ProgressBar.vue";
 const props = defineProps<{ section: string }>();
 const { read } = useLearn();
 const title = computed(() => sections.find((s) => s.id === props.section)?.title ?? "");

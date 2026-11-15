@@ -9,6 +9,7 @@ import { computed, ref, shallowRef } from "vue";
 import { THEMES_MIN_DREAMS, THEMES_SOURCES, THEMES_TOP, typicalThemeRates, type NormTheme, type ThemeMatcher } from "@somnium/shared";
 import { useJournal } from "../../api/journal";
 import SourceSheet from "../learn/SourceSheet.vue";
+import ProgressBar from "../ProgressBar.vue";
 import "../../styles/components/learn.css";
 
 const j = useJournal();
@@ -48,7 +49,7 @@ const dreamsText = (n: number) => (n === 1 ? "1 dream" : `${n} dreams`);
         <div v-else class="thlist">
           <div v-for="r in shown" :key="r.theme.id" class="throw" :class="{ few: !r.dreams }" :data-id="r.theme.id">
             <div class="t">{{ r.theme.displayName ?? r.theme.name }}</div>
-            <div class="thbar"><div class="pbar"><i :style="{ width: r.share * 100 + '%' }" /></div><span class="num tiny">{{ pct(r.share) }}</span></div>
+            <div class="thbar"><ProgressBar :percent="r.share * 100" /><span class="num tiny">{{ pct(r.share) }}</span></div>
             <div class="tiny">{{ r.dreams ? `In ${dreamsText(r.dreams)} of yours` : "Not in your dreams yet" }} · {{ r.theme.prevalenceTotal }}% of students have ever had it (men {{ r.theme.prevalenceMen }}% · women {{ r.theme.prevalenceWomen }}%)</div>
             <div v-if="r.perDream" class="tiny">Per dream, like yours: {{ r.perDream.total }}% of dreams in the Hall and Van de Castle norms had any sexual content (men {{ r.perDream.men }}% · women {{ r.perDream.women }}%), from US students in the late 1940s.</div>
           </div>

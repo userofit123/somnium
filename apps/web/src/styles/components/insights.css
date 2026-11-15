@@ -21,5 +21,4 @@ html.phone .insights .ins-stats.ins-four { grid-template-columns: repeat(2, minm
 .insights .ins-pair .row { gap: 8px; }
 .insights .ins-pair .row > .tiny:first-child { width: 52px; flex: none; }
 .insights .ins-pair .num { width: 36px; text-align: end; color: var(--tx); }
-.insights .pbar.off i { background: var(--tx2); opacity: .55; }
 .insights .ins-ans + .ins-ans { margin-top: var(--hg); }

@@ -12,7 +12,7 @@ import { useLearn } from "../../core/learn";
 import Icon from "../Icon.vue";
 import PinButton from "./PinButton.vue";
 import ReadMark from "./ReadMark.vue";
-import ProgressBar from "./ProgressBar.vue";
+import ProgressBar from "../ProgressBar.vue";
 
 const router = useRouter(), route = useRoute();
 const { read, last, pinned } = useLearn();

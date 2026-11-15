@@ -7,6 +7,7 @@ import { lessons, practiceItemId, type Lesson } from "@somnium/knowledge/course"
 import { tickPractice } from "../../api/train";
 import { useChange } from "../../api/queries";
 import Icon from "../Icon.vue";
+import ProgressBar from "../ProgressBar.vue";
 
 const props = defineProps<{ lesson: Lesson | null; row?: CourseProgress; practice: PracticeLog[]; today: string; rule: MoveOn | null; moving: boolean }>();
 const emit = defineEmits<{ moveOn: [] }>();
@@ -36,7 +37,7 @@ const pct = computed(() => Math.round((props.rule?.share ?? 0) * 100));
         </button>
       </div>
       <div v-if="rule" class="tmove">
-        <div class="tbar" role="progressbar" aria-label="Progress towards moving on" :aria-valuenow="pct" aria-valuemin="0" aria-valuemax="100"><i :style="{ width: pct + '%' }" /></div>
+        <ProgressBar :percent="pct" label="Progress towards moving on" />
         <div class="tmrow">
           <div class="grow"><div class="tprog">{{ rule.progress }}</div><div class="tiny">{{ rule.reason }}</div></div>
           <button v-if="rule.ready" class="btn" :disabled="moving" @click="emit('moveOn')">{{ lesson.number === lessons.length ? "Finish the course" : "Move on" }}</button>
