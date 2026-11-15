@@ -24,7 +24,7 @@ export async function registerKeyProof(authKey: string): Promise<void> {
   finally { key.fill(0); }
 }
 
-/** Whether this device can set a new password without the old one: the Android app, with device verification on. */
+/** Whether this device can set a new password without the old one: the Android app, with "Unlock with fingerprint, face or screen lock" on. */
 export const deviceCanSetPassword = () => !!nativeLock() && deviceStatus().on;
 
 /**

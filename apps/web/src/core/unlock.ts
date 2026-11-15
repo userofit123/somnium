@@ -10,7 +10,7 @@
 // key that BiometricPrompt opens (fingerprint, face or screen lock), the blob kept in the account's record. Its wrong
 // tries go through the same counter: a blob that doesn't open is a SealError; a cancelled prompt never counts.
 // A server account then tells its server that this sign-in holds the key (LDJ-10, with the key proof), which is what
-// lets it set a new password without the old one (core/deviceKey.ts). The desktop app has no device verification:
+// lets it set a new password without the old one (core/deviceKey.ts). The desktop app has no fingerprint, face or screen lock unlock:
 // safeStorage can't make it ask for the person (apps/desktop/src/main.ts, docs/security.md).
 import { SealError, devicePath, fromBase64url, hkdf, keyProof, openWithDevice, openWithPassword, ownRecord, randomBytes, toBase64url, unlockRecordName, unlockRecordsToForget, wrapForDevice } from "@somnium/shared";
 import { api, server } from "../api/client";
@@ -177,7 +177,7 @@ async function registerHeldKey(proof: string) {
  *  prompt. The caller zeroes it. */
 export async function openDeviceKey(): Promise<Uint8Array> {
   const n = nativeLock();
-  if (!n || !held(readDevice())) throw new Error("This device doesn't hold your journal's key. Turn on device verification first.");
+  if (!n || !held(readDevice())) throw new Error("This device doesn't hold your journal's key. Turn on \"Unlock with fingerprint, face or screen lock\" first.");
   return fromBase64url(await n.unwrap());
 }
 
@@ -193,7 +193,7 @@ export async function unlockWithDevice(): Promise<void> {
     return;
   }
   const cred = readDevice().cred;
-  if (!cred) throw new Error("Device verification isn't set up");
+  if (!cred) throw new Error("\"Unlock with fingerprint, face or screen lock\" isn't set up");
   const prfSalt = fromBase64url(cred.prfSalt);
   const output = await askPrf(fromBase64url(cred.credentialId), prfSalt);
   if (!output) throw new Error("This device didn't release the key");

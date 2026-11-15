@@ -172,7 +172,10 @@ const deviceText = computed(() => {
 // a switch, not two buttons: the box follows the real state afterwards, also when the prompt was cancelled
 async function toggleDevice(e: Event) {
   const box = e.target as HTMLInputElement;
-  if (device.value.on) deviceOff(); else await deviceOn();
+  if (device.value.on) {
+    // turning it off makes this phone forget the key, and with it the way to set a new password without the old one
+    if (await confirm("Turn off unlock with this phone?", { text: "This phone will forget your journal's key. You will need your password to open the app, and setting a new password without the old one will no longer work here.", ok: "Turn off", danger: true })) deviceOff();
+  } else await deviceOn();
   box.checked = device.value.on;
 }
 async function deviceOn() {
@@ -212,7 +215,10 @@ onMounted(async () => { if (privacy) screenshots.value = await privacy.screensho
 // the switch reads "Block screenshots": checked = not allowed
 async function toggleScreenshots(e: Event) {
   const box = e.target as HTMLInputElement;
-  if (privacy) screenshots.value = await privacy.setScreenshotsAllowed(!box.checked);
+  if (privacy) {
+    try { screenshots.value = await privacy.setScreenshotsAllowed(!box.checked); }
+    catch (err) { toastError(err); }
+  }
   box.checked = !screenshots.value;
 }
 

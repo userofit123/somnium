@@ -81,7 +81,7 @@ export function wrongTryWait(): number {
   lock.waitMs = wrongTryWaitLeft(state, Date.now());
   return lock.waitMs;
 }
-/** A wrong password, or a device verification that answered with the wrong thing. */
+/** A wrong password, or a fingerprint, face or screen lock check that answered with the wrong thing. */
 export function wrongTry() {
   takeStoredTries();
   dispatch({ type: "wrong", at: Date.now() });
