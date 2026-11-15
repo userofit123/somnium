@@ -321,7 +321,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <section>
       <div class="sh"><h2>Recall</h2><ChartInfo id="recall" /></div>
       <template v-if="progress.weekly.length">
-        <div class="grid" :class="progress.said ? 'g4' : 'g3 keep'">
+        <div class="grid" :class="progress.said ? 'g4' : 'g3'">
           <div class="card hero stat" data-testid="recall-now"><div class="lbl"><span class="bi"><Icon name="moon" :size="15" /></span>Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks${progress.reached.twoANight ? ` · ${RECALL_TARGETS.perNight} a night reached` : ""}` : "no night logged in the last 2 weeks" }}</div></div>
           <div class="card stat"><div class="lbl"><span class="bi"><Icon name="history" :size="15" /></span>When you started</div><div class="val num">{{ progress.start?.perNight == null ? "-" : one(progress.start.perNight) }}</div><div class="sub">{{ progress.start ? `first ${plural(progress.start.nights, "night")} logged, from ${dateShort(progress.start.from)}` : `shows once ${RECALL_MIN_NIGHTS} nights are logged before the last 2 weeks` }}</div></div>
           <div v-if="progress.said" class="card stat"><div class="lbl"><span class="bi"><Icon name="target" :size="15" /></span>You said</div><div class="val num">{{ one(progress.said.perNight) }}</div><div class="sub">{{ progress.said.label }}</div></div>
