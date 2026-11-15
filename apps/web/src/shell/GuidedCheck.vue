@@ -17,6 +17,7 @@ import { keyring } from "../core/keyring";
 import { lock } from "../core/lock";
 import Ev from "../components/train/guided/Ev.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
+import WhyNote from "../components/learn/WhyNote.vue";
 import Icon from "../components/Icon.vue";
 import "../styles/components/guided.css";
 
@@ -74,7 +75,7 @@ async function pick(outcome: CheckOutcome) {
 <template>
   <div class="gd" role="main">
     <div class="gtop">
-      <button class="gx" type="button" @click="emit('close')"><Icon name="close" :size="18" /> Close</button>
+      <button class="ib plain sm" type="button" aria-label="Close" @click="emit('close')"><Icon name="close" :size="18" /></button>
       <span class="grow" />
       <span v-if="!done && step < STEPS" class="gname">{{ step + 1 }} of {{ STEPS }}</span>
     </div>
@@ -121,6 +122,8 @@ async function pick(outcome: CheckOutcome) {
         <h1>What did you find?</h1>
         <p class="glead">{{ check.name }}</p>
         <Ev text="Checks on their own did not help in the large studies; the memory and imagining steps are what make one count [B37][D12]." @cite="cite = $event" />
+        <!-- the first check: why it is done this way (shown only once the journal is open, never over the lock screen) -->
+        <WhyNote id="check" />
         <p v-if="err" class="gev" role="alert">{{ err }}</p>
       </div>
       <div class="gfoot">

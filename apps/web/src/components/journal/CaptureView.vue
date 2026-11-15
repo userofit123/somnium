@@ -18,6 +18,7 @@ import { vTrap } from "../../core/focusTrap";
 import Icon from "../Icon.vue";
 import Ev from "../train/guided/Ev.vue";
 import SourceSheet from "../learn/SourceSheet.vue";
+import WhyNote from "../learn/WhyNote.vue";
 import DreamMedia from "./DreamMedia.vue";
 import "../../styles/components/guided.css";
 
@@ -225,7 +226,7 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
 <template>
   <div v-trap class="gd cap" role="dialog" aria-modal="true" aria-label="Capture your dream">
     <div class="gtop">
-      <button type="button" class="gx" @click="leave"><Icon name="close" :size="18" /> Close</button>
+      <button type="button" class="ib plain sm" aria-label="Close" @click="leave"><Icon name="close" :size="18" /></button>
       <span class="grow" />
       <span class="gname" aria-live="polite">{{ stateText || (wokeAt ? `Woke at ${clockOf(wokeAt)}` : "Morning") }}</span>
     </div>
@@ -237,6 +238,7 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
       <h1>Stay still. What were you just dreaming?</h1>
       <p class="gp">Then what happened before that?</p>
       <Ev text="Don't move or think about the day yet: moving can make the dream harder to get back. Rebuild it backwards, scene by scene. If nothing comes, ask how you were just feeling [C1]." @cite="cite = $event" />
+      <WhyNote id="capture" />
       <span class="grow" />
       <button type="button" class="btn lg block" @click="toWords">I've got something</button>
       <button type="button" class="glink" @click="toWords">Skip</button>

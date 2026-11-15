@@ -13,6 +13,7 @@ import { lock } from "../core/lock";
 import { goBack } from "../core/leave";
 import Icon from "../components/Icon.vue";
 import GuidedCheck from "./GuidedCheck.vue";
+import WhyNote from "../components/learn/WhyNote.vue";
 
 const route = useRoute(), router = useRouter();
 const catalog = await checkCatalog();
@@ -52,6 +53,8 @@ const addNote = (id = done.value!.id) => router.replace(`/check/note/${id}`);
           <button v-for="c in catalog" :key="c.id" type="button" class="fchip" :class="{ on: c.id === kind }" role="radio" :aria-checked="c.id === kind" @click="kind = c.id">{{ c.name }}</button>
         </div>
         <p class="m0">{{ check.howTo }}</p>
+        <!-- the first check: why it is done this way; WhyNote hides itself while the app is locked -->
+        <WhyNote id="check" />
         <div class="stack">
           <button class="btn lg block" :disabled="busy" @click="pick('awake')">Awake</button>
           <button class="btn lg block tonal" :disabled="busy" @click="pick('unsure')">Not sure</button>

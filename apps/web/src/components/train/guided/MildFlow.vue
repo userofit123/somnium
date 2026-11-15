@@ -18,6 +18,7 @@ import { nightNowDate, tonightDate } from "../../../api/train";
 import { toastError } from "../../../core/toast";
 import { useWakeLock } from "./useGuided";
 import Ev from "./Ev.vue";
+import WhyNote from "../../learn/WhyNote.vue";
 
 const emit = defineEmits<{ cite: [ids: string[]]; done: [] }>();
 /** Aspy 2017's sentence, as RESEARCH.md quotes it [D11]. */
@@ -83,6 +84,7 @@ async function next() {
         <p class="glead">Sit up with a light on and try to remember a dream from just before waking, or any recent dream.</p>
         <div v-if="reread" class="gbox"><div class="glabel">Re-read before bed</div><div class="gsign">{{ reread.title }}</div><div class="gev">{{ reread.why }}</div><button type="button" class="btn o" @click="router.push(`/journal/dream/${reread.id}`)">Open dream</button><Ev text="Recalling a dream is the first step of MILD, and rehearsing it helps you spot what would show it is a dream [D1]." @cite="emit('cite', $event)" /></div>
         <p class="gp">Go to the bathroom if you need to. Then turn the light off and lie down comfortably.</p>
+        <WhyNote id="mild" />
       </template>
       <template v-else-if="step === 1">
         <h1>Your intention</h1>

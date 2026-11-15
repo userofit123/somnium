@@ -20,6 +20,7 @@ import { toastError } from "../../../core/toast";
 import { useWakeLock } from "./useGuided";
 import type { GuidedMode } from "./GuidedView.vue";
 import Ev from "./Ev.vue";
+import WhyNote from "../../learn/WhyNote.vue";
 
 const emit = defineEmits<{ cite: [ids: string[]]; go: [mode: GuidedMode]; running: [on: boolean] }>();
 const settings = useSettings();
@@ -95,6 +96,7 @@ const label = (m: GuidedMode) => ({ mild: "Start MILD", ssild: "Start SSILD", wi
         <textarea id="b-intention" v-model="text" class="gintent" rows="3" maxlength="200" />
         <Ev v-if="!withSign" text="Deciding before sleep that you will remember your dreams is the first step of building recall [C1][C2]. Changing it saves it, sealed, as tonight's intention." @cite="emit('cite', $event)" />
         <Ev v-else text="Setting a clear intention to recognise the dream as you fall asleep is the core of MILD and Tholey's intention technique [D1][D6]. Changing it saves it, sealed, as tonight's intention." @cite="emit('cite', $event)" />
+        <WhyNote id="bedtime" />
       </template>
       <template v-else-if="at === 'sign'">
         <h1>Your dream sign</h1>

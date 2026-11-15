@@ -15,7 +15,7 @@ export const safetyStoreKey = (place: string, userId: string) => `somniumSafety:
 
 // What the editor remembers having shown on this device (core/seenOnDevice.ts): ids and kinds only, kept per app
 // account and person as `<name>:<account>:<user>`, so signing out or removing the account can find them by the user.
-export const SEEN_ON_DEVICE = ["somniumHardNoteSeen", "somniumSignsShown"] as const;
+export const SEEN_ON_DEVICE = ["somniumHardNoteSeen", "somniumSignsShown", "somniumWhySeen"] as const;
 
 const count = (k: string) => Object.keys(readJson<Record<string, unknown>>(k, {}) ?? {}).length;
 /** How many dreams, check notes and day notes this person has sealed here that the journal hasn't got. */

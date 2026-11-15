@@ -24,6 +24,7 @@ import { toast, toastError } from "../../../core/toast";
 import TimePicker from "../../TimePicker.vue";
 import NumStep from "../../NumStep.vue";
 import Ev from "./Ev.vue";
+import WhyNote from "../../learn/WhyNote.vue";
 import { startSafetyCheck } from "../../setup/useSetup";
 
 const emit = defineEmits<{ cite: [ids: string[]]; done: [] }>();
@@ -118,6 +119,7 @@ async function clear() {
   <div class="gbody">
     <h1>Wake back to bed (WBTB)</h1>
     <p class="glead">Sleep first, get up for a while, then go back to bed with MILD or SSILD.</p>
+    <WhyNote id="wbtb" />
 
     <div v-if="safety.sleepFirst" class="gbox gwarn" data-safety="sleep-first">
       <div class="t">Sleep first</div>

@@ -182,7 +182,7 @@ function bundled(): Record<string, string> {
   // guarded by a typeof check, or the transform does not fire. Under plain Node the call throws
   // (import.meta.glob is undefined there) and the bundle stays empty; use readAll() instead.
   try {
-    return import.meta.glob(["../content/**/*.md", "!../content/course/**", "!../content/progress/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+    return import.meta.glob(["../content/**/*.md", "!../content/course/**", "!../content/progress/**", "!../content/why/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>;
   } catch {
     return {};
   }
@@ -214,8 +214,9 @@ export async function readAll(dir?: string): Promise<Knowledge> {
   async function walk(d: string) {
     for (const entry of await fs.readdir(d, { withFileTypes: true })) {
       const full = path.join(d, entry.name);
-      // the course's lessons are Train's and the chart notes are Progress's, not Learn articles (course.ts, chartHelp.ts)
-      if (entry.isDirectory()) { if (!(d === root && (entry.name === "course" || entry.name === "progress"))) await walk(full); }
+      // the course's lessons are Train's, the chart notes Progress's and the first-time notes the screens', not Learn
+      // articles (course.ts, chartHelp.ts, whyNotes.ts)
+      if (entry.isDirectory()) { if (!(d === root && (entry.name === "course" || entry.name === "progress" || entry.name === "why"))) await walk(full); }
       else if (entry.name.endsWith(".md")) files[path.relative(root, full).split(path.sep).join("/")] = await fs.readFile(full, "utf8");
     }
   }

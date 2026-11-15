@@ -40,7 +40,7 @@ const running = ref(false);
 <template>
   <div v-if="shown" v-trap class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
     <div class="gtop">
-      <button type="button" class="gx" @click="close"><Icon name="close" :size="18" /> Close</button>
+      <button type="button" class="ib plain sm" aria-label="Close" @click="close"><Icon name="close" :size="18" /></button>
       <span class="grow" />
       <span class="gname">{{ name }}</span>
     </div>

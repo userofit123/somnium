@@ -8,7 +8,8 @@
 }
 .gd a { color: var(--gacc); }
 .gd .gtop { display: flex; align-items: center; gap: var(--lpy); min-height: 44px; }
-.gd .gtop .gx { background: none; border: 0; color: var(--sdimtx2); padding: var(--tdy); margin-inline-start: calc(-1 * var(--tdy)); cursor: pointer; display: inline-flex; align-items: center; gap: var(--tdy); font: inherit; font-size: var(--fs-sm); }
+.gd .gtop .ib.plain { color: var(--sdimtx2); margin-inline-start: calc(-1 * var(--tdy)); }
+.gd .gtop .ib.plain:hover, .gd .gtop .ib.plain:focus-visible { background: color-mix(in srgb, var(--sdimtx2) 20%, transparent); color: var(--sdimtx); }
 .gd .gtop .gname { font-size: var(--fs-sm); color: var(--sdimtx2); }
 .gd .gbody { flex: 1; width: min(560px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: var(--lpy); padding-top: var(--lpy); }
 .gd h1 { font-size: calc(var(--fs-h1) * .87); font-weight: 500; color: var(--sdimtx); margin: 0; line-height: 1.25; }

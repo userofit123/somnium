@@ -10,6 +10,7 @@ import { readStr, writeStr } from "../../../core/prefs";
 import { useClock, useNightTones, useWakeLock } from "./useGuided";
 import NumStep from "../../NumStep.vue";
 import Ev from "./Ev.vue";
+import WhyNote from "../../learn/WhyNote.vue";
 
 const emit = defineEmits<{ cite: [ids: string[]]; running: [on: boolean]; done: [] }>();
 const fast = ref<number>(SSILD.fast.default), slow = ref<number>(SSILD.slow.default);
@@ -54,6 +55,7 @@ async function finish(to: "end" | "stopped") {
     <div class="gbody">
       <h1>Senses cycle (SSILD)</h1>
       <p class="glead">Lie back in bed, eyes closed. Move your attention through sight, sound and body: first a few quick rounds, then slow ones.</p>
+      <WhyNote v-if="state === 'setup'" id="ssild" />
       <p v-if="state === 'stopped'" class="gp">Stopped. Start again when you like, or just sleep.</p>
       <div class="gbox">
         <div class="grow2"><div><div class="t">Fast cycles</div><div class="glabel">a few seconds per step</div></div>

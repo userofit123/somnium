@@ -11,6 +11,7 @@ import { saveIntention } from "../../api/home";
 import { useChange } from "../../api/queries";
 import { goBack, backLabel } from "../../core/leave";
 import Icon from "../Icon.vue";
+import WhyNote from "../learn/WhyNote.vue";
 import { useHabits } from "./useHabits";
 import "../../styles/components/tonight.css";
 
@@ -45,6 +46,7 @@ const doCheck = () => { const s = sign.value; if (s?.check) void router.push({ n
 <template>
   <div class="tview tplan">
     <div class="ph"><div><button type="button" class="back" @click="goBack(router, '/train/tonight')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>Evening review</h1></div><div class="acts"><button class="btn s keep" :disabled="done.busy.value" @click="done.run()">Done</button></div></div>
+    <WhyNote id="review" class="rv-why" />
     <div class="card">
       <div v-if="!editing" class="tprow">
         <div class="grow"><div class="t">Tonight's intention</div><div class="tiny tpx">{{ night?.intention || "None set" }}</div></div>
@@ -75,3 +77,8 @@ const doCheck = () => { const s = sign.value; if (s?.check) void router.push({ n
     </div>
   </div>
 </template>
+
+<style scoped>
+/* the first-time note sits between the header and the card: the gap between blocks */
+.rv-why { margin-bottom: var(--spg); }
+</style>
