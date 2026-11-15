@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Journal (PLAN.md §6.2): nights newest first or a month calendar, search on the device, "no recall" in one tap,
-// and writing a dream. No recall has one button here, on the Last night strip (LDJ-129): adding otherwise lives in the
+// and writing a dream. No recall is on the Last night strip (LDJ-129) and, for older unlogged nights, the calendar day: adding otherwise lives in the
 // + sheet (§6.0), which offers the same No recall last night. On a computer the dream opens in a panel beside the list; on the phone it is a step of its
 // own (read, or write full screen). Everything shown and searched is the journal as opened on this device: a
 // search never goes to the server.
@@ -167,7 +167,11 @@ const menu = computed(() => [
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
             <div class="sh"><h2>{{ fmt.date(sel, { weekday: "long", day: "numeric", month: "long" }) }}</h2>
-              <button v-if="sel <= today" class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button>
+              <span class="row">
+                <!-- older nights only: last night has the strip and the + sheet; a logged night (dreams or no recall) has nothing to mark -->
+                <button v-if="sel < today && !loggedOn(sel)" class="lnk" @click="noRecall(sel)">No recall</button>
+                <button v-if="sel <= today" class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button>
+              </span>
             </div>
             <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
             <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @night="(n) => (nightOpen = n)" />
