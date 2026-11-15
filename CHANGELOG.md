@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## [0.2.1] - 2026-11-15
+
 - **A new app icon.** A pearl quill with a gold nib and a soft ink flourish on Somnium's plum violet, on the web app,
   the installed web app, Android and the desktop apps.
 - **Voice notes to text.** An optional feature turns a voice note into text right on your device, in English. The
