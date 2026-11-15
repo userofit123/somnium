@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **A new app icon.** A pearl quill with a gold nib and a soft ink flourish on Somnium's plum violet, on the web app,
+  the installed web app, Android and the desktop apps.
+- **Voice notes to text.** An optional feature turns a voice note into text right on your device, in English. The
+  speech model loads once from your own server and stays on the device; your recording and its text never leave it.
+- **Search with Ctrl+K.** The command palette is now on by default on a computer, with a Search button in the sidebar.
+
+
 ## [0.2.0] - 2026-11-15
 
 A rework of the whole app: every screen has one clear place, one look and one main action, and new help for each

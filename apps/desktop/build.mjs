@@ -7,3 +7,4 @@ await build({ ...common, entryPoints: ["src/preload.ts"], outfile: "dist/preload
 import fs from "node:fs";
 fs.copyFileSync("src/accounts.html", "dist/accounts.html");
 fs.copyFileSync("assets/icon.png", "dist/icon.png");
+fs.copyFileSync("assets/tray.png", "dist/tray.png");

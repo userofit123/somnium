@@ -567,8 +567,9 @@ function hideToTray(w: BrowserWindow) {
   }
 }
 function trayIcon() {
-  const img = nativeImage.createFromPath(path.join(__dirname, "icon.png"));
-  // the panels draw tray icons small: Windows 16 px, Linux panels 22 to 24 px
+  // tray.png is the icon with a plainer ink stroke (scripts/icons.mjs), since the panels draw tray icons small:
+  // Windows 16 px, Linux panels 22 to 24 px
+  const img = nativeImage.createFromPath(path.join(__dirname, "tray.png"));
   return img.isEmpty() ? img : img.resize({ width: process.platform === "win32" ? 16 : 22, quality: "best" });
 }
 function updateTray() {

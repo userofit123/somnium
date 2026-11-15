@@ -87,6 +87,25 @@ CI (`.github/workflows/ci.yml`) runs the same on every push and pull request, an
 unsigned). The engine tests run two files at a time (`maxForks: 2` in `packages/engine/vitest.config.ts`) because each
 holds several in-memory PostgreSQL copies; do not raise it on a small machine.
 
+## App icon
+
+Two masters: `apps/web/public/icon.svg` (the pearl quill with its gold nib and ink on the plum squircle) and
+`scripts/icon-glyph.svg` (the quill in one colour). Every other icon is made from them; after changing a master run, on
+the host (not through `scripts/pnpm.sh`; it needs the Playwright Chromium, `npx playwright install chromium` once):
+
+```sh
+node scripts/icons.mjs [preview-dir]
+```
+
+It writes the web icons (`icon-192/512/1024.png`, the maskable ones with the quill inside the inner 80%, and
+`favicon.svg`, whose ink is one plain stroke because the loop turns to noise below 64 px), the desktop `assets/icon.png`
+(electron-builder makes the Linux sizes and the Windows `.ico` from it) and `assets/tray.png`, and the Android launcher
+icons for every density (adaptive layers: the plum full-bleed behind, the quill inside the 66dp safe circle in front)
+and splash images. With a directory it also writes previews: the icon at 512, 48, 24 and 16 px and the maskable and
+adaptive icons under circle and squircle masks. Chromium is used because it renders the master's lighting and shadow
+filters faithfully. The glyph is copied by hand into `apps/web/src/shell/Logo.vue`, the splash in
+`apps/web/index.html` and the Android notification icon `res/drawable/ic_stat_somnium.xml` (also the themed icon).
+
 ## Releasing (0.1.0 and later)
 
 Nothing is published before 0.1.0 is complete. Until then `CHANGELOG.md` has only an `## Unreleased` section, and
