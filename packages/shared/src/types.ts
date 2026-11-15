@@ -28,6 +28,9 @@ export const WAKE_METHODS = ["alarm", "natural", "wbtb"] as const;
 /** How a lucid dream ended (LDJ-78): woke up, lost lucidity but kept dreaming, faded out, or still lucid at waking. */
 export const LUCID_ENDS = ["woke", "lost", "faded", "still_going"] as const;
 export type LucidEnd = (typeof LUCID_ENDS)[number];
+/** Whether a lucid dream carried out the night's plan for once lucid (LDJ-159). */
+export const PLAN_DONE = ["yes", "partly", "no"] as const;
+export type PlanDone = (typeof PLAN_DONE)[number];
 export type WakeMethod = (typeof WAKE_METHODS)[number];
 export const ELEMENT_KINDS = ["character", "place", "object", "action", "emotion", "theme", "sensation", "dream_sign"] as const;
 export type ElementKind = (typeof ELEMENT_KINDS)[number];
@@ -72,6 +75,8 @@ export interface Night extends Owned {
   techniquesPlanned: string[];
   techniquesDone: string[];
   intention: string | null; // sealed
+  /** what to do once lucid (LDJ-159); absent on rows from before migration 025 */
+  lucidPlan?: string | null; // sealed
   /** "No recall" said in so many words: a night without dreams counts as logged only with this or its details. */
   noRecall: boolean;
 }
@@ -103,6 +108,8 @@ export interface Dream extends Owned {
   lucidTrigger: string | null; // sealed
   /** how the lucid part ended (LUCID_ENDS); absent on rows from before migration 020 */
   lucidEnd?: LucidEnd | null;
+  /** whether the night's plan for once lucid was carried out (PLAN_DONE, LDJ-159); absent before migration 025 */
+  planDone?: PlanDone | null;
   wakeMethod: WakeMethod | null;
   favourite: boolean;
   /** saved from the morning capture as key words only, to write out later (LDJ-80); absent before migration 021 */

@@ -6,7 +6,7 @@
 // (InThisDream, LDJ-110), and a milestone's moment when the dream reaches one (Milestone, LDJ-117): in the editor, so
 // the lock takes them away with it, and once only.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, dueMilestones, milestonesSeen, MILESTONE_HOW, nightRecipe, pairedCheck, signsInDream, IN_DREAM_MAX, type Element, type MilestoneId, type SignCategory, type Suggestion } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, PLAN_DONE, PLAN_DONE_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, dueMilestones, milestonesSeen, MILESTONE_HOW, nightRecipe, pairedCheck, signsInDream, IN_DREAM_MAX, type Element, type MilestoneId, type SignCategory, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, draftBusy, endDraft, flagElement, linkElement, madeInDraft, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
@@ -37,8 +37,8 @@ const backText = props.full ? backLabel(useRouter(), "Journal") : "";
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd", "unfinished"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null, unfinished: false });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd", "planDone", "unfinished"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null, planDone: null, unfinished: false });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
 const made = ref<(Pick<Element, "id" | "name" | "kind" | "aliases"> & Partial<Pick<Element, "isDreamSign" | "signCategory">>)[]>([]);
@@ -88,7 +88,7 @@ watch(() => f.lucidityLevel, (v) => { if (v > 0 && !f.lucid) f.lucid = true; });
 // and a dream set back to not lucid keeps none of its lucid answers (LDJ-184): they are hidden then, so left alone
 // they would stay saved unseen and still go out in the export
 watch(() => f.lucid, (v) => {
-  if (!v) { if (f.lucidityLevel) f.lucidityLevel = 0; f.becameLucidHow = null; f.lucidTrigger = null; f.durationEst = null; f.lucidEnd = null; }
+  if (!v) { if (f.lucidityLevel) f.lucidityLevel = 0; f.becameLucidHow = null; f.lucidTrigger = null; f.durationEst = null; f.lucidEnd = null; f.planDone = null; }
   else if (!f.lucidityLevel) f.lucidityLevel = 1;
 });
 
@@ -130,6 +130,8 @@ const hardShown = computed(() => hardOffered.value.filter(hardOn));
 // a lucid dream's own questions (LDJ-78): one tap picks, a second tap on the same chip clears
 const pickOne = (k: string, v: string | number) => { f[k] = f[k] === v ? null : v; };
 const lucidLen = computed(() => lucidLength(f.durationEst));
+// LDJ-159: the night's plan for once lucid (sealed, opened on this device), so a lucid dream can say whether it was done
+const lucidPlan = computed(() => j.nights.data.value?.find((n) => n.id === where.nightId)?.lucidPlan?.trim() || "");
 const set = (k: string, v: number) => {
   f[k] = f[k] === v ? (k === "lucidityLevel" ? 0 : null) : v;
   if (k === "lucidityLevel" && !f[k]) f.lucid = false; // level 0 is "Not lucid"
@@ -400,6 +402,13 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
             <button v-for="e in LUCID_ENDS" :key="e" type="button" class="fchip" :class="{ on: f.lucidEnd === e }" role="radio" :aria-checked="f.lucidEnd === e" @click="pickOne('lucidEnd', e)">{{ LUCID_END_LABEL[e] }}</button>
           </div>
         </div>
+        <div v-if="lucidPlan || f.planDone" class="fld">
+          <label>Did you do your plan?</label>
+          <div v-if="lucidPlan" class="tiny jan0">{{ lucidPlan }}</div>
+          <div class="chips jopts" role="radiogroup" aria-label="Did you do your plan?">
+            <button v-for="p in PLAN_DONE" :key="p" type="button" class="fchip" :class="{ on: f.planDone === p }" role="radio" :aria-checked="f.planDone === p" @click="pickOne('planDone', p)">{{ PLAN_DONE_LABEL[p] }}</button>
+          </div>
+        </div>
       </div>
       <div class="fld">
         <label>Vividness</label>
@@ -459,7 +468,6 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 <style scoped>
 .jed { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
 .jfull { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--st) + var(--hg)) calc(var(--sr) + var(--hg)) calc(var(--sb) + var(--spg)) calc(var(--sl) + var(--hg)); }
-.jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
 .jfull .ph { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); margin-bottom: 0; z-index: 2; align-items: center; }
 .jst { color: var(--tx2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jst.err { color: var(--neg); }
@@ -473,17 +481,11 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jupset { color: var(--tx2); margin-top: calc(-1 * var(--tdy)); }
 /* suggestions: quiet, so they read as an offer and not as part of the dream */
 .jfound { display: flex; flex-wrap: wrap; gap: var(--tdy); margin-top: calc(-1 * var(--tdy)); }
-.jsg { display: inline-flex; align-items: center; gap: var(--tdy); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
-.jsgo { display: inline-flex; align-items: center; gap: var(--tdy); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
-.jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
-.jkind { color: var(--tx2); font-size: var(--fs-xs); margin-left: 2px; }
-.jsg .jx { color: var(--tx2); padding: 2px; }
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
 .jan { margin-top: var(--tdy); color: var(--tx2); }
 .jels { margin-bottom: calc(var(--lpy) * .8); }
 .jels .fchip { gap: var(--tdy); }
-.jx { border: 0; background: none; color: inherit; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
 .jta { position: relative; }
 .jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: var(--tdy) var(--cpx); }
 .jsug .li { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: var(--tx); text-align: start; font: inherit; }

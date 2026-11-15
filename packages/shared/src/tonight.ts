@@ -103,3 +103,22 @@ export function suggestTonight(i: TonightInput): TonightSuggestion {
     : null;
   return { ...mild, intention: MILD_INTENTION, noWbtb, alt };
 }
+
+// ---- what to do once lucid (LDJ-159)
+// Novices often wake the moment they become lucid, so every plan starts by staying calm and steadying the dream
+// (looking at and rubbing the hands, RESEARCH.md Part D §4.1-4.2) [D1]. Then one small step, as LaBerge advises
+// starting control small and found expectation shapes what happens [D1]; Tholey's pre-sleep intention is one of the
+// ways to steer a dream, and asking a figure "Who are you?" changed it [D6]. Practising a skill in a lucid dream helped
+// only those who went in with the task set beforehand [B64][B65][B66]; a question can be incubated the same way [D27].
+// The ideas follow the course: steadying until the stabilise lesson is done, then the small steps.
+export const LUCID_PLAN_STEADY = "Stay calm, rub my hands and look at them";
+const PLAN_STEPS = ["Ask a dream character a question", "Fly a short way", "Practise a skill I am learning", "Ask the dream about a problem"];
+/** Why plan, with its sources (Markdown inline). */
+export const LUCID_PLAN_WHY = "Lucid for the first time, people often wake from excitement or forget what they wanted. Decide now: steady the dream first, then one small step [D1][D6]. Practising a skill in a dream worked for those who set the task before sleep [B64][B65][B66], and a question can be taken into a dream the same way [D27].";
+
+/** Suggested plans for once lucid, from the current course lesson (null once every lesson is done). */
+export function lucidPlanIdeas(lesson: string | null): string[] {
+  const at = lesson === null ? COURSE_LESSONS.length : Math.max(0, (COURSE_LESSONS as readonly string[]).indexOf(lesson));
+  const later = at > (COURSE_LESSONS as readonly string[]).indexOf("stabilise");
+  return later ? PLAN_STEPS.map((s) => `Stay calm, then ${s[0]!.toLowerCase()}${s.slice(1)}`) : [LUCID_PLAN_STEADY, `${LUCID_PLAN_STEADY}, then look around slowly`];
+}

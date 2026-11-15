@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eveningWeekday, freeNightsOf, reasonParts, suggestTonight, wbtbBlock, wbtbNightsOf, type TonightInput } from "./tonight";
+import { eveningWeekday, freeNightsOf, lucidPlanIdeas, LUCID_PLAN_STEADY, LUCID_PLAN_WHY, reasonParts, suggestTonight, wbtbBlock, wbtbNightsOf, type TonightInput } from "./tonight";
 
 // 2026-11-14 is a Saturday morning: the night began on Friday evening (5)
 const base: TonightInput = { lesson: "mild-wbtb", date: "2026-11-14", freeNights: [5, 6], sleepFirst: false, safetyChecked: true, wbtbNights: [] };
@@ -68,5 +68,19 @@ describe("wbtbNightsOf and reasonParts", () => {
   });
   it("splits a reason into plain text and its sources", () => {
     expect(reasonParts("Best-supported [B37][D11]. Costs sleep [B69][D11].")).toEqual({ text: "Best-supported. Costs sleep.", sources: ["B37", "D11", "B69"] });
+  });
+});
+
+describe("lucidPlanIdeas (LDJ-159)", () => {
+  it("steadies the dream first until the stabilise lesson is done, then offers small steps", () => {
+    expect(lucidPlanIdeas("recall")[0]).toBe(LUCID_PLAN_STEADY);
+    expect(lucidPlanIdeas("stabilise")[0]).toBe(LUCID_PLAN_STEADY);
+    const later = lucidPlanIdeas("dream-control");
+    expect(later).toContain("Stay calm, then ask a dream character a question");
+    expect(later.every((p) => p.startsWith("Stay calm"))).toBe(true);
+    expect(lucidPlanIdeas(null)).toEqual(later);
+  });
+  it("cites its sources", () => {
+    expect(reasonParts(LUCID_PLAN_WHY).sources).toEqual(["D1", "D6", "B64", "B65", "B66", "D27"]);
   });
 });

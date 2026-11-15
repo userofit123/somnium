@@ -84,3 +84,25 @@ export function wakeCluster(rows: readonly WakeRow[]): { minutes: number; dreams
   const minutes = Math.round(mid / 30) * 30;
   return { minutes, dreams: m.length, label: `Your dreams cluster about ${span(minutes)} after bedtime` };
 }
+
+export interface TimelineMark { at: number; clock: string }
+/**
+ * LDJ-221: a night's timed dreams placed between bedtime and wake time, as fractions 0-1 of the night, for the small
+ * timeline in Night details. Null without a bedtime or a dream woken from in this night. Without a wake time (or a
+ * dream after it, within the hour's grace) the line ends at the last dream.
+ */
+export function nightTimeline(bedtime: string | null | undefined, wakeTime: string | null | undefined, wokeAts: readonly (string | null | undefined)[]):
+  { from: string; to: string; marks: TimelineMark[] } | null {
+  const bed = ms(bedtime);
+  if (bed == null) return null;
+  const woke = wokeAts.filter((w) => minutesAfterBedtime(w, bedtime) != null).map((w) => ms(w)!).sort((a, b) => a - b);
+  if (!woke.length) return null;
+  const wake = ms(wakeTime), last = woke[woke.length - 1]!;
+  const end = wake != null && wake > bed && wake - bed <= LONGEST ? Math.max(wake, last) : last;
+  const len = end - bed;
+  const iso = (t: number) => new Date(t).toISOString();
+  return {
+    from: clockOf(bedtime), to: clockOf(iso(end)),
+    marks: woke.map((t) => ({ at: len > 0 ? (t - bed) / len : 1, clock: clockOf(iso(t)) })),
+  };
+}

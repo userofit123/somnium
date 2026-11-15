@@ -71,6 +71,18 @@ export function wbtbOptions(bed: Date, cycleMin = CYCLE_MIN, extra: readonly num
   return n.map((c) => wbtbOption(bed, c, cycleMin));
 }
 
+// the planner's latest alarm (10 h after bedtime), as WbtbPlanner keeps a planned one
+const WBTB_OWN_MAX = 600;
+/**
+ * LDJ-220: an alarm at the time after bedtime your own timed dreams cluster (wakings.ts wakeCluster), so WBTB wakes
+ * you from a dream as Erlacher and Stumbrys did from REM [B39][D13]. Left out when it would be too early to help (4.5
+ * h or less [D14]) or later than the planner goes (10 h).
+ */
+export function wbtbOwnOption(bed: Date, cluster: { minutes: number; dreams: number } | null | undefined, cycleMin = CYCLE_MIN): (WbtbOption & { dreams: number }) | null {
+  if (!cluster || cluster.minutes <= WBTB_TOO_EARLY_MIN || cluster.minutes > WBTB_OWN_MAX) return null;
+  return { ...wbtbAfter(bed, cluster.minutes, cycleMin), dreams: cluster.dreams };
+}
+
 /** A saved cycle length held to the allowed range (60-120 min), 90 when missing. */
 export const cycleOf = (v: unknown): number => { const n = Math.round(Number(v)); return n >= CYCLE_RANGE.min && n <= CYCLE_RANGE.max ? n : CYCLE_MIN; };
 

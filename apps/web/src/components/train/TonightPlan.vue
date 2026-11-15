@@ -11,15 +11,18 @@
 // (packages/shared/src/tonight.ts, with its reason and sources): "Use this plan" puts it on the night in one tap, with
 // the WBTB alarm as the planner would set it, and the intention when none is set; "Change" opens the picker. On Home
 // (`compact`) only its name, under the button to Train > Tonight.
+// LDJ-159: on Train > Tonight an optional "When I'm lucid I will..." line under the intention, sealed on the night
+// beside it (api/home.ts), with ideas from the current lesson (packages/shared/src/tonight.ts lucidPlanIdeas). The
+// dream editor asks afterwards whether it was done; the MILD flow repeats it after its sentence.
 import { computed, defineAsyncComponent, ref, watch } from "vue";
-import { bedtimeAt, currentLesson, freeNightsOf, suggestTonight, wbtbNightsOf, type TonightIdea } from "@somnium/shared";
+import { bedtimeAt, currentLesson, freeNightsOf, lucidPlanIdeas, LUCID_PLAN_WHY, suggestTonight, wbtbNightsOf, type TonightIdea } from "@somnium/shared";
 import { parseInline } from "@somnium/knowledge/markdown";
 import { applyTonightPlan, planTonight, setTonightBedtime, useCourse } from "../../api/train";
 import { useJournal } from "../../api/journal";
 import { setWbtbAlarm } from "../../native/reminders";
 import { askAlarmPermission, wbtbForMild } from "./wbtbDefaults";
 import LearnInline from "../learn/LearnInline.vue";
-import { saveIntention } from "../../api/home";
+import { saveIntention, saveLucidPlan } from "../../api/home";
 import type { NightRow } from "../../api/journal";
 import { useChange, useSettings } from "../../api/queries";
 import { useFmt } from "../../core/format";
@@ -47,6 +50,13 @@ watch(() => props.night?.intention, (v) => { if (!editing.value) text.value = v 
 const save = useChange(async () => { await saveIntention(props.date, text.value); editing.value = false; }, ["journal", "home"]);
 const cancel = () => { text.value = props.night?.intention ?? ""; editing.value = false; };
 
+// ---- what to do once lucid (LDJ-159): sealed on the night like the intention
+const plan = ref(props.night?.lucidPlan ?? "");
+const planning = ref(false);
+watch(() => props.night?.lucidPlan, (v) => { if (!planning.value) plan.value = v ?? ""; });
+const savePlan = useChange(async () => { await saveLucidPlan(props.date, plan.value); planning.value = false; }, ["journal", "home"]);
+const cancelPlan = () => { plan.value = props.night?.lucidPlan ?? ""; planning.value = false; };
+
 // ---- bedtime and the WBTB alarm
 const hm = (iso: string) => { const d = new Date(iso); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
 const usual = computed(() => settings.value.sleep.bedtime);
@@ -73,6 +83,7 @@ const wbtb = computed(() => wbtbForMild(new Date(bedIso.value), settings.value.s
 const wbtbAt = computed(() => wbtb.value.at);
 const ideaTitle = (i: TonightIdea) => (i.wbtb ? `${i.title} · alarm ${fmt.value.time(wbtbAt.value.toISOString())}` : i.title);
 const cite = ref<string[] | null>(null);
+const planIdeas = computed(() => (course.data.value ? lucidPlanIdeas(currentLesson(course.data.value)) : []));
 const use = useChange(async (i: TonightIdea) => {
   const w = i.wbtb ? wbtb.value : null, at = w?.at ?? null;
   // asked first, while the tap still counts as the person's own (as the planner does before setting its alarm)
@@ -123,6 +134,22 @@ const use = useChange(async (i: TonightIdea) => {
           <label class="t" :for="compact ? 'h-intention' : 't-intention'">Intention</label>
           <input :id="compact ? 'h-intention' : 't-intention'" v-model="text" type="text" maxlength="200" placeholder="Next time I dream, I will notice I am dreaming" autocomplete="off" @keydown.esc="cancel" />
           <div class="tprow"><span class="grow" /><button type="button" class="qb" @click="cancel">Cancel</button><button type="submit" class="btn o s" :disabled="save.busy.value">Save</button></div>
+        </form>
+      </div>
+
+      <div v-if="!compact" class="tpsec">
+        <div v-if="!planning" class="tprow">
+          <div class="grow"><div class="t">When I'm lucid I will</div><div class="tiny tpx">{{ night?.lucidPlan || "No plan yet" }}</div></div>
+          <button type="button" class="qb acc" @click="planning = true"><Icon name="edit" :size="16" />{{ night?.lucidPlan ? "Change" : "Plan it" }}</button>
+        </div>
+        <form v-else class="tpedit" @submit.prevent="savePlan.run()">
+          <label class="t" for="t-lucid-plan">When I'm lucid I will</label>
+          <input id="t-lucid-plan" v-model="plan" type="text" maxlength="200" placeholder="Stay calm, rub my hands and look at them" autocomplete="off" @keydown.esc="cancelPlan" />
+          <div v-if="planIdeas.length" class="chips" role="group" aria-label="Ideas">
+            <button v-for="p in planIdeas" :key="p" type="button" class="fchip" :class="{ on: plan === p }" :aria-pressed="plan === p" @click="plan = p">{{ p }}</button>
+          </div>
+          <p class="tiny tpwhy"><LearnInline :nodes="parseInline(LUCID_PLAN_WHY)" @cite="cite = $event" /></p>
+          <div class="tprow"><span class="grow" /><button type="button" class="qb" @click="cancelPlan">Cancel</button><button type="submit" class="btn o s" :disabled="savePlan.busy.value">Save</button></div>
         </form>
       </div>
 

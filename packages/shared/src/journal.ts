@@ -1,7 +1,7 @@
 // The Journal's pure logic (PLAN.md §6.2): nights grouped with their dreams, searching on the device, the month
 // calendar, and how a draft kept on the device meets the row it belongs to. Nothing here reads the clock or storage.
 
-import type { BecameLucidHow, ElementKind, LucidEnd } from "./types";
+import type { BecameLucidHow, ElementKind, LucidEnd, PlanDone } from "./types";
 import { isPlanOnly, minutesToSleep, type NightLog } from "./rates";
 
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
@@ -281,6 +281,8 @@ export function lucidLength(minutes: number | null | undefined): LucidLength | n
 export const LUCID_END_LABEL: Record<LucidEnd, string> = {
   woke: "Woke up", lost: "Lost lucidity", faded: "Faded", still_going: "Still going when I woke",
 };
+/** "Did you do your plan?" (LDJ-159), asked on a lucid dream of a night that had a plan for once lucid. */
+export const PLAN_DONE_LABEL: Record<PlanDone, string> = { yes: "Yes", partly: "Partly", no: "No" };
 
 /** The techniques a night can name, by their Learn article ids. */
 export const TECHNIQUES: readonly { id: string; label: string }[] = [

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wbtbTiming, wildPhase, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_EARLY_MIN, WBTB_TOO_EARLY_MIN, ssildCues, wildCues, wildPhaseStarts, backToBedCue, soundCueCues, nightCuesAhead, GUIDED_TONE_GAIN, NIGHT_MAX_MIN, WILD_MINUTES } from "./guided";
+import { wbtbOwnOption, bedtimeAt, clockText, defaultCycles, durationText, hmToMin, minToHm, ssildAt, ssildSchedule, wbtbOption, wbtbOptions, wbtbTiming, wildPhase, WBTB_AWAKE, WBTB_AWAKE_DEFAULT, WBTB_EARLY_MIN, WBTB_TOO_EARLY_MIN, ssildCues, wildCues, wildPhaseStarts, backToBedCue, soundCueCues, nightCuesAhead, GUIDED_TONE_GAIN, NIGHT_MAX_MIN, WILD_MINUTES } from "./guided";
 
 describe("WBTB times", () => {
   it("files an evening bedtime on the day before the morning, an after-midnight one on the morning", () => {
@@ -190,5 +190,19 @@ describe("night tones (LDJ-115)", () => {
     const now = 10_000_000, c = (at: number) => ({ at, notes: [196], wave: "sine" as const, gain: 0.04 });
     const out = nightCuesAhead([c(now + 5000), c(now - 60_000), c(now + 1000), c(now + NIGHT_MAX_MIN * 60_000 + 1)], now);
     expect(out.map((x) => x.at)).toEqual([now + 1000, now + 5000]);
+  });
+});
+
+describe("wbtbOwnOption (LDJ-220)", () => {
+  const bed = bedtimeAt("2026-11-08", "23:00");
+  it("puts the alarm where your timed dreams cluster after bedtime", () => {
+    const o = wbtbOwnOption(bed, { minutes: 390, dreams: 6 })!;
+    expect(o).toMatchObject({ sleepMin: 390, wake: "05:30", dreams: 6, timing: "ok" });
+  });
+  it("leaves out no pattern, a time too early to help and one past the planner's 10 h", () => {
+    expect(wbtbOwnOption(bed, null)).toBeNull();
+    expect(wbtbOwnOption(bed, { minutes: 270, dreams: 5 })).toBeNull();
+    expect(wbtbOwnOption(bed, { minutes: 630, dreams: 5 })).toBeNull();
+    expect(wbtbOwnOption(bed, { minutes: 290, dreams: 5 })!.timing).toBe("early");
   });
 });

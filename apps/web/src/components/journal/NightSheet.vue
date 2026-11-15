@@ -3,8 +3,9 @@
 // whether it was a nap, techniques used and the minutes to fall asleep after them, substances and notes. Saved as it changes, with the dream (api/journal.ts).
 // Without a dream (LDJ-99: opened from the Journal list, a dream being read, or the morning's question, so a no-recall
 // night can be filled in too) it changes the night itself (putNight), and which night it is stays fixed.
+// LDJ-221: the night's dreams with the time you woke from them (LDJ-177) show on a small line from bedtime to wake time.
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { clockOf, minutesToSleep, nightClock, nightOfDate, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
+import { clockOf, minutesToSleep, nightClock, nightOfDate, nightTimeline, SLEEP_ANCHORS, TECHNIQUES } from "@somnium/shared";
 import { changeNight, liveDraft, moveDream, NeedsConnectionError, putNight, unsavedNightFields, useJournal, uuidv7 } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { toastError } from "../../core/toast";
@@ -93,6 +94,9 @@ watch(() => n.substances, (v) => put({ substances: v }));
 watch(() => n.notes, (v) => put({ notes: v }));
 
 const techs = TECHNIQUES.map((t) => ({ value: t.id, label: t.label }));
+// the times as they are in the sheet, so the line follows a bedtime or wake time being changed here
+const timeline = computed(() => n.nap ? null : nightTimeline(nightClock(n.date, n.bedtime, "bed"), nightClock(n.date, n.wakeTime, "wake"),
+  (j.facts.data.value ?? []).filter((f) => f.nightId === n.nightId).map((f) => f.wokeAt)));
 const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 1] : "Not set"));
 </script>
 
@@ -106,6 +110,14 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
     <div class="g2 jg">
       <div class="fld"><label>Went to bed</label><TimePicker v-model="n.bedtime" clearable /></div>
       <div class="fld"><label>Woke up</label><TimePicker v-model="n.wakeTime" clearable /></div>
+    </div>
+    <div v-if="timeline" class="fld" data-timeline>
+      <label>Dreams in the night</label>
+      <div class="jtl" role="img" :aria-label="`From ${timeline.from} to ${timeline.to}, woke from a dream at ${timeline.marks.map((m) => m.clock).join(', ')}`">
+        <span v-for="(m, i) in timeline.marks" :key="i" class="jtm" :style="{ left: `${m.at * 100}%` }" :title="m.clock" />
+      </div>
+      <div class="tiny jtle"><span>{{ timeline.from }}</span><span>{{ timeline.to }}</span></div>
+      <div class="tiny jan">Woke from a dream at {{ timeline.marks.map((m) => m.clock).join(" · ") }}</div>
     </div>
     <div class="fld">
       <label>Sleep quality</label>
@@ -131,4 +143,8 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
 .jan { margin-top: var(--tdy); color: var(--tx2); }
+/* the night's line: bedtime at the left, wake time at the right, a dot for each dream woken from */
+.jtl { position: relative; height: .25em; margin: calc(var(--tdy) + .25em) .375em; border-radius: var(--pill); background: var(--s2); }
+.jtm { position: absolute; top: 50%; width: .75em; height: .75em; border-radius: 50%; background: var(--acc); transform: translate(-50%, -50%); }
+.jtle { display: flex; justify-content: space-between; color: var(--tx2); }
 </style>

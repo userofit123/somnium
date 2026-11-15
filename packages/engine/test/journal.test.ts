@@ -79,6 +79,17 @@ describe("journal", () => {
     expect(await call<unknown[]>(B, "GET", "/dream-facts")).toEqual([]);
   });
 
+  it("lists when you woke from a dream with its plain facts (LDJ-220, LDJ-221)", async () => {
+    const W = uuidv7();
+    await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'wf','WF')", [W]);
+    const n = await call<Night>(W, "POST", "/nights", { date: "2026-11-06" });
+    const woke = await call<Dream>(W, "POST", "/dreams", { nightId: n.id, wokeAt: "2026-11-06T04:10:00.000Z" });
+    const later = await call<Dream>(W, "POST", "/dreams", { nightId: n.id });
+    const facts = await call<Record<string, unknown>[]>(W, "GET", "/dream-facts");
+    expect(new Date(facts.find((f) => f.id === woke.id)!.wokeAt as string).toISOString()).toBe("2026-11-06T04:10:00.000Z");
+    expect(facts.find((f) => f.id === later.id)!.wokeAt).toBeNull();
+  });
+
   it("keeps the Dreamsign Awareness Scale rating (0-4) as a plain fact, and refuses 5", async () => {
     await call(A, "PUT", `/dreams/${dream.id}`, { awareness: 3 });
     const mine = (await call<Record<string, unknown>[]>(A, "GET", "/dream-facts")).find((f) => f.id === dream.id)!;

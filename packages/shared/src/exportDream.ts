@@ -4,9 +4,9 @@
 import type { Dream, Element, Night } from "./types";
 import { DSA_ANCHORS } from "./habits";
 import { minutesToSleep } from "./rates";
-import { BECAME_LUCID_LABEL, CONTROL_ANCHORS, ELEMENT_KIND_LABEL, EMOTION_ANCHORS, LUCIDITY_ANCHORS, LUCID_END_LABEL, LUCID_LENGTHS, RECALL_ANCHORS, SLEEP_ANCHORS, TECHNIQUES, VIVIDNESS_ANCHORS, clockOf, lucidLength } from "./journal";
+import { BECAME_LUCID_LABEL, CONTROL_ANCHORS, ELEMENT_KIND_LABEL, EMOTION_ANCHORS, LUCIDITY_ANCHORS, LUCID_END_LABEL, LUCID_LENGTHS, PLAN_DONE_LABEL, RECALL_ANCHORS, SLEEP_ANCHORS, TECHNIQUES, VIVIDNESS_ANCHORS, clockOf, lucidLength } from "./journal";
 
-export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & Partial<Pick<Dream, "becameLucidHow" | "lucidTrigger" | "durationEst" | "lucidEnd">> & { awareness?: number | null; badDream?: boolean };
+export type DreamMarksInput = Pick<Dream, "lucid" | "lucidityLevel" | "vividness" | "control" | "recallClarity" | "emotionOverall" | "nightmare" | "recurring" | "falseAwakening" | "sleepParalysis" | "favourite"> & Partial<Pick<Dream, "becameLucidHow" | "lucidTrigger" | "durationEst" | "lucidEnd" | "planDone">> & { awareness?: number | null; badDream?: boolean };
 export type NightFactsInput = Pick<Night, "bedtime" | "wakeTime" | "sleepQuality" | "wbtbUsed" | "wbtbMinutesAwake" | "nap" | "techniquesDone" | "minutesToSleep">;
 
 /** The marks with their words (older dreams marked lucid without a level read just "Lucid"): lucid level with its anchor, vividness, control, emotion, then the yes-or-no ones. */
@@ -21,6 +21,7 @@ export function dreamMarks(d: DreamMarksInput): { label: string; value: string }
     const len = lucidLength(d.durationEst);
     if (len) out.push({ label: "Lasted", value: LUCID_LENGTHS.find((x) => x.key === len)?.label ?? "" });
     if (d.lucidEnd) out.push({ label: "How it ended", value: LUCID_END_LABEL[d.lucidEnd] ?? "" });
+    if (d.planDone) out.push({ label: "Did your plan", value: PLAN_DONE_LABEL[d.planDone] ?? "" });
   }
   if (d.awareness != null) out.push({ label: "Dreamsign awareness", value: `${d.awareness} · ${DSA_ANCHORS[d.awareness] ?? ""}`.replace(/ · $/, "") });
   if (d.vividness) out.push({ label: "Vividness", value: `${d.vividness} · ${VIVIDNESS_ANCHORS[d.vividness - 1] ?? ""}`.replace(/ · $/, "") });

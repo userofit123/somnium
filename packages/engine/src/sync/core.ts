@@ -193,7 +193,7 @@ async function survivorOf(q: Sql, nightId: unknown, device: boolean): Promise<{ 
  * other the longer stays. Technique lists are joined too (the survivor's order first). Other plain values (times,
  * ratings, booleans): newest updated_at wins, and a field the survivor lacks is filled.
  */
-const NIGHT_TEXT = ["substances", "notes", "intention"];
+const NIGHT_TEXT = ["substances", "notes", "intention", "lucid_plan"];
 const NIGHT_LISTS = ["techniques_planned", "techniques_done"];
 const NIGHT_PLAIN = ["bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "minutes_to_sleep", "caffeine_after", "alcohol", "no_recall"];
 const isSet = (v: unknown) => v != null && v !== false && v !== "" && !(Array.isArray(v) && !v.length);

@@ -33,6 +33,8 @@ export const DREAM_LIMIT = 2000;
 export interface DreamFact {
   id: string; nightId: string; date: string; nap: boolean; lucid: boolean; lucidityLevel: number; awareness: number | null; emotionOverall: number | null;
   nightmare: boolean; badDream: boolean; recurring: boolean; falseAwakening: boolean; sleepParalysis: boolean; becameLucidHow: Dream["becameLucidHow"]; favourite: boolean;
+  /** when you woke from it, stamped by a capture in the night (LDJ-177); null for one written up later */
+  wokeAt: string | null;
 }
 export { uuidv7 };
 

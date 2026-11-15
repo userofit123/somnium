@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { minutesAfterBedtime, wakeCluster, wakeFact, wakeHours, wakeStamp } from "./wakings";
+import { minutesAfterBedtime, nightTimeline, wakeCluster, wakeFact, wakeHours, wakeStamp } from "./wakings";
 
 // local times, so the clock hours read as written whatever the test machine's zone
 const at = (d: string, hm: string) => new Date(`${d}T${hm}:00`);
@@ -56,5 +56,19 @@ describe("the time after bedtime", () => {
     expect(h[6]).toEqual({ hour: 6, dreams: 2, lucid: 1 });
     expect(wakeCluster(rows)).toEqual({ minutes: 390, dreams: 6, label: "Your dreams cluster about 6 h 30 min after bedtime" });
     expect(wakeCluster(rows.slice(0, 4))).toBeNull();
+  });
+});
+
+describe("nightTimeline (LDJ-221)", () => {
+  const bed = iso("2026-11-14", "23:00"), wake = iso("2026-11-15", "07:00");
+  it("places a night's timed dreams between bedtime and wake time, in order", () => {
+    const t = nightTimeline(bed, wake, [iso("2026-11-15", "05:00"), null, iso("2026-11-15", "01:00")]);
+    expect(t).toEqual({ from: "23:00", to: "07:00", marks: [{ at: 0.25, clock: "01:00" }, { at: 0.75, clock: "05:00" }] });
+  });
+  it("ends at the last dream without a wake time or with one after it, and needs a bedtime and a timed dream", () => {
+    expect(nightTimeline(bed, null, [iso("2026-11-15", "03:00")])).toEqual({ from: "23:00", to: "03:00", marks: [{ at: 1, clock: "03:00" }] });
+    expect(nightTimeline(bed, wake, [iso("2026-11-15", "07:30")])!.marks[0]!.at).toBe(1);
+    expect(nightTimeline(null, wake, [iso("2026-11-15", "03:00")])).toBeNull();
+    expect(nightTimeline(bed, wake, [null, iso("2026-11-14", "20:00")])).toBeNull();
   });
 });

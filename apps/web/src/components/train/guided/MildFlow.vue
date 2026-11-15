@@ -4,6 +4,8 @@
 // back in the dream and noticing something odd, here your top dream sign (topSigns, the same as Signs, recurring dreams first; its name is sealed, and this
 // screen is behind the lock like all of Train). An edited intention is saved sealed on the night (api/home.ts). Ends
 // with "Sleep now" and the five-minute finding [B37], as a finding, not a target.
+// LDJ-159: the night's plan for once lucid (sealed, set on Tonight's plan) follows the sentence, so what to do once
+// lucid is part of what you fall asleep with: a task set before sleep is what lucid practice relies on [B64][D1].
 import { computed, ref } from "vue";
 import { topSigns } from "@somnium/shared";
 import { useSigns } from "../../signs/useSigns";
@@ -30,6 +32,7 @@ const date = (() => {
 const night = computed(() => j.nights.data.value?.find((n) => n.date === date && !n.nap));
 const saved = night.value?.intention?.trim() || "";
 const text = ref(saved || SENTENCE);
+const lucidPlan = computed(() => night.value?.lucidPlan?.trim() || "");
 const step = ref(0);
 const STEPS = 4;
 const wake = useWakeLock();
@@ -62,6 +65,7 @@ async function next() {
         <label class="glabel" for="g-intention">Intention</label>
         <textarea id="g-intention" v-model="text" class="gintent" rows="3" maxlength="200" />
         <Ev text="Aspy's study used this sentence word for word [D11]. Changing it saves it, sealed, as tonight's intention." @cite="emit('cite', $event)" />
+        <div v-if="lucidPlan" class="gbox"><div class="glabel">Then, once lucid, I will</div><div class="gp">{{ lucidPlan }}</div><Ev text="Deciding beforehand what to do keeps you calm and on task once lucid [D1][B64]." @cite="emit('cite', $event)" /></div>
       </template>
       <template v-else-if="step === 2">
         <h1>Picture it</h1>
@@ -73,6 +77,7 @@ async function next() {
         <h1>Repeat until you sleep</h1>
         <p class="glead">Repeat the sentence and the picture until you fall asleep or the intention feels set. If your mind wanders, go back to it, so the last thing in your mind is the intention.</p>
         <p class="gp">{{ text }}</p>
+        <p v-if="lucidPlan" class="gp">Once lucid: {{ lucidPlan }}</p>
       </template>
       <Ev text="Steps as given to the participants of the Australian study (Aspy 2017) [D11]." @cite="emit('cite', $event)" />
     </div>

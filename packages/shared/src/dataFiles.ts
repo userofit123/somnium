@@ -129,17 +129,17 @@ export const journalMarkdown = (tables: Record<string, unknown>): string =>
 // The CSV columns. The sealed ones (the words) only when the person ticks "include dream text".
 const CSV_COLUMNS = {
   dreams: {
-    plain: ["date", "id", "position", "lucid", "lucidity_level", "awareness", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "bad_dream", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "lucid_end", "wake_method", "favourite", "unfinished", "woke_at", "created_at", "updated_at"],
+    plain: ["date", "id", "position", "lucid", "lucidity_level", "awareness", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "bad_dream", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "lucid_end", "plan_done", "wake_method", "favourite", "unfinished", "woke_at", "created_at", "updated_at"],
     text: ["title", "text", "lucid_trigger"],
   },
   nights: {
     plain: ["date", "id", "nap", "bedtime", "wake_time", "sleep_quality", "wbtb_used", "wbtb_wake_at", "wbtb_minutes_awake", "wbtb_mode", "minutes_to_sleep", "caffeine_after", "alcohol", "techniques_planned", "techniques_done", "created_at", "updated_at"],
-    text: ["substances", "notes", "intention"],
+    text: ["substances", "notes", "intention", "lucid_plan"],
   },
   reality_checks: { plain: ["at", "id", "kind", "outcome", "prompted", "sign_id", "created_at"], text: ["note"] },
 } as const;
 export type CsvTable = keyof typeof CSV_COLUMNS;
-const NOT_LUCID = { became_lucid_how: null, lucid_trigger: null, duration_est: null, lucid_end: null };
+const NOT_LUCID = { became_lucid_how: null, lucid_trigger: null, duration_est: null, lucid_end: null, plan_done: null };
 
 export function exportCsv(tables: Record<string, unknown>, table: CsvTable, includeText: boolean): string {
   const cols = [...CSV_COLUMNS[table].plain, ...(includeText ? CSV_COLUMNS[table].text : [])];

@@ -1,6 +1,6 @@
 // The journal: nights, the dreams of a night, the person's elements (and dream signs) and the links between dreams
 // and elements. Search and analysis come later (PLAN.md §7); this is the plain reading and writing.
-import { WBTB_MODE_LOG, BECAME_LUCID_HOW, WAKE_METHODS, LUCID_ENDS, ELEMENT_KINDS, SIGN_CATEGORIES, ELEMENT_SOURCES, type Night, type Dream, type Element, type DreamElement } from "@somnium/shared";
+import { WBTB_MODE_LOG, BECAME_LUCID_HOW, WAKE_METHODS, LUCID_ENDS, PLAN_DONE, ELEMENT_KINDS, SIGN_CATEGORIES, ELEMENT_SOURCES, type Night, type Dream, type Element, type DreamElement } from "@somnium/shared";
 import type { Router } from "../router";
 import { id, str, intOrNull, numOrNull, bool, dateStr, visible, camel, camels } from "../util";
 import { clientId, refuseOtherRow, columns, sealed, timeOrNull, clockOrNull, sealedMinutes, idList, enumOrNull, enumOf, required, listLive, getLive, insertRow, updateRow, removeRow, removeWhere, type Fields } from "./rows";
@@ -13,7 +13,7 @@ const NIGHT: Fields = {
   wbtb_used: (v) => bool(v), wbtb_wake_at: timeOrNull, wbtb_minutes_awake: (v) => intOrNull(v, 0, 600),
   wbtb_mode: enumOrNull(WBTB_MODE_LOG), minutes_to_sleep: sealedMinutes(0, 600),
   nap: (v) => bool(v), substances: sealed, caffeine_after: clockOrNull, alcohol: (v) => bool(v), notes: sealed,
-  techniques_planned: idList, techniques_done: idList, intention: sealed, no_recall: (v) => bool(v),
+  techniques_planned: idList, techniques_done: idList, intention: sealed, lucid_plan: sealed, no_recall: (v) => bool(v),
 };
 const DREAM: Fields = {
   position: (v) => intOrNull(v, 0, 100) ?? 0,
@@ -22,7 +22,7 @@ const DREAM: Fields = {
   control: (v) => intOrNull(v, 0, 5), vividness: (v) => intOrNull(v, 1, 5), recall_clarity: (v) => intOrNull(v, 1, 5),
   emotion_overall: (v) => intOrNull(v, -2, 2), duration_est: (v) => intOrNull(v, 0, 600),
   nightmare: (v) => bool(v), bad_dream: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
-  became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), lucid_end: enumOrNull(LUCID_ENDS), favourite: (v) => bool(v),
+  became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), lucid_end: enumOrNull(LUCID_ENDS), plan_done: enumOrNull(PLAN_DONE), favourite: (v) => bool(v),
   dismissed: sealed, unfinished: (v) => bool(v), woke_at: timeOrNull,
 };
 /**
@@ -108,9 +108,9 @@ export function journalRoutes(r: Router) {
   // that are never sealed, so the list stays light however long the journal grows and needs no key to open.
   r.get("/dream-facts", async ({ q }) => {
     const { rows } = await q.query(
-      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.control, d.duration_est, d.lucid_end,
+      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.control, d.duration_est, d.lucid_end, d.plan_done,
               d.emotion_overall, d.nightmare, d.bad_dream, d.recurring, d.false_awakening,
-              d.sleep_paralysis, d.became_lucid_how, d.favourite
+              d.sleep_paralysis, d.became_lucid_how, d.favourite, d.woke_at
        FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
        ORDER BY n.date DESC, d.position, d.created_at`);
     return camels(rows);

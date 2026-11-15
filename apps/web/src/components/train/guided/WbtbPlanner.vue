@@ -10,8 +10,10 @@
 // LDJ-116: the safety check before the first WBTB (a link to it until it has been answered), a calm "sleep first" note
 // when it said so, "Can you sleep in tomorrow?" (WBTB only on nights you can [B69][D1]) and a note when tonight would
 // be the third WBTB night or more in 7 days (two or three a week at most [B69]). Advice only: nothing is blocked.
+// LDJ-220: once 5 or more dreams have the time you woke from them (wakings.ts), the time after bedtime they cluster is
+// one more choice, so the alarm can wake you from a dream as the tested timing did from REM [B39][D13].
 import { computed, ref } from "vue";
-import { addDays, bedtimeAt, durationText, wbtbAfter, wbtbModePlan, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
+import { addDays, bedtimeAt, durationText, wakeCluster, wbtbAfter, wbtbModePlan, wbtbOwnOption, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
@@ -45,8 +47,15 @@ const keptAwake = Number(readStr("somniumWbtbAwake", ""));
 const awake = ref<number>(def.value.awake.includes(keptAwake) ? keptAwake : def.value.awakeDefault);
 function pick(m: WbtbMode) { mode.value = m; sleepMin.value = WBTB_MODE_DEFS[m].sleepMin; awake.value = WBTB_MODE_DEFS[m].awakeDefault; }
 
-// the mode's own time plus whole cycles (4.5, 6, 7.5 h at 90 min), so a cycle-minded person can still choose
-const options = computed(() => [...new Set([def.value.sleepMin, sleepMin.value, ...WBTB_CYCLES.map((c) => c * cycleLen.value)])].sort((a, b) => a - b).map((m) => wbtbAfter(bedAt.value, m, cycleLen.value)));
+// where your timed dreams cluster after bedtime (naps left out: their bedtime is not the night's)
+const cluster = computed(() => {
+  const nights = new Map((j.nights.data.value ?? []).map((n) => [n.id, n.bedtime]));
+  return wakeCluster((j.facts.data.value ?? []).filter((f) => !f.nap && f.wokeAt).map((f) => ({ wokeAt: f.wokeAt, bedtime: nights.get(f.nightId) })));
+});
+const own = computed(() => wbtbOwnOption(bedAt.value, cluster.value, cycleLen.value));
+// the mode's own time plus whole cycles (4.5, 6, 7.5 h at 90 min), so a cycle-minded person can still choose, plus
+// the time your own dreams cluster
+const options = computed(() => [...new Set([def.value.sleepMin, sleepMin.value, ...WBTB_CYCLES.map((c) => c * cycleLen.value), ...(own.value ? [own.value.sleepMin] : [])])].sort((a, b) => a - b).map((m) => wbtbAfter(bedAt.value, m, cycleLen.value)));
 const plan = computed(() => wbtbModePlan(bedAt.value, mode.value, { sleepMin: sleepMin.value, awakeMin: awake.value, cycleMin: cycleLen.value }));
 const choice = computed(() => plan.value.alarm);
 const planned = computed(() => night.value?.wbtbWakeAt ? hm(night.value.wbtbWakeAt) : null);
@@ -107,7 +116,7 @@ async function clear() {
 
 <template>
   <div class="gbody">
-    <h1>Wake back to bed</h1>
+    <h1>Wake back to bed (WBTB)</h1>
     <p class="glead">Sleep first, get up for a while, then go back to bed with MILD or SSILD.</p>
 
     <div v-if="safety.sleepFirst" class="gbox gwarn" data-safety="sleep-first">
@@ -156,9 +165,10 @@ async function clear() {
     <div class="glabel">Wake up after</div>
     <div class="gchips" role="radiogroup" aria-label="Wake up after">
       <button v-for="o in options" :key="o.sleepMin" type="button" class="gchip" :class="{ on: o.sleepMin === sleepMin }" role="radio" :aria-checked="o.sleepMin === sleepMin" @click="sleepMin = o.sleepMin">
-        <b>{{ o.wake }}</b><small>{{ durationText(o.sleepMin) }}<template v-if="cyclesText(o.cycles)"> · {{ cyclesText(o.cycles) }}</template></small>
+        <b>{{ o.wake }}</b><small>{{ durationText(o.sleepMin) }}<template v-if="o.sleepMin === own?.sleepMin"> · your dreams</template><template v-else-if="cyclesText(o.cycles)"> · {{ cyclesText(o.cycles) }}</template></small>
       </button>
     </div>
+    <Ev v-if="own && cluster" data-own="cluster" :text="`${cluster.label} (${cluster.dreams} dreams with the time you woke), so an alarm at ${own.wake} falls where your dreams usually are. Waking from a dream is the point: Erlacher and Stumbrys woke people from REM sleep [B39][D13].`" @cite="emit('cite', $event)" />
     <Ev v-if="choice.timing === 'ok'" text="About 6 hours of sleep is the tested timing: Erlacher and Stumbrys woke people from REM after about 6 hours [D13]. Later is fine if you can sleep in." @cite="emit('cite', $event)" />
     <div v-else-if="choice.timing === 'too-early'" class="gbox gwarn">
       <div class="t">{{ durationText(WBTB_TOO_EARLY_MIN) }} or less is too early</div>
