@@ -3,6 +3,7 @@
 import { journalStreak, loggedNights, type NightLog } from "./rates";
 import { bucketOf } from "./insights";
 import type { GoalKind, GoalPeriod } from "./types";
+import type { SetupGoal } from "./settings";
 
 export const GOAL_KIND_INFO: Record<GoalKind, { label: string; period: GoalPeriod; unit: string; per: string; def: number; max: number }> = {
   recall_per_week: { label: "Nights with a dream, per week", period: "week", unit: "nights", per: "this week", def: 5, max: 7 },
@@ -10,6 +11,12 @@ export const GOAL_KIND_INFO: Record<GoalKind, { label: string; period: GoalPerio
   checks_per_day: { label: "Reality checks, per day", period: "day", unit: "checks", per: "today", def: 5, max: 100 },
   journal_streak: { label: "Journaling streak", period: "day", unit: "mornings in a row", per: "in a row", def: 7, max: 365 },
 };
+
+/** The kind a new goal starts on, from the setup's goal (settings.setup.goal, LDJ-216): a suggestion the person can
+ *  change in the sheet. Remember more and a first lucid dream start on recall, which predicts success and is what the
+ *  rest builds on (RESEARCH.md B38, B48); more often counts lucid dreams. Longer and clearer has no count of its own
+ *  (lucidity level is not a goal kind), so it keeps recall like no answer. */
+export const defaultGoalKind = (goal: SetupGoal | undefined): GoalKind => (goal === "often" ? "lucid_per_month" : "recall_per_week");
 
 export interface GoalInput { id?: string; kind: GoalKind; target: number }
 export interface GoalData {

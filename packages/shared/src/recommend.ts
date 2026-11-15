@@ -7,7 +7,7 @@
 // Naps are not nights (insights.ts): they stay out of night counts, but their dreams count as dreams.
 import { addDays, loggedNights, minutesToSleep } from "./rates";
 import { bucketOf, compareLucid, isWbtb, MIN_NIGHTS, type InsightDream, type InsightNight } from "./insights";
-import type { SetupExperience } from "./settings";
+import type { SetupExperience, SetupGoal } from "./settings";
 import type { Milestones } from "./milestones";
 
 export interface Recommendation {
@@ -46,6 +46,9 @@ export interface RecommendData {
    *  "some" and "regular" have had lucid dreams before the journal, so a dry spell can be one even with none logged,
    *  the journal is no news to a regular, and a logged lucid dream is not their first. */
   experience?: SetupExperience;
+  /** The first-run setup's goal (settings.setup.goal, LDJ-216): the cards that serve it come first. It only reorders:
+   *  nothing shows that the person's own numbers did not bring up, and nothing is hidden. */
+  goal?: SetupGoal;
   /** Milestone moments already shown (settings.milestones, LDJ-117): after the first lucid dream's own moment, which
    *  already said well done and the three steps, the card only points on to the lesson. */
   milestones?: Milestones;
@@ -92,6 +95,29 @@ export const isDismissed = (id: string, dismissed: Dismissal[] | undefined, toda
 /** The dismissal list after dismissing `id` today: expired entries are dropped so the list stays short. */
 export function dismiss(dismissed: Dismissal[] | undefined, id: string, today: string): Dismissal[] {
   return [...(dismissed ?? []).filter((d) => d.id !== id && isDismissed(d.id, [d], today)), { id, on: today }];
+}
+
+// The cards that serve each setup goal, in the order they come up (LDJ-216). Each card keeps its own sources; the
+// mapping follows them: recall is what the rest builds on and predicts success (B38, B48, C30); a first lucid dream
+// comes from MILD after WBTB with recall in place, falling asleep quickly after it, and checks made a habit (B37, B38,
+// B39, B36), and once it comes, the card about it leads (D1, D5); more often is the same combination kept up, then SSILD after the alarm (B38, B35), and rest in a dry
+// spell (D1, D5, D24); longer and clearer is stabilising, a skill of its own (D1 ch. 6, D5 Unit 5, D8).
+export const GOAL_FIRST: Record<Exclude<SetupGoal, "">, RecommendationId[]> = {
+  recall: ["recall", "journal"],
+  first: ["first-lucid", "mild-wbtb", "mild-sleep", "checks", "recall", "journal"],
+  often: ["mild-wbtb", "wbtb-works", "try-ssild", "dry-spell", "mild-sleep"],
+  longer: ["stabilise", "first-lucid"],
+};
+// Safety comes before any goal: the safety check's page, easing off WBTB when sleep suffers, and the nightmares card
+// keep their place at the top (sleep first, B69, B70).
+const PINNED: RecommendationId[] = ["safety", "wbtb-ease", "nightmares"];
+
+/** The cards in goal order: pinned safety cards first as they were, then the goal's cards, then the rest, each group
+ *  in its own order (a stable sort). */
+export function byGoal(recs: Recommendation[], goal: SetupGoal | undefined): Recommendation[] {
+  const prefer = goal ? GOAL_FIRST[goal] : [];
+  const rank = (r: Recommendation) => (PINNED.includes(r.id) ? -1 : prefer.includes(r.id) ? prefer.indexOf(r.id) : prefer.length);
+  return recs.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map((x) => x.r);
 }
 
 const pct = (r: number) => `${Math.round(r * 100)}%`;
@@ -298,5 +324,5 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     });
   }
 
-  return out.filter((r) => !isDismissed(r.id, data.dismissed, today)).slice(0, max);
+  return byGoal(out.filter((r) => !isDismissed(r.id, data.dismissed, today)), data.goal).slice(0, max);
 }

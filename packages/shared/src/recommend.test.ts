@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recommend, dismiss, isDismissed, REC, DISMISS_DAYS, RECOMMENDATION_IDS, type RecommendData, type Recommendation } from "./recommend";
+import { recommend, dismiss, isDismissed, byGoal, GOAL_FIRST, REC, DISMISS_DAYS, RECOMMENDATION_IDS, type RecommendData, type Recommendation } from "./recommend";
 import { addDays } from "./rates";
 import { MIN_NIGHTS, type InsightNight } from "./insights";
 
@@ -385,5 +385,36 @@ describe("recommend: the safety check (LDJ-116)", () => {
     expect(r.sources.length).toBeGreaterThan(0);
     expect(all(base({ safetyPage: "sleep-first" }))[0]!.link?.to).toBe("/learn/safety/sleep-first");
     expect(has(base(), "safety")).toBe(false);
+  });
+});
+
+describe("recommend: the setup goal steers the order (LDJ-216)", () => {
+  const busy = (): RecommendData => {
+    const ns = nights(5, () => ({ dreamCount: 0 }));
+    return base({ nights: ns, dreams: ns.map((x) => ({ nightId: x.id, lucid: false, nightmare: true, falseAwakening: true })), checkDays: [] });
+  };
+  it("the goal's cards come first, the nightmares card keeps its place, nothing is added or dropped", () => {
+    expect(ids(all(busy()))).toEqual(["nightmares", "journal", "false-awakenings", "checks"]);
+    expect(ids(all({ ...busy(), goal: "first" }))).toEqual(["nightmares", "checks", "journal", "false-awakenings"]);
+    expect(ids(all({ ...busy(), goal: "recall" }))).toEqual(["nightmares", "journal", "false-awakenings", "checks"]);
+    expect(ids(recommend({ ...busy(), goal: "first" }, TODAY))).toEqual(["nightmares", "checks", "journal"]);
+    for (const goal of ["", "first", "often", "longer", "recall"] as const) expect(ids(all({ ...busy(), goal })).sort()).toEqual(ids(all(busy())).sort());
+  });
+  it("remember more puts recall ahead of other cards", () => {
+    const lowRecall = base({ nights: [...nights(10, (i) => ({ dreamCount: i <= 3 ? 1 : 0 })), night(20), night(21)], checkDays: [] });
+    expect(ids(all(lowRecall))).toEqual(["recall", "checks"]);
+    expect(ids(all({ ...lowRecall, goal: "recall" }))[0]).toBe("recall");
+    expect(ids(all({ ...lowRecall, goal: "first" }))).toEqual(["checks", "recall"]);
+  });
+  it("longer and clearer puts staying lucid first, but never ahead of the safety page", () => {
+    const d = { ...briefLucid(), checkDays: [] as string[], goal: "longer" as const };
+    expect(ids(all(d)).slice(0, 2)).toEqual(["stabilise", "checks"]);
+    expect(ids(all({ ...d, safetyPage: "sleep-first" })).slice(0, 2)).toEqual(["safety", "stabilise"]);
+  });
+  it("byGoal is a stable reorder and every goal names real rules", () => {
+    const r = (id: Recommendation["id"]) => ({ id, title: "", body: "", reason: "", sources: [] }) as Recommendation;
+    expect(ids(byGoal([r("checks"), r("wbtb-ease"), r("stabilise")], "longer"))).toEqual(["wbtb-ease", "stabilise", "checks"]);
+    expect(ids(byGoal([r("checks"), r("stabilise")], undefined))).toEqual(["checks", "stabilise"]);
+    for (const list of Object.values(GOAL_FIRST)) for (const id of list) expect(RECOMMENDATION_IDS).toContain(id);
   });
 });

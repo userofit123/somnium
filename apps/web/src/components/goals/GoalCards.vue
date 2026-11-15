@@ -3,10 +3,11 @@
 // (packages/shared/src/goals.ts). Used on Home and in Progress; shown only while Settings → Features → Goals is on.
 import { computed, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
-import { GOAL_KIND_INFO, GOAL_KINDS, goalProgress, periodDaysLeft, type Goal, type GoalKind, type RealityCheck } from "@somnium/shared";
+import { GOAL_KIND_INFO, GOAL_KINDS, defaultGoalKind, goalProgress, periodDaysLeft, type Goal, type GoalKind, type RealityCheck } from "@somnium/shared";
 import { api } from "../../api/client";
 import { useJournal } from "../../api/journal";
 import { useGoals, saveGoal, removeGoal } from "../../api/extras";
+import { useSettings } from "../../api/queries";
 import { toastError } from "../../core/toast";
 import { localYmd } from "../../core/format";
 import Icon from "../Icon.vue";
@@ -27,8 +28,13 @@ const rows = computed(() => (goals.data.value ?? []).map((g) => ({
   left: periodDaysLeft(g.kind, props.today),
 })));
 
+const settings = useSettings();
 const edit = ref<{ g?: Goal; kind: GoalKind; target: number } | null>(null);
-const open = (g?: Goal) => (edit.value = { g, kind: g?.kind ?? "recall_per_week", target: g?.target ?? GOAL_KIND_INFO[g?.kind ?? "recall_per_week"].def });
+// a new goal starts on the kind that fits the goal chosen in setup (LDJ-216); an existing one keeps its own
+const open = (g?: Goal) => {
+  const kind = g?.kind ?? defaultGoalKind(settings.value.setup?.goal);
+  edit.value = { g, kind, target: g?.target ?? GOAL_KIND_INFO[kind].def };
+};
 const pick = (k: GoalKind) => { if (edit.value) { edit.value.kind = k; edit.value.target = GOAL_KIND_INFO[k].def; } };
 async function save() {
   const e = edit.value; if (!e) return;
