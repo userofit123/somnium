@@ -35,6 +35,8 @@
   --fs-sm: 12.5px;
   --fs: 14px;
   --fs-lg: 16px;
+  /* article body: a step above --fs-lg so long reading stays easy */
+  --fs-read: 16.5px;
   --fs-h1: 30px;
   --fs-val: 32px;
   --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);

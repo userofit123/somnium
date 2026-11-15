@@ -266,7 +266,7 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
 .capring .fg { stroke: var(--gacc); stroke-linecap: round; stroke-dasharray: 339.3; stroke-dashoffset: 339.3; animation: capfill linear forwards; opacity: .7; }
 @keyframes capfill { to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: reduce) { .capring .fg { animation: none; stroke-dashoffset: 0; opacity: .35; } }
-.capin { font-size: 20px; min-height: 56px; }
+.capin { font-size: calc(var(--fs-lg) + 4px); min-height: 56px; }
 .capwords { display: flex; flex-wrap: wrap; gap: var(--tdy); }
 .capword { display: inline-flex; align-items: center; gap: calc(var(--tdy) / 2); background: var(--sdim2); color: var(--sdimtx); border-radius: var(--pill); padding: var(--tdy) var(--tdy) var(--tdy) var(--lpy); font-size: var(--fs-lg); }
 .capword button { background: none; border: 0; color: var(--sdimtx2); padding: calc(var(--tdy) / 2); cursor: pointer; display: inline-flex; border-radius: var(--pill); }

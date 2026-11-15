@@ -210,28 +210,28 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .jmed { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
-.jmadd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
+.jmadd { display: flex; flex-wrap: wrap; align-items: center; gap: 4px calc(var(--hg) * 1.2); }
 .jmadd .qb { padding-left: 0; }
 .jmut { color: var(--tx2); }
 .jerr { color: var(--neg); }
-.jthumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.jthumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: var(--hg); }
 .jth { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .jthb { aspect-ratio: 1; width: 100%; padding: 0; border: 1px solid var(--ol); border-radius: var(--r); background: var(--s2); color: var(--tx2); overflow: hidden; display: grid; place-items: center; cursor: pointer; }
 .jthb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .jthact { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-.jthact .qb { padding: 0; font-size: 12px; min-width: 0; }
+.jthact .qb { padding: 0; font-size: var(--fs-sm); min-width: 0; }
 .jx { border: 0; background: none; color: var(--tx2); padding: 2px; display: inline-grid; place-items: center; cursor: pointer; }
 .jx:hover, .jx:focus-visible { color: var(--neg); }
-.jvoice { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.jvoice { display: flex; align-items: center; gap: var(--hg); min-width: 0; }
 .jvoice audio { flex: 1; min-width: 0; max-width: 100%; }
-.jrec { display: flex; align-items: center; gap: 8px; }
+.jrec { display: flex; align-items: center; gap: var(--hg); }
 .jdot { width: 10px; height: 10px; border-radius: 50%; background: var(--neg); animation: jpulse 1.2s ease-in-out infinite; }
 @keyframes jpulse { 50% { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .jdot { animation: none; } }
-.jocrp { display: flex; flex-direction: column; gap: 8px; }
+.jocrp { display: flex; flex-direction: column; gap: var(--hg); }
 .jbar2 { height: 6px; border-radius: var(--pill); background: var(--s2); overflow: hidden; }
 .jbar2 div { height: 100%; background: var(--acc); transition: width 0.2s; }
-.jocrt { width: 100%; min-height: 220px; resize: vertical; font-size: 15px; line-height: 1.5; }
-.jocrf { display: flex; justify-content: flex-end; gap: 8px; margin-top: var(--hg); }
+.jocrt { width: 100%; min-height: 220px; resize: vertical; font-size: var(--fs); line-height: 1.5; }
+.jocrf { display: flex; justify-content: flex-end; gap: var(--hg); margin-top: var(--hg); }
 .jfullimg { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto; border-radius: var(--r); }
 </style>

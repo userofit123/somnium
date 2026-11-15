@@ -43,5 +43,5 @@ let x0 = 0;
 .dots i.l, .jkey i.l { background: var(--acc); }
 .dots i.nr, .jkey i.nr { background: none; border: 1px solid var(--tx2); }
 .jkey { display: flex; gap: var(--hg); margin-top: var(--hg); color: var(--tx2); }
-.jkey span { display: inline-flex; align-items: center; gap: 6px; }
+.jkey span { display: inline-flex; align-items: center; gap: calc(var(--hg) / 2); }
 </style>

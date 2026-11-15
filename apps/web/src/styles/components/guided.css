@@ -11,8 +11,8 @@
 .gd .gtop .gx { background: none; border: 0; color: var(--sdimtx2); padding: var(--tdy); margin-inline-start: calc(-1 * var(--tdy)); cursor: pointer; display: inline-flex; align-items: center; gap: var(--tdy); font: inherit; font-size: var(--fs-sm); }
 .gd .gtop .gname { font-size: var(--fs-sm); color: var(--sdimtx2); }
 .gd .gbody { flex: 1; width: min(560px, 100%); margin: 0 auto; display: flex; flex-direction: column; gap: var(--hg); padding-top: var(--hg); }
-.gd h1 { font-size: 26px; font-weight: 500; color: var(--sdimtx); margin: 0; line-height: 1.25; }
-.gd .glead { font-size: 18px; line-height: 1.55; margin: 0; }
+.gd h1 { font-size: calc(var(--fs-h1) * .87); font-weight: 500; color: var(--sdimtx); margin: 0; line-height: 1.25; }
+.gd .glead { font-size: calc(var(--fs-lg) + 2px); line-height: 1.55; margin: 0; }
 .gd .gp { font-size: var(--fs-lg); line-height: 1.6; margin: 0; }
 .gd .gev { font-size: var(--fs-sm); color: var(--sdimtx2); line-height: 1.5; margin: 0; }
 .gd .gev .cite, .gd .cite { color: var(--sdimtx); }
@@ -27,28 +27,28 @@
 .gd .glabel { font-size: var(--fs-sm); color: var(--sdimtx2); }
 .gd .gchips { display: flex; flex-wrap: wrap; gap: var(--tdy); }
 .gd .gchip { flex: 1 1 0; min-width: 88px; background: var(--sdim2); border: 1px solid transparent; color: var(--sdimtx); border-radius: var(--r-sm); padding: var(--lpy) var(--tdy); font: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: calc(var(--tdy) / 3); }
-.gd .gchip b { font-size: 20px; font-weight: 500; }
+.gd .gchip b { font-size: calc(var(--fs-lg) + 4px); font-weight: 500; }
 .gd .gchip small { font-size: var(--fs-xs); color: var(--sdimtx2); }
 .gd .gchip.on { border-color: var(--gacc); color: var(--gacc); }
 .gd .grow2 { display: flex; align-items: center; gap: var(--hg); justify-content: space-between; flex-wrap: wrap; }
-.gd .gbig { font-size: 64px; font-weight: 300; letter-spacing: .02em; text-align: center; color: var(--sdimtx); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.gd .gbig { font-size: calc(var(--fs-val) * 2); font-weight: 300; letter-spacing: .02em; text-align: center; color: var(--sdimtx); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .gd .gsub { text-align: center; font-size: var(--fs-sm); color: var(--sdimtx2); }
 .gd .gsteps { display: flex; gap: var(--tdy); justify-content: center; }
 .gd .gsteps i { width: 6px; height: 6px; border-radius: 50%; background: var(--sdim2); }
 .gd .gsteps i.on { background: var(--gacc); }
-.gd .gintent { width: 100%; box-sizing: border-box; background: var(--sdim2); color: var(--sdimtx); border: 1px solid transparent; border-radius: var(--r-sm); padding: var(--lpy) var(--cpx); font: inherit; font-size: 18px; line-height: 1.5; resize: vertical; }
+.gd .gintent { width: 100%; box-sizing: border-box; background: var(--sdim2); color: var(--sdimtx); border: 1px solid transparent; border-radius: var(--r-sm); padding: var(--lpy) var(--cpx); font: inherit; font-size: calc(var(--fs-lg) + 2px); line-height: 1.5; resize: vertical; }
 .gd .gintent:focus { outline: none; border-color: var(--gacc); }
-.gd .gsign { font-size: 20px; color: var(--sdimtx); }
+.gd .gsign { font-size: calc(var(--fs-lg) + 4px); color: var(--sdimtx); }
 .gd ul.glist { margin: 0; padding-inline-start: 20px; display: flex; flex-direction: column; gap: var(--tdy); }
 .gd .gtgl { display: flex; align-items: center; gap: var(--lpy); font-size: var(--fs-sm); cursor: pointer; }
 
 /* the timers: a soft pulse that changes with each step, and the running screen dims further */
 .gd .gpulse { width: 180px; height: 180px; margin: var(--spg) auto; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle, color-mix(in srgb, var(--gacc) 22%, transparent), transparent 70%); animation: gpulse 2.4s var(--ease) 1; }
-.gd .gpulse span { font-size: 28px; color: var(--sdimtx); }
+.gd .gpulse span { font-size: calc(var(--fs-val) - 4px); color: var(--sdimtx); }
 @keyframes gpulse { 0% { transform: scale(.82); opacity: .35; } 45% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); opacity: .85; } }
 .gd.run { --sdimtx: var(--sdimtx2); }
 @media (prefers-reduced-motion: reduce) { .gd .gpulse { animation: none; } }
-@media (min-width: 900px) { .gd h1 { font-size: 30px; } .gd .gbody { padding-top: var(--spg); } }
+@media (min-width: 900px) { .gd h1 { font-size: var(--fs-h1); } .gd .gbody { padding-top: var(--spg); } }
 
 /* Train's entry card */
 .tguided .li { text-decoration: none; color: inherit; }

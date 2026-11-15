@@ -66,8 +66,8 @@ function save() {
 </template>
 
 <style scoped>
-.skbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: var(--hg); }
+.skbar { display: flex; align-items: center; gap: var(--hg); flex-wrap: wrap; margin-bottom: var(--hg); }
 .skbar .seg button { display: inline-flex; align-items: center; gap: 4px; }
 .skc { display: block; width: 100%; aspect-ratio: 4 / 3; touch-action: none; border: 1px solid var(--ol); border-radius: var(--r); background: var(--s1); color: var(--tx); cursor: crosshair; }
-.skfoot { display: flex; justify-content: flex-end; gap: 8px; margin-top: var(--hg); }
+.skfoot { display: flex; justify-content: flex-end; gap: var(--hg); margin-top: var(--hg); }
 </style>
