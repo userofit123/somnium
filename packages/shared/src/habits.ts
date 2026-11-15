@@ -10,7 +10,7 @@ export const CORE_HABITS = [
   { id: "habit:journal", name: "Write in the journal", auto: "Ticks itself when you log a dream or no recall today." },
   { id: "habit:checks", name: "Do your reality checks", auto: "Ticks itself when today's count reaches your target." },
   { id: "habit:sign", name: "Read about your top dream sign", auto: "Ticks when you open it." },
-  { id: "habit:review", name: "Evening review", auto: "A short screen: tomorrow's intention and your top sign." },
+  { id: "habit:review", name: "Evening review", auto: "A short screen: tonight's intention and your top sign." },
 ] as const;
 export const CORE_HABIT_IDS: readonly string[] = CORE_HABITS.map((h) => h.id);
 

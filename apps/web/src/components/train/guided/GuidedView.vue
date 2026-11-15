@@ -15,14 +15,13 @@ import ImUp from "./ImUp.vue";
 import MildFlow from "./MildFlow.vue";
 import SsildTimer from "./SsildTimer.vue";
 import WildTimer from "./WildTimer.vue";
-import CheckDrill from "./CheckDrill.vue";
 import SoundCue from "./SoundCue.vue";
 import CatPlan from "./CatPlan.vue";
 import BedtimeRoutine from "./BedtimeRoutine.vue";
 
-export type GuidedMode = "bedtime" | "wbtb" | "up" | "mild" | "ssild" | "wild" | "drill" | "cue" | "cat";
+export type GuidedMode = "bedtime" | "wbtb" | "up" | "mild" | "ssild" | "wild" | "cue" | "cat";
 const props = defineProps<{ mode: GuidedMode }>();
-const NAMES: Record<GuidedMode, string> = { bedtime: "Bedtime", wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", drill: "Reality check", cue: "Sound cue", cat: "CAT plan" };
+const NAMES: Record<GuidedMode, string> = { bedtime: "Bedtime", wbtb: "WBTB planner", up: "I'm up", mild: "MILD", ssild: "SSILD", wild: "WILD", cue: "Sound cue", cat: "CAT plan" };
 const router = useRouter();
 const cite = ref<string[] | null>(null);
 // sound cue is an optional feature: absent while off, even by its address (Train sends it back; this never shows another
@@ -53,7 +52,6 @@ const running = ref(false);
     <WildTimer v-else-if="mode === 'wild'" @cite="cite = $event" @running="running = $event" @done="close" />
     <SoundCue v-else-if="mode === 'cue'" @cite="cite = $event" @running="running = $event" @done="close" />
     <CatPlan v-else-if="mode === 'cat'" @cite="cite = $event" @done="close" />
-    <CheckDrill v-else-if="mode === 'drill'" @done="close" />
     <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
   </div>
 </template>

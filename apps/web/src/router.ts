@@ -20,6 +20,8 @@ function oldTrainLink(to: RouteLocationNormalized) {
   const q = to.query, one = (k: string) => (typeof q[k] === "string" && q[k] ? encodeURIComponent(q[k] as string) : "");
   if (one("technique")) return `/train/technique/${one("technique")}`;
   if (one("lesson")) return `/train/lesson/${one("lesson")}`;
+  // the reality check drill was folded into /check (LDJ-118)
+  if (one("guided") === "drill") return "/check";
   if (one("guided")) return `/train/guided/${one("guided")}`;
   if ("review" in q) return "/train/review"; // "?review" alone parses as null, so test for the key
   return true;
@@ -72,5 +74,6 @@ export const router = createRouter({
 
 router.beforeEach((to) => {
   if (to.name === "journal-write") return captureFirst(to);
+  if (to.path === "/train/guided/drill") return "/check";
   return to.name === "train" && Object.keys(to.query).length ? oldTrainLink(to) : true;
 });

@@ -82,7 +82,7 @@ export function stepFor(i: StepInput): Step {
 
   if (evening) {
     if (at < PLAN_FROM && !i.reviewed) return {
-      kind: "review", title: "Do the evening review", line: "Tomorrow's intention and your top dream sign, in a minute or two.",
+      kind: "review", title: "Do the evening review", line: "Tonight's intention and your top dream sign, in a minute or two.",
       why: "Going over what you mean to notice just before sleep is how the programmes set up the night's intention.",
       sources: ["D1", "D5"], action: { label: "Start the review", to: "/train/review" },
     };

@@ -479,7 +479,7 @@ let rcTick: ReturnType<typeof setInterval> | null = null;
 const rcShown = new Set<Notification>(); // held: a notification that is garbage-collected loses its click
 const LATE = 15 * 60_000, AHEAD = 3 * 86_400_000;
 // the pages a reminder may open: /check, Train and its guided modes (old ?guided= links too), the journal morning entry (LDJ-30)
-const ALLOWED_URL = /^\/(check(\?[\w=&%.-]*)?|train(\/guided\/(wbtb|up|mild|ssild|wild|drill|cue|cat)|\?guided=(up|cat))?|journal\?(write=1&date=|norecall=)\d{4}-\d{2}-\d{2}|capture\?date=\d{4}-\d{2}-\d{2}(&then=up)?)$/; // capture: the morning capture (LDJ-80)
+const ALLOWED_URL = /^\/(check(\?[\w=&%.-]*)?|train(\/guided\/(bedtime|wbtb|up|mild|ssild|wild|cue|cat)|\/tonight|\?guided=(up|cat))?|journal\?(write=1&date=|norecall=)\d{4}-\d{2}-\d{2}|capture\?date=\d{4}-\d{2}-\d{2}(&then=up)?)$/; // capture: the morning capture (LDJ-80)
 const isCheck = (r: PlannedReminder) => r.url.startsWith("/check");
 // "Pause reminders today" from the tray: reality checks only, until midnight here. The page is told too (it sets the
 // schedule's pausedOn, which syncs); this copy keeps the pause even while the page can't save it (offline, signed out).

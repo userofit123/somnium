@@ -1,7 +1,8 @@
 <script setup lang="ts">
 // Train's entry points to the guided modes (LDJ-25), in two groups (PLAN.md §6.3): the bedtime starts on the Tonight tab
 // (the bedtime routine, LDJ-167, then MILD, SSILD, WILD relaxation, I'm up for the WBTB wake, then the Evening review as the closing step, LDJ-96) and the
-// tools on the Techniques tab (the WBTB planner among them; Tonight's plan shows its alarm with Change). The WBTB row
+// tools on the Techniques tab (the WBTB planner among them; a reality check is logged from the + sheet and the Today
+// checklist (/check), LDJ-118, not from here; Tonight's plan shows its alarm with Change). The WBTB row
 // shows tonight's alarm when one is planned, and "I'm up" comes first while that alarm is near (from an hour before
 // it to four hours after).
 import { computed } from "vue";
@@ -15,7 +16,7 @@ const settings = useSettings();
 void flushCueLog();
 const props = defineProps<{ wakeAt: string | null; group: "tonight" | "tools" }>();
 // SSILD and WILD are bedtime starts and tools both (PLAN.md §6.3), so they are in both groups
-const GROUPS: Record<"tonight" | "tools", GuidedMode[]> = { tonight: ["bedtime", "up", "mild", "ssild", "wild"], tools: ["wbtb", "ssild", "wild", "drill", "cat", "cue"] };
+const GROUPS: Record<"tonight" | "tools", GuidedMode[]> = { tonight: ["bedtime", "up", "mild", "ssild", "wild"], tools: ["wbtb", "ssild", "wild", "cat", "cue"] };
 const alarm = computed(() => (props.wakeAt ? new Date(props.wakeAt) : null));
 const near = computed(() => { const a = alarm.value?.getTime(); return !!a && Date.now() > a - 3_600_000 && Date.now() < a + 4 * 3_600_000; });
 const hm = (d: Date) => `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
@@ -27,7 +28,6 @@ const rows = computed(() => {
     { mode: "mild", t: "MILD at bedtime", s: "Your dream sign and the intention", icon: "moon" },
     { mode: "ssild", t: "SSILD timer", s: "Sight, sound, body cycles", icon: "layers" },
     { mode: "wild", t: "WILD relaxation", s: "A soft timer", icon: "target" },
-    { mode: "drill", t: "Reality check drill", s: "Do a check now", icon: "check" },
     { mode: "cat", t: "CAT plan", s: catPlan() ? "Running · the morning alarms" : "Wake 90 minutes early, then alternate days", icon: "clock" },
   ];
   // LDJ-48: only while switched on in Settings → Features

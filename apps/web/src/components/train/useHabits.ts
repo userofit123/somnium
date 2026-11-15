@@ -21,7 +21,8 @@ export function useHabits() {
   const topSign = computed(() => {
     const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
     const top = topSigns(els, j.links.data.value ?? [], facts, signLexicons.value?.checks ?? [], today.value, 1)[0];
-    return top ? { id: top.element.id, name: top.element.name ?? "" } : null;
+    // with the reality check paired with it (the evening review offers it)
+    return top ? { id: top.element.id, name: top.element.name ?? "", check: top.check ? { id: top.check.id, name: top.check.name } : null } : null;
   });
   const settings = useSettings();
   const rc = computed(() => rcRow(reminders.data.value ?? []));
