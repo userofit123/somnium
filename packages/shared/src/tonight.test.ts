@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { eveningWeekday, freeNightsOf, suggestTonight, wbtbBlock, type TonightInput } from "./tonight";
+import { eveningWeekday, freeNightsOf, reasonParts, suggestTonight, wbtbBlock, wbtbNightsOf, type TonightInput } from "./tonight";
 
 // 2026-11-14 is a Saturday morning: the night began on Friday evening (5)
 const base: TonightInput = { lesson: "mild-wbtb", date: "2026-11-14", freeNights: [5, 6], sleepFirst: false, safetyChecked: true, wbtbNights: [] };
@@ -55,5 +55,18 @@ describe("tonight's suggested plan", () => {
   it("cleans the synced free nights", () => {
     expect(freeNightsOf([6, 5, 5, 7, -1, 2.5, "1"])).toEqual([5, 6]);
     expect(freeNightsOf(null)).toEqual([]);
+  });
+});
+
+describe("wbtbNightsOf and reasonParts", () => {
+  it("lists the WBTB nights, not naps and not the night itself", () => {
+    const nights = [
+      { date: "2026-11-10", wbtbUsed: true }, { date: "2026-11-11", techniquesPlanned: ["wbtb"] }, { date: "2026-11-12", nap: true, wbtbUsed: true },
+      { date: "2026-11-13", techniquesPlanned: ["mild"] }, { date: "2026-11-14", wbtbWakeAt: "2026-11-14T03:30:00Z" },
+    ];
+    expect(wbtbNightsOf(nights, "2026-11-14")).toEqual(["2026-11-10", "2026-11-11"]);
+  });
+  it("splits a reason into plain text and its sources", () => {
+    expect(reasonParts("Best-supported [B37][D11]. Costs sleep [B69][D11].")).toEqual({ text: "Best-supported. Costs sleep.", sources: ["B37", "D11", "B69"] });
   });
 });

@@ -2,9 +2,11 @@
 // day and what is already logged. The study protocols that worked gave people a concrete daily schedule rather than a
 // menu (RESEARCH.md Part D §6.8 [D11][D12][D5]), so Home leads with one step and the other cards follow, quieter.
 // Pure: the caller passes the hour and the counts; the lesson texts and the move-on rule (course.ts) stay where they are.
-// The Today checklist already lists the practice items one by one, so a step only names how many are left.
+// The Today checklist already lists the practice items one by one, so a step only names how many are left. The evening
+// step names tonight's suggested plan as Train · Tonight has it (tonight.ts suggestTonight), so the two never differ.
 import { COURSE_LESSONS } from "./course";
 import { NIGHT_CUTOFF } from "./home";
+import { reasonParts } from "./tonight";
 
 export interface StepLesson { id: string; number: number; title: string }
 
@@ -23,10 +25,10 @@ export interface StepInput {
   checks: { done: number; target: number };
   /** The lesson's practice items ticked today. */
   practice: { done: number; total: number };
-  /** Today's evening review is ticked. */
+  /** This evening's review is ticked (before 05:00, last evening's: home.ts eveningOf). */
   reviewed: boolean;
-  /** Tonight's plan: the techniques' titles (WBTB left out) and the WBTB alarm as a formatted time, or null. */
-  tonight: { titles: string[]; wbtbAt: string | null };
+  /** Tonight: the suggested plan's title and reason (suggestTonight), whether a plan is set, its WBTB alarm formatted. */
+  tonight: { title: string; reason: string; planned: boolean; wbtbAt: string | null };
 }
 
 export type StepKind = "write" | "moveOn" | "finish" | "checks" | "practice" | "plan" | "tonight" | "review" | "done";
@@ -36,48 +38,27 @@ export interface Step {
   title: string;
   /** Where you are or what to do, in a few words; "" when the title says it all. */
   line: string;
-  /** Why this step, one plain sentence; its sources are `sources` (RESEARCH.md reference ids). */
+  /** Why this step, in plain words; its sources are `sources` (RESEARCH.md reference ids). */
   why: string;
   sources: string[];
   /** The step's one button: a route, or an action the card runs ("write" a new dream, "moveOn" to the next lesson). */
   action: { label: string; to?: string; run?: "write" | "moveOn" } | null;
 }
 
-/** The lesson from which tonight's step is a technique plan rather than an intention (lesson 4, MILD + WBTB). */
+/** The lesson from which the evening review is no longer a step of its own (lesson 4, MILD + WBTB: the plan is). */
 const PLAN_FROM = COURSE_LESSONS.indexOf("mild-wbtb");
 /** The lesson from which the day's step is the reality checks (lesson 3). */
 const CHECKS_FROM = COURSE_LESSONS.indexOf("reality-checks");
 /** The reality checks lesson's rule counts days with 5 or more checks (course.ts). */
 const RC_LESSON_MIN = 5;
 
-/** What tonight's plan holds for each lesson from MILD on, when nothing is planned yet. */
-const PLAN_LINE: Record<string, string> = {
-  "mild-wbtb": "MILD, with WBTB on a night you can sleep in after",
-  stabilise: "MILD, and the first-seconds routine ready for when you become lucid",
-  "ssild-wild": "SSILD or WILD after WBTB on a free night, MILD on the others",
-  "dream-control": "MILD, and the task you want to try in a lucid dream",
-  troubleshooting: "The technique that has worked best for you",
-};
-
 const plural = (n: number, one: string, many = one + "s") => `${n} ${n === 1 ? one : many}`;
 const lessonAt = (l: StepLesson | null) => (l ? COURSE_LESSONS.indexOf(l.id as (typeof COURSE_LESSONS)[number]) : COURSE_LESSONS.length);
 
-/** Tonight's plan in a few words: "WBTB at 03:30 and MILD". Empty when nothing is planned. */
-export function tonightLine(t: StepInput["tonight"]): string {
-  const parts = [...(t.wbtbAt ? [`WBTB at ${t.wbtbAt}`] : []), ...t.titles];
-  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0] ?? "";
-}
-
-/** The "Plan tonight" step with tonight's suggested plan (tonight.ts suggestTonight) as its line, so Home says what Train ·
- * Tonight suggests (WBTB only on a free night). Any other step is returned as it is. */
-export function withSuggestion(step: Step, title: string | null): Step {
-  return step.kind === "plan" && title ? { ...step, line: `Suggested: ${title}` } : step;
-}
-
 /**
  * Today's step. In order: write last night's dream (daytime, until it is written); move on once the lesson's rule is
- * met; in the evening (from 18:00 until the night turns at 05:00) tonight's plan or, before MILD, the evening review
- * and the intention to remember; in the day the reality checks (from lesson 3), then the lesson's practice; else done.
+ * met; in the evening (from 18:00 until the night turns at 05:00) tonight's suggested plan, after the evening review
+ * before MILD; in the day the reality checks (from lesson 3), then the lesson's practice; else done.
  */
 export function stepFor(i: StepInput): Step {
   const at = lessonAt(i.lesson);
@@ -91,8 +72,8 @@ export function stepFor(i: StepInput): Step {
 
   if (i.ready && i.lesson) return i.next ? {
     kind: "moveOn", title: `You are ready for lesson ${i.next.number}: ${i.next.title}`, line: `Lesson ${i.lesson.number} has done its job.`,
-    why: "The courses that worked moved on one step at a time once each step held; a fresh step also keeps motivation up, which raised LaBerge's own rate.",
-    sources: ["D5", "D1"], action: { label: "Move on", run: "moveOn" },
+    why: "The courses that worked moved on one step at a time once each step held.",
+    sources: ["D5"], action: { label: "Move on", run: "moveOn" },
   } : {
     kind: "finish", title: "You have tried every item: finish the course", line: "The lessons stay in Train to come back to.",
     why: "The last lesson is a checklist to come back to when progress stalls.",
@@ -100,23 +81,15 @@ export function stepFor(i: StepInput): Step {
   };
 
   if (evening) {
-    if (at >= PLAN_FROM) {
-      const planned = tonightLine(i.tonight);
-      const why = "MILD after a short wake late in the night was the best-supported combination in the studies.";
-      return planned
-        ? { kind: "tonight", title: `Tonight: ${planned}`, line: "Planned. Keep the journal by the bed.", why, sources: ["D11", "D12"], action: { label: "Open tonight", to: "/train/tonight" } }
-        : { kind: "plan", title: "Plan tonight", line: PLAN_LINE[i.lesson?.id ?? ""] ?? PLAN_LINE.troubleshooting!, why, sources: ["D11", "D12"], action: { label: "Set it up", to: "/train/tonight" } };
-    }
-    if (!i.reviewed) return {
+    if (at < PLAN_FROM && !i.reviewed) return {
       kind: "review", title: "Do the evening review", line: "Tomorrow's intention and your top dream sign, in a minute or two.",
       why: "Going over what you mean to notice just before sleep is how the programmes set up the night's intention.",
       sources: ["D1", "D5"], action: { label: "Start the review", to: "/train/review" },
     };
-    return {
-      kind: "tonight", title: "Tonight: tell yourself you will remember your dreams", line: "Keep the journal by the bed and lie still when you wake.",
-      why: "An intention to remember, and a still moment on waking, are the first step of the recall programmes.",
-      sources: ["D1", "D5"], action: null,
-    };
+    const { text, sources } = reasonParts(i.tonight.reason);
+    return i.tonight.planned
+      ? { kind: "tonight", title: "Tonight's plan is set", line: [i.tonight.wbtbAt ? `WBTB alarm at ${i.tonight.wbtbAt}` : "", "Keep the journal by the bed."].filter(Boolean).join(" · "), why: text, sources, action: { label: "Open tonight", to: "/train/tonight" } }
+      : { kind: "plan", title: `Tonight: ${i.tonight.title}`, line: "Not set up yet.", why: text, sources, action: { label: "Set it up", to: "/train/tonight" } };
   }
 
   if (at >= CHECKS_FROM) {
@@ -138,8 +111,8 @@ export function stepFor(i: StepInput): Step {
   }
 
   return {
-    kind: "done", title: "Today's step is done", line: "Tonight's step shows here from 6 pm.",
-    why: "Steady daily practice is what the study schedules asked for, not more of it; rest is part of it.",
+    kind: "done", title: "Today's step is done", line: "Tonight's step shows here this evening.",
+    why: "Steady daily practice is what the study schedules asked for.",
     sources: ["D11", "D1"], action: null,
   };
 }

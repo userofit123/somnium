@@ -8,13 +8,13 @@
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, currentLesson, nextLesson, moveOn, stepFor, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, elementStats, frequencyText, signShortlist, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
-import { useTrain, tonightNight, setLesson } from "../api/train";
+import { useTrain, tonightNight } from "../api/train";
 import { useHabits } from "../components/train/useHabits";
-import { localYmd, useFmt } from "../core/format";
-import { toastError } from "../core/toast";
+import { useLesson } from "../components/train/useLesson";
+import { useFmt } from "../core/format";
 import { loaded, saveSettings, useSettings } from "../api/queries";
 import { confirm } from "../core/ask";
 import { useToday } from "../core/today";
@@ -57,55 +57,41 @@ const dreams = computed(() => j.dreams.data.value ?? []);
 const morning = computed(() => morningState(nights.value, dreams.value, when.value.lastNight));
 
 // today's checklist (the same one as Train > Today): the lesson's practice items come from the course texts loaded above
-const lesson = computed(() => { const id = currentLesson(t.course.data.value ?? []); return id ? findLesson(id) ?? null : null; });
+// the lesson, its move-on rule and Move on, the same as Train works them out
+const course = useLesson(findLesson, practiceItemId);
+const lesson = course.lesson;
 const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
 
 // tonight
 const tonight = computed(() => tonightNight(nights.value, when.value.tonight));
 const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && articles.find((a) => a.id === "techniques/" + tq.slug)?.title) ?? id.replace(/-/g, " "); };
 
-// ---- today's step: the move-on rule as Train works it out (TrainPage), today's counts as the Today checklist has them
+// ---- today's step: the move-on rule as Train has it (useLesson), today's counts as the Today checklist has them, and
+// tonight's suggested plan as Train · Tonight has it (suggestTonight, for the same night as the Tonight card)
 const h = useHabits(), fmt = useFmt();
-const courseRows = computed(() => t.course.data.value ?? []);
-const lessonRow = computed(() => (lesson.value ? courseRows.value.find((r) => r.lessonId === lesson.value!.id) : undefined));
-const itemIds = computed(() => (lesson.value ? lesson.value.practice.map((_, i) => practiceItemId(lesson.value!.id, i)) : []));
-const ready = computed(() => !!lesson.value && !!moveOn(lesson.value.id, {
-  today: today.value,
-  since: lessonRow.value ? localYmd(new Date(lessonRow.value.startedAt ?? lessonRow.value.createdAt)) : today.value,
-  nights: nights.value,
-  checkDays: (t.checks.data.value ?? []).map((c) => localYmd(new Date(c.at))),
-  practice: t.practice.data.value ?? [],
-  items: itemIds.value,
-})?.ready);
+const hour = computed(() => new Date(now.value).getHours());
+const suggestion = computed(() => {
+  const s = settings.value, date = when.value.tonight;
+  return suggestTonight({ lesson: course.current.value, date, freeNights: freeNightsOf(s.sleep.freeNights), sleepFirst: s.safety.sleepFirst, safetyChecked: s.safety.checked, wbtbNights: wbtbNightsOf(nights.value, date) });
+});
 const brief = (l: { id: string; number: number; title: string } | null | undefined) => (l ? { id: l.id, number: l.number, title: l.title } : null);
 const stepLesson = computed(() => brief(lesson.value));
 const step = computed(() => {
   const after = lesson.value ? nextLesson(lesson.value.id) : null;
-  const plan = tonight.value?.techniquesPlanned ?? [];
   const wbtb = tonight.value?.wbtbWakeAt;
   return stepFor({
-    hour: new Date(now.value).getHours(),
+    hour: hour.value,
     lesson: stepLesson.value,
     next: brief(after ? findLesson(after) : null),
     wrote: morning.value.kind !== "open",
-    ready: ready.value,
+    ready: !!course.rule.value?.ready,
     checks: { done: h.checksToday.value, target: h.checkTarget.value },
-    practice: { done: itemIds.value.filter((id) => h.rowOf(id)).length, total: itemIds.value.length },
-    reviewed: !!h.rowOf("habit:review"),
-    tonight: { titles: plan.filter((x) => x !== "wbtb").map(titleOf), wbtbAt: wbtb ? fmt.value.time(wbtb) : null },
+    practice: { done: course.itemIds.value.filter((id) => h.rowOf(id)).length, total: course.itemIds.value.length },
+    // before 05:00 the evening is still last evening's: a review done at 22:00 counts at 01:00
+    reviewed: !!h.rowAt("habit:review", eveningOf(today.value, hour.value)),
+    tonight: { title: suggestion.value.title, reason: suggestion.value.reason, planned: !!tonight.value?.techniquesPlanned?.length, wbtbAt: wbtb ? fmt.value.time(wbtb) : null },
   });
 });
-// Move on, as on Train: this lesson done, the next one active (its start is what the next rule counts from)
-const moving = ref(false);
-async function moveOnLesson() {
-  if (!lesson.value) return;
-  moving.value = true;
-  try {
-    const id = lesson.value.id, after = nextLesson(id);
-    await setLesson(id, "done", lessonRow.value);
-    if (after) await setLesson(after, "active", courseRows.value.find((r) => r.lessonId === after));
-  } catch (e) { toastError(e); } finally { moving.value = false; }
-}
 
 const rates = computed(() => homeRates(nights.value, dreams.value, today.value));
 
@@ -205,9 +191,10 @@ async function reset() {
         <div class="grow"><div class="t">Make your recovery key</div><div class="s">Nobody can send you your password. Without the key, a forgotten one locks your journal for good.</div></div></div>
       <div class="hkey-acts"><button class="qb" @click="hideNudgeForAWeek">Later</button><button class="qb acc" @click="router.push('/settings/security')">Make key</button></div>
     </div>
-    <!-- once every list it reads is in, so it never names a wrong step for a moment -->
-    <StepCard v-if="!editing && h.ready.value" :step="step" :lesson="stepLesson" :of="lessons.length" :date="when.lastNight" :moving="moving" @move-on="moveOnLesson" />
-    <div v-if="!editing" class="grid hgrid" :class="{ g2: !isPhone }">
+    <!-- the step and the cards wait for every list the step reads, so it never names a wrong step for a moment and
+         never pushes the cards down when it comes in -->
+    <StepCard v-if="!editing && h.ready.value" :step="step" :lesson="stepLesson" :of="lessons.length" :date="when.lastNight" :moving="course.moving.value" @move-on="course.next" />
+    <div v-if="!editing && h.ready.value" class="grid hgrid" :class="{ g2: !isPhone }">
       <div v-for="(col, ci) in columns" :key="ci" class="hcol">
         <ForYouCard v-if="ci === 1" />
         <template v-for="(id, k) in col" :key="id">

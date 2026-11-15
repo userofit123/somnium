@@ -16,7 +16,8 @@ export function useHabits() {
   void loadSignLexicons();
   const reminders = useQuery({ queryKey: [...REMINDERS_KEY], queryFn: fetchReminders, staleTime: 60_000 });
   const rows = computed(() => log.data.value ?? []);
-  const rowOf = (item: string) => rows.value.find((r) => r.date === today.value && r.item === item && r.done);
+  const rowAt = (item: string, date: string) => rows.value.find((r) => r.date === date && r.item === item && r.done);
+  const rowOf = (item: string) => rowAt(item, today.value);
   const topSign = computed(() => {
     const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
     const top = signShortlist(els, elementStats(els, j.links.data.value ?? [], facts, today.value), facts, signLexicons.value?.checks ?? [], today.value, 1)[0];
@@ -37,5 +38,5 @@ export function useHabits() {
   const checkTarget = computed(() => Math.max(1, remindersOn.value ? plan.value.today : rcSchedule(rc.value?.schedule).perDay));
   const checksToday = computed(() => checksOn((t.checks.data.value ?? []).map((c) => localYmd(new Date(c.at))), today.value));
   const wroteToday = computed(() => (j.nights.data.value ?? []).some((n) => n.date === today.value && (n.dreamCount > 0 || n.noRecall)));
-  return { j, t, log, today, rows, rowOf, topSign, remindersOn, plan, checkTarget, checksToday, wroteToday, ready: computed(() => !!log.data.value && !!j.nights.data.value && !!t.checks.data.value && !!reminders.data.value) };
+  return { j, t, log, today, rows, rowAt, rowOf, topSign, remindersOn, plan, checkTarget, checksToday, wroteToday, ready: computed(() => !!log.data.value && !!j.nights.data.value && !!t.checks.data.value && !!reminders.data.value) };
 }

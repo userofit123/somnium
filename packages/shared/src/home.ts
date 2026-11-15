@@ -21,6 +21,14 @@ export function homeNights(today: string, hour: number): { lastNight: string; to
   return { lastNight: today, tonight, same: tonight === today };
 }
 
+/**
+ * The evening whose review and plan the hour belongs to: today's, or before the 05:00 turn yesterday's (at 01:00 you
+ * are still in last evening's night, the same night homeNights calls tonight).
+ */
+export function eveningOf(today: string, hour: number): string {
+  return hour < NIGHT_CUTOFF ? addDays(today, -1) : today;
+}
+
 export type MorningState =
   | { kind: "open" }
   | { kind: "noRecall" }

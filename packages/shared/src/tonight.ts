@@ -70,6 +70,18 @@ export function wbtbBlock(i: Pick<TonightInput, "date" | "freeNights" | "sleepFi
   return "";
 }
 
+/** The morning dates of the nights with WBTB used or planned, the night `date` itself left out (TonightInput.wbtbNights). */
+export function wbtbNightsOf(nights: readonly { date: string; nap?: boolean; wbtbUsed?: boolean | null; wbtbWakeAt?: string | null; techniquesDone?: readonly string[] | null; techniquesPlanned?: readonly string[] | null }[], date: string): string[] {
+  return nights.filter((n) => !n.nap && n.date !== date
+    && (!!n.wbtbUsed || !!n.wbtbWakeAt || !!n.techniquesDone?.includes("wbtb") || !!n.techniquesPlanned?.includes("wbtb"))).map((n) => n.date);
+}
+
+/** A suggestion's reason split for a card: the plain text, and its sources ("[B37][D11]") as reference ids. */
+export function reasonParts(reason: string): { text: string; sources: string[] } {
+  const sources = [...new Set([...reason.matchAll(/\[([A-Z]+\d+)\]/g)].map((m) => m[1]!))];
+  return { text: reason.replace(/\s*\[[A-Z]+\d+\]/g, "").trim(), sources };
+}
+
 /** Tonight's suggested plan. */
 export function suggestTonight(i: TonightInput): TonightSuggestion {
   const at = i.lesson === null ? COURSE_LESSONS.length : Math.max(0, (COURSE_LESSONS as readonly string[]).indexOf(i.lesson));

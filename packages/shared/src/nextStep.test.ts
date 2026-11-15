@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { stepFor, tonightLine, withSuggestion, type StepInput, type StepLesson } from "./nextStep";
+import { stepFor, type StepInput, type StepLesson } from "./nextStep";
+import { eveningOf } from "./home";
+import { suggestTonight } from "./tonight";
 
 const L = (id: string, number: number, title: string): StepLesson => ({ id, number, title });
 const recall = L("recall", 1, "Remember your dreams");
@@ -11,7 +13,7 @@ const last = L("troubleshooting", 8, "Troubleshooting");
 const base = (o: Partial<StepInput> = {}): StepInput => ({
   hour: 10, lesson: rc, next: mild, wrote: true, ready: false,
   checks: { done: 0, target: 3 }, practice: { done: 0, total: 3 }, reviewed: false,
-  tonight: { titles: [], wbtbAt: null }, ...o,
+  tonight: { title: "Recall intention", reason: "Write them down when you wake [B48].", planned: false, wbtbAt: null }, ...o,
 });
 
 describe("stepFor", () => {
@@ -52,20 +54,32 @@ describe("stepFor", () => {
   it("is done when everything for the day is", () => {
     expect(stepFor(base({ checks: { done: 5, target: 5 }, practice: { done: 3, total: 3 } })).kind).toBe("done");
   });
-  it("in the evening of an early lesson: the review, then the intention to remember", () => {
+  it("in the evening of an early lesson: the review, then tonight's suggested plan", () => {
     expect(stepFor(base({ hour: 19 })).kind).toBe("review");
     const s = stepFor(base({ hour: 22, reviewed: true }));
-    expect(s.kind).toBe("tonight");
-    expect(s.action).toBeNull();
-  });
-  it("from MILD on, the evening's step is tonight's plan: set it up, or what is planned", () => {
-    const s = stepFor(base({ hour: 21, lesson: mild, next: ssild }));
     expect(s.kind).toBe("plan");
+    expect(s.title).toBe("Tonight: Recall intention");
+    expect(s.why).toBe("Write them down when you wake.");
+    expect(s.sources).toEqual(["B48"]);
+  });
+  it("from MILD on, the evening's step is tonight's suggested plan, or that it is set", () => {
+    const sg = suggestTonight({ lesson: "mild-wbtb", date: "2026-11-14", freeNights: [5], sleepFirst: false, safetyChecked: true, wbtbNights: [] });
+    const tonight = { title: sg.title, reason: sg.reason, planned: false, wbtbAt: null };
+    const s = stepFor(base({ hour: 21, lesson: mild, next: ssild, tonight }));
+    expect(s.kind).toBe("plan");
+    expect(s.title).toBe(`Tonight: ${sg.title}`);
+    expect(s.title).toBe("Tonight: WBTB + MILD");
+    expect(s.why).not.toMatch(/\[/);
+    expect(s.sources).toEqual(["B37", "B38", "B39", "D11", "B69", "D1"]);
     expect(s.action).toEqual({ label: "Set it up", to: "/train/tonight" });
-    const p = stepFor(base({ hour: 21, lesson: mild, next: ssild, tonight: { titles: ["MILD"], wbtbAt: "03:30" } }));
+    const p = stepFor(base({ hour: 21, lesson: mild, next: ssild, tonight: { ...tonight, planned: true, wbtbAt: "03:30" } }));
     expect(p.kind).toBe("tonight");
-    expect(p.title).toBe("Tonight: WBTB at 03:30 and MILD");
-    expect(p.sources).toEqual(["D11", "D12"]);
+    expect(p.line).toBe("WBTB alarm at 03:30 · Keep the journal by the bed.");
+  });
+  it("in the small hours it is still the evening: the review done before midnight is not asked again", () => {
+    expect(stepFor(base({ hour: 1, reviewed: true })).kind).toBe("plan");
+    expect(stepFor(base({ hour: 4, reviewed: false })).kind).toBe("review");
+    expect(stepFor(base({ hour: 5, reviewed: false, checks: { done: 5, target: 5 } })).kind).toBe("practice");
   });
   it("after the course, keeps the checks by day and the plan by night", () => {
     expect(stepFor(base({ lesson: null, next: null, checks: { done: 0, target: 4 } })).kind).toBe("checks");
@@ -76,26 +90,19 @@ describe("stepFor", () => {
     for (const hour of [3, 8, 13, 19]) for (const lesson of [recall, rc, mild, last, null]) {
       const s = stepFor(base({ hour, lesson, wrote: hour > 12 }));
       expect(s.why).not.toBe("");
-      expect(s.sources.every((x) => /^D\d+$/.test(x))).toBe(true);
+      expect(s.sources.length).toBeGreaterThan(0);
+      expect(s.sources.every((x) => /^[BD]\d+$/.test(x))).toBe(true);
       expect(s.title + s.line + s.why).not.toMatch(/[–—]/);
     }
   });
 });
 
-describe("tonightLine", () => {
-  it("joins the plan in plain words", () => {
-    expect(tonightLine({ titles: [], wbtbAt: null })).toBe("");
-    expect(tonightLine({ titles: ["MILD"], wbtbAt: null })).toBe("MILD");
-    expect(tonightLine({ titles: ["SSILD", "MILD"], wbtbAt: "04:00" })).toBe("WBTB at 04:00, SSILD and MILD");
-  });
-});
-
-describe("withSuggestion", () => {
-  it("puts tonight's suggested plan on the Plan tonight step only", () => {
-    const plan = stepFor(base({ hour: 21, lesson: mild, next: ssild }));
-    expect(withSuggestion(plan, "MILD at bedtime").line).toBe("Suggested: MILD at bedtime");
-    expect(withSuggestion(plan, null)).toBe(plan);
-    const done = stepFor(base({ hour: 21, lesson: mild, next: ssild, tonight: { titles: ["MILD"], wbtbAt: null } }));
-    expect(withSuggestion(done, "WBTB + MILD")).toBe(done);
+describe("eveningOf", () => {
+  it("is today's evening from 05:00, and before it the evening the night began", () => {
+    expect(eveningOf("2026-11-15", 22)).toBe("2026-11-15");
+    expect(eveningOf("2026-11-15", 5)).toBe("2026-11-15");
+    expect(eveningOf("2026-11-15", 1)).toBe("2026-11-14");
+    expect(eveningOf("2026-11-15", 4)).toBe("2026-11-14");
+    expect(eveningOf("2026-03-01", 0)).toBe("2026-02-28");
   });
 });

@@ -6,18 +6,15 @@
 // Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
 // switching tabs doesn't reload it; the underline (.tabs) simply moves to the active tab, it doesn't animate. Everything
 // Train shows (the lesson and article texts) loads with this page only: it is a lazy route, so the first screen stays small.
-import { computed, ref, shallowRef, watch } from "vue";
+import { computed, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { currentLesson, nextLesson, moveOn } from "@somnium/shared";
 import { findLesson, practiceItemId } from "@somnium/knowledge/course";
 import { findTechnique } from "@somnium/knowledge/techniques";
 import { articles } from "@somnium/knowledge/content";
 import { useJournal } from "../api/journal";
-import { useTrain, setLesson, tonightNight, tonightDate } from "../api/train";
+import { useTrain, tonightNight, tonightDate } from "../api/train";
+import { useLesson } from "../components/train/useLesson";
 import { loaded } from "../api/queries";
-import { localYmd } from "../core/format";
-import { useToday } from "../core/today";
-import { toastError } from "../core/toast";
 import "../styles/components/learn.css";
 import "../styles/components/train.css";
 import CourseCard from "../components/train/CourseCard.vue";
@@ -45,8 +42,6 @@ const j = useJournal();
 const t = useTrain();
 await loaded(j.nights, t.course, t.practice);
 
-// reactive: the page can stay open across midnight
-const today = useToday();
 const TABS = [["train", "Today", "/train"], ["train-tonight", "Tonight", "/train/tonight"], ["train-techniques", "Techniques", "/train/techniques"]] as const;
 const isTab = (name: unknown) => TABS.some(([n]) => n === name);
 // what this copy of the page shows. The shells give each sub-screen its own copy (and the three tabs one between them):
@@ -73,10 +68,8 @@ watch(lost, (to) => { if (to && route.path === here.value.path) void router.repl
 const wbtbAt = computed(() => tonightNight(j.nights.data.value)?.wbtbWakeAt ?? tonightNight(j.nights.data.value, nightNowDate())?.wbtbWakeAt ?? null);
 
 const features = computed(() => useSettingsOn.value.features);
-const rows = computed(() => t.course.data.value ?? []);
-const current = computed(() => currentLesson(rows.value));
-const lesson = computed(() => (current.value ? findLesson(current.value) ?? null : null));
-const row = computed(() => rows.value.find((r) => r.lessonId === current.value));
+// the lesson, its move-on rule and Move on, the same as Home's step works them out
+const { lesson, rule, moving, next } = useLesson(findLesson, practiceItemId);
 const tonight = computed(() => tonightNight(j.nights.data.value, tonightDate()));
 const planned = computed(() => tonight.value?.techniquesPlanned ?? []);
 const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && articles.find((a) => a.id === "techniques/" + tq.slug)?.title) ?? id.replace(/-/g, " "); };
@@ -84,38 +77,6 @@ const titleOf = (id: string) => { const tq = findTechnique(id); return (tq && ar
 // the lesson's practice items for the Today checklist (ticked there, not on the course card)
 const checklistLesson = computed(() => (lesson.value ? { id: lesson.value.id, title: lesson.value.title, items: lesson.value.practice.map((text, i) => ({ id: practiceItemId(lesson.value!.id, i), text })) } : null));
 
-const rule = computed(() => {
-  if (!lesson.value) return null;
-  return moveOn(lesson.value.id, {
-    today: today.value,
-    // the lesson's fixed start (set once when it became active); a row from before it existed falls back to creation
-    since: row.value ? localYmd(new Date(row.value.startedAt ?? row.value.createdAt)) : today.value,
-    nights: j.nights.data.value ?? [],
-    checkDays: (t.checks.data.value ?? []).map((c) => localYmd(new Date(c.at))),
-    practice: t.practice.data.value ?? [],
-    items: lesson.value.practice.map((_, i) => practiceItemId(lesson.value!.id, i)),
-  });
-});
-
-// the lesson in front of you is the current one in course_progress: written once, so the rules know when it began
-let started = "";
-watch([() => t.course.isSuccess.value, current], ([ok, id]) => {
-  if (!ok || !id || row.value?.state === "active" || started === id) return;
-  started = id;
-  setLesson(id, "active", row.value).catch(toastError);
-}, { immediate: true });
-
-const moving = ref(false);
-async function next() {
-  if (!lesson.value) return;
-  moving.value = true;
-  try {
-    const id = lesson.value.id, after = nextLesson(id);
-    started = after ?? "";
-    await setLesson(id, "done", row.value);
-    if (after) await setLesson(after, "active", rows.value.find((r) => r.lessonId === after));
-  } catch (e) { toastError(e); } finally { moving.value = false; }
-}
 </script>
 
 <template>
