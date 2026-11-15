@@ -75,8 +75,9 @@ async function openCopyIfNone() {
  */
 export async function resumeAfterReload() {
   try {
-    if (!lock.resuming || !session.user) return;
-    const key = await takeResumeKey(session.user.id, lock.settings.delayMs);
+    if (!lock.resuming) return;
+    // with nobody signed in this is a no, and it deletes what the page before left
+    const key = await takeResumeKey(session.user?.id, lock.settings.delayMs);
     if (!key) return;
     try { keyring.set(key); } finally { key.fill(0); }
     markUnlocked();

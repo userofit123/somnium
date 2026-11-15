@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_SETTINGS_VERSION, canResume, resumeUntil, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, devicePath, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
+import { DEFAULT_LOCK_SETTINGS, FREE_WRONG_TRIES, LOCK_SETTINGS_VERSION, canResume, resumableLoad, resumeUntil, LOCK_HOLD_MAX_MS, WRONG_TRY_WAITS_MS, deviceFailureCounts, devicePath, formatWait, lockSettingsFrom, lockStep, startLockState, waitAfterWrongTries, wrongTriesFrom, wrongTryWaitLeft, type LockEvent, type LockSettings, type LockState } from "./lock";
 
 const T0 = 1_000_000;
 const cfg = (delayMs = 0, idleMs = 600_000): LockSettings => ({ delayMs, idleMs });
@@ -159,6 +159,15 @@ describe("app lock", () => {
       expect(resumeUntil(T0, D)).toBe(T0 + D);
       expect(resumeUntil(T0, 0)).toBeNull();
       expect(resumeUntil(null, D)).toBeNull();
+    });
+    it("is only tried for a reload of the tab or a discarded tab brought back", () => {
+      expect(resumableLoad("reload", false)).toBe(true);
+      expect(resumableLoad("navigate", true)).toBe(true);
+      expect(resumableLoad("navigate", false)).toBe(false);
+      expect(resumableLoad("back_forward", undefined)).toBe(false);
+      expect(resumableLoad("prerender", false)).toBe(false);
+      expect(resumableLoad(undefined, undefined)).toBe(false);
+      expect(resumableLoad("reload ", "true")).toBe(false);
     });
     it("lets a reload within the delay open without the lock screen", () => {
       expect(canResume(mark(T0 + D), now(T0 + 1))).toBe(true);

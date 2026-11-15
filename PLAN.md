@@ -160,8 +160,9 @@ coming back from another app.
   stored in the clear: while the journal is open it is kept encrypted (AES-GCM) under a fresh **non-extractable**
   Web Crypto key stored as a CryptoKey object in IndexedDB, and the encrypted key plus the time the delay ends (set
   when the tab is hidden or unloads) sit in that tab's session storage. A load reads them once, opens the key only
-  inside the delay for the same account, and deletes both whatever happens; expired, missing or failing means the
-  lock screen. Locking, signing out, another account and setting "immediately" delete them. The apps keep locking on
+  for a reload of the tab (navigation type "reload") or a discarded tab brought back (`document.wasDiscarded`), inside
+  the delay for the same account, and deletes both at once whatever happens; a link, a typed address, back/forward,
+  a reopened closed tab, expired, missing or failing means the lock screen (a back-forward cache restore locks too). Locking, signing out, another account and setting "immediately" delete them. The apps keep locking on
   every start (`apps/web/src/core/resume.ts`, D11). Locked state hides all content (an opaque lock screen; on Android `FLAG_SECURE` is
   on by default so the recents thumbnail and screenshots are blank; on desktop the window's content protection
   is on by default).
@@ -519,7 +520,9 @@ The Focus list "Lucid Dreaming journal" holds the tasks (`LD-n`). Phases:
   tab's memory and would have stayed open for the delay had the page not reloaded, so the grace adds no time. It is
   never written in the clear: it is AES-GCM encrypted by a non-extractable key that only the browser can use (stored
   as a CryptoKey in IndexedDB, whose bytes no script can read), and the ciphertext lives in session storage, per tab
-  and gone with it. Both are deleted on use, on lock, sign-out and account change, and with "immediately". The limit:
+  and gone with it. Only a reload (or a discarded tab brought back) may use them, not a link, a typed address,
+  back/forward or a reopened closed tab. Both are deleted by the next load whether used or not, on lock, sign-out and
+  account change, and with "immediately". The limit:
   anyone with this browser profile and the tab's session storage inside the delay can open the journal, as they could
   by looking at the open tab; the browser profile already holds the plaintext copy (§4.1). The apps don't reload in
   normal use and keep locking at every start; the desktop app still locks at once when closed to the tray.

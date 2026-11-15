@@ -64,6 +64,19 @@ export function canResume(saved: unknown, now: { at: number; user: string | null
   return now.at < m.until && m.until - now.at <= now.delayMs;
 }
 
+/**
+ * Whether the way this page was loaded may use the reload grace at all. Only a reload of the same tab ("reload": the
+ * button, F5, and the app's own reloads after signing in or out) or a tab the browser says it discarded in the
+ * background and brought back (`document.wasDiscarded`, Chromium). Not "navigate" (a link or an address typed into the
+ * tab is a new start, and the app never navigates its own pages that way), not "back_forward" (going back to the app
+ * from another site without the back-forward cache, and the history restore browsers use to reopen closed tabs and
+ * duplicate them), not "prerender", and nothing unknown: those meet the lock screen. A page brought back whole from
+ * the back-forward cache never loads again and is locked by its pageshow.
+ */
+export function resumableLoad(type: unknown, wasDiscarded: unknown): boolean {
+  return type === "reload" || wasDiscarded === true;
+}
+
 /** How long a further try has to wait after this many wrong tries in a row. */
 export function waitAfterWrongTries(count: number): number {
   if (count < FREE_WRONG_TRIES) return 0;

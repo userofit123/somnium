@@ -6,13 +6,14 @@
 // (AES-GCM) under a key of its own, made with Web Crypto as non-extractable: that key lives in IndexedDB as a CryptoKey
 // object (the browser stores it; no script can read its bytes), and the encrypted data key lives in this tab's session
 // storage (gone when the tab closes, never shared with other tabs). Leaving the tab - a reload leaves it first - stamps
-// when the delay ends. A load reads the stamp once, and opens the key only for the same account inside the delay
-// (canResume in @somnium/shared). Either way both halves are deleted, and the journal makes a fresh pair after opening.
+// when the delay ends. A load reads the stamp once, and opens the key only when it is a reload of this tab (or a tab the
+// browser discarded), for the same account inside the delay (resumableLoad and canResume in @somnium/shared). Either
+// way both halves are deleted at once, and the journal makes a fresh pair after opening.
 // The key dropped (the lock, signing out, another account) deletes them too.
 //
 // The apps keep locking at every start: they don't reload in normal use, a restart of them is a start, and the desktop
 // app locks at once when closed to the tray (LDJ-56).
-import { canResume, fromBase64url, randomBytes, resumeUntil, toBase64url, type ResumeMark } from "@somnium/shared";
+import { canResume, fromBase64url, resumableLoad, randomBytes, resumeUntil, toBase64url, type ResumeMark } from "@somnium/shared";
 import { keyring } from "./keyring";
 
 interface Entry extends ResumeMark { iv: string; sealed: string }
@@ -21,7 +22,13 @@ const MARK = "somniumResume", DB = "somnium-resume", STORE = "keys";
 // about once a minute), and a load deletes the ones past it, left by tabs that were closed
 const KEEP_MS = 5 * 60_000;
 
-const inApp = () => { const g = globalThis as { somniumNative?: unknown; somniumDesktop?: unknown }; return !!g.somniumNative || !!g.somniumDesktop; };
+// Known at import, before native/android.ts sets somniumNative: Capacitor's bridge and the desktop preload are in place
+// before any page script runs. The Android check is native/android.ts's isAndroid, inlined: importing that module here
+// would loop back through core/lock.
+const inApp = (() => {
+  const g = globalThis as { somniumNative?: unknown; somniumDesktop?: unknown; Capacitor?: { getPlatform?: () => string } };
+  try { return !!g.somniumNative || !!g.somniumDesktop || g.Capacitor?.getPlatform?.() === "android"; } catch { return true; }
+})();
 const enc = new TextEncoder();
 const buf = (b: Uint8Array) => b.slice().buffer as ArrayBuffer;
 
@@ -44,27 +51,41 @@ function db<T>(fn: (s: IDBObjectStore) => IDBRequest<T>, mode: IDBTransactionMod
 const within = <T>(p: Promise<T>, ms = 3000) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
 const dropRecord = (id: string) => { void db((s) => s.delete(id), "readwrite").catch(() => {}); };
 
-// What the last page of this tab left, taken out of storage as the page starts: one try per load, and nothing left for
-// this page's own lock to stumble on.
-const found: Entry | null = (() => {
-  if (inApp()) return null;
+// How this page was loaded: only a reload of the tab, or a discarded tab brought back, may resume.
+function loadedByReload(): boolean {
   try {
-    const t = sessionStorage.getItem(MARK);
-    sessionStorage.removeItem(MARK);
-    return t ? (JSON.parse(t) as Entry) : null;
-  } catch { return null; }
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    return resumableLoad(nav?.type, (document as { wasDiscarded?: unknown }).wasDiscarded);
+  } catch { return false; }
+}
+
+// What the last page of this tab left, taken out of storage as the page starts: one try per load, and nothing left for
+// this page's own lock to stumble on. A load that won't try (not a reload, no time stamp, the delay passed) deletes
+// the IndexedDB half at once.
+const found: Entry | null = (() => {
+  if (inApp) return null;
+  let t: string | null = null;
+  try { t = sessionStorage.getItem(MARK); sessionStorage.removeItem(MARK); } catch { return null; }
+  if (!t) return null;
+  let e: Entry | null = null;
+  try { e = JSON.parse(t) as Entry; } catch { return null; }
+  if (!e || typeof e !== "object") return null;
+  if (loadedByReload() && typeof e.until === "number" && e.until > Date.now()) return e;
+  if (typeof e.id === "string") dropRecord(e.id);
+  return null;
 })();
 
 /** Whether this load may open without the lock screen (the splash stays up while that is decided). */
-export const mayResume = (): boolean => typeof found?.until === "number" && found.until > Date.now();
+export const mayResume = (): boolean => found !== null;
 
 /**
  * The data key the previous page of this tab left, when this account came back within the delay; null otherwise (the
  * lock screen). The caller zeroes it. Both halves are gone afterwards, used or not, as are records of closed tabs.
+ * Called even with nobody signed in, so that the record goes at once.
  */
 export async function takeResumeKey(user: string | null | undefined, delayMs: number): Promise<Uint8Array | null> {
   const f = found;
-  if (!f || inApp()) return null;
+  if (!f || inApp) return null;
   try {
     if (!canResume(f, { at: Date.now(), user, delayMs }) || typeof f.iv !== "string" || typeof f.sealed !== "string") return null;
     const rec = await within(db<{ key?: CryptoKey } | undefined>((s) => s.get(f.id)));
@@ -85,7 +106,7 @@ function sweep() {
   }, "readwrite").catch(() => {});
 }
 
-if (!inApp()) sweep();
+if (!inApp) sweep();
 
 // ----- this page's own pair, while the journal is open -----
 let entry: Entry | null = null;
@@ -105,7 +126,7 @@ const writeRecord = () => {
 export async function keepForReload(owner: string | null | undefined, delayMs: number): Promise<void> {
   forgetResume();
   delay = delayMs;
-  if (inApp() || !owner || delayMs <= 0 || !keyring.isOpen()) return;
+  if (inApp || !owner || delayMs <= 0 || !keyring.isOpen()) return;
   const opened = keyring.generation();
   let dataKey: Uint8Array | null = null;
   try {
