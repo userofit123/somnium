@@ -118,6 +118,17 @@ describe("journal", () => {
     expect(e.lucidEnd).toBeNull();
   });
 
+  it("keeps a dream saved as key words unfinished until it is written out (LDJ-80)", async () => {
+    const U = uuidv7();
+    await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'u','U')", [U]);
+    const n = await call<Night>(U, "POST", "/nights", { date: "2026-11-06" });
+    const d = await call<Dream>(U, "POST", "/dreams", { nightId: n.id, unfinished: true });
+    expect(d.unfinished).toBe(true);
+    expect((await call<Dream>(U, "PUT", `/dreams/${d.id}`, { unfinished: false })).unfinished).toBe(false);
+    // left out, a new dream is finished
+    expect((await call<Dream>(U, "POST", "/dreams", { nightId: n.id })).unfinished).toBe(false);
+  });
+
   it("refuses values off the scales and unknown enum words", async () => {
     expect(await status(A, "POST", "/dreams", { nightId: night.id, lucidityLevel: 6 })).toBe(400);
     expect(await status(A, "POST", "/dreams", { nightId: night.id, control: 6 })).toBe(400);

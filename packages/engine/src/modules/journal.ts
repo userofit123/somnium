@@ -23,7 +23,7 @@ const DREAM: Fields = {
   emotion_overall: (v) => intOrNull(v, -2, 2), duration_est: (v) => intOrNull(v, 0, 600),
   nightmare: (v) => bool(v), bad_dream: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
   became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), lucid_end: enumOrNull(LUCID_ENDS), favourite: (v) => bool(v),
-  dismissed: sealed,
+  dismissed: sealed, unfinished: (v) => bool(v),
 };
 /**
  * A dream is a nightmare (it woke you) or a bad dream (it didn't), never both (RESEARCH.md C18): marking one clears

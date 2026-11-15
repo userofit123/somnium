@@ -3,6 +3,7 @@
 // and its files are absent. Every file is sealed on this device before it goes up (api/client.ts) and opened here into
 // an object URL that the lock lets go of (api/media.ts). Photos lose their EXIF on the way (core/image.ts).
 // edit: the editor's version (add, read the text, delete); without it, the dream page's thumbnails and players.
+// voice: voice notes only (the morning capture, LDJ-80: no camera or sketch pad while half asleep).
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { mediaFeatures, VOICE_MAX_SECONDS } from "@somnium/shared";
 import { ApiError } from "../../api/client";
@@ -15,10 +16,10 @@ import Icon from "../Icon.vue";
 import Sheet from "../Sheet.vue";
 import SketchPad from "./SketchPad.vue";
 
-const props = defineProps<{ dreamId: string; edit?: boolean }>();
+const props = defineProps<{ dreamId: string; edit?: boolean; voice?: boolean }>();
 const emit = defineEmits<{ text: [string] }>();
 const settings = useSettings();
-const on = computed(() => mediaFeatures(settings.value.features));
+const on = computed(() => { const m = mediaFeatures(settings.value.features); return props.voice ? { ...m, photos: false, sketches: false, any: m.voice } : m; });
 const list = useDreamMedia(() => props.dreamId, () => on.value.any);
 const shows = (m: MediaRow) => (m.kind === "photo" && on.value.photos) || (m.kind === "sketch" && on.value.sketches) || (m.kind === "audio" && on.value.voice);
 const items = computed(() => (list.data.value ?? []).filter(shows));

@@ -24,8 +24,8 @@ const emit = defineEmits<{ close: [] }>();
 const j = useJournal();
 const fmt = useFmt();
 
-const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd"] as const;
-const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null });
+const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividness", "control", "recallClarity", "emotionOverall", "nightmare", "badDream", "recurring", "falseAwakening", "sleepParalysis", "favourite", "dismissed", "becameLucidHow", "lucidTrigger", "durationEst", "lucidEnd", "unfinished"] as const;
+const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null, unfinished: false });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
 const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
@@ -59,6 +59,8 @@ async function load() {
 const pick = () => Object.fromEntries(FIELDS.map((k) => [k, f[k]]));
 
 watch(f, () => { if (ready.value) changeDream(props.id, pick()); }, { deep: true });
+// key words saved from the morning capture with "Later" (LDJ-80): writing on from them here finishes the dream
+watch(() => f.text, () => { if (ready.value && f.unfinished) f.unfinished = false; });
 // a level of lucidity means it was lucid; not lucid means level 0; marking lucid takes the lowest lucid step so the
 // two never disagree (a dream marked Lucid with level 0 would read "Not lucid")
 watch(() => f.lucidityLevel, (v) => { if (v > 0 && !f.lucid) f.lucid = true; });
@@ -216,8 +218,9 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
     </div>
     <div v-if="loadError" class="card empty sm">{{ loadError }}</div>
     <template v-else-if="ready">
-      <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}</button>
+      <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}<span class="muted" aria-hidden="true">·</span><span class="muted">Night details</span></button>
       <input v-model="f.title" class="jtitle" placeholder="Title" maxlength="200" />
+      <p v-if="f.unfinished" class="tiny muted" style="margin:0">Saved as key words this morning. Write it out while some of it is still there.</p>
       <textarea ref="textEl" v-model="f.text" class="jtext" placeholder="I am standing in a house I don't know. The light is strange..." />
       <div v-if="suggested.length" class="jfound" aria-label="Found in the text">
         <span v-for="s in suggested" :key="s.key" class="jsg">

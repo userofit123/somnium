@@ -41,6 +41,9 @@ const CheckScreen = defineAsyncComponent(() => import("./shell/CheckScreen.vue")
 // the first-run setup (LDJ-77): once, after the lock is open, in place of the shells; the splash stays while it is not
 // yet known, so Home doesn't flash first
 const SetupScreen = defineAsyncComponent(() => import("./components/setup/SetupScreen.vue"));
+// the morning capture (LDJ-80) fills the screen in place of the shells, and only once the lock is open: it writes the
+// journal, which is sealed, so unlike /check it never opens over the lock screen
+const CaptureView = defineAsyncComponent(() => import("./components/journal/CaptureView.vue"));
 const setup = useSetupGate();
 </script>
 
@@ -51,6 +54,7 @@ const setup = useSetupGate();
   <Suspense v-else-if="route.path === '/check'"><CheckScreen /></Suspense>
   <LockScreen v-else-if="lock.locked" />
   <SetupScreen v-else-if="setup.show.value" />
+  <template v-else-if="route.path === '/capture'"><Suspense><CaptureView /></Suspense><Overlays /></template>
   <template v-else>
     <PhoneShell v-if="isPhone" />
     <DesktopShell v-else />

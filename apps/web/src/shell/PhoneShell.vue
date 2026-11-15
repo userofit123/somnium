@@ -3,7 +3,6 @@
 import { computed, onBeforeUnmount, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { section, TRAIN_TABS } from "./nav";
-import { uuidv7 } from "../api/journal";
 import Icon from "../components/Icon.vue";
 import SyncPill from "./SyncPill.vue";
 import { sheetIsOpen } from "../core/sheets";
@@ -22,9 +21,10 @@ const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
   { name: "progress", label: "Progress", icon: "stats", to: "/progress" },
   { name: "more", label: "More", icon: "moreH", to: "/more" },
 ];
-// the + writes a dream for now. LDJ-92 turns it into the quick-add sheet (Write a dream, No recall, Log a reality
-// check, Plan tonight, Day note; PLAN.md §6.0) shared with the desktop's + button: open that sheet here instead
-const add = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
+// the + starts the morning capture for now (LDJ-80: still, then key words, then the editor). LDJ-92 turns it into the
+// quick-add sheet (Write a dream, No recall, Log a reality check, Plan tonight, Day note; PLAN.md §6.0) shared with
+// the desktop's + button: open that sheet here instead, its "Write a dream" going to the capture (name "capture")
+const add = () => router.push({ name: "capture" });
 // the pages listed on the More tab
 const IN_MORE = ["more", "signs", "learn", "settings"];
 const moreOn = computed(() => IN_MORE.includes(cur.value));
