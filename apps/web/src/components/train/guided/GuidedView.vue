@@ -40,7 +40,7 @@ const running = ref(false);
 <template>
   <div v-if="shown" v-trap class="gd" :class="{ run: running }" role="dialog" aria-modal="true" :aria-label="name">
     <div class="gtop">
-      <button type="button" class="ib plain sm" aria-label="Close" @click="close"><Icon name="close" :size="18" /></button>
+      <button type="button" class="ib plain" aria-label="Close" @click="close"><Icon name="close" :size="20" /></button>
       <span class="grow" />
       <span class="gname">{{ name }}</span>
     </div>
@@ -50,7 +50,7 @@ const running = ref(false);
     <MildFlow v-else-if="mode === 'mild'" @cite="cite = $event" @done="close" />
     <SsildTimer v-else-if="mode === 'ssild'" @cite="cite = $event" @running="running = $event" @done="close" />
     <WildTimer v-else-if="mode === 'wild'" @cite="cite = $event" @running="running = $event" @done="close" />
-    <SoundCue v-else-if="mode === 'cue'" @cite="cite = $event" @running="running = $event" @done="close" />
+    <SoundCue v-else-if="mode === 'cue'" @cite="cite = $event" @running="running = $event" />
     <CatPlan v-else-if="mode === 'cat'" @cite="cite = $event" @done="close" />
     <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
   </div>

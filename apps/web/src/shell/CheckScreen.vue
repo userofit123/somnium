@@ -72,6 +72,8 @@ const addNote = (id = done.value!.id) => router.replace(`/check/note/${id}`);
           <h1 class="mt0">Logged</h1>
           <p class="muted m0">{{ done.outcome === "awake" ? "Awake" : "Not sure" }} · {{ check.name }}</p>
         </div>
+        <!-- the first "dreaming": why calm matters (WhyNote, LDJ-157) -->
+        <WhyNote v-if="done.outcome === 'dreaming'" id="dreaming" />
         <p v-if="done.queued" class="tiny m0"><Icon name="refresh" :size="13" /> Saved on this device; it is sent when the server can be reached.</p>
         <button class="btn lg block" @click="close">Done</button>
         <button class="btn o s" type="button" @click="addNote()">{{ lock.locked ? "Unlock to add a note" : "Add a note" }}</button>

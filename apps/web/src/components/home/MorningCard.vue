@@ -11,6 +11,7 @@ import { markNoRecall, useJournal, uuidv7 } from "../../api/journal";
 import { useChange } from "../../api/queries";
 import Icon from "../Icon.vue";
 import NightCheckIn from "../journal/NightCheckIn.vue";
+import WhyNote from "../learn/WhyNote.vue";
 
 const props = defineProps<{ state: MorningState; date: string }>();
 const router = useRouter();
@@ -45,6 +46,8 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
       <div v-if="state.kind === 'logged' && state.titled.length" class="htitles">
         <router-link v-for="d in state.titled" :key="d.id" :to="{ name: 'journal-dream', params: { id: d.id } }" class="tiny">{{ d.title }}</router-link>
       </div>
+      <!-- the first "No recall": why the empty morning still counts (WhyNote, LDJ-157) -->
+      <WhyNote v-if="state.kind === 'noRecall'" id="no-recall" class="hwhy" />
       <button v-if="unfinished.length" type="button" class="lnk inl hfin" @click="finish">Finish writing: {{ unfinished.length === 1 ? "1 dream" : `${unfinished.length} dreams` }}</button>
       <NightCheckIn v-if="night" :key="night.id" :night="night" :nights="j.nights.data.value ?? []" class="hnci" />
       <div class="hfoot"><router-link to="/journal" class="lnk inl">Open the Journal</router-link><button type="button" class="lnk inl" @click="write">Add another dream</button></div>
@@ -54,5 +57,6 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
 
 <style scoped>
 .lnk.hfin { display: block; margin-top: var(--lpy); }
+.hwhy { margin-top: var(--lpy); }
 .hnci { margin-top: var(--lpy); padding-top: var(--lpy); border-top: 1px solid var(--ol); }
 </style>

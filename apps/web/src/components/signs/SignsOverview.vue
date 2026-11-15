@@ -13,6 +13,7 @@ import { uuidv7 } from "../../api/journal";
 import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Sparkline from "../Sparkline.vue";
+import WhyNote from "../learn/WhyNote.vue";
 import ThemesCard from "./ThemesCard.vue";
 import { useSettings } from "../../api/queries";
 import { CATEGORY_LABEL, KIND_LABEL, KIND_ONE, dreamsText, useSigns } from "./useSigns";
@@ -48,19 +49,21 @@ const doCheck = (kind: string, sign: string) => router.push({ name: "check", que
 const seen = (d: string | null) => (d ? `last ${fmt.value.date(d, { day: "numeric", month: "short" })}` : "");
 
 const busy = ref("");
-async function run(id: string, f: () => Promise<void>, done: string) {
+// a sign was confirmed or marked on this visit: the first time, a note says what signs are for (WhyNote, LDJ-157)
+const confirmedNow = ref(false);
+async function run(id: string, f: () => Promise<void>, done: string, confirms = false) {
   busy.value = id;
-  try { await f(); toast(done); } catch (e) { toastError(e); } finally { busy.value = ""; }
+  try { await f(); toast(done); if (confirms) confirmedNow.value = true; } catch (e) { toastError(e); } finally { busy.value = ""; }
 }
-const confirmOne = (e: Element) => run(e.id, () => confirmElement(e.id), "Confirmed");
+const confirmOne = (e: Element) => run(e.id, () => confirmElement(e.id), "Confirmed", true);
 // confirmed and marked in one step; both are plain flags, so this saves offline too (api/signs.ts setElementFlags)
-const confirmSign = (e: Element) => run(e.id, () => setElementFlags(e.id, { confirmed: true, isDreamSign: true }), "Marked as a dream sign");
+const confirmSign = (e: Element) => run(e.id, () => setElementFlags(e.id, { confirmed: true, isDreamSign: true }), "Marked as a dream sign", true);
 // a recurring dream's content marked in one step, each a plain flag through the outbox, so it saves offline too
 const unmarked = (g: RecurringGroup<Element>) => g.core.filter((c) => !c.element.isDreamSign).map((c) => c.element);
 const groupOn = (g: RecurringGroup<Element>) => g.core.some((c) => c.element.id === props.selected);
 const markGroup = (g: RecurringGroup<Element>) => run(g.dreamIds[0]!, async () => {
   for (const e of unmarked(g)) await setElementFlags(e.id, { confirmed: true, isDreamSign: true });
-}, "Marked as a dream sign");
+}, "Marked as a dream sign", true);
 async function mergeOne(e: Element) {
   // the same kind first, most dreams first: what it is most likely a second name for
   const others = elements.value.filter((x) => x.id !== e.id && x.name)
@@ -80,6 +83,7 @@ async function dismissOne(e: Element) {
   <div>
     <!-- in the order to act on (PLAN.md §6.4, LDJ-125): your signs and their check, what to confirm, then the reference lists -->
     <div class="sh first"><h2>Your dream signs</h2><span class="tiny">{{ shortlist.length ? "Ranked by how often, how lately and the kind of sign" : "" }}</span></div>
+    <WhyNote v-if="confirmedNow" id="sign" class="sgwhy" />
     <div class="card sgshort">
       <div v-if="!shortlist.length" class="empty sm">
         <Icon name="sparkle" :size="34" /><b>No dream signs yet</b>
@@ -174,6 +178,7 @@ async function dismissOne(e: Element) {
 button.sgrow { cursor: pointer; }
 .sgrow.on { background: var(--s2); }
 .sgmin { min-width: 0; }
+.sgwhy { margin-bottom: var(--spg); }
 /* spans inside the row buttons (a button may only hold phrasing content), stacked as the divs were */
 .sgcol { display: flex; flex-direction: column; }
 .sgopen { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }

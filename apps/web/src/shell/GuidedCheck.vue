@@ -15,6 +15,7 @@ import { api } from "../api/client";
 import { checkCatalog } from "../native/reminders";
 import { keyring } from "../core/keyring";
 import { lock } from "../core/lock";
+import { readWhySeen } from "../core/seenOnDevice";
 import Ev from "../components/train/guided/Ev.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
 import WhyNote from "../components/learn/WhyNote.vue";
@@ -59,13 +60,15 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer); offKey(); });
 
 const done = ref<{ id: string; outcome: CheckOutcome; queued: boolean } | null>(null);
 const busy = ref(false), err = ref("");
+const toWrite = () => router.replace({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } });
 async function pick(outcome: CheckOutcome) {
   if (busy.value) return;
   busy.value = true; err.value = "";
   try {
     const r = await logCheck(props.kind, outcome, props.prompted, undefined, props.sign);
-    // Dreaming: a lucid moment, so straight to writing it down (behind the lock, like every journal page)
-    if (outcome === "dreaming") { router.replace({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1" } }); return; }
+    // Dreaming: a lucid moment, so straight to writing it down (behind the lock, like every journal page); the first
+    // time, with the journal open, a note on staying calm comes first (WhyNote, LDJ-157)
+    if (outcome === "dreaming" && (lock.locked || readWhySeen().includes("dreaming"))) { toWrite(); return; }
     done.value = { ...r, outcome };
   } catch (e) { err.value = (e as Error).message || "It couldn't be saved"; }
   finally { busy.value = false; }
@@ -75,12 +78,22 @@ async function pick(outcome: CheckOutcome) {
 <template>
   <div class="gd" role="main">
     <div class="gtop">
-      <button class="ib plain sm" type="button" aria-label="Close" @click="emit('close')"><Icon name="close" :size="18" /></button>
+      <button class="ib plain" type="button" aria-label="Close" @click="emit('close')"><Icon name="close" :size="20" /></button>
       <span class="grow" />
       <span v-if="!done && step < STEPS" class="gname">{{ step + 1 }} of {{ STEPS }}</span>
     </div>
 
-    <template v-if="done">
+    <template v-if="done?.outcome === 'dreaming'">
+      <div class="gbody" role="status">
+        <h1>You're dreaming.</h1>
+        <WhyNote id="dreaming" />
+      </div>
+      <div class="gfoot">
+        <button class="btn" @click="toWrite">Write it down</button>
+      </div>
+    </template>
+
+    <template v-else-if="done">
       <div class="gbody" role="status">
         <h1>Logged</h1>
         <p class="glead">Awake · {{ check.name }}</p>
@@ -121,7 +134,6 @@ async function pick(outcome: CheckOutcome) {
       <div class="gbody">
         <h1>What did you find?</h1>
         <p class="glead">{{ check.name }}</p>
-        <Ev text="Checks on their own did not help in the large studies; the memory and imagining steps are what make one count [B37][D12]." @cite="cite = $event" />
         <!-- the first check: why it is done this way (shown only once the journal is open, never over the lock screen) -->
         <WhyNote id="check" />
         <p v-if="err" class="gev" role="alert">{{ err }}</p>

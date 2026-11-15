@@ -1,16 +1,19 @@
 // What the dream editor remembers having shown on this device: the calm notes (LDJ-158) and "In this dream" (LDJ-110),
 // and which first-time "why this works" notes were put away with Got it (LDJ-157, components/learn/WhyNote.vue).
 // Ids, kinds and times only, nothing of what a dream says. Kept per app account and person, like the native reminders
-// (LDJ-202), so one account's entries never suppress another's on a shared phone; with no one signed in nothing is
-// read or kept. Signing out and removing the account clear them (forgetStoredDrafts).
+// (LDJ-202), so one account's entries never suppress another's on a shared phone. In a browser there is no app account:
+// they are kept per server and person instead, like the sealed drafts (api/draftStore.ts). With no one signed in nothing
+// is read or kept. Signing out and removing the account clear them (forgetStoredDrafts matches the person's id).
+import { server } from "../api/client";
 import { current as currentAccount } from "../native/accounts";
 import { readJson, writeJson } from "./prefs";
 import { session } from "./session";
 
 const HARD = "somniumHardNoteSeen", SIGNS = "somniumSignsShown", WHY = "somniumWhySeen";
 const owned = (k: string): string | null => {
-  const account = currentAccount()?.id, user = session.user?.id;
-  return account && user ? `${k}:${account}:${user}` : null;
+  const user = session.user?.id;
+  if (!user) return null;
+  return `${k}:${currentAccount()?.id || server.value.base || location.origin}:${user}`;
 };
 
 export type HardSeen = Record<string, { at: number; dream: string } | undefined>;
