@@ -43,7 +43,7 @@ const fmt = useFmt();
   <div class="stack">
     <div class="sh first"><h2>People</h2><button class="lnk" @click="invite">Invite</button></div>
     <div class="card"><div v-for="u in users.data.value ?? []" :key="u.id" class="li">
-      <div class="grow"><div class="t">{{ u.displayName || u.username }} <span class="tiny">@{{ u.username }}</span><span v-if="u.role === 'admin'" class="mchip" style="margin-inline-start:6px">admin</span><span v-if="u.disabled" class="mchip" style="margin-inline-start:6px">disabled</span><span v-if="u.totpEnabled" class="mchip" style="margin-inline-start:6px">2FA</span></div>
+      <div class="grow"><div class="t">{{ u.displayName || u.username }} <span class="tiny">@{{ u.username }}</span><span v-if="u.role === 'admin'" class="mchip mis">admin</span><span v-if="u.disabled" class="mchip mis">disabled</span><span v-if="u.totpEnabled" class="mchip mis">2FA</span></div>
         <div class="s">Joined {{ fmt.date(u.createdAt) }}{{ u.lastSeenAt ? ` · last seen ${fmt.date(u.lastSeenAt)}` : "" }}</div></div>
       <Menu v-if="u.id !== session.user?.id" :items="[{ label: 'Reset password', icon: 'key', run: () => reset(u) }, ...(u.totpEnabled ? [{ label: 'Turn off two-factor', icon: 'lock', run: () => turnOff2fa(u) }] : []), { label: u.role === 'admin' ? 'Remove admin' : 'Make admin', icon: 'user', run: () => run(() => api.put(`/admin/users/${u.id}`, { role: u.role === 'admin' ? 'user' : 'admin' }), u.role === 'admin' ? 'No longer an admin' : 'Made admin') },
         { label: u.disabled ? 'Enable' : 'Disable', icon: 'lock', run: () => run(() => api.put(`/admin/users/${u.id}`, { disabled: !u.disabled }), u.disabled ? 'Account enabled' : 'Account disabled') }, { label: 'Remove', icon: 'trash', danger: true, sep: true, run: () => remove(u) }]" />
@@ -51,9 +51,9 @@ const fmt = useFmt();
     <p class="tiny">Admins manage accounts but never see anyone's dreams or data.</p>
     <div class="sh"><h2>Sign-ups</h2></div>
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">Who can create an account</div></div><AppSelect :model-value="cfg.data.value?.registration" :options="[{ value: 'closed', label: 'Only the admin' }, { value: 'invite', label: 'People with an invite' }, { value: 'open', label: 'Anyone who can reach this server' }]" title="Who can create an account" style="width:auto" @update:model-value="(v) => run(() => api.put('/admin/settings', { registration: v }), 'Saved')" /></div>
+      <div class="li"><div class="grow"><div class="t">Who can create an account</div></div><AppSelect :model-value="cfg.data.value?.registration" :options="[{ value: 'closed', label: 'Only the admin' }, { value: 'invite', label: 'People with an invite' }, { value: 'open', label: 'Anyone who can reach this server' }]" title="Who can create an account" class="sel-auto" @update:model-value="(v) => run(() => api.put('/admin/settings', { registration: v }), 'Saved')" /></div>
       <div class="li"><div class="grow"><div class="t">Invite someone</div><div class="s">Copies a sign-up link</div></div><button class="btn o s" @click="invite">Copy link</button></div>
-      <div v-for="i in cfg.data.value?.invites ?? []" :key="i.code" class="li tiny"><span class="grow" style="font-family:monospace">{{ i.code }}</span>{{ i.used ? "used" : `until ${fmt.date(i.expiresAt)}` }}</div>
+      <div v-for="i in cfg.data.value?.invites ?? []" :key="i.code" class="li tiny"><span class="grow mono">{{ i.code }}</span>{{ i.used ? "used" : `until ${fmt.date(i.expiresAt)}` }}</div>
     </div>
   </div>
 </template>

@@ -73,7 +73,7 @@ async function finish(to: "end" | "stopped") {
     <div class="gbody">
       <div class="gsub">{{ cur?.phase === "fast" ? "Fast" : "Slow" }} cycle {{ cur?.cycle }} of {{ cur?.phase === "fast" ? fast : slow }} · {{ clockText(left) }} left</div>
       <div :key="idx" class="gpulse" aria-hidden="true"><span>{{ cur ? SENSE[cur.sense].name : "" }}</span></div>
-      <p class="glead" aria-live="polite" style="text-align:center">{{ cur ? SENSE[cur.sense].how : "" }}</p>
+      <p class="glead center" aria-live="polite">{{ cur ? SENSE[cur.sense].how : "" }}</p>
     </div>
     <div class="gfoot"><button class="btn o" @click="finish('stopped')">Stop</button></div>
   </template>

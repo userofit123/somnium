@@ -58,8 +58,8 @@ async function restore(ev: Event) {
     <div class="card">
       <label class="tgl"><div class="grow"><div class="t">Automatic backups</div><div class="s">A copy of your journal saved on this device, sealed like on the server</div></div><span class="tg"><input type="checkbox" :checked="s.backup.on" @change="set({ on: ($event.target as HTMLInputElement).checked })" /></span></label>
       <template v-if="s.backup.on">
-        <div class="li"><div class="grow"><div class="t">How often</div></div><AppSelect :model-value="s.backup.every" :options="[{ value: 'daily', label: 'Every day' }, { value: 'weekly', label: 'Every week' }]" title="How often" style="width:auto" @update:model-value="(v) => set({ every: v })" /></div>
-        <div class="li"><div class="grow"><div class="t">Keep</div><div class="s">Older backups are removed, the newest always stays</div></div><AppSelect :model-value="s.backup.keep" :options="[3, 7, 14, 30, 60].map((n) => ({ value: n, label: `The last ${n}` }))" title="Keep" style="width:auto" @update:model-value="(v) => set({ keep: v })" /></div>
+        <div class="li"><div class="grow"><div class="t">How often</div></div><AppSelect :model-value="s.backup.every" :options="[{ value: 'daily', label: 'Every day' }, { value: 'weekly', label: 'Every week' }]" title="How often" class="sel-auto" @update:model-value="(v) => set({ every: v })" /></div>
+        <div class="li"><div class="grow"><div class="t">Keep</div><div class="s">Older backups are removed, the newest always stays</div></div><AppSelect :model-value="s.backup.keep" :options="[3, 7, 14, 30, 60].map((n) => ({ value: n, label: `The last ${n}` }))" title="Keep" class="sel-auto" @update:model-value="(v) => set({ keep: v })" /></div>
         <div class="li"><div class="grow"><div class="t">Where</div><div class="s" :class="{ neg: !automatic && !canPickFolder() }">{{ whereText }}</div></div>
           <button v-if="canPickFolder() || N?.chooseBackupFolder" class="qb acc" @click="chooseFolder">{{ folder ? "Change" : "Pick folder" }}</button>
           <button v-if="N?.openBackupFolder" class="qb" @click="N.openBackupFolder()">Open</button></div>
@@ -69,7 +69,7 @@ async function restore(ev: Event) {
     </div>
     <p class="tiny">What a backup holds: your dreams, notes and every other written word stay sealed with your account's key, exactly as the server keeps them, so the file opens only with your password (the one you had when it was made) or your recovery key. The dates, times and ratings are not sealed and can be read by anyone who has the file. Turn on the extra passphrase to hide those too.</p>
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">Restore</div><div class="s">From a .somniumbackup file or a Somnium JSON export. You see what it holds, then choose to merge or replace.</div></div><label class="btn o s" style="cursor:pointer">Choose file<input type="file" accept=".somniumbackup,.json,application/json" hidden @change="restore" /></label></div>
+      <div class="li"><div class="grow"><div class="t">Restore</div><div class="s">From a .somniumbackup file or a Somnium JSON export. You see what it holds, then choose to merge or replace.</div></div><label class="btn o s clk">Choose file<input type="file" accept=".somniumbackup,.json,application/json" hidden @change="restore" /></label></div>
     </div>
     <p class="tiny">Merge adds what's missing and keeps the newest version of each entry. Replace makes the journal exactly like the backup; your account, password and recovery key stay as they are. A local account can be moved to a server by restoring its backup into the server account (Merge).</p>
   </div>

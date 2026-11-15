@@ -60,7 +60,7 @@ const arrived = (el: Element) => el.classList?.add("in");
 <template>
   <div class="shell">
     <nav ref="nav" aria-label="Menu">
-      <i ref="pill" class="nbi" style="transform-origin:0 0" />
+      <i ref="pill" class="nbi" />
       <Logo shuffle />
       <button v-for="p in top" :key="p.name" type="button" class="nb" :class="{ on: cur === p.name }" :aria-current="cur === p.name ? 'page' : undefined" @click="router.push(p.to)">
         <span class="ic"><Icon :name="p.icon" :size="22" /><i v-if="p.name === 'signs' && toConfirm" class="ncnt" role="img" :aria-label="`${toConfirm} to confirm`">{{ toConfirm }}</i></span>{{ p.label }}

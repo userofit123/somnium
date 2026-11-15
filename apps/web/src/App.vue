@@ -49,7 +49,7 @@ const setup = useSetupGate();
 
 <template>
   <AccountChooser v-if="needAccount" />
-  <div v-else-if="!session.ready || (!lock.locked && session.user && setup.pending.value)" id="splash"><i style="color:var(--on)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="translate(.6 -.6)"><path fill-rule="evenodd" d="M11.27 5.25A7.31 7.31 0 1 0 17.99 14.9A5.91 5.91 0 0 1 11.27 5.25ZM5.6 14.6Q8.4 11.64 11.2 14.6Q8.4 17.56 5.6 14.6Z"/><circle cx="8.4" cy="14.6" r="1.2"/><path d="M17.44 7.03l.38 1.03 1.03.38-1.03.38-.38 1.03-.38-1.03-1.03-.38 1.03-.38z"/></g></svg></i></div>
+  <div v-else-if="!session.ready || (!lock.locked && session.user && setup.pending.value)" id="splash"><i><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><g transform="translate(.6 -.6)"><path fill-rule="evenodd" d="M11.27 5.25A7.31 7.31 0 1 0 17.99 14.9A5.91 5.91 0 0 1 11.27 5.25ZM5.6 14.6Q8.4 11.64 11.2 14.6Q8.4 17.56 5.6 14.6Z"/><circle cx="8.4" cy="14.6" r="1.2"/><path d="M17.44 7.03l.38 1.03 1.03.38-1.03.38-.38 1.03-.38-1.03-1.03-.38 1.03-.38z"/></g></svg></i></div>
   <AuthScreen v-else-if="!session.user" />
   <Suspense v-else-if="route.path === '/check'"><CheckScreen /></Suspense>
   <LockScreen v-else-if="lock.locked" />

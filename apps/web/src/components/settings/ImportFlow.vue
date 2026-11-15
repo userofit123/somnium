@@ -82,8 +82,8 @@ async function saveReview() {
 <template>
   <div class="sh" :class="{ first }"><h2>Import from other journals</h2></div>
   <div class="card">
-    <div class="li"><div class="grow"><div class="t">Markdown or text</div><div class="s">A journal split at its date headings, or one note per dream with the date in its name</div></div><label class="btn o s" style="cursor:pointer">Choose<input type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" multiple hidden @change="importText" /></label></div>
-    <div class="li"><div class="grow"><div class="t">CSV</div><div class="s">You choose which column is the date, title and text</div></div><label class="btn o s" style="cursor:pointer">Choose<input type="file" accept=".csv,.tsv,text/csv" hidden @change="importCsv" /></label></div>
+    <div class="li"><div class="grow"><div class="t">Markdown or text</div><div class="s">A journal split at its date headings, or one note per dream with the date in its name</div></div><label class="btn o s clk">Choose<input type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" multiple hidden @change="importText" /></label></div>
+    <div class="li"><div class="grow"><div class="t">CSV</div><div class="s">You choose which column is the date, title and text</div></div><label class="btn o s clk">Choose<input type="file" accept=".csv,.tsv,text/csv" hidden @change="importCsv" /></label></div>
   </div>
   <p class="tiny">Restoring a Somnium backup? Go to <router-link to="/settings/backup">Backups</router-link>.</p>
   <p class="tiny">From other apps: Oniri's TXT and CSV exports, Markdown notes (Obsidian, dreamy) and any other app's text or CSV files go through Markdown or text and CSV above. No journal app documents the layout of its export, so Somnium has no reader made for one app. Lucidity's PDF book can't be read.</p>
@@ -91,10 +91,10 @@ async function saveReview() {
   <template v-if="csv">
     <div class="sh"><h2>Columns</h2></div>
     <div class="card">
-      <div class="li"><div class="grow t">Date</div><AppSelect v-model="csv.map.date" :options="columns" title="Date" style="width:auto" /></div>
-      <div class="li"><div class="grow t">Title</div><AppSelect :model-value="csv.map.title ?? -1" :options="optional" title="Title" style="width:auto" @update:model-value="(v) => (csv!.map.title = v)" /></div>
-      <div class="li"><div class="grow t">Dream text</div><AppSelect v-model="csv.map.text" :options="columns" title="Dream text" style="width:auto" /></div>
-      <div class="li"><div class="grow t">Lucid (yes or no)</div><AppSelect :model-value="csv.map.lucid ?? -1" :options="optional" title="Lucid" style="width:auto" @update:model-value="(v) => (csv!.map.lucid = v)" /></div>
+      <div class="li"><div class="grow t">Date</div><AppSelect v-model="csv.map.date" :options="columns" title="Date" class="sel-auto" /></div>
+      <div class="li"><div class="grow t">Title</div><AppSelect :model-value="csv.map.title ?? -1" :options="optional" title="Title" class="sel-auto" @update:model-value="(v) => (csv!.map.title = v)" /></div>
+      <div class="li"><div class="grow t">Dream text</div><AppSelect v-model="csv.map.text" :options="columns" title="Dream text" class="sel-auto" /></div>
+      <div class="li"><div class="grow t">Lucid (yes or no)</div><AppSelect :model-value="csv.map.lucid ?? -1" :options="optional" title="Lucid" class="sel-auto" @update:model-value="(v) => (csv!.map.lucid = v)" /></div>
       <div class="li"><div class="grow s">{{ csv.rows.length - 1 }} rows</div><button class="btn o s" @click="csv = null">Cancel</button><button class="btn s" @click="mapCsv">Next</button></div>
     </div>
   </template>

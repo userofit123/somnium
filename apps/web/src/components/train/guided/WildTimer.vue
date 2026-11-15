@@ -60,7 +60,7 @@ async function finish(stopped = true) { clock.stop(); state.value = "end"; emit(
     <div class="gbody">
       <div class="gsub">{{ clockText(total - clock.sec.value) }} left</div>
       <div :key="phase" class="gpulse" aria-hidden="true"><span>{{ TEXT[phase].name }}</span></div>
-      <p class="glead" aria-live="polite" style="text-align:center">{{ TEXT[phase].how }}</p>
+      <p class="glead center" aria-live="polite">{{ TEXT[phase].how }}</p>
     </div>
     <div class="gfoot"><button class="btn o" @click="finish()">Stop</button></div>
   </template>

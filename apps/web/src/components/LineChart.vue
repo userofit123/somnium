@@ -38,7 +38,7 @@ const xf = (t: number) => (props.xfmt ? props.xfmt(t) : new Date(t).toLocaleDate
 </script>
 
 <template>
-  <div ref="box" style="position:relative">
+  <div ref="box" class="rel">
     <div v-if="!points.length" class="empty sm">No data yet</div>
     <svg v-else class="chart" :viewBox="`0 0 ${W} ${H}`" :style="{ height: H + 'px' }" @mousemove="move" @mouseleave="hover = null"
       @click="hover != null && sorted[hover]?.id && emit('pick', sorted[hover]!.id!)">

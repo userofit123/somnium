@@ -45,6 +45,19 @@
   --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);
   --shadow-sheet: 0 30px 80px -20px #000a;
   --scrim: #0007;
+  --shadow-drop: 0 22px 48px -18px rgba(0, 0, 0, .5);
+  --shadow-lift: 0 18px 40px -16px rgba(0, 0, 0, .45);
+  --shadow-dlg: 0 24px 60px -20px #0008;
+  --shadow-tip: 0 10px 26px -10px #0009;
+  --shadow-knob: 0 5px 8px -2px rgba(0, 0, 0, .35), 0 1px 1px rgba(0, 0, 0, .2);
+  /* text and highlights laid over arbitrary colours or images: white in light and dark alike */
+  --on-img: #fff;
+  /* the premium badge and the amber tip: gold, its warmer end, its text on gold, and its text on a plain surface */
+  --gold: #f5c242;
+  --gold2: #f08a5d;
+  --on-gold: #2a1600;
+  --gold-tx: #e9b52f;
+  --gold-ink: #9a6d00;
   /* the guided night screens (Train's WBTB, MILD, SSILD, WILD): a dim surface and soft text, the same in light and
      dark so nothing lights up a dark bedroom */
   --sdim: #07070b;

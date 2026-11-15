@@ -40,36 +40,36 @@ const addNote = (id = done.value!.id) => router.replace(`/check/note/${id}`);
 <template>
   <GuidedCheck v-if="guided" :kind="kind" :sign="sign" :prompted="prompted" @close="close" @note="addNote" />
   <div v-else class="auth" role="main">
-    <div class="card stack" style="width:min(440px,100%)">
+    <div class="card stack dlg-s">
       <!-- the answer replaces the buttons; say so to a screen reader, which would otherwise hear nothing -->
       <p class="sr" role="status">{{ !done ? "" : done.outcome === "dreaming" ? "You're dreaming. Stay calm and look at your hands." : done.queued ? "Logged. Saved on this device." : "Logged" }}</p>
       <template v-if="!done">
         <div>
-          <h1 style="margin-top:0">Are you dreaming?</h1>
-          <p class="muted" style="margin:0">Really check, then say what you found.</p>
+          <h1 class="mt0">Are you dreaming?</h1>
+          <p class="muted m0">Really check, then say what you found.</p>
         </div>
         <div class="chips" role="radiogroup" aria-label="Which check">
           <button v-for="c in catalog" :key="c.id" type="button" class="fchip" :class="{ on: c.id === kind }" role="radio" :aria-checked="c.id === kind" @click="kind = c.id">{{ c.name }}</button>
         </div>
-        <p style="margin:0">{{ check.howTo }}</p>
+        <p class="m0">{{ check.howTo }}</p>
         <div class="stack">
           <button class="btn lg block" :disabled="busy" @click="pick('awake')">Awake</button>
           <button class="btn lg block tonal" :disabled="busy" @click="pick('unsure')">Not sure</button>
           <button class="btn lg block tonal" :disabled="busy" @click="pick('dreaming')">Dreaming!</button>
         </div>
-        <p v-if="err" class="err" role="alert" style="margin:0">{{ err }}</p>
+        <p v-if="err" class="err m0" role="alert">{{ err }}</p>
         <button class="btn o s" type="button" @click="close">Cancel</button>
       </template>
       <template v-else>
         <div v-if="done.outcome === 'dreaming'">
-          <h1 style="margin-top:0">You're dreaming.</h1>
-          <p style="margin:0">Stay calm and look at your hands.</p>
+          <h1 class="mt0">You're dreaming.</h1>
+          <p class="m0">Stay calm and look at your hands.</p>
         </div>
         <div v-else>
-          <h1 style="margin-top:0">Logged</h1>
-          <p class="muted" style="margin:0">{{ done.outcome === "awake" ? "Awake" : "Not sure" }} · {{ check.name }}</p>
+          <h1 class="mt0">Logged</h1>
+          <p class="muted m0">{{ done.outcome === "awake" ? "Awake" : "Not sure" }} · {{ check.name }}</p>
         </div>
-        <p v-if="done.queued" class="tiny" style="margin:0"><Icon name="refresh" :size="13" /> Saved on this device; it is sent when the server can be reached.</p>
+        <p v-if="done.queued" class="tiny m0"><Icon name="refresh" :size="13" /> Saved on this device; it is sent when the server can be reached.</p>
         <button class="btn lg block" @click="close">Done</button>
         <button class="btn o s" type="button" @click="addNote()">{{ lock.locked ? "Unlock to add a note" : "Add a note" }}</button>
       </template>

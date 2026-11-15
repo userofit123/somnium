@@ -70,7 +70,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
         <div v-else-if="isNewer && !platform.app" class="s">{{ webHow }}</div>
         <div v-else-if="platform.key === 'ios'" class="s">There is no iPhone or iPad app yet. Somnium works in Safari: tap Share, then Add to Home Screen.</div>
         <div v-else-if="checkedAt" class="s">{{ checkedAt }}</div>
-        <ProgressBar v-if="platform.app && updater.progress !== null" :percent="updater.progress * 100" label="Downloading the update" :style="{ marginTop: 'var(--lpy)' }" />
+        <ProgressBar v-if="platform.app && updater.progress !== null" :percent="updater.progress * 100" label="Downloading the update" class="mtl" />
         </template></div>
         <button v-if="platform.app && (updater.ready || (isNewer && !checking))" class="btn s" :disabled="updater.downloading" @click="updater.install()">{{ updater.ready ? (desktopApp ? "Restart to update" : updater.stagedVersion ? `Install ${updater.stagedVersion}` : "Install") : "Download update" }}</button>
 </div>

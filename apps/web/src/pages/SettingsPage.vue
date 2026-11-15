@@ -74,7 +74,7 @@ await loaded(me);
 <template>
   <div class="page">
     <div class="ph"><div><button v-if="isPhone && sec" class="back" @click="goBack(router, SUB[sec] ? `/settings/${SUB[sec]![0]}` : '/settings')"><Icon name="left" :size="16" /><span>{{ SUB[sec] ? SECTIONS.find((x) => x[0] === SUB[sec]![0])?.[1] : "Settings" }}</span></button><h1>{{ isPhone && sec ? SUB[sec]?.[1] ?? SECTIONS.find((x) => x[0] === sec)?.[1] : "Settings" }}</h1></div></div>
-    <div :class="isPhone ? '' : 'grid'" :style="isPhone ? undefined : { gridTemplateColumns: '220px minmax(0,1fr)', alignItems: 'start' }">
+    <div :class="isPhone ? '' : 'grid set-g'">
       <!-- phone: the groups as short lists, each row saying what's inside -->
       <div v-if="isPhone && !sec">
         <input v-model="q" type="search" class="sq sqp" placeholder="Search settings" aria-label="Search settings" />
@@ -115,7 +115,7 @@ await loaded(me);
         </template>
 
         <template v-else-if="sec === 'sleep'">
-          <p class="muted" style="margin:0">Your usual night. Reminders and the wake-up alarm are timed from it.</p>
+          <p class="muted m0">Your usual night. Reminders and the wake-up alarm are timed from it.</p>
           <div class="card">
             <div class="frow">
               <div class="fld"><label>I usually go to bed at</label><TimePicker :model-value="s.sleep.bedtime" title="Bedtime" @update:model-value="(v) => set({ sleep: { bedtime: v } })" /></div>
@@ -138,7 +138,7 @@ await loaded(me);
         </template>
 
         <template v-else-if="sec === 'features'">
-          <p class="muted" style="margin:0">Somnium shows only what you use. Switch on what you want; switched off, a feature is gone from every screen.</p>
+          <p class="muted m0">Somnium shows only what you use. Switch on what you want; switched off, a feature is gone from every screen.</p>
           <p v-if="!groups.length" class="tiny">Nothing to switch on yet: the optional features come with their own tasks.</p>
           <template v-for="[g, fs] in groups" :key="g"><div class="sh"><h2>{{ g }}</h2></div>
             <div class="card"><label v-for="f in fs" :key="f.id" class="tgl"><div class="grow"><div class="t">{{ f.name }}</div><div class="s">{{ f.desc }}</div>

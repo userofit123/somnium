@@ -17,17 +17,17 @@ const f = (v: number) => (props.fmt ? props.fmt(v) : String(Math.round(v * 10) /
 </script>
 
 <template>
-  <div v-if="horizontal" class="col" style="gap:8px">
-    <div v-for="(b, i) in bars" :key="i" class="row" style="gap:10px">
-      <span class="tiny" style="width:96px;flex:none;text-transform:capitalize">{{ b.label }}</span>
-      <div class="pbar grow" style="height:10px;position:relative">
+  <div v-if="horizontal" class="col bh">
+    <div v-for="(b, i) in bars" :key="i" class="row">
+      <span class="tiny bhl">{{ b.label }}</span>
+      <div class="pbar grow bhb">
         <i :style="{ width: (b.value / max) * 100 + '%', background: b.color }" />
         <span v-if="band" :style="{ position: 'absolute', top: 0, bottom: 0, left: (band[0] / max) * 100 + '%', width: ((band[1] - band[0]) / max) * 100 + '%', border: '1px dashed var(--ol)', borderRadius: '6px' }" />
       </div>
-      <span class="num tiny" style="width:42px;text-align:end;color:var(--tx)">{{ f(b.value) }}</span>
+      <span class="num tiny bhv">{{ f(b.value) }}</span>
     </div>
   </div>
-  <div v-else ref="box" style="position:relative">
+  <div v-else ref="box" class="rel">
     <svg class="chart" :viewBox="`0 0 ${W} ${H}`" :style="{ height: H + 'px' }">
       <rect v-if="band" x="0" :width="W" :y="y(band[1])" :height="y(band[0]) - y(band[1])" fill="var(--pos)" opacity=".08" />
       <line class="gl" x1="0" :x2="W" :y1="H - 18" :y2="H - 18" />

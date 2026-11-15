@@ -59,7 +59,7 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
     <div v-if="on" class="li"><div class="grow"><div class="t">{{ paused ? "Paused for today" : nextAt ? `Next at ${fmt.time(new Date(nextAt).toISOString())}${localDate(new Date(nextAt)) !== today() ? " tomorrow" : ""}` : "None planned" }}</div><div class="s">{{ todayCount }} today · {{ win.from }} to {{ win.to }}</div></div>
       <button class="btn o s" @click="save({ pausedOn: paused ? null : today() })">{{ paused ? "Resume" : "Pause today" }}</button></div>
   </div>
-  <p class="tiny" style="margin:0">Reality checks work best together with MILD and a dream journal; checking on its own showed little benefit in studies (Aspy 2017 and 2020; RESEARCH.md Part B, 3.3 and 3.12, [37] [38]).</p>
+  <p class="tiny m0">Reality checks work best together with MILD and a dream journal; checking on its own showed little benefit in studies (Aspy 2017 and 2020; RESEARCH.md Part B, 3.3 and 3.12, [37] [38]).</p>
 
   <template v-if="on">
     <div class="sh"><h2>When</h2></div>
@@ -82,8 +82,8 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
 
     <div class="sh"><h2>Habit moments</h2></div>
     <div class="card">
-      <p class="tiny" style="margin:0">A fixed reminder for something you do anyway, on top of the random ones. {{ HABIT_WHY }} (RESEARCH.md Part C, 7, [1])</p>
-      <div v-for="(h, i) in s.habits" :key="i" class="frow" style="align-items:end">
+      <p class="tiny m0">A fixed reminder for something you do anyway, on top of the random ones. {{ HABIT_WHY }} (RESEARCH.md Part C, 7, [1])</p>
+      <div v-for="(h, i) in s.habits" :key="i" class="frow ai-end">
         <div class="fld"><label>At</label><TimePicker :model-value="h.at" title="Habit time" @update:model-value="(v) => setHabit(i, { at: v })" /></div>
         <div class="fld grow"><label>When</label><AppSelect :model-value="h.label" :options="[...HABIT_LABELS]" title="Habit" @update:model-value="(v) => setHabit(i, { label: v })" /></div>
         <button class="btn o s" type="button" :aria-label="`Remove ${h.label}`" @click="dropHabit(i)"><Icon name="close" :size="15" /></button>
@@ -93,7 +93,7 @@ const hm = (t: string) => fmt.value.time(`2000-01-01T${t}:00`);
 
     <div class="sh"><h2>Checks</h2></div>
     <div class="card">
-      <p class="tiny" style="margin:0">The reminders take these in turn.</p>
+      <p class="tiny m0">The reminders take these in turn.</p>
       <div class="chips"><button v-for="c in catalog" :key="c.id" type="button" class="fchip" :class="{ on: s.checks.includes(c.id) }" :aria-pressed="s.checks.includes(c.id)" @click="toggleCheck(c.id)">{{ c.name }}</button></div>
       <label class="tgl"><div class="grow"><div class="t">{{ androidApp ? "Vibrate only" : "No sound" }}</div><div class="s">{{ androidApp ? "Reality checks buzz with no sound, for places where sound is not wanted (RESEARCH.md Part C, 7, [39o] [39p])." : desktop ? "Reality checks come with no sound. This computer can't vibrate." : "Reality checks come with no sound. Browsers can't buzz on their own, so vibrating is only in the Android app." }}</div></div><span class="tg"><input type="checkbox" :checked="s.silent" @change="save({ silent: ($event.target as HTMLInputElement).checked })" /></span></label>
       <label class="tgl"><div class="grow"><div class="t">Guided checks</div><div class="s">A tap opens a 15-second check: the test, what just happened, and "if this were a dream?" Off: log it with one tap.</div></div><span class="tg"><input type="checkbox" :checked="s.guided" @change="save({ guided: ($event.target as HTMLInputElement).checked })" /></span></label>

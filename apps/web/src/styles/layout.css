@@ -155,6 +155,7 @@ html.vt-r::view-transition-new(root) {
 }
 
 .nbi {
+  transform-origin: 0 0;
   position: absolute;
   left: 0; /* fixed side */
   top: 0;

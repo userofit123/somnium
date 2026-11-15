@@ -173,8 +173,8 @@ button.li { width: 100%; border-top: 0; border-inline: 0; background: none; font
 .fchip { border: 1px solid var(--ol); background: none; color: var(--tx2); border-radius: var(--pill); padding: 6px 12px; font-size: var(--fs-sm); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .fchip.on { background: var(--accc); color: var(--onc); border-color: transparent; font-weight: 600; }
 .mchip { font-size: calc(11.5px * var(--fsc)); padding: 2px 8px; border-radius: var(--pill); background: var(--s2); color: var(--tx2); white-space: nowrap; }
-.pr { font-size: calc(10.5px * var(--fsc)); font-weight: 700; letter-spacing: .4px; padding: 2px 7px; border-radius: var(--pill); background: color-mix(in srgb, #f5c242 22%, transparent); color: #e9b52f; white-space: nowrap; }
-html[data-mode="light"] .pr { color: #9a6d00; }
+.pr { font-size: calc(10.5px * var(--fsc)); font-weight: 700; letter-spacing: .4px; padding: 2px 7px; border-radius: var(--pill); background: color-mix(in srgb, var(--gold) 22%, transparent); color: var(--gold-tx); white-space: nowrap; }
+html[data-mode="light"] .pr { color: var(--gold-ink); }
 
 /* quiet buttons */
 .qb { border: 0; background: none; color: var(--tx2); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: var(--r-sm); font-size: var(--fs); font-weight: 500; }
@@ -265,8 +265,8 @@ html.phone .sht .sh_b:last-child { padding-bottom: calc(var(--cpy) + 3px + var(-
 .tst { position: fixed; left: 50%; bottom: calc(24px + var(--sb)); transform: translateX(-50%); z-index: 400; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
 html.phone .tst { bottom: calc(var(--tabh) + 76px + var(--sb)); }
 .tst > div { pointer-events: auto; background: var(--tx); color: var(--bg); border-radius: 14px; padding: 11px 16px; font-size: var(--fs); font-weight: 500; display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow-pop); animation: su .2s var(--ease); max-width: min(520px, calc(100vw - 32px)); }
-.tst > div.err { background: var(--neg); color: #fff; }
-.tst > div.pr { background: linear-gradient(135deg, #f5c242, #f08a5d); color: #2a1600; }
+.tst > div.err { background: var(--neg); color: var(--on); }
+.tst > div.pr { background: linear-gradient(135deg, var(--gold), var(--gold2)); color: var(--on-gold); }
 .tst button { border: 0; background: none; color: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 /* ---------- desktop rail extras ---------- */
@@ -503,3 +503,39 @@ html.phone[data-den="compact"] { --lmh: 44px; }
    head, or at the end of a list row */
 .ncnt { display: inline-grid; place-items: center; min-width: 17px; height: 17px; padding: 0 5px; border-radius: 99px; background: var(--acc); color: var(--on); font-size: calc(10.5px * var(--fsc)); font-weight: 700; line-height: 1; flex: none; font-variant-numeric: tabular-nums; }
 .ic > .ncnt { position: absolute; top: -3px; right: 2px; }
+
+/* small shared helpers, so a template never carries an inline style */
+.m0 { margin: 0; }
+.mt0 { margin-top: 0; }
+.mts { margin-top: var(--hg); }
+.mtl { margin-top: var(--lpy); }
+.mis { margin-inline-start: 6px; }
+.lh15 { line-height: 1.5; }
+.lh16 { line-height: 1.6; }
+.txs { color: var(--tx); }
+.clk { cursor: pointer; }
+.blk { display: block; }
+.rel { position: relative; }
+.ai-end { align-items: end; }
+.fpick.sel-auto { width: auto; }
+.dlg-s { width: min(440px, 100%); }
+.scr.top { align-items: flex-start; padding-top: 12vh; }
+.qb.mid { margin: var(--hg) auto 0; display: flex; }
+.apr.flush { margin-top: 0; }
+.card.loading { opacity: .4; min-height: 120px; }
+.grid.set-g { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
+.ring { transform: rotate(-90deg); }
+.ring circle { transition: stroke-dashoffset .5s; }
+#splash i { color: var(--on); }
+/* command palette */
+.cmd-s { margin: 14px; }
+.sht .sh_b.cmd-l { padding: 0 8px 10px; }
+.li.click.cmd-r { padding: 9px 10px; min-height: 0; border: 0; }
+.li.click.cmd-r.sel { background: var(--s2); border-radius: var(--r-sm); }
+.cmd-n { padding: 10px; }
+/* horizontal bar chart */
+.bh { gap: 8px; }
+.bh .row { gap: 10px; }
+.bhl { width: 96px; flex: none; text-transform: capitalize; }
+.bhb { height: 10px; position: relative; }
+.bhv { width: 42px; text-align: end; color: var(--tx); }

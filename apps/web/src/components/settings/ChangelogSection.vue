@@ -47,8 +47,8 @@ const versions = computed<Version[]>(() => {
       <div class="lbl hgap">Version {{ v.version }}<template v-if="v.date"> · {{ v.date }}</template><template v-if="v.available"> · Available</template><template v-else-if="v.version === installed"> · Installed</template></div>
       <template v-for="(l, i) in v.lines" :key="i">
         <div v-if="l.kind === 'h'" class="t">{{ l.text }}</div>
-        <div v-else-if="l.kind === 'li'" class="tiny" style="color:var(--tx);line-height:1.6">- {{ l.text }}</div>
-        <div v-else class="tiny" style="line-height:1.6">{{ l.text }}</div>
+        <div v-else-if="l.kind === 'li'" class="tiny txs lh16">- {{ l.text }}</div>
+        <div v-else class="tiny lh16">{{ l.text }}</div>
       </template>
     </div>
   </div>

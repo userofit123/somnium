@@ -55,7 +55,7 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(90deg, color-mix(in srgb, #fff 38%, transparent), transparent 80%);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--on-img) 38%, transparent), transparent 80%);
   pointer-events: none;
 }
 
@@ -127,7 +127,7 @@ svg .gl {
   border-radius: 12px;
   padding: 8px 11px;
   font-size: var(--fs-sm);
-  box-shadow: 0 10px 26px -10px #0009;
+  box-shadow: var(--shadow-tip);
   display: flex;
   flex-direction: column;
   gap: 1px;

@@ -48,8 +48,8 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
     <div class="ph noprint"><div><button type="button" class="back" @click="goBack(router, '/progress')"><Icon name="left" :size="16" /><span>{{ back }}</span></button><h1>Reports</h1><div class="sub">Worked out on this device. No dream text is used.</div></div>
       <div class="acts">
         <div class="seg" role="tablist"><button v-for="m in (['month', 'year'] as const)" :key="m" type="button" role="tab" :aria-selected="mode === m" :class="{ on: mode === m }" @click="mode = m">{{ m === "month" ? "Month" : "Year" }}</button></div>
-        <AppSelect v-if="mode === 'month'" v-model="month" :options="monthOpts" title="Month" style="width:auto" />
-        <AppSelect v-else v-model="year" :options="yearOpts" title="Year" style="width:auto" />
+        <AppSelect v-if="mode === 'month'" v-model="month" :options="monthOpts" title="Month" class="sel-auto" />
+        <AppSelect v-else v-model="year" :options="yearOpts" title="Year" class="sel-auto" />
         <Menu :items="menu" />
       </div></div>
 

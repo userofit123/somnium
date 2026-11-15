@@ -30,7 +30,7 @@
   border-inline-start: 4px solid var(--pos);
   border-radius: 16px;
   padding: 12px 14px;
-  box-shadow: 0 14px 34px -14px rgba(0, 0, 0, .4);
+  box-shadow: var(--shadow-pop);
   font-size: var(--fs);
   animation: tin .22s ease-out;
 }
@@ -44,16 +44,16 @@
 }
 
 .toast.sugg {
-  border-inline-start-color: #e68a00;
+  border-inline-start-color: var(--warn);
 }
 
 .toast.sugg .ti {
-  background: color-mix(in srgb, #e68a00 20%, transparent);
-  color: color-mix(in srgb, #e68a00 78%, var(--tx));
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  color: color-mix(in srgb, var(--warn) 78%, var(--tx));
 }
 
 .toast.sugg .tm .tu {
-  color: color-mix(in srgb, #e68a00 70%, var(--tx));
+  color: color-mix(in srgb, var(--warn) 70%, var(--tx));
 }
 
 .toast.alert {

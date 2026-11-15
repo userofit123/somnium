@@ -5,8 +5,8 @@ const S = props.size ?? 44, W = props.stroke ?? 5, R = (S - W) / 2, C = 2 * Math
 </script>
 
 <template>
-  <svg class="ring" :width="S" :height="S" :viewBox="`0 0 ${S} ${S}`" style="transform:rotate(-90deg)">
+  <svg class="ring" :width="S" :height="S" :viewBox="`0 0 ${S} ${S}`">
     <circle :cx="S / 2" :cy="S / 2" :r="R" fill="none" stroke="var(--s2)" :stroke-width="W" />
-    <circle :cx="S / 2" :cy="S / 2" :r="R" fill="none" :stroke="color ?? 'var(--acc)'" :stroke-width="W" stroke-linecap="round" :stroke-dasharray="C" :stroke-dashoffset="C * (1 - Math.max(0, Math.min(1, pct)))" style="transition:stroke-dashoffset .5s" />
+    <circle :cx="S / 2" :cy="S / 2" :r="R" fill="none" :stroke="color ?? 'var(--acc)'" :stroke-width="W" stroke-linecap="round" :stroke-dasharray="C" :stroke-dashoffset="C * (1 - Math.max(0, Math.min(1, pct)))" />
   </svg>
 </template>

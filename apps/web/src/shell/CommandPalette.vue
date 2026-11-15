@@ -75,13 +75,13 @@ onBeforeUnmount(() => { removeEventListener("keydown", key); unlock(); });
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="scr" style="align-items:flex-start;padding-top:12vh" @mousedown.self="open = false">
-      <div class="sht" style="width:min(560px,100%)" role="dialog" aria-modal="true" aria-label="Go anywhere">
-        <div class="search" style="margin:14px"><Icon name="search" :size="18" /><input ref="inp" v-model="q" placeholder="Search actions, pages, techniques, articles and dreams" aria-label="Search actions, pages, techniques, articles and dreams" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="cmdk-l" :aria-activedescendant="items.length ? 'cmdk-' + sel : undefined" @input="sel = 0" /></div>
-        <div id="cmdk-l" class="sh_b" role="listbox" aria-label="Results" style="padding:0 8px 10px">
-          <div v-for="(i, k) in items" :id="'cmdk-' + k" :key="i.hint + i.label + k" class="li click" role="option" :aria-selected="k === sel" :style="k === sel ? { background: 'var(--s2)', borderRadius: 'var(--r-sm)' } : undefined" style="padding:9px 10px;min-height:0;border:0" @mouseenter="sel = k" @click="pick(i)">
+    <div v-if="open" class="scr top" @mousedown.self="open = false">
+      <div class="sht" role="dialog" aria-modal="true" aria-label="Go anywhere">
+        <div class="search cmd-s"><Icon name="search" :size="18" /><input ref="inp" v-model="q" placeholder="Search actions, pages, techniques, articles and dreams" aria-label="Search actions, pages, techniques, articles and dreams" role="combobox" aria-autocomplete="list" aria-expanded="true" aria-controls="cmdk-l" :aria-activedescendant="items.length ? 'cmdk-' + sel : undefined" @input="sel = 0" /></div>
+        <div id="cmdk-l" class="sh_b cmd-l" role="listbox" aria-label="Results">
+          <div v-for="(i, k) in items" :id="'cmdk-' + k" :key="i.hint + i.label + k" class="li click cmd-r" role="option" :aria-selected="k === sel" :class="{ sel: k === sel }" @mouseenter="sel = k" @click="pick(i)">
             <Icon :name="i.icon" :size="18" class="muted" /><span class="grow">{{ i.label }}</span><span class="tiny">{{ i.hint }}</span></div>
-          <div v-if="!items.length" class="tiny" style="padding:10px">Nothing found</div>
+          <div v-if="!items.length" class="tiny cmd-n">Nothing found</div>
         </div>
       </div>
     </div>

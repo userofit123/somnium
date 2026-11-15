@@ -47,7 +47,7 @@ const outbox = computed(() => waiting.value.map((x) => ({ ...x, what: WHAT.find(
     </div>
   </template>
 
-  <div v-if="log.isLoading.value" class="card" style="opacity:.4;min-height:120px" />
+  <div v-if="log.isLoading.value" class="card loading" />
   <div v-else-if="log.isError.value" class="card empty"><b>Couldn't load the log</b>{{ (log.error.value as Error)?.message }}<br /><button class="btn tonal" @click="log.refetch()">Try again</button></div>
   <div v-else-if="!entries.length" class="card empty"><Icon name="history" :size="34" /><b>Nothing here yet</b>Everything you change will be listed here: what kind of thing and when, never what it said.</div>
   <template v-for="(d, i) in days" :key="d.day">

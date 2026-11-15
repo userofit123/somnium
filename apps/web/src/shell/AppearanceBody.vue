@@ -145,7 +145,7 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
       </div>
       <div class="aps"><h4>Screen layout</h4>
         <div class="seg apseg"><button v-for="[v, l] in LAY" :key="v" :class="{ on: layoutChoice === v }" :aria-pressed="layoutChoice === v" @click="setLayout(v)">{{ l }}</button></div>
-        <div class="sm" style="margin-top:8px">Phone or computer layout, or choose by screen size.</div>
+        <div class="sm mts">Phone or computer layout, or choose by screen size.</div>
       </div>
       <div class="aps only-d"><h4>Sidebar spacing</h4>
         <div class="apg c3"><button v-for="[v, g, l] in NSP" :key="v" class="apt" :class="{ on: theme.nsp === v }" :aria-pressed="theme.nsp === v" @click="opt('nsp', v)"><span class="apv spv sbv" :style="{ '--g': g + 'px' }"><i /><i /><i /><i /></span><span class="apl">{{ l }}</span></button></div>
@@ -156,8 +156,8 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
     </div>
     <div class="apbt" :class="{ on: tab === 'sav' }">
       <div class="aps"><h4>Save current look</h4>
-        <div class="apr" style="margin-top:0"><input ref="nameEl" v-model="lookName" type="text" maxlength="30" placeholder="Name" style="flex:1;min-width:0" @keydown.enter="saveLook"><button class="btn s" @click="saveLook">Save</button></div>
-        <div class="sm" style="margin-top:8px">The mode (light, dark, auto) is not saved with a look.</div>
+        <div class="apr flush"><input ref="nameEl" v-model="lookName" type="text" maxlength="30" class="grow" placeholder="Name" @keydown.enter="saveLook"><button class="btn s" @click="saveLook">Save</button></div>
+        <div class="sm mts">The mode (light, dark, auto) is not saved with a look.</div>
       </div>
       <div class="aps"><h4>Your looks</h4>
         <div class="tplist">

@@ -8,7 +8,7 @@ const emit = defineEmits<{ "update:modelValue": [v: T] }>();
 <template>
   <div class="opt-list" role="radiogroup">
     <button v-for="(x, i) in options" :key="i" type="button" class="optb sm" :class="{ on: modelValue === x.value }" role="radio" :aria-checked="modelValue === x.value" @click="emit('update:modelValue', x.value)">
-      <span class="radio" /><span class="grow"><span class="t">{{ x.label }}</span><span v-if="x.hint" class="s" style="display:block">{{ x.hint }}</span></span>
+      <span class="radio" /><span class="grow"><span class="t">{{ x.label }}</span><span v-if="x.hint" class="s blk">{{ x.hint }}</span></span>
     </button>
   </div>
 </template>

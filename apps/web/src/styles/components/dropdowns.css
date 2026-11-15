@@ -11,7 +11,7 @@ select.ddo {
   background: var(--s1);
   border: 1px solid var(--ol);
   border-radius: 14px;
-  box-shadow: 0 22px 48px -18px rgba(0, 0, 0, .5);
+  box-shadow: var(--shadow-drop);
   padding: 6px;
   overflow-y: auto;
   overscroll-behavior: contain;

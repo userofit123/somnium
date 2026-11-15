@@ -19,7 +19,7 @@ const empty = () => !!asking.cur?.input?.secret && !asking.cur.input.value;
 
 <template>
   <Sheet v-if="asking.cur" :title="asking.cur.title" :no-history="asking.cur.noHistory" @close="cancel">
-    <p v-if="asking.cur.text" class="muted hgap" style="line-height:1.5">{{ asking.cur.text }}</p>
+    <p v-if="asking.cur.text" class="muted hgap lh15">{{ asking.cur.text }}</p>
     <input v-if="asking.cur.input" ref="inp" v-model="asking.cur.input.value" class="in" :type="asking.cur.input.secret ? 'password' : 'text'" :autocomplete="asking.cur.input.autocomplete" :placeholder="asking.cur.input.placeholder" @keydown.enter="!empty() && done(typed())" />
     <div v-if="asking.cur.choices" class="opt-list">
       <button v-for="c in asking.cur.choices" :key="c.value" class="optb" @click="done(c.value)"><span class="t">{{ c.label }}</span></button>
