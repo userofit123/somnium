@@ -111,7 +111,7 @@ const menu = computed(() => [
     <BarChart :bars="weeks" :height="110" />
 
     <h3 class="sgh">Lucid or not</h3>
-    <div class="tiny">Lucid in {{ split.with.lucid }} of {{ dreamsText(split.with.dreams) }} with it ({{ pct(split.with.lucid, split.with.dreams) }}) · {{ split.without.lucid }} of {{ dreamsText(split.without.dreams) }} without it ({{ pct(split.without.lucid, split.without.dreams) }}).</div>
+    <div class="tiny">Lucid in {{ split.with.lucid }} of {{ dreamsText(split.with.dreams) }} with it ({{ pct(split.with.lucid, split.with.dreams) }}) · {{ split.without.lucid }} of {{ dreamsText(split.without.dreams) }} without it ({{ pct(split.without.lucid, split.without.dreams) }}).{{ split.with.lucid && split.with.viaSign ? ` · ${split.with.viaSign} from noticing this sign` : "" }}</div>
     <div v-if="split.with.dreams < 5" class="tiny sgmut">Too few dreams to read much into this yet.</div>
 
     <template v-if="along.length">

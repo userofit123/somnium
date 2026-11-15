@@ -6,6 +6,15 @@ const base = { title: "The long hall", text: "I walk down a hall.\nMy mother wai
 const night = { date: "2026-11-06", bedtime: "23:10:00", wakeTime: "07:05:00", sleepQuality: 4, wbtbUsed: true, wbtbMinutesAwake: 20, nap: false, techniquesDone: ["mild"], minutesToSleep: "15" };
 
 describe("dream Markdown", () => {
+  it("lists how a lucid dream started, what tipped you off, how long and how it ended", () => {
+    const { markdown } = buildDreamMarkdown({ dream: { ...base, becameLucidHow: "dream_sign", lucidTrigger: "My hands\nwere odd", durationEst: 3, lucidEnd: "faded" }, night, elements: [] });
+    expect(markdown).toContain("- How it started: A dream sign");
+    expect(markdown).toContain("- What tipped you off: My hands were odd");
+    expect(markdown).toContain("- Lasted: A few minutes");
+    expect(markdown).toContain("- How it ended: Faded");
+    expect(buildDreamMarkdown({ dream: { ...base, lucid: false, becameLucidHow: "wild" }, night, elements: [] }).markdown).not.toContain("How it started");
+  });
+
   it("has title, date, marks, night, text and elements, and a file name with the date only", () => {
     const { filename, markdown } = buildDreamMarkdown({ dream: base, night, elements: [{ kind: "character", name: "Mother", isDreamSign: false }, { kind: "place", name: "Hall *1*", isDreamSign: true }] });
     expect(filename).toBe("dream-2026-11-06.md");
