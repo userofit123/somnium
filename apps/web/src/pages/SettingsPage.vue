@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Settings (PLAN.md §6.7), in sections: a list on the left on a computer, one screen per section on a phone.
-// Security, Notifications and Sleep come with their own tasks; the sections here are the app shell's.
+// Grouped around dreaming first (LDJ-101), as Motus puts its Training group second.
 import { goBack } from "../core/leave";
 import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -23,12 +23,15 @@ import ChangelogSection from "../components/settings/ChangelogSection.vue";
 import AccountsSection from "../components/settings/AccountsSection.vue";
 import LocalModelSection from "../components/settings/LocalModelSection.vue";
 import ActivityLogSection from "../components/settings/ActivityLogSection.vue";
-import NotificationsSection from "../components/settings/NotificationsSection.vue";
+import RemindersSection from "../components/settings/RemindersSection.vue";
+import RealityChecksSection from "../components/settings/RealityChecksSection.vue";
+import { startSetup } from "../components/setup/useSetup";
 
 const route = useRoute(), router = useRouter();
 const me = useMe();
 const s = useSettings();
-const sec = computed(() => String(route.params.section || (isPhone.value ? "" : "account")));
+// "notifications" was the Reminders section's old address
+const sec = computed(() => { const k = String(route.params.section || (isPhone.value ? "" : "account")); return k === "notifications" ? "reminders" : k; });
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
 type Section = [key: string, name: string, icon: string, hint: string];
 // local accounts have no server: the server-only sections (admin) stay out of the list
@@ -40,8 +43,10 @@ const ALL = computed<[string, Section[]][]>(() => [
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
     (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host],
     ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
-  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"], ["notifications", "Notifications", "bell", "Reality check reminders"],
-    ["sleep", "Sleep", "moon", "Bedtime, wake time, cycle length"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
+  // what changes how the app helps you dream, before how it looks
+  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, WBTB alarm, morning"],
+    ["reality-checks", "Reality checks", "eye", "How many, when, which checks"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
+  ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"]]],
   ["Your data", [["backup", "Backup & restore", "download", "A copy of everything"], ["data", "Export & import", "upload", "JSON, Markdown, CSV"], ["log", "Activity log", "history", "Everything you changed"]]],
   ["About", [["versions", "App & Versions", "refresh", "Installed version, downloads"], ["changelog", "What's new", "sparkle", "Release notes"],
     ...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About Somnium", "info", "Version, credits"]]],
@@ -49,8 +54,9 @@ const ALL = computed<[string, Section[]][]>(() => [
 // words people look for that the names don't carry
 const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
-  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour", notifications: "reminders reality check quiet hours wbtb morning practice",
-  sleep: "bedtime wake cycle 90 minutes", features: "optional extras", backup: "restore automatic encrypted", data: "export import json delete", log: "activity history", versions: "update download", changelog: "release notes", admin: "invites sign-ups people", about: "licence license credits",
+  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
+  "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
+  sleep: "sleep times bedtime wake cycle 90 minutes setup first run onboarding start again", features: "optional extras", backup: "restore automatic encrypted", data: "export import json delete", log: "activity history", versions: "update download", changelog: "release notes", admin: "invites sign-ups people", about: "licence license credits",
 };
 const q = ref("");
 const GROUPS = computed<[string, Section[]][]>(() => {
@@ -108,7 +114,7 @@ await loaded(me);
         </template>
 
         <template v-else-if="sec === 'sleep'">
-          <p class="muted" style="margin:0">Used by the reality check window, the bedtime and WBTB reminders, Home and the WBTB planner.</p>
+          <p class="muted" style="margin:0">The one place for your sleep times. Used by the reality check window, the bedtime, WBTB and morning reminders, Home and the WBTB planner.</p>
           <div class="card">
             <div class="frow">
               <div class="fld"><label>I usually go to bed at</label><TimePicker :model-value="s.sleep.bedtime" title="Bedtime" @update:model-value="(v) => set({ sleep: { bedtime: v } })" /></div>
@@ -116,6 +122,10 @@ await loaded(me);
             </div>
             <div class="li"><div class="grow"><div class="t">Sleep cycle</div><div class="s">{{ CYCLE_RANGE.min }} to {{ CYCLE_RANGE.max }} min; 90 is usual. The WBTB planner counts alarms in whole cycles.</div></div>
               <NumStep :value="cycleOf(s.sleep.cycle)" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => set({ sleep: { cycle: v } })" /></div>
+          </div>
+          <div class="card">
+            <div class="li"><div class="grow"><div class="t">First-run setup</div><div class="s">Sleep times, reminders, tonight's technique and extras, in a few short steps</div></div>
+              <button type="button" class="btn o s" @click="startSetup">Run setup again</button></div>
           </div>
         </template>
 
@@ -135,7 +145,8 @@ await loaded(me);
           </div>
         </template>
 
-        <Suspense v-else-if="sec === 'notifications'"><NotificationsSection /></Suspense>
+        <Suspense v-else-if="sec === 'reminders'"><RemindersSection /></Suspense>
+        <Suspense v-else-if="sec === 'reality-checks'"><RealityChecksSection /></Suspense>
         <BackupSection v-else-if="sec === 'backup'" />
         <DataSection v-else-if="sec === 'data'" />
         <ActivityLogSection v-else-if="sec === 'log'" />
