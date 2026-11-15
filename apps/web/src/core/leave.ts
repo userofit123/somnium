@@ -36,3 +36,10 @@ export function backLabel(router: Router, fallback: string): string {
   const s = section(router.resolve(back).name as string | undefined);
   return NAV.find((n) => n.name === s)?.label ?? (s === "more" ? "More" : "Back");
 }
+
+/** Whether the page was opened from a page under `prefix` (Learn's article from its own section list, say). False when
+ *  opened directly too, so callers that need "came from elsewhere" also check `history.state.back` is a string. */
+export function openedFrom(prefix: string): boolean {
+  const back = history.state?.back;
+  return typeof back === "string" && (back === prefix || back.startsWith(prefix + "/"));
+}

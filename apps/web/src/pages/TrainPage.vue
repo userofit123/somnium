@@ -2,7 +2,7 @@
 // Train (PLAN.md §6.3) in three tabs, each its own address: Today (/train: the course lesson, today's checklist, memory
 // targets, meditation and dream yoga when on), Tonight (/train/tonight: the one place to plan the night, LDJ-96, then the bedtime starts and the evening review)
 // and Techniques (/train/techniques: the library and the guided tools). The sub-screens have addresses too:
-// /train/technique/:id (Learn's "Try it" lands there), /train/lesson/:id, /train/guided/:mode and /train/review; their
+// /train/technique/:id (a technique article's "Try it" in Learn leads there), /train/lesson/:id, /train/guided/:mode and /train/review; their
 // Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
 // switching tabs doesn't reload it; the underline (.tabs) simply moves to the active tab, it doesn't animate. Everything
 // Train shows (the lesson and article texts) loads with this page only: it is a lazy route, so the first screen stays small.

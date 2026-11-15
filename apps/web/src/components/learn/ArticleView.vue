@@ -1,9 +1,13 @@
 <script setup lang="ts">
 // One article: the rendered body, sources with the reviewed date, previous and next. A technique article carries the
 // same evidence card and "Use tonight" as the technique page in Train (LDJ-128), so planning never leaves Learn; another
-// article that puts a technique into practice links to that technique's article.
+// article that puts a technique into practice links to that technique's article. Back follows history when the article
+// was opened from outside Learn (a lesson's reading list, Home), so you return to where you were; inside Learn it
+// is the section's own back (LearnPage on a phone, the section list on a computer).
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
+import { goBack, backLabel, openedFrom } from "../../core/leave";
+import { useSettings } from "../../api/queries";
 import { articles, findArticle, type Article } from "@somnium/knowledge/content";
 import { parseMarkdown } from "@somnium/knowledge/markdown";
 import { neighbours } from "@somnium/knowledge/learn";
@@ -22,6 +26,12 @@ import Icon from "../Icon.vue";
 
 const props = defineProps<{ article: Article }>();
 const router = useRouter();
+const settings = useSettings();
+// Dream yoga isn't a library technique: its "Try it" is the Train card, which exists only when the feature is on
+const yogaTry = computed(() => props.article.tryIt === "dream-yoga" && !!settings.value.features.dreamYoga);
+// read once on opening: history.state isn't reactive. Opened from another Learn page (or directly), the section back applies
+const outside = !openedFrom("/learn") && typeof history.state?.back === "string";
+const backText = outside ? backLabel(router, "Learn") : "";
 const { read, last, pinned } = useLearn();
 const blocks = computed(() => parseMarkdown(props.article.body));
 const near = computed(() => neighbours(articles, props.article.id));
@@ -46,6 +56,7 @@ const go = (a: Article) => router.push("/learn/" + a.id);
 
 <template>
   <article class="art">
+    <button v-if="outside" type="button" class="back" @click="goBack(router, '/learn/' + article.section)"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
     <div class="ahead">
       <div class="eyebrow grow">{{ sectionTitle }} <ReadMark :done="isRead" class="rdm-eb" /></div>
       <PinButton :id="article.id" :label="article.title" />
@@ -60,6 +71,10 @@ const go = (a: Article) => router.push("/learn/" + a.id);
     <LearnBlocks :blocks="blocks" @cite="open = $event" />
     <router-link v-if="techArticle" :to="'/learn/' + techArticle.id" class="tryit card click">
       <div class="grow"><b>Try it</b><div class="s">Put this into practice with {{ techArticle.title }}.</div></div>
+      <Icon name="right" />
+    </router-link>
+    <router-link v-if="yogaTry" to="/train" class="tryit card click">
+      <div class="grow"><b>Try it</b><div class="s">Dream yoga is on Train's Today tab.</div></div>
       <Icon name="right" />
     </router-link>
     <SourcesList :ids="article.sources" :reviewed="article.reviewed" @cite="open = $event" />

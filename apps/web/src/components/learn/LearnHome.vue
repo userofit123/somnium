@@ -1,9 +1,10 @@
 <script setup lang="ts">
-// Learn home: search, For your lesson (the readings of the course lesson in front of you, LDJ-166), overall progress, Pinned, Continue reading, the Start here path, sections with their progress,
-// the course lessons (so a lesson can be pinned) and Resources. Search runs on the device.
+// Learn home: search (on the device), then For your lesson (the readings of the course lesson in front of you, LDJ-166),
+// overall progress, Pinned, Continue reading, the Start here path, sections with their progress, the course lessons
+// (so a lesson can be pinned) and Resources.
 import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { articles, sections, findArticle, articlesIn } from "@somnium/knowledge/content";
+import { articles, sections, findArticle, articlesIn, type Article } from "@somnium/knowledge/content";
 import { continueReading, progressOf, startPath, pinId, slug } from "@somnium/knowledge/learn";
 import { glossaryTerms, faqItems } from "@somnium/knowledge/learn";
 import { lessons, findLesson } from "@somnium/knowledge/course";
@@ -34,12 +35,12 @@ const forLesson = computed(() => {
   const rows = course.data.value;
   const id = rows ? currentLesson(rows) : null;
   const l = id ? findLesson(id) : undefined;
-  return l ? { lesson: l, readings: l.readings.map((r) => findArticle(r)).filter((a) => !!a) } : null;
+  return l ? { lesson: l, readings: l.readings.map((r) => findArticle(r)).filter((a): a is Article => !!a) } : null;
 });
 
 const overall = computed(() => progressOf(articles, read.value));
-const path = computed(() => startPath.map((id) => findArticle(id)).filter((a) => !!a));
-const pathProg = computed(() => progressOf(path.value as { id: string }[], read.value));
+const path = computed(() => startPath.map((id) => findArticle(id)).filter((a): a is Article => !!a));
+const pathProg = computed(() => progressOf(path.value, read.value));
 const cont = computed(() => continueReading(articles, read.value, last.value || undefined));
 const title = (id: string) => findArticle(id)?.title ?? id;
 const secOf = (id: string) => sections.find((s) => s.id === id.split("/")[0])?.title ?? "";
@@ -95,13 +96,13 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       <template v-if="forLesson?.readings.length">
         <div class="sh"><h2>For your lesson</h2><router-link :to="'/train/lesson/' + forLesson.lesson.id" class="lnk">Lesson {{ forLesson.lesson.number }} · {{ forLesson.lesson.title }}</router-link></div>
         <div class="card flush">
-          <div v-for="a in forLesson.readings" :key="a!.id" class="li lrow">
-            <router-link :to="'/learn/' + a!.id" class="grow rlink">
-              <div class="t">{{ a!.title }}</div>
-              <div class="s">{{ a!.summary }}</div>
-              <ReadMark :done="!!read[a!.id]" class="s" />
+          <div v-for="a in forLesson.readings" :key="a.id" class="li lrow">
+            <router-link :to="'/learn/' + a.id" class="grow rlink">
+              <div class="t">{{ a.title }}</div>
+              <div class="s">{{ a.summary }}</div>
+              <ReadMark :done="!!read[a.id]" class="s" />
             </router-link>
-            <PinButton :id="a!.id" :label="a!.title" />
+            <PinButton :id="a.id" :label="a.title" />
           </div>
         </div>
       </template>
@@ -130,13 +131,13 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       <p class="s startlede">A short path through the most important articles, in order. {{ pathProg.read }} of {{ pathProg.total }} read.</p>
       <ProgressBar :percent="pathProg.percent" class="pgap" />
       <div class="card flush">
-        <div v-for="(a, i) in path" :key="a!.id" class="li lrow">
-          <router-link :to="'/learn/' + a!.id" class="grow rlink">
-            <div class="t"><span class="num">{{ i + 1 }}.</span> {{ a!.title }}</div>
-            <div class="s">{{ a!.summary }}</div>
-            <ReadMark :done="!!read[a!.id]" class="s" />
+        <div v-for="(a, i) in path" :key="a.id" class="li lrow">
+          <router-link :to="'/learn/' + a.id" class="grow rlink">
+            <div class="t"><span class="num">{{ i + 1 }}.</span> {{ a.title }}</div>
+            <div class="s">{{ a.summary }}</div>
+            <ReadMark :done="!!read[a.id]" class="s" />
           </router-link>
-          <PinButton :id="a!.id" :label="a!.title" />
+          <PinButton :id="a.id" :label="a.title" />
         </div>
       </div>
 

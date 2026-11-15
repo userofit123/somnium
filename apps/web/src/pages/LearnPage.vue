@@ -6,6 +6,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { articles, sections, findArticle, articlesIn } from "@somnium/knowledge/content";
 import { isPhone } from "../core/device";
+import { openedFrom } from "../core/leave";
 import { useLearn } from "../core/learn";
 import "../styles/components/learn.css";
 import Icon from "../components/Icon.vue";
@@ -34,8 +35,11 @@ const kind = computed(() => {
 const article = computed(() => findArticle(segs.value.join("/")));
 const section = computed(() => segs.value[0] ?? "");
 const single = (id: string) => id === "glossary" || id === "faq";
-// the phone's one back step: from an article to its section, from a section to Learn
+// the phone's one back step: from an article to its section, from a section to Learn. An article opened from outside
+// Learn (a lesson's reading list) has its own history Back in ArticleView instead.
 const back = computed(() => {
+  void route.path; // history.state isn't reactive: re-read on every navigation
+  if (kind.value === "article" && history.state?.back && !openedFrom("/learn")) return null;
   if (kind.value === "article") return { to: "/learn/" + section.value, label: sections.find((s) => s.id === section.value)?.title ?? "Back" };
   if (kind.value === "home") return null;
   return { to: "/learn", label: "Learn" };
