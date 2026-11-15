@@ -56,7 +56,7 @@ async function fix() {
   const f = status.value.fix;
   if (f === "allow") await ask();
   else if (f === "exact") await androidReminders()?.openExactAlarmSettings().catch(() => {});
-  else if (f === "android") await router.push("/settings/versions");
+  else if (f === "android") await router.push("/settings/about");
   else if (f === "help") info.value = true;
   else await sendTest();
 }

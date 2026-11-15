@@ -1,13 +1,15 @@
 // Numbers and dates as the person likes them (Settings → Account → formats).
 import { computed } from "vue";
-import { num, clock, duration as dur, type Settings } from "@somnium/shared";
+import { num, clock, duration as dur, resolveFormats, type Settings } from "@somnium/shared";
 import { useSettings } from "../api/queries";
 
 export function useFmt() {
   const s = useSettings();
   return computed(() => makeFmt(s.value));
 }
-export function makeFmt(s: Settings) {
+// "Automatic" formats become this device's values here, so every screen reads concrete ones
+export function makeFmt(raw: Settings) {
+  const s = resolveFormats(raw);
   const locale = s.dateFormat === "mdy" ? "en-US" : s.dateFormat === "ymd" ? "sv-SE" : "en-GB";
   const hour12 = s.clock === "12";
   return {

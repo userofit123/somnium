@@ -23,7 +23,7 @@ describe("engine", () => {
   it("answers /me with defaults and keeps a partial settings update", async () => {
     const me = await call(A, "GET", "/me");
     expect(me.user.username).toBe("a");
-    expect(me.settings.clock).toBe("24");
+    expect(me.settings.clock).toBe("auto");
     const next = await call(A, "PUT", "/settings", { firstDay: 0 });
     expect(next.firstDay).toBe(0);
     expect((await call(A, "GET", "/me")).settings.firstDay).toBe(0);

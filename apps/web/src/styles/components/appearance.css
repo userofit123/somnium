@@ -660,6 +660,6 @@ details.closing.kvd > summary::after {
 }
 
 /* the side menu's spacing and style only exist on a computer: the phone has a tab bar instead */
-html.phone #pop .only-d {
+html.phone .apin .only-d {
   display: none;
 }

@@ -2,13 +2,12 @@
 // Settings (PLAN.md §6.7), in sections: a list on the left on a computer, one screen per section on a phone.
 // Grouped around dreaming first (LDJ-101), as Motus puts its Training group second.
 import { goBack } from "../core/leave";
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { READY_FEATURES, CYCLE_RANGE, cycleOf } from "@somnium/shared";
+import { READY_FEATURES, CYCLE_RANGE, cycleOf, deviceFormats } from "@somnium/shared";
 import { useMe, useSettings, saveSettings, loaded } from "../api/queries";
 import { session, signOut, isLocalAccount } from "../core/session";
-import { isPhone, layoutChoice, setLayout } from "../core/device";
-import { appearanceOpen } from "../core/ui";
+import { isPhone } from "../core/device";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
 import NumStep from "../components/NumStep.vue";
@@ -18,6 +17,7 @@ import AccountSection from "../components/settings/AccountSection.vue";
 import SecuritySection from "../components/settings/SecuritySection.vue";
 import DataSection from "../components/settings/DataSection.vue";
 import AdminSection from "../components/settings/AdminSection.vue";
+import AppearanceBody from "../shell/AppearanceBody.vue";
 import AppVersionsSection from "../components/settings/AppVersionsSection.vue";
 import ChangelogSection from "../components/settings/ChangelogSection.vue";
 import AccountsSection from "../components/settings/AccountsSection.vue";
@@ -25,13 +25,18 @@ import LocalModelSection from "../components/settings/LocalModelSection.vue";
 import ActivityLogSection from "../components/settings/ActivityLogSection.vue";
 import RemindersSection from "../components/settings/RemindersSection.vue";
 import RealityChecksSection from "../components/settings/RealityChecksSection.vue";
-import { startSetup } from "../components/setup/useSetup";
+import { startSafetyCheck, startSetup } from "../components/setup/useSetup";
 
 const route = useRoute(), router = useRouter();
 const me = useMe();
 const s = useSettings();
 // "notifications" was the Reminders section's old address
-const sec = computed(() => { const k = String(route.params.section || (isPhone.value ? "" : "account")); return k === "notifications" ? "reminders" : k; });
+// old addresses: "notifications" was Reminders, "versions" (App & Versions) is now About and updates
+const OLD: Record<string, string> = { notifications: "reminders", versions: "about" };
+const sec = computed(() => { const k = String(route.params.section || (isPhone.value ? "" : "account")); return OLD[k] ?? k; });
+watch(() => route.params.section, (k) => { if (typeof k === "string" && OLD[k]) void router.replace(`/settings/${OLD[k]}`); }, { immediate: true });
+// What's new opens from About and updates as its own screen, not a list entry
+const SUB: Record<string, [parent: string, title: string]> = { changelog: ["about", "What's new"] };
 // the sections in groups, so the list reads as a few short ones: [key, name, icon, what's in it]
 type Section = [key: string, name: string, icon: string, hint: string];
 // local accounts have no server: the server-only sections (admin) stay out of the list
@@ -44,20 +49,22 @@ const ALL = computed<[string, Section[]][]>(() => [
     (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host],
     ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
   // what changes how the app helps you dream, before how it looks
-  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, WBTB alarm, morning"],
+  ["Practice", [["sleep", "Sleep schedule", "moon", "Bedtime, wake time, cycle length, waking"], ["reminders", "Reminders", "bell", "Reality checks, bedtime, WBTB alarm, morning"],
     ["reality-checks", "Reality checks", "eye", "How many, when, which checks"], ["features", "Features", "sparkle", "Switch extras on or off"]]],
   ["App", [["appearance", "Appearance", "palette", "Colours, style, layout"], ["formats", "Formats", "calendar", "Week start, dates, clock"]]],
-  ["Your data", [["backup", "Backup & restore", "download", "A copy of everything"], ["data", "Export & import", "upload", "JSON, Markdown, CSV"], ["log", "Activity log", "history", "Everything you changed"]]],
-  ["About", [["versions", "App & Versions", "refresh", "Installed version, downloads"], ["changelog", "What's new", "sparkle", "Release notes"],
-    ...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About Somnium", "info", "Version, credits"]]],
+  ["Your data", [["backup", "Backups", "download", "Back up, restore"], ["data", "Export & import", "upload", "JSON, Markdown, CSV, other journals"], ["log", "Activity log", "history", "Everything you changed"]]],
+  ["About", [...(session.user?.role === "admin" && !local.value ? [["admin", "Server admin", "server", "People, invites, sign-ups"] as Section] : []), ["about", "About and updates", "info", "Version, updates, release notes, credits"]]],
 ]);
 // words people look for that the names don't carry
 const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
-  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
+  accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
   "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
-  sleep: "sleep times bedtime wake cycle 90 minutes setup first run onboarding start again", features: "optional extras", backup: "restore automatic encrypted", data: "export import json delete", log: "activity history", versions: "update download", changelog: "release notes", admin: "invites sign-ups people", about: "licence license credits",
+  sleep: "sleep times bedtime wake cycle 90 minutes setup first run onboarding start again morning capture still dim", features: "optional extras", backup: "backups restore automatic encrypted", data: "export import json delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
 };
+// what "Automatic" means here, said under the formats
+const device = deviceFormats();
+const DAY = ["Sunday", "Monday"], DATES = { dmy: "31 Dec 2026", mdy: "Dec 31, 2026", ymd: "2026-12-31" };
 const q = ref("");
 const GROUPS = computed<[string, Section[]][]>(() => {
   const t = q.value.trim().toLowerCase();
@@ -74,7 +81,7 @@ await loaded(me);
 
 <template>
   <div class="page">
-    <div class="ph"><div><button v-if="isPhone && sec" class="back" @click="goBack(router, '/settings')"><Icon name="left" :size="16" /><span>Settings</span></button><h1>{{ isPhone && sec ? SECTIONS.find((x) => x[0] === sec)?.[1] : "Settings" }}</h1></div></div>
+    <div class="ph"><div><button v-if="isPhone && sec" class="back" @click="goBack(router, SUB[sec] ? `/settings/${SUB[sec]![0]}` : '/settings')"><Icon name="left" :size="16" /><span>{{ SUB[sec] ? SECTIONS.find((x) => x[0] === SUB[sec]![0])?.[1] : "Settings" }}</span></button><h1>{{ isPhone && sec ? SUB[sec]?.[1] ?? SECTIONS.find((x) => x[0] === sec)?.[1] : "Settings" }}</h1></div></div>
     <div :class="isPhone ? '' : 'grid'" :style="isPhone ? undefined : { gridTemplateColumns: '220px minmax(0,1fr)', alignItems: 'start' }">
       <!-- phone: the groups as short lists, each row saying what's inside -->
       <div v-if="isPhone && !sec">
@@ -95,21 +102,22 @@ await loaded(me);
       <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
         <template v-for="[g, xs] in GROUPS" :key="g">
           <div class="sng">{{ g }}</div>
-          <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span>{{ l }}</span></button>
+          <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k || SUB[sec]?.[0] === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span>{{ l }}</span></button>
         </template>
       </div>
       <Transition name="sw" mode="out-in"><div v-if="sec" :key="sec" class="stack">
         <AccountSection v-if="sec === 'account'" />
         <SecuritySection v-else-if="sec === 'security'" />
 
-        <!-- how dates and times read everywhere (DatePicker, TimePicker) -->
+        <!-- how dates and times read everywhere (DatePicker, TimePicker); Automatic follows the device's language -->
         <template v-else-if="sec === 'formats'">
           <div class="card">
             <div class="frow">
-              <div class="fld"><label>First day of the week</label><AppSelect :model-value="s.firstDay" :options="[{ value: 0, label: 'Sunday' }, { value: 1, label: 'Monday' }]" title="First day of the week" @update:model-value="(v) => set({ firstDay: v })" /></div>
-              <div class="fld"><label>Dates</label><AppSelect :model-value="s.dateFormat" :options="[{ value: 'dmy', label: '31 Dec 2026' }, { value: 'mdy', label: 'Dec 31, 2026' }, { value: 'ymd', label: '2026-12-31' }]" title="Dates" @update:model-value="(v) => set({ dateFormat: v })" /></div>
-              <div class="fld"><label>Clock</label><AppSelect :model-value="s.clock" :options="[{ value: '24', label: '24-hour' }, { value: '12', label: '12-hour' }]" title="Clock" @update:model-value="(v) => set({ clock: v })" /></div>
+              <div class="fld"><label>First day of the week</label><AppSelect :model-value="s.firstDay" :options="[{ value: 'auto', label: `Automatic (from this device)` }, { value: 0, label: 'Sunday' }, { value: 1, label: 'Monday' }]" title="First day of the week" @update:model-value="(v) => set({ firstDay: v })" /></div>
+              <div class="fld"><label>Dates</label><AppSelect :model-value="s.dateFormat" :options="[{ value: 'auto', label: 'Automatic (from this device)' }, { value: 'dmy', label: '31 Dec 2026' }, { value: 'mdy', label: 'Dec 31, 2026' }, { value: 'ymd', label: '2026-12-31' }]" title="Dates" @update:model-value="(v) => set({ dateFormat: v })" /></div>
+              <div class="fld"><label>Clock</label><AppSelect :model-value="s.clock" :options="[{ value: 'auto', label: 'Automatic (from this device)' }, { value: '24', label: '24-hour' }, { value: '12', label: '12-hour' }]" title="Clock" @update:model-value="(v) => set({ clock: v })" /></div>
             </div>
+            <div v-if="[s.firstDay, s.dateFormat, s.clock].includes('auto')" class="s">On this device, Automatic means {{ DAY[device.firstDay] }}, {{ DATES[device.dateFormat] }} and the {{ device.clock }}-hour clock.</div>
           </div>
         </template>
 
@@ -124,8 +132,14 @@ await loaded(me);
               <NumStep :value="cycleOf(s.sleep.cycle)" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => set({ sleep: { cycle: v } })" /></div>
           </div>
           <div class="card">
+            <label class="tgl"><div class="grow"><div class="t">Lie still before writing</div><div class="s">The morning capture opens on a dim screen that asks what you were dreaming, for 20 seconds you can skip. Off, it opens on the key words.</div></div>
+              <span class="tg"><input type="checkbox" :checked="s.capture.dim" @change="set({ capture: { dim: ($event.target as HTMLInputElement).checked } })" /></span></label>
+          </div>
+          <div class="card">
             <div class="li"><div class="grow"><div class="t">First-run setup</div><div class="s">Sleep times, reminders, tonight's technique and extras, in a few short steps</div></div>
               <button type="button" class="btn o s" @click="startSetup">Run setup again</button></div>
+            <div class="li"><div class="grow"><div class="t">Safety check</div><div class="s">{{ s.safety.sleepFirst ? "Sleep first is on: no WBTB, CAT alarm or nap suggestions" : "A few yes/no questions; the answers stay on this device" }}</div></div>
+              <button type="button" class="btn o s" @click="startSafetyCheck">{{ s.safety.checked ? "Answer again" : "Take it" }}</button></div>
           </div>
         </template>
 
@@ -137,38 +151,27 @@ await loaded(me);
           <LocalModelSection v-if="s.features.localModel" />
         </template>
 
-        <template v-else-if="sec === 'appearance'">
-          <div class="card">
-            <div class="li"><div class="grow"><div class="t">Colours, background, style and layout</div><div class="s">The Appearance panel</div></div><button class="btn s" data-theme-open @click.stop="appearanceOpen = true">Open</button></div>
-            <div class="li"><div class="grow"><div class="t">Layout</div><div class="s">Phone or computer layout, or choose by screen size</div></div>
-              <AppSelect :model-value="layoutChoice" :options="[{ value: 'auto', label: 'Automatic' }, { value: 'desktop', label: 'Computer' }, { value: 'phone', label: 'Phone' }]" title="Layout" style="width:auto" @update:model-value="setLayout" /></div>
-          </div>
-        </template>
+        <!-- the same options as the rail's quick panel, inline (Layout is in its Layout tab) -->
+        <div v-else-if="sec === 'appearance'" class="card apset"><AppearanceBody /></div>
 
         <Suspense v-else-if="sec === 'reminders'"><RemindersSection /></Suspense>
         <Suspense v-else-if="sec === 'reality-checks'"><RealityChecksSection /></Suspense>
         <BackupSection v-else-if="sec === 'backup'" />
         <DataSection v-else-if="sec === 'data'" />
         <ActivityLogSection v-else-if="sec === 'log'" />
-        <AppVersionsSection v-else-if="sec === 'versions'" />
         <ChangelogSection v-else-if="sec === 'changelog'" />
         <AccountsSection v-else-if="sec === 'accounts'" />
         <AdminSection v-else-if="sec === 'admin'" />
 
-        <template v-else-if="sec === 'about'">
-          <div class="card">
-            <div class="li"><div class="grow"><div class="t">Somnium</div><div class="s">Version {{ session.version }} · API level {{ session.apiLevel }}</div></div></div>
-            <div class="li"><div class="grow"><div class="t">Look and feel</div><div class="s">From Money Manager and Motus. Fonts: Inter and Nunito (SIL Open Font License)</div></div></div>
-            <div class="li"><div class="grow"><div class="t">Reading text from photos</div><div class="s">tesseract.js, its engine and the English model from tessdata (Apache License 2.0), kept in the app and run on this device</div></div></div>
-            <div class="li"><div class="grow"><div class="t">Source</div><div class="s">github.com/userofit123/somnium</div></div></div>
-          </div>
-        </template>
+        <AppVersionsSection v-else-if="sec === 'about'" />
       </div></Transition>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* the Appearance options bring their own inset */
+.apset { padding: 0; overflow: hidden; }
 .sq { width: 100%; box-sizing: border-box; margin-bottom: var(--hg); }
 .sqp { margin-bottom: var(--spg); }
 /* the computer's section list: small group names over plain rows, the open one filled */

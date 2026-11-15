@@ -18,7 +18,7 @@ const latest = computed(() => (app
 </script>
 
 <template>
-  <button v-if="latest" type="button" class="nb upd" :title="`Version ${latest} is available`" @click="router.push('/settings/versions')">
+  <button v-if="latest" type="button" class="nb upd" :title="`Version ${latest} is available`" @click="router.push('/settings/about')">
     <span class="ic"><Icon name="download" :size="22" /></span>Update
   </button>
 </template>

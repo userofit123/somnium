@@ -1,5 +1,5 @@
 <script setup lang="ts">
-// Backup & restore (PLAN.md §12, LDJ-35): automatic backups (how often, how many to keep, where), a backup now with an
+// Backups (PLAN.md §12, LDJ-35): automatic backups (how often, how many to keep, where), a backup now with an
 // optional passphrase, and restoring one by merge or replace. What a backup holds, and what it doesn't hide, is said
 // plainly on this screen.
 import { useFmt } from "../../core/format";

@@ -8,7 +8,7 @@
 import { computed, ref } from "vue";
 import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
-import { download, restoreFromFile, tellLeftOut } from "../../core/backup";
+import { download, tellLeftOut } from "../../core/backup";
 import { toast, toastError } from "../../core/toast";
 import { choose, confirm } from "../../core/ask";
 import { useFmt } from "../../core/format";
@@ -47,11 +47,6 @@ const exportCsvs = () => run(async () => {
 });
 
 // ----- import -----
-async function importBackup(ev: Event) {
-  const f = (ev.target as HTMLInputElement).files?.[0]; (ev.target as HTMLInputElement).value = ""; if (!f) return;
-  try { await restoreFromFile(f, { date: (d) => fmt.value.date(d) }); } catch (e) { toastError(e); }
-}
-
 // the review: entries proposed from a file, each ticked to be saved
 const review = ref<{ entries: (ImportedEntry & { keep: boolean })[]; note: string } | null>(null);
 const csv = ref<{ rows: string[][]; map: CsvMapping } | null>(null);
@@ -120,12 +115,12 @@ const saveReview = () => run(async () => {
     </div>
     <p class="tiny">Exports are made on this device and are not encrypted. For a copy to keep safe, use Backup.</p>
 
-    <div class="sh"><h2>Import</h2></div>
+    <div class="sh"><h2>Import from other journals</h2></div>
     <div class="card">
-      <div class="li"><div class="grow"><div class="t">Somnium backup or export</div><div class="s">.somniumbackup or .json · merge or replace</div></div><label class="btn o s" style="cursor:pointer">Choose<input type="file" accept=".somniumbackup,.json,application/json" hidden @change="importBackup" /></label></div>
       <div class="li"><div class="grow"><div class="t">Markdown or text</div><div class="s">A journal split at its date headings, or one note per dream with the date in its name</div></div><label class="btn o s" style="cursor:pointer">Choose<input type="file" accept=".md,.markdown,.txt,text/plain,text/markdown" multiple hidden @change="importText" /></label></div>
       <div class="li"><div class="grow"><div class="t">CSV</div><div class="s">You choose which column is the date, title and text</div></div><label class="btn o s" style="cursor:pointer">Choose<input type="file" accept=".csv,.tsv,text/csv" hidden @change="importCsv" /></label></div>
     </div>
+    <p class="tiny">Restoring a Somnium backup? Go to <router-link to="/settings/backup">Backups</router-link>.</p>
     <p class="tiny">From other apps: Oniri's TXT and CSV exports, Markdown notes (Obsidian, dreamy) and any other app's text or CSV files go through Markdown or text and CSV above. No journal app documents the layout of its export, so Somnium has no reader made for one app. Lucidity's PDF book can't be read.</p>
 
     <template v-if="csv">

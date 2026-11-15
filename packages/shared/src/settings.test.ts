@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { withDefaults, DEFAULT_SETTINGS, HOME_BLOCKS, cleanHomeBlocks } from "./settings";
+import { withDefaults, DEFAULT_SETTINGS, HOME_BLOCKS, cleanHomeBlocks, deviceFormats, resolveFormats } from "./settings";
 
 describe("settings", () => {
   it("gives a new account the defaults, with every optional feature off", () => {
