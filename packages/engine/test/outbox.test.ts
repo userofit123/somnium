@@ -1,7 +1,7 @@
 // The outbox (packages/shared/src/outbox.ts) wired to the real sealed-column check, and the server side of its
 // resends: a create sent again with its id answers the row it made instead of 409 (rows.ts sameCreate).
 import { describe, it, expect, beforeAll } from "vitest";
-import { createOutbox, nightOfDate, reaimed, type OutboxItem } from "@somnium/shared";
+import { createOutbox, existingNight, reaimed, type OutboxItem } from "@somnium/shared";
 import { createEngine, type Engine } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
@@ -127,24 +127,24 @@ describe("a create sent again", () => {
   });
   // LDJ-191: another device made that date's night first. The queued create gets 409; it and the change after it go to
   // the night that is there (apps/web/src/api/outbox.ts existingFor), instead of the change getting 404 and being lost
-  it("a night made offline for a date another device made first: its changes land on that night", async () => {
-    let up = false;
-    const refused: unknown[] = [];
+  // the outbox as apps/web/src/api/outbox.ts wires it: existingFor is the shared existingNight, asking this engine
+  function reaimingBox(refused: unknown[], up: () => boolean) {
     const call = async (m: string, p: string, b: unknown) => {
       const r = await handle(A, m.toUpperCase().replace("DEL", "DELETE"), p, b);
       if (r.status !== 200) throw Object.assign(new Error(String(r.status)), { status: r.status });
       return r.body;
     };
-    const date = "2026-04-03";
-    const { o } = box(async (m, p, b) => { if (!up) throw offline; return call(m, p, b); }, {
+    return box(async (m, p, b) => { if (!up()) throw offline; return call(m, p, b); }, {
       onRefused: (e) => refused.push(e),
-      existingFor: async (e, it) => {
-        const b = it.body as { date?: string; nap?: boolean };
-        if ((e as { status?: number }).status !== 409 || it.path !== "/nights" || !b?.date || b.nap) return null;
-        const r = await eng.handle({ method: "GET", path: "/nights", query: { from: b.date, to: b.date }, userId: A });
-        return nightOfDate(r.body as any[], b.date)?.id ?? null;
-      },
+      existingFor: (e, it) => existingNight((e as { status?: number }).status, it,
+        async (date) => (await eng.handle({ method: "GET", path: "/nights", query: { from: date, to: date }, userId: A })).body as any[]),
     });
+  }
+  it("a night made offline for a date another device made first: its changes land on that night", async () => {
+    let up = false;
+    const refused: unknown[] = [];
+    const date = "2026-04-03";
+    const { o } = reaimingBox(refused, () => up);
     const mine = uuidv7(), theirs = uuidv7();
     expect(await o.send("post", "/nights", { id: mine, date, nap: false, noRecall: false })).toBeNull();
     expect(await o.send("put", `/nights/${mine}`, { techniquesPlanned: ["mild"], wbtbMode: "short" })).toBeNull();
@@ -158,6 +158,60 @@ describe("a create sent again", () => {
     expect(nights.map((n) => [n.id, n.techniquesPlanned, n.wbtbMode])).toEqual([[theirs, ["mild"], "short"]]);
     // the other person's night of that date is never the one aimed at (RLS: B sees only B's)
     expect(((await handle(B, "GET", "/nights", undefined)).body as any[]).filter((n) => n.date === date)).toEqual([]);
+  });
+  // LDJ-217: "no recall" said offline doesn't land on a night that has dreams by now; the rest of the create does
+  it("a no-recall night made offline doesn't mark the other device's night that has dreams", async () => {
+    let up = false;
+    const refused: unknown[] = [];
+    const date = "2026-04-04";
+    const { o } = reaimingBox(refused, () => up);
+    const mine = uuidv7(), theirs = uuidv7();
+    expect(await o.send("post", "/nights", { id: mine, date, nap: false, noRecall: true, sleepQuality: 4 })).toBeNull();
+    expect((await handle(A, "POST", "/nights", { id: theirs, date, nap: false })).status).toBe(200);
+    expect((await handle(A, "POST", "/dreams", { id: uuidv7(), nightId: theirs, lucid: false })).status).toBe(200);
+    up = true;
+    while (o.flushing) await new Promise((ok) => setTimeout(ok, 10));
+    await o.flush();
+    expect(o.list).toEqual([]);
+    expect(refused).toEqual([]);
+    const night = ((await handle(A, "GET", "/nights", undefined)).body as any[]).find((n) => n.id === theirs);
+    expect([night.noRecall, night.sleepQuality, night.dreamCount]).toEqual([false, 4, 1]);
+  });
+  it("a no-recall night made offline still lands on the other device's night without dreams", async () => {
+    let up = false;
+    const refused: unknown[] = [];
+    const date = "2026-04-05";
+    const { o } = reaimingBox(refused, () => up);
+    const theirs = uuidv7();
+    expect(await o.send("post", "/nights", { id: uuidv7(), date, nap: false, noRecall: true })).toBeNull();
+    expect((await handle(A, "POST", "/nights", { id: theirs, date, nap: false })).status).toBe(200);
+    up = true;
+    while (o.flushing) await new Promise((ok) => setTimeout(ok, 10));
+    await o.flush();
+    expect(refused).toEqual([]);
+    expect(((await handle(A, "GET", `/nights/${theirs}`, undefined)).body as any).noRecall).toBe(true);
+  });
+  it("existingNight aims only a 409'd night create, never a nap or another path", async () => {
+    const nights = async () => [{ id: "n", date: "d", nap: false, dreamCount: 0 }];
+    const create: OutboxItem = { id: "x", method: "post", path: "/nights", body: { id: "x", date: "d" }, at: 1 };
+    expect(await existingNight(409, create, nights)).toEqual({ id: "n" });
+    expect(await existingNight(400, create, nights)).toBeNull();
+    expect(await existingNight(409, { ...create, body: { id: "x", date: "d", nap: true } }, nights)).toBeNull();
+    expect(await existingNight(409, { ...create, path: "/practice" }, nights)).toBeNull();
+    expect(await existingNight(409, { ...create, method: "put" }, nights)).toBeNull();
+    expect(await existingNight(409, create, async () => [])).toBeNull();
+    expect(await existingNight(409, create, async () => [{ id: "n", date: "d", nap: false, dreamCount: 2 }])).toEqual({ id: "n", omit: ["noRecall"] });
+  });
+  it("the engine refuses no recall on a night with live dreams, and allows it once they are deleted", async () => {
+    const night = uuidv7(), dream = uuidv7();
+    expect((await handle(A, "POST", "/nights", { id: night, date: "2026-04-06", nap: false })).status).toBe(200);
+    expect((await handle(A, "POST", "/dreams", { id: dream, nightId: night })).status).toBe(200);
+    const refused = await handle(A, "PUT", `/nights/${night}`, { noRecall: true });
+    expect(refused.status).toBe(409);
+    expect(JSON.stringify(refused.body)).toMatch(/has dreams/);
+    expect((await handle(A, "PUT", `/nights/${night}`, { noRecall: false })).status).toBe(200);
+    expect((await handle(A, "DELETE", `/dreams/${dream}`)).status).toBe(200);
+    expect((await handle(A, "PUT", `/nights/${night}`, { noRecall: true })).status).toBe(200);
   });
   it("re-aiming leaves earlier changes and other rows alone", () => {
     const it0: OutboxItem = { id: "a", method: "put", path: "/nights/x", body: { a: 1 }, at: 1 };

@@ -107,6 +107,8 @@ export interface Dream extends Owned {
   favourite: boolean;
   /** saved from the morning capture as key words only, to write out later (LDJ-80); absent before migration 021 */
   unfinished?: boolean;
+  /** when you woke from it, stamped by a capture opened in the night (LDJ-177, wakings.ts); absent before migration 024 */
+  wokeAt?: string | null;
   /** suggestion keys dismissed for this dream, a JSON list (LDJ-18) */
   dismissed: string | null; // sealed
 }

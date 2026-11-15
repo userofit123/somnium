@@ -5,7 +5,7 @@
 // leaves the device from here except the ordinary saves; the Markdown export is built here and saved as a file.
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { buildDreamMarkdown, dreamMarks, dreamSegments, ELEMENT_KIND_LABEL, fold, nightFacts, parseDismissed, relatedDreams, suggestionKey, summaryNote, type ElementKind, type Suggestion } from "@somnium/shared";
+import { buildDreamMarkdown, dreamMarks, dreamSegments, ELEMENT_KIND_LABEL, fold, nightFacts, parseDismissed, relatedDreams, suggestionKey, summaryNote, wakeFact, type ElementKind, type Suggestion } from "@somnium/shared";
 import { send } from "../../api/outbox";
 import { api, ApiError } from "../../api/client";
 import { invalidate } from "../../api/live";
@@ -48,7 +48,12 @@ const hard = computed<HardKind[]>(() => {
   if (!x) return [];
   return [x.sleepParalysis && "sleepParalysis", x.falseAwakening && "falseAwakening", (x.nightmare || x.badDream) && "nightmare"].filter((k): k is HardKind => !!k);
 });
-const facts = computed(() => nightFacts(night.value));
+// the night's facts, and when you woke from this dream when the capture noted it (LDJ-177): with the bedtime, how
+// far into the night that was
+const facts = computed(() => {
+  const woke = night.value?.nap ? null : wakeFact(d.value?.wokeAt, night.value?.bedtime);
+  return [...nightFacts(night.value), ...(woke ? [{ label: "Woke from this dream", value: woke }] : [])];
+});
 // the night's details are edited here too, without opening the dream to write (LDJ-99)
 const nightOpen = ref(false);
 

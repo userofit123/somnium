@@ -71,6 +71,8 @@ describe("journal", () => {
     const facts = await call<Record<string, unknown>[]>(A, "GET", "/dream-facts");
     const mine = facts.find((f) => f.id === dream.id)!;
     expect(mine).toMatchObject({ nightId: night.id, date: "2026-11-05", nap: false, lucid: true, lucidityLevel: 3, becameLucidHow: "dream_sign" });
+    // the lucid dream's control, length and ending feed Progress's quality trend (LDJ-165)
+    expect(Object.keys(mine)).toEqual(expect.arrayContaining(["control", "durationEst", "lucidEnd"]));
     expect(Object.keys(mine)).not.toContain("title");
     expect(Object.keys(mine)).not.toContain("text");
     expect(Object.keys(mine)).not.toContain("dismissed");
@@ -127,6 +129,19 @@ describe("journal", () => {
     expect((await call<Dream>(U, "PUT", `/dreams/${d.id}`, { unfinished: false })).unfinished).toBe(false);
     // left out, a new dream is finished
     expect((await call<Dream>(U, "POST", "/dreams", { nightId: n.id })).unfinished).toBe(false);
+  });
+
+  it("keeps when you woke from a dream, and lets it be taken off (LDJ-177)", async () => {
+    const U = uuidv7();
+    await eng.db.admin.query("INSERT INTO users (id, username, display_name) VALUES ($1,'w','W')", [U]);
+    const n = await call<Night>(U, "POST", "/nights", { date: "2026-11-07" });
+    const d = await call<Dream>(U, "POST", "/dreams", { nightId: n.id, wokeAt: "2026-11-07T03:12:00.000Z" });
+    const at = (x: unknown) => new Date(x as string).toISOString();
+    expect(at(d.wokeAt)).toBe("2026-11-07T03:12:00.000Z");
+    // an edit that leaves it out keeps it
+    expect(at((await call<Dream>(U, "PUT", `/dreams/${d.id}`, { lucid: true })).wokeAt)).toBe("2026-11-07T03:12:00.000Z");
+    expect((await call<Dream>(U, "PUT", `/dreams/${d.id}`, { wokeAt: null })).wokeAt).toBeNull();
+    expect(await status(U, "POST", "/dreams", { nightId: n.id, wokeAt: "3 am" })).toBe(400);
   });
 
   it("refuses values off the scales and unknown enum words", async () => {

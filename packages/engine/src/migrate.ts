@@ -23,6 +23,7 @@ import m020 from "./migrations/020_lucid_end";
 import m021 from "./migrations/021_dream_unfinished";
 import m022 from "./migrations/022_drop_email";
 import m023 from "./migrations/023_check_sign";
+import m024 from "./migrations/024_dream_woke_at";
 
 export const MIGRATIONS: [string, string][] = [
   ["001_init", m001],
@@ -48,6 +49,7 @@ export const MIGRATIONS: [string, string][] = [
   ["021_dream_unfinished", m021],
   ["022_drop_email", m022],
   ["023_check_sign", m023],
+  ["024_dream_woke_at", m024],
 ];
 
 export async function migrate(db: Db): Promise<string[]> {

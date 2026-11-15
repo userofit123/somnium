@@ -37,3 +37,4 @@ export * from "./goals";
 export * from "./report";
 export * from "./week";
 export * from "./contrast";
+export * from "./wakings";

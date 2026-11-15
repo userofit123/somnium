@@ -14,6 +14,8 @@
 // - One tab sends at a time: navigator.locks where there is one, otherwise a lease in storage that runs out on its
 //   own, so a tab closed mid-send doesn't stop the others for good.
 
+import { nightOfDate, type NightRef } from "./journal";
+
 export interface OutboxItem { id: string; method: "post" | "put" | "del"; path: string; body?: unknown; at: number }
 
 const METHODS = new Set(["post", "put", "del"]);
@@ -40,10 +42,10 @@ export function withRowId(method: OutboxItem["method"], body: unknown, id: strin
  *  made that date's night first) is aimed at that row: the create becomes a change to it with the same fields, and
  *  every later change to the row it would have made (in its path, or as a field such as nightId) goes there too.
  *  Without this the create was dropped and the change after it found nothing (404), so what was done offline was lost. */
-export function reaimed(list: readonly OutboxItem[], item: OutboxItem, to: string, newId: string): OutboxItem[] {
+export function reaimed(list: readonly OutboxItem[], item: OutboxItem, to: string, newId: string, omit: readonly string[] = []): OutboxItem[] {
   const b = (item.body && typeof item.body === "object" && !Array.isArray(item.body) ? item.body : {}) as Record<string, unknown>;
   const from = typeof b.id === "string" ? b.id : null;
-  const { id: _made, ...fields } = b;
+  const fields = Object.fromEntries(Object.entries(b).filter(([k]) => k !== "id" && !omit.includes(k)));
   const swap = (v: unknown) => (from && v === from ? to : v);
   const at = list.findIndex((x) => x.id === item.id);
   return list.flatMap((x, n) => {
@@ -54,6 +56,24 @@ export function reaimed(list: readonly OutboxItem[], item: OutboxItem, to: strin
       ? Object.fromEntries(Object.entries(x.body as Record<string, unknown>).map(([k, v]) => [k, swap(v)])) : x.body;
     return [{ ...x, path, body }];
   });
+}
+
+/** Where a refused queued create goes instead (see reaimed): that row, and the fields it must not carry there. */
+export interface Existing { id: string; omit?: readonly string[] }
+
+/** A queued night create refused with 409 (one night per date: another device made that date's night first) is aimed
+ *  at the night of that date (a nap may share its date, so it never is). "No recall" made offline doesn't go to a
+ *  night that has dreams by now: the dreams say otherwise, and the server refuses it (engine journal.ts). Kept here,
+ *  pure but for `nightsOf`, so the engine test runs the code the app runs (apps/web/src/api/outbox.ts). */
+export async function existingNight(
+  status: number | undefined, item: OutboxItem,
+  nightsOf: (date: string) => Promise<NightRef[]>,
+): Promise<Existing | null> {
+  const b = item.body as { date?: unknown; nap?: unknown } | undefined;
+  if (status !== 409 || item.method !== "post" || item.path !== "/nights" || typeof b?.date !== "string" || b.nap) return null;
+  const night = nightOfDate(await nightsOf(b.date), b.date);
+  if (!night) return null;
+  return (night.dreamCount ?? 0) > 0 ? { id: night.id, omit: ["noRecall"] } : { id: night.id };
 }
 
 export interface OutboxStorage { read(key: string): unknown; write(key: string, value: unknown): void }
@@ -69,9 +89,9 @@ export interface OutboxDeps {
   /** Throws when the body carries a sealed column in the clear. */
   refuseSealed: (method: OutboxItem["method"], path: string, body: unknown) => void;
   newId: () => string;
-  /** A queued create the server refused because its row already stands under another id: that id (then the change
+  /** A queued create the server refused because its row already stands under another id: that row (then the change
    *  is aimed there, see reaimed), or null. May ask the server; an error it throws that mustWait holds the list. */
-  existingFor?: (e: unknown, item: OutboxItem) => Promise<string | null>;
+  existingFor?: (e: unknown, item: OutboxItem) => Promise<Existing | null>;
   /** A queued change the server refused: it is dropped, and this says so. */
   onRefused?: (e: unknown, item: OutboxItem) => void;
   /** The list this tab holds changed. */
@@ -125,7 +145,7 @@ export function createOutbox(d: OutboxDeps) {
       try { await d.request(it.method, it.path, it.body); }
       catch (e) {
         if (d.mustWait(e)) break;
-        let to: string | null = null;
+        let to: Existing | null = null;
         if (it.method === "post" && d.existingFor) {
           try { to = await d.existingFor(e, it); }
           catch (e2) { if (d.mustWait(e2)) break; }
@@ -134,7 +154,7 @@ export function createOutbox(d: OutboxDeps) {
           if (d.key() !== mine) break;
           reread();
           if (!list.some((x) => x.id === it.id)) break; // cleared (signed out) meanwhile
-          set(reaimed(list, it, to, d.newId())); save();
+          set(reaimed(list, it, to.id, d.newId(), to.omit)); save();
           continue;
         }
         // refused: dropped rather than blocking the rest, and said (onRefused), never lost silently

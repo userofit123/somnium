@@ -4,7 +4,7 @@
 // the reality check screen, Train > Tonight, and the day note (only while that feature is on).
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { isPlanOnly, nightOfDate } from "@somnium/shared";
+import { isPlanOnly, nightOfDate, tonightOf } from "@somnium/shared";
 import { useSettings } from "../api/queries";
 import { markNoRecall, useNights, uuidv7 } from "../api/journal";
 import { useToday } from "../core/today";
@@ -27,8 +27,12 @@ const dayNote = ref(false);
 const go = (to: Parameters<typeof router.push>[0]) => { emit("close"); router.push(to); };
 // last night's date, so the router's captureFirst opens the still, dim morning capture (LDJ-80). Later in the day
 // (from noon, as Train's night-of-now) it is the plain editor, which starts on today's date by itself
-const morning = new Date().getHours() < 12;
+const hour = new Date().getHours(), morning = hour < 12;
+// in the night (LDJ-177) it is "I woke up": the same dim capture, which notes the time you woke (wakings.ts), on
+// the night being slept (before midnight that is tomorrow's date, as Train's tonight)
+const night = hour >= 22 || hour < 5;
 function write() {
+  if (night) { go({ name: "capture", query: { date: tonightOf(today.value, hour), new: "1" } }); return; }
   go({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", ...(morning ? { date: today.value } : {}) } });
 }
 async function noRecall() {
@@ -44,7 +48,7 @@ async function noRecall() {
   </Sheet>
   <Sheet v-else title="Add" @close="emit('close')">
     <div class="opt-list">
-      <button class="optb" @click="write"><span class="oi"><Icon name="book" /></span><div class="grow"><div class="t">Write a dream</div><div class="s">{{ morning ? "Last night's, while it is still there. A fragment counts." : "Any night's dream, or a nap" }}</div></div></button>
+      <button class="optb" @click="write"><span class="oi"><Icon name="book" /></span><div class="grow"><div class="t">{{ night ? "I woke up" : "Write a dream" }}</div><div class="s">{{ night ? "Notes the time, then a few key words if you were dreaming" : morning ? "Last night's, while it is still there. A fragment counts." : "Any night's dream, or a nap" }}</div></div></button>
       <button v-if="!lastLogged && !nights.isPending.value" class="optb" @click="noRecall"><span class="oi"><Icon name="moon" /></span><div class="grow"><div class="t">No recall last night</div><div class="s">Logs the night with no dreams remembered</div></div></button>
       <button class="optb" @click="go('/check')"><span class="oi"><Icon name="eye" /></span><div class="grow"><div class="t">Log a reality check</div><div class="s">Whether it said you were awake or dreaming</div></div></button>
       <button class="optb" @click="go('/train/tonight')"><span class="oi"><Icon name="target" /></span><div class="grow"><div class="t">Plan tonight</div><div class="s">Your intention and the technique for tonight</div></div><Icon name="right" /></button>

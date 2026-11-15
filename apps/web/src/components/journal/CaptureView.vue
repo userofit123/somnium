@@ -7,7 +7,7 @@
 // on this device, sent or kept for later, api/journal.ts), and App.vue draws it only behind the lock.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { nightOfDate } from "@somnium/shared";
+import { clockOf, nightOfDate, wakeStamp } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, dropLocalDraft, endDraft, liveDraft, markNoRecall, openStored, saveError, saveNow, saveState, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { useSettings } from "../../api/queries";
@@ -48,6 +48,9 @@ const marks = reactive({ lucid: false, nightmare: false, feeling: false });
 const cite = ref<string[] | null>(null);
 const inputEl = ref<HTMLInputElement | null>(null);
 const ready = ref(false), busy = ref(false), err = ref("");
+// when you woke from it (LDJ-177): stamped as a new capture opens in the night (wakings.ts), kept as it was when one
+// is taken up again, so the night page and Insights can say when in the night your dreams come
+const wokeAt = ref<string | null>(null);
 let stillTimer: ReturnType<typeof setTimeout> | null = null;
 
 const voiceOn = computed(() => !!settings.value.features.voiceNotes);
@@ -66,7 +69,7 @@ async function holdsMedia() {
 // in the editor; a nightmare clears a bad dream on the server (one or the other, C18)
 const fields = (unfinished: boolean, t = text()) => ({
   text: t || null, lucid: marks.lucid, lucidityLevel: marks.lucid ? 1 : 0, nightmare: marks.nightmare,
-  recallClarity: marks.feeling ? 1 : null, unfinished,
+  recallClarity: marks.feeling ? 1 : null, unfinished, ...(wokeAt.value ? { wokeAt: wokeAt.value } : {}),
 });
 // what the capture can show again without losing anything: key words and its three marks, nothing more (the
 // capture saves every field each time, so taking up anything fuller here would write over it)
@@ -78,6 +81,7 @@ function captureShaped(d: Record<string, unknown>) {
     && OTHER.every((k) => d[k] == null || d[k] === false);
 }
 function takeUp(d: Record<string, unknown>) {
+  wokeAt.value = typeof d.wokeAt === "string" ? d.wokeAt : null;
   words.value = typeof d.text === "string" ? d.text.split(/\s*[,\n]\s*/).filter(Boolean) : [];
   Object.assign(marks, { lucid: !!d.lucid, nightmare: !!d.nightmare, feeling: d.recallClarity === 1 });
   step.value = "words";
@@ -113,6 +117,7 @@ async function open(): Promise<boolean> {
     const nights: NightRow[] = j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
     const night = row ? nights.find((n) => n.id === row!.nightId) : null;
     if (row) { takeUp(row as unknown as Record<string, unknown>); made = earlier = true; }
+    else wokeAt.value = wakeStamp(new Date(), nightOfDate(nights, date));
     beginDraft({ dreamId: id, nightId: row?.nightId ?? nightOfDate(nights, date)?.id ?? uuidv7(), date: night?.date ?? date, nap: night?.nap ?? false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
   }
   ready.value = true;
@@ -214,7 +219,7 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
     <div class="gtop">
       <button type="button" class="gx" @click="leave"><Icon name="close" :size="18" /> Close</button>
       <span class="grow" />
-      <span class="gname" aria-live="polite">{{ stateText || "Morning" }}</span>
+      <span class="gname" aria-live="polite">{{ stateText || (wokeAt ? `Woke at ${clockOf(wokeAt)}` : "Morning") }}</span>
     </div>
 
     <div v-if="step === 'still'" class="gbody capstill">

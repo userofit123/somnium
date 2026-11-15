@@ -129,7 +129,7 @@ export const journalMarkdown = (tables: Record<string, unknown>): string =>
 // The CSV columns. The sealed ones (the words) only when the person ticks "include dream text".
 const CSV_COLUMNS = {
   dreams: {
-    plain: ["date", "id", "position", "lucid", "lucidity_level", "awareness", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "bad_dream", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "lucid_end", "wake_method", "favourite", "unfinished", "created_at", "updated_at"],
+    plain: ["date", "id", "position", "lucid", "lucidity_level", "awareness", "control", "vividness", "recall_clarity", "emotion_overall", "duration_est", "nightmare", "bad_dream", "recurring", "false_awakening", "sleep_paralysis", "became_lucid_how", "lucid_end", "wake_method", "favourite", "unfinished", "woke_at", "created_at", "updated_at"],
     text: ["title", "text", "lucid_trigger"],
   },
   nights: {

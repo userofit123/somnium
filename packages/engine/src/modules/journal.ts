@@ -23,7 +23,7 @@ const DREAM: Fields = {
   emotion_overall: (v) => intOrNull(v, -2, 2), duration_est: (v) => intOrNull(v, 0, 600),
   nightmare: (v) => bool(v), bad_dream: (v) => bool(v), recurring: (v) => bool(v), false_awakening: (v) => bool(v), sleep_paralysis: (v) => bool(v),
   became_lucid_how: enumOrNull(BECAME_LUCID_HOW), lucid_trigger: sealed, wake_method: enumOrNull(WAKE_METHODS), lucid_end: enumOrNull(LUCID_ENDS), favourite: (v) => bool(v),
-  dismissed: sealed, unfinished: (v) => bool(v),
+  dismissed: sealed, unfinished: (v) => bool(v), woke_at: timeOrNull,
 };
 /**
  * A dream is a nightmare (it woke you) or a bad dream (it didn't), never both (RESEARCH.md C18): marking one clears
@@ -71,7 +71,14 @@ export function journalRoutes(r: Router) {
     try { return await insertRow<Night>(ctx, "nights", "nights", { ...columns(NIGHT, b, true), ...clientId(b) }); }
     catch (e) { if (/nights_user_date_live/.test(String((e as Error).message))) throw conflict("There is already a night for that date"); throw e; }
   });
-  r.put("/nights/:id", async (ctx, p, b) => updateRow<Night>(ctx, "nights", "nights", id(p.id), columns(NIGHT, b, false), "night"));
+  r.put("/nights/:id", async (ctx, p, b) => {
+    const cols = columns(NIGHT, b, false);
+    // "no recall" on a night that has dreams would contradict them (and drop it from the recall rate): refused, so a
+    // change made offline before the dreams were written elsewhere can't land on it (shared outbox.ts existingNight)
+    if (cols.no_recall === true && (await ctx.q.query("SELECT 1 FROM dreams WHERE night_id = $1 AND deleted_at IS NULL LIMIT 1", [id(p.id)])).rows.length)
+      throw conflict("This night has dreams, so it can't be marked as no recall");
+    return updateRow<Night>(ctx, "nights", "nights", id(p.id), cols, "night");
+  });
   // removing a night takes its dreams with it, and each dream its links and media (the same cascade as DELETE /dreams/:id)
   r.del("/nights/:id", async (ctx, p) => {
     const nightId = id(p.id);
@@ -101,8 +108,8 @@ export function journalRoutes(r: Router) {
   // that are never sealed, so the list stays light however long the journal grows and needs no key to open.
   r.get("/dream-facts", async ({ q }) => {
     const { rows } = await q.query(
-      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.emotion_overall, d.nightmare, d.bad_dream,
-              d.recurring, d.false_awakening,
+      `SELECT d.id, d.night_id, n.date, n.nap, d.lucid, d.lucidity_level, d.awareness, d.control, d.duration_est, d.lucid_end,
+              d.emotion_overall, d.nightmare, d.bad_dream, d.recurring, d.false_awakening,
               d.sleep_paralysis, d.became_lucid_how, d.favourite
        FROM dreams d JOIN nights n ON n.id = d.night_id WHERE d.deleted_at IS NULL AND n.deleted_at IS NULL
        ORDER BY n.date DESC, d.position, d.created_at`);

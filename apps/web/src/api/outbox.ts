@@ -5,7 +5,7 @@
 import { ref } from "vue";
 import { api, ApiError } from "./client";
 import { readJson, storedKeys, writeJson } from "../core/prefs";
-import { createOutbox, leftByOthers, nightOfDate, type OutboxItem } from "@somnium/shared";
+import { createOutbox, existingNight, leftByOthers, type NightRef, type OutboxItem } from "@somnium/shared";
 import { refuseSealedInClear, uuidv7 } from "@somnium/engine/sealed-api";
 import { savedUserIds } from "../native/accounts";
 import { invalidate } from "./live";
@@ -36,13 +36,9 @@ const box = createOutbox({
   request: (method, path, body) => (api as any)[method](path, body),
   mustWait: isWaitable,
   // A night made offline for a date that has one by now (one per date, another device was first): the queued night
-  // and what follows it go to the one there (packages/shared/src/outbox.ts reaimed). A nap may share its date.
-  existingFor: async (e, it) => {
-    const b = it.body as { date?: unknown; nap?: unknown } | undefined;
-    if (!(e instanceof ApiError && e.status === 409 && it.path === "/nights" && typeof b?.date === "string" && !b.nap)) return null;
-    const date = b.date;
-    return nightOfDate(await api.get<{ id: string; date: string; nap: boolean }[]>("/nights", { from: date, to: date }), date)?.id ?? null;
-  },
+  // and what follows it go to the one there (packages/shared/src/outbox.ts existingNight, reaimed).
+  existingFor: (e, it) => existingNight(e instanceof ApiError ? e.status : undefined, it,
+    (date) => api.get<NightRef[]>("/nights", { from: date, to: date })),
   // nothing sealed waits in this browser's storage in the clear (the check note is kept sealed in api/checks.ts)
   refuseSealed: refuseSealedInClear,
   newId: uuidv7,
