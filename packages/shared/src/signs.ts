@@ -264,3 +264,31 @@ export function themeComparison<T extends SignTheme, E extends SignElement>(elem
   }
   return [...out.values()].sort((a, b) => b.yourDreams - a.yourDreams || b.theme.prevalenceTotal - a.theme.prevalenceTotal);
 }
+
+// ---------- right after writing a dream (LDJ-110) ----------
+/** At most this many new sign-like things are offered after a dream, so the moment stays short. */
+export const IN_DREAM_MAX = 3;
+export interface InDreamSign<E extends SignElement = SignElement> {
+  element: E;
+  /** dreams it has been in, this one included */
+  seen: number;
+  /** it was in an earlier lucid dream */
+  lucidBefore: boolean;
+}
+/**
+ * What the dream just written holds for the dreamsign inventory (LaBerge: collect, mark, count, target the most
+ * frequent; RESEARCH.md C1, C2): `known` are the person's marked dream signs that appeared, with their count and
+ * whether one came with lucidity before; `offer` are sign-like elements in it that are not marked yet (isSignish),
+ * up to `max`. `linked` is the dream's elements; links and dreams are the journal's, which may not have this dream yet.
+ */
+export function signsInDream<E extends SignElement>(dreamId: string, linked: readonly E[], links: readonly SignLink[], dreams: readonly SignDream[], max = IN_DREAM_MAX): { known: InDreamSign<E>[]; offer: E[] } {
+  const live = new Set(dreams.map((d) => d.id)), lucid = new Set(dreams.filter((d) => d.lucid && d.id !== dreamId).map((d) => d.id));
+  const known: InDreamSign<E>[] = [], offer: E[] = [];
+  for (const e of linked) {
+    if (e.isDreamSign) {
+      const other = new Set(links.filter((l) => l.elementId === e.id && l.dreamId !== dreamId && live.has(l.dreamId)).map((l) => l.dreamId));
+      known.push({ element: e, seen: other.size + 1, lucidBefore: [...other].some((id) => lucid.has(id)) });
+    } else if (isSignish(e) && offer.length < max) offer.push(e);
+  }
+  return { known: known.sort((a, b) => b.seen - a.seen), offer };
+}

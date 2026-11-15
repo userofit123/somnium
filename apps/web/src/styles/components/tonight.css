@@ -9,6 +9,8 @@
 .tplan .tprow { display: flex; align-items: center; gap: var(--hg); }
 .tplan .tpsec { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
 .tplan .tpx { overflow-wrap: anywhere; }
+.tplan .tpsug { display: flex; flex-direction: column; gap: calc(var(--hg) / 2); }
+.tplan .tpwhy { margin: 0; }
 .tplan .tpedit { display: flex; flex-direction: column; gap: var(--hg); }
 .tplan .tpedit input { width: 100%; }
 .tpfam + .tpfam { margin-top: var(--hg); }

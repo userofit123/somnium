@@ -229,6 +229,20 @@ export function teachAlias(dreamId: string, elementId: string, aliases: string) 
   if (made) made.aliases = aliases; else d.aliases = { ...d.aliases, [elementId]: aliases };
   touch(d);
 }
+/**
+ * Marks an element made in this draft and not sent yet as a dream sign, so it is created with the mark (the outbox's
+ * PUT could reach the server before the element does). False when it was sent already: then it is the person's
+ * element like any other, and api/signs.ts setElementFlags marks it.
+ */
+export function flagNewElement(dreamId: string, elementId: string, flags: { isDreamSign: boolean }): boolean {
+  const d = drafts.get(dreamId), made = d?.newElements.find((e) => e.id === elementId);
+  if (!d || !made || pushing.has(dreamId)) return false;
+  Object.assign(made, flags);
+  touch(d);
+  return true;
+}
+/** A save of this dream is waiting to go or on its way. */
+export const draftBusy = (dreamId: string) => pushTimers.has(dreamId) || pushing.has(dreamId);
 export function unlinkElement(dreamId: string, elementId: string) {
   const d = drafts.get(dreamId); if (!d) return;
   d.link = d.link.filter((x) => x !== elementId);

@@ -26,6 +26,7 @@ import LocalModelSection from "../components/settings/LocalModelSection.vue";
 import ActivityLogSection from "../components/settings/ActivityLogSection.vue";
 import RemindersSection from "../components/settings/RemindersSection.vue";
 import RealityChecksSection from "../components/settings/RealityChecksSection.vue";
+import FreeNights from "../components/settings/FreeNights.vue";
 import { startSafetyCheck, startSetup } from "../components/setup/useSetup";
 
 const route = useRoute(), router = useRouter();
@@ -61,7 +62,7 @@ const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification fingerprint face screen lock windows hello touch id password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
   accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
   "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
-  sleep: "sleep times bedtime wake cycle 90 minutes setup first run onboarding start again morning capture still dim", features: "optional extras", backup: "backups restore automatic encrypted", data: "export import json delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
+  sleep: "sleep times bedtime wake cycle 90 minutes free nights sleep in lie-in weekend setup first run onboarding start again morning capture still dim", features: "optional extras", backup: "backups restore automatic encrypted", data: "export import json delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
 };
 // what "Automatic" means here, said under the formats
 const device = deviceFormats();
@@ -133,6 +134,7 @@ await loaded(me);
             </div>
             <div class="li"><div class="grow"><div class="t">Sleep cycle</div><div class="s">{{ CYCLE_RANGE.min }} to {{ CYCLE_RANGE.max }} min; 90 is usual. The WBTB planner counts alarms in whole cycles.</div></div>
               <NumStep :value="cycleOf(s.sleep.cycle)" :min="CYCLE_RANGE.min" :max="CYCLE_RANGE.max" :step="CYCLE_RANGE.step" unit="min" label="Sleep cycle" @set="(v) => set({ sleep: { cycle: v } })" /></div>
+            <div class="fld"><label>Nights I can sleep in</label><div class="s">The evenings after which you can lie in. Tonight's plan suggests WBTB only on these.</div><FreeNights /></div>
           </div>
           <div class="card">
             <label class="tgl"><div class="grow"><div class="t">Lie still before writing</div><div class="s">The morning capture opens on a dim screen that asks what you were dreaming, for 20 seconds you can skip. Off, it opens on the key words.</div></div>

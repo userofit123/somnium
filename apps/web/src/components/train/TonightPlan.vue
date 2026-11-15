@@ -7,9 +7,18 @@
 // intention through the sealed path (api/home.ts); the bedtime reminder follows the plan (native/reminders.ts).
 // The technique names come from the page (`titleOf`), so Home keeps loading Learn's texts alongside its queries; the
 // picker sheet loads only when opened.
+// LDJ-108: with nothing planned it shows the suggested plan from the current lesson and the nights you can sleep in
+// (packages/shared/src/tonight.ts, with its reason and sources): "Use this plan" puts it on the night in one tap, with
+// the WBTB alarm as the planner would set it, and the intention when none is set; "Change" opens the picker. On Home
+// (`compact`) only its name, under the button to Train > Tonight.
 import { computed, defineAsyncComponent, ref, watch } from "vue";
-import { bedtimeAt } from "@somnium/shared";
-import { planTonight, setTonightBedtime } from "../../api/train";
+import { bedtimeAt, currentLesson, cycleOf, freeNightsOf, isWbtbMode, suggestTonight, wbtbModePlan, type TonightIdea } from "@somnium/shared";
+import { parseInline } from "@somnium/knowledge/markdown";
+import { applyTonightPlan, planTonight, setTonightBedtime, useCourse } from "../../api/train";
+import { useJournal } from "../../api/journal";
+import { setWbtbAlarm } from "../../native/reminders";
+import { readStr } from "../../core/prefs";
+import LearnInline from "../learn/LearnInline.vue";
 import { saveIntention } from "../../api/home";
 import type { NightRow } from "../../api/journal";
 import { useChange, useSettings } from "../../api/queries";
@@ -18,6 +27,7 @@ import "../../styles/components/tonight.css";
 import Icon from "../Icon.vue";
 import TimePicker from "../TimePicker.vue";
 const TonightPicker = defineAsyncComponent(() => import("./TonightPicker.vue"));
+const SourceSheet = defineAsyncComponent(() => import("../learn/SourceSheet.vue"));
 
 const props = defineProps<{ night: NightRow | undefined; date: string; titleOf: (id: string) => string; compact?: boolean; same?: boolean }>();
 const settings = useSettings();
@@ -46,6 +56,30 @@ const alarm = computed(() => props.night?.wbtbWakeAt ?? null);
 const setBed = useChange((v: string) => setTonightBedtime(!v || v === usual.value ? null : bedtimeAt(props.date, v)), ["journal", "train", "home"]);
 const summary = computed(() => `Bed at ${fmt.value.time(bedIso.value)} · ${alarm.value ? `WBTB alarm ${fmt.value.time(alarm.value)}` : "No alarm"}`);
 const anything = computed(() => planned.value.length > 0 || !!alarm.value || !!props.night?.intention);
+
+// ---- the suggested plan (LDJ-108), only while nothing is planned
+const j = useJournal();
+const course = useCourse();
+const suggestion = computed(() => {
+  const rows = course.data.value;
+  if (!rows) return null;
+  const s = settings.value;
+  // WBTB nights used or planned, tonight's own left out: not two in a row, at most 3 a week
+  const wbtbNights = (j.nights.data.value ?? []).filter((n) => !n.nap && n.date !== props.date
+    && (n.wbtbUsed || !!n.wbtbWakeAt || n.techniquesDone?.includes("wbtb") || n.techniquesPlanned?.includes("wbtb"))).map((n) => n.date);
+  return suggestTonight({ lesson: currentLesson(rows), date: props.date, freeNights: freeNightsOf(s.sleep.freeNights), sleepFirst: s.safety.sleepFirst, safetyChecked: s.safety.checked, wbtbNights });
+});
+// the alarm the WBTB planner would set: its last-used mode (Short, Aspy's 5 h with MILD [D11], when none yet)
+const wbtbMode = computed(() => { const m = readStr("somniumWbtbMode", "short"); return isWbtbMode(m) ? m : "short"; });
+const wbtbAt = computed(() => wbtbModePlan(new Date(bedIso.value), wbtbMode.value, { cycleMin: cycleOf(settings.value.sleep.cycle) }).alarm.at);
+const ideaTitle = (i: TonightIdea) => (i.wbtb ? `${i.title} · alarm ${fmt.value.time(wbtbAt.value.toISOString())}` : i.title);
+const cite = ref<string[] | null>(null);
+const use = useChange(async (i: TonightIdea) => {
+  const at = i.wbtb ? wbtbAt.value : null;
+  await applyTonightPlan(i.techniques, at ? { at, mode: wbtbMode.value } : null);
+  if (at) await setWbtbAlarm(at.getTime());
+  if (!props.night?.intention && suggestion.value) { await saveIntention(props.date, suggestion.value.intention); text.value = suggestion.value.intention; }
+}, ["journal", "train", "home"]);
 </script>
 
 <template>
@@ -58,11 +92,26 @@ const anything = computed(() => planned.value.length > 0 || !!alarm.value || !!p
         <div v-for="p in planned" :key="p.id" class="li tpli">
           <Icon name="moon" :size="18" />
           <router-link :to="'/train/technique/' + p.id" class="grow t tpname">{{ p.title }}</router-link>
-          <button v-if="!compact" type="button" class="cx" :aria-label="'Remove ' + p.title" :disabled="remove.busy.value" @click="remove.run(p.id)"><Icon name="close" :size="16" /></button>
+          <button v-if="!compact" type="button" class="ib sm plain" :aria-label="'Remove ' + p.title" :title="'Remove ' + p.title" :disabled="remove.busy.value" @click="remove.run(p.id)"><Icon name="close" :size="16" /></button>
         </div>
       </div>
+      <div v-else-if="suggestion && !anything && compact" class="tiny tpnone">Suggested: {{ ideaTitle(suggestion) }}</div>
+      <div v-else-if="suggestion && !anything" class="tpsug">
+        <div class="tiny">Suggested for tonight</div>
+        <div class="t">{{ ideaTitle(suggestion) }}</div>
+        <p class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.reason)" @cite="cite = $event" /></p>
+        <p v-if="suggestion.noWbtb" class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.noWbtb)" @cite="cite = $event" /></p>
+        <div class="tprow">
+          <button type="button" class="btn s" :disabled="use.busy.value" @click="use.run(suggestion)">Use this plan</button>
+          <button type="button" class="qb acc" @click="picking = true">Change</button>
+        </div>
+        <template v-if="suggestion.alt">
+          <p class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.alt.reason)" @cite="cite = $event" /></p>
+          <button type="button" class="qb acc tpadd" :disabled="use.busy.value" @click="use.run(suggestion.alt)">Use {{ ideaTitle(suggestion.alt) }}</button>
+        </template>
+      </div>
       <div v-else class="tiny tpnone">No technique planned yet.</div>
-      <button v-if="!compact" type="button" class="qb acc tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
+      <button v-if="!compact && (anything || !suggestion)" type="button" class="qb acc tpadd" @click="picking = true"><Icon name="plus" :size="16" />Add a technique</button>
 
       <div class="tpsec">
         <div v-if="!editing" class="tprow">
@@ -94,6 +143,7 @@ const anything = computed(() => planned.value.length > 0 || !!alarm.value || !!p
       </template>
     </div>
 
+    <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
     <TonightPicker v-if="picking" :planned="night?.techniquesPlanned ?? []" :title-of="titleOf" @close="picking = false" />
   </section>
 </template>

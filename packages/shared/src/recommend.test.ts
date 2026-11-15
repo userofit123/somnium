@@ -196,6 +196,12 @@ describe("recommend: the first lucid dream", () => {
     expect(has(base({ dreams: lucidOn(3, 10) }), "first-lucid")).toBe(false);
     expect(has(base({ nights: nights(20, (i) => (i === 2 ? { lucidCount: 1 } : {})) }), "first-lucid")).toBe(true);
   });
+  it("after the first lucid dream's own moment, the card points on to the lesson without saying it again", () => {
+    const r = all({ ...firstLucid(), milestones: { "first-lucid": { on: "2026-11-04", dreamId: "x" } } }).find((x) => x.id === "first-lucid")!;
+    expect(r.title).toBe("Staying in your next lucid dream");
+    expect(r.body).not.toMatch(/Well done/);
+    expect(r.action).toEqual({ label: "Open the lesson", to: "/train/lesson/stabilise" });
+  });
   it("not for people who told the setup they have had lucid dreams before", () => {
     expect(has({ ...firstLucid(), experience: "some" }, "first-lucid")).toBe(false);
     expect(has({ ...firstLucid(), experience: "regular" }, "first-lucid")).toBe(false);

@@ -40,6 +40,7 @@ const recs = computed<Recommendation[]>(() => {
     dismissed: settings.value.recommend?.dismissed ?? [],
     sleepFirst: settings.value.safety.sleepFirst,
     experience: settings.value.setup?.experience,
+    milestones: settings.value.milestones,
     safetyPage: safetyPage.value,
   }, today.value);
 });

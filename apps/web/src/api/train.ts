@@ -15,10 +15,13 @@ import { readJson, writeJson } from "../core/prefs";
 /** How far back the move-on rules look at checks and ticks: the longest rule runs 4 weeks, plus room. */
 const WINDOW_DAYS = 60;
 
+/** The course's progress alone (Tonight's suggested plan needs the lesson, not the checks and ticks). */
+export const useCourse = () => useQuery({ queryKey: ["course"], queryFn: () => api.get<CourseProgress[]>("/course") });
+
 export function useTrain() {
   const from = new Date(Date.now() - WINDOW_DAYS * 86_400_000);
   return {
-    course: useQuery({ queryKey: ["course"], queryFn: () => api.get<CourseProgress[]>("/course") }),
+    course: useCourse(),
     practice: useQuery({ queryKey: ["practice", "train"], queryFn: () => api.get<PracticeLog[]>("/practice", { from: localYmd(from) }) }),
     checks: useQuery({ queryKey: ["checks", "train"], queryFn: () => api.get<RealityCheck[]>("/reality-checks", { from: from.toISOString(), limit: 2000 }) }),
   };
@@ -140,6 +143,21 @@ export async function planWbtb(wakeAt: Date, bedtime: Date | null, mode: WbtbMod
     const body: Partial<Night> = { wbtbWakeAt: wakeAt.toISOString(), wbtbMode: mode };
     if (!cur.includes("wbtb")) body.techniquesPlanned = [...cur, "wbtb"];
     if (bedtime) body.bedtime = bedtime.toISOString();
+    return body;
+  });
+  return { date, id };
+}
+
+/**
+ * "Use this plan" (LDJ-108): tonight's suggested techniques in the plan, and with `wbtb` the alarm as the WBTB planner
+ * would set it (planWbtb's fields: wbtb_wake_at and the mode), in one change of the night.
+ */
+export async function applyTonightPlan(techniques: readonly string[], wbtb: { at: Date; mode: WbtbModeLog } | null) {
+  const date = tonightDate();
+  const id = await changeNightPlan(date, (n) => {
+    const cur = n?.techniquesPlanned ?? [];
+    const body: Partial<Night> = { techniquesPlanned: [...new Set([...cur, ...techniques])] };
+    if (wbtb) { body.wbtbWakeAt = wbtb.at.toISOString(); body.wbtbMode = wbtb.mode; }
     return body;
   });
   return { date, id };

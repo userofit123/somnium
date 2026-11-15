@@ -112,30 +112,6 @@
   color: var(--neg);
 }
 
-.cx {
-  border: 0;
-  background: none;
-  color: var(--tx2);
-  cursor: pointer;
-  font: inherit;
-  font-size: 16px;
-  line-height: 1;
-  padding: 0 2px;
-  margin: 0 -2px 0 0;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  display: inline-grid;
-  place-items: center;
-  opacity: .7;
-}
-
-.cx:hover {
-  opacity: 1;
-  background: var(--s2);
-  color: var(--neg);
-}
-
 .jmore {
   width: 34px;
   height: 34px;

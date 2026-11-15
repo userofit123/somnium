@@ -2,13 +2,18 @@
 // Writing a dream (PLAN.md §6.2): full screen on the phone, opening with the keyboard; a side panel on a computer.
 // Every change is saved as it is made (api/journal.ts says where a draft waits), so the lock, a reload or a lost
 // connection never costs a word. Saving is quiet: a word in the corner, never a toast.
+// Done on a new dream (or one finished from the morning's key words) first shows what it holds for the dream signs
+// (InThisDream, LDJ-110), and a milestone's moment when the dream reaches one (Milestone, LDJ-117): in the editor, so
+// the lock takes them away with it, and once only.
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
-import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, type Element, type Suggestion } from "@somnium/shared";
+import { addAlias, elementMatches, fold, mergeDraft, parseDismissed, mergeLinks, nightOfDate, ELEMENT_KIND_LABEL, NEW_ELEMENT_KINDS, CONTROL_ANCHORS, DSA_ANCHORS, EMOTION_ANCHORS, LUCIDITY_ANCHORS, RECALL_ANCHORS, VIVIDNESS_ANCHORS, UPSET_HINT, UPSET_SOURCES, BECAME_LUCID_LABEL, BECAME_LUCID_ORDER, LUCID_ENDS, LUCID_END_LABEL, LUCID_LENGTHS, LUCID_SOURCES, lucidLength, dueMilestones, milestonesSeen, MILESTONE_HOW, nightRecipe, pairedCheck, signsInDream, IN_DREAM_MAX, type Element, type MilestoneId, type SignCategory, type Suggestion } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
-import { beginDraft, changeDream, deleteDream, endDraft, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
+import { beginDraft, changeDream, deleteDream, draftBusy, endDraft, flagNewElement, linkElement, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { confirm } from "../../core/ask";
 import { toastError } from "../../core/toast";
+import { saveSettings, useSettings } from "../../api/queries";
+import { loadSignLexicons, setElementFlags, signLexicons } from "../../api/signs";
 import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Collapse from "../Collapse.vue";
@@ -18,6 +23,8 @@ import SourceSheet from "../learn/SourceSheet.vue";
 import CiteChips from "../learn/CiteChips.vue";
 import "../../styles/components/learn.css";
 import { loadLexicons, suggestElements, suggestKind } from "./detect";
+import InThisDream, { type InDreamRow } from "./InThisDream.vue";
+import Milestone from "./Milestone.vue";
 
 // fresh: a dream started here just now (a new id), so not reaching the server can't mean writing over one there
 const props = defineProps<{ id: string; date?: string; full?: boolean; fresh?: boolean }>();
@@ -29,7 +36,7 @@ const FIELDS = ["title", "text", "lucid", "lucidityLevel", "awareness", "vividne
 const f = reactive<Record<string, any>>({ title: "", text: "", lucid: false, lucidityLevel: 0, awareness: null, vividness: null, control: null, recallClarity: null, emotionOverall: null, nightmare: false, badDream: false, recurring: false, falseAwakening: false, sleepParalysis: false, favourite: false, dismissed: null, becameLucidHow: null, lucidTrigger: null, durationEst: null, lucidEnd: null, unfinished: false });
 const where = reactive({ date: props.date ?? localYmd(new Date()), nap: false, nightId: "" });
 const chosen = ref<string[]>([]);
-const made = ref<Pick<Element, "id" | "name" | "kind" | "aliases">[]>([]);
+const made = ref<(Pick<Element, "id" | "name" | "kind" | "aliases"> & Partial<Pick<Element, "isDreamSign" | "signCategory">>)[]>([]);
 const ready = ref(false), loadError = ref(""), more = ref(false), nightOpen = ref(false), existed = ref(false);
 const textEl = ref<HTMLTextAreaElement | null>(null);
 
@@ -42,6 +49,8 @@ async function load() {
   if (loadError.value && !draft) return;
   loadError.value = "";
   existed.value = !!row;
+  // a dream written now, or the morning's key words being written out, is new to the person's sign list
+  signsDue.value = !row || !!row.unfinished;
   const m = mergeDraft(row as any, draft);
   for (const k of FIELDS) if (m[k] !== undefined && m[k] !== null) f[k] = m[k];
   chosen.value = mergeLinks((row?.elements ?? []).map((l) => l.elementId), draft);
@@ -168,7 +177,7 @@ function confirmSug(s: Suggestion) {
     return;
   }
   const id = uuidv7(), aliases = saidAs(s, s.name, null);
-  made.value.push({ id, name: s.name, kind: s.kind, aliases });
+  made.value.push({ id, name: s.name, kind: s.kind, aliases, ...(s.type === "sign" ? { isDreamSign: true, signCategory: s.signCategory ?? null } : {}) });
   chosen.value.push(id);
   linkElement(props.id, id, { name: s.name, kind: s.kind, aliases, ...(s.type === "sign" ? { isDreamSign: true, signCategory: s.signCategory ?? null } : {}) }, meta);
 }
@@ -181,7 +190,72 @@ function addText(t: string) { const now = (f.text ?? "").trimEnd(); f.text = now
 const state = computed(() => saveState[props.id]);
 const stateText = computed(() => ({ saving: "Saving", saved: "Saved", waiting: "Kept on this device · sends when the server is back", error: saveError[props.id] ?? "Couldn't save" } as Record<string, string>)[state.value ?? ""] ?? "");
 
-function done() { saveNow(props.id); endDraft(props.id); emit("close"); }
+// ---------- right after saving (LDJ-110, LDJ-117) ----------
+const settings = useSettings();
+const signsDue = ref(false), after = ref(false), milestone = ref<MilestoneId | null>(null);
+const signRows = ref<InDreamRow[]>([]);
+const pending = new Map<string, Suggestion>();
+const checkFor = (c: SignCategory | null | undefined) => pairedCheck(c ?? null, signLexicons.value?.checks ?? [])?.name ?? null;
+const night = computed(() => (j.nights.data.value ?? []).find((n) => n.id === where.nightId));
+const howLabel = computed(() => (f.becameLucidHow ? MILESTONE_HOW[f.becameLucidHow] ?? null : null));
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** The milestone this dream reaches, recorded as seen at once so no other screen or device shows it again. */
+function findMilestone() {
+  const facts = j.facts.data.value, nights = j.nights.data.value;
+  // without the journal's lists it can't be known to be a first: say nothing rather than something wrong
+  if (!facts || !nights || !f.lucid) return;
+  const due = dueMilestones({ id: props.id, nightId: where.nightId, lucid: f.lucid, lucidityLevel: f.lucidityLevel, becameLucidHow: f.becameLucidHow }, facts, nights, settings.value.milestones, settings.value.setup?.experience);
+  if (!due.length) return;
+  milestone.value = due[0]!;
+  void saveSettings({ milestones: milestonesSeen(due, props.id, localYmd(new Date())) }, { quiet: true });
+}
+/** The person's signs that came back, then up to three sign-like things to mark: linked ones, then ones only found. */
+function findSigns() {
+  if (!signsDue.value || !(f.text ?? "").trim()) return;
+  const linked = chosenEls.value.map((e) => ({ id: e.id, kind: e.kind, name: e.name, aliases: e.aliases ?? null, isDreamSign: !!e.isDreamSign, signCategory: e.signCategory ?? null, confirmed: true }));
+  const dreams = (j.facts.data.value ?? []).map((d) => ({ id: d.id, date: d.date, lucid: d.lucid }));
+  const r = signsInDream(props.id, linked, j.links.data.value ?? [], dreams);
+  const rows: InDreamRow[] = [
+    ...r.known.map((k) => ({ key: `e:${k.element.id}`, name: k.element.name ?? "", seen: k.seen, lucidBefore: k.lucidBefore, check: checkFor(k.element.signCategory), marked: false })),
+    ...r.offer.map((e) => ({ key: `e:${e.id}`, name: e.name ?? "", check: checkFor(e.signCategory), marked: false })),
+  ];
+  for (const s of suggestElements(f.text ?? "", own.value, chosen.value, dismissedKeys.value)) {
+    if (s.type !== "sign" || rows.length - r.known.length >= IN_DREAM_MAX) continue;
+    pending.set(`s:${s.key}`, s);
+    rows.push({ key: `s:${s.key}`, name: s.name, check: checkFor(s.signCategory), marked: false });
+  }
+  signRows.value = rows;
+}
+async function markSign(key: string) {
+  const row = signRows.value.find((r) => r.key === key);
+  if (!row || row.marked) return;
+  row.marked = true;
+  try {
+    const s = pending.get(key);
+    // only found in the text: made (or linked) through the draft, like a tap on the suggestion
+    if (s && !s.existingElementId) { confirmSug(s); return; }
+    if (s) confirmSug(s);
+    const id = s?.existingElementId ?? key.slice(2);
+    // a save on its way may be creating it: wait for it, so the mark goes with the element or after it
+    for (let i = 0; i < 30 && draftBusy(props.id); i++) await wait(100);
+    if (!flagNewElement(props.id, id, { isDreamSign: true })) await setElementFlags(id, { isDreamSign: true, confirmed: true });
+  } catch (e) { row.marked = false; toastError(e); }
+}
+
+async function done() {
+  if (after.value || !ready.value || loadError.value) return close();
+  saveNow(props.id);
+  findMilestone();
+  findSigns();
+  if (!milestone.value && !signRows.value.length) return close();
+  // what was just written goes first, so a sign marked next is made after it (or with it)
+  for (let i = 0; i < 20 && draftBusy(props.id); i++) await wait(100);
+  after.value = true;
+  await nextTick();
+  (document.querySelector(".jed.jfull") as HTMLElement | null)?.scrollTo({ top: 0 });
+}
+function close() { saveNow(props.id); endDraft(props.id); emit("close"); }
 async function remove() {
   if (!(await confirm("Delete this dream?", { ok: "Delete", danger: true }))) return;
   try { await deleteDream(props.id); emit("close"); } catch (e) { toastError(e); }
@@ -199,7 +273,7 @@ onMounted(async () => {
   readText.value = f.text ?? "";
   await nextTick(); grow();
   // after the first paint: the lexicons are a separate chunk, read only once there is a dream to read
-  setTimeout(() => void loadLexicons(), 0);
+  setTimeout(() => { void loadLexicons(); void loadSignLexicons(); }, 0);
   // the keyboard opens on the text, with the date and title still in view above it
   if (props.full && ready.value && !f.text) textEl.value?.focus({ preventScroll: true });
 });
@@ -214,10 +288,14 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
     <div class="jbar">
       <button class="ib sm plain" aria-label="Close" @click="done"><Icon :name="full ? 'left' : 'close'" :size="18" /></button>
       <div class="grow jst tiny" :class="{ err: state === 'error' }" aria-live="polite">{{ stateText }}</div>
-      <Menu :items="menu" />
+      <Menu v-if="!after" :items="menu" />
       <button class="btn" @click="done">Done</button>
     </div>
     <div v-if="loadError" class="card empty sm">{{ loadError }}</div>
+    <template v-else-if="after">
+      <Milestone v-if="milestone" :id="milestone" :how="howLabel" :trigger="f.lucidTrigger" :recipe="nightRecipe(night)" @lesson="close" />
+      <InThisDream v-if="signRows.length" :rows="signRows" @mark="markSign" />
+    </template>
     <template v-else-if="ready">
       <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}<span class="muted" aria-hidden="true">·</span><span class="muted">Night details</span></button>
       <input v-model="f.title" class="jtitle" placeholder="Title" maxlength="200" />

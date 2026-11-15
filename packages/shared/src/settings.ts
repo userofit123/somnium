@@ -2,6 +2,7 @@
 // Nothing personal lives here (PLAN.md §4): these are preferences, and they sync in the clear.
 import { FEATURE_DEFAULTS } from "./features";
 import type { Dismissal } from "./recommend";
+import type { Milestones } from "./milestones";
 
 export interface Settings {
   /** "auto" (the default) follows the device's language: see deviceFormats. Older accounts keep what they chose. */
@@ -15,7 +16,10 @@ export interface Settings {
   updates: { autoCheck: boolean; autoDownload: boolean; wifiOnly: boolean };
   layout: "auto" | "desktop" | "phone";
   /** Usual times (HH:MM): reality check reminders run from wake + 1 h to bedtime - 1 h (PLAN.md §9). */
-  sleep: { bedtime: string; wake: string; /** Minutes, 60-120. */ cycle: number };
+  sleep: { bedtime: string; wake: string; /** Minutes, 60-120. */ cycle: number;
+    /** "Nights I can sleep in" (LDJ-108): weekdays (0 Sunday ... 6 Saturday) of the evenings after which a lie-in is
+     *  possible. Tonight's suggested plan puts WBTB only on these (tonight.ts). Plain weekdays, nothing personal. */
+    freeNights: number[] };
   /** Learn: reading progress and "Where am I" answers. No dream content, so these sync in the clear. */
   learn: {
     /** Article id to the ISO date it was read to the end. An empty string means marked unread by hand (the settings merge cannot delete a key). */
@@ -29,6 +33,8 @@ export interface Settings {
   };
   /** Recommendations (recommend.ts): rule ids dismissed for 14 days and the day each was dismissed. No personal data. */
   recommend: { dismissed: Dismissal[] };
+  /** Milestones whose moment has been shown (milestones.ts, LDJ-117): an id, the day and the dream. No personal data. */
+  milestones: Milestones;
   /**
    * The first-run setup (LDJ-77): done once it has been finished or skipped, so it shows once. experience is the
    * answer to "how much lucid dreaming have you done" (it picked the starting lesson); empty when skipped. Plain
@@ -97,9 +103,10 @@ export const DEFAULT_SETTINGS: Settings = {
   backup: { on: true, every: "daily", at: "03:00", keep: 7, passphrase: false, media: true },
   updates: { autoCheck: true, autoDownload: true, wifiOnly: false },
   layout: "auto",
-  sleep: { bedtime: "23:00", wake: "07:00", cycle: 90 },
+  sleep: { bedtime: "23:00", wake: "07:00", cycle: 90, freeNights: [] },
   learn: { read: {}, pinned: [], last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
+  milestones: {},
   setup: { done: false, experience: "" },
   home: { blocks: HOME_BLOCKS },
   capture: { dim: true },

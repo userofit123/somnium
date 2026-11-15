@@ -8,6 +8,7 @@
 import { addDays, loggedNights, minutesToSleep } from "./rates";
 import { bucketOf, compareLucid, isWbtb, MIN_NIGHTS, type InsightDream, type InsightNight } from "./insights";
 import type { SetupExperience } from "./settings";
+import type { Milestones } from "./milestones";
 
 export interface Recommendation {
   /** Stable rule id: what a dismissal remembers. */
@@ -45,6 +46,9 @@ export interface RecommendData {
    *  "some" and "regular" have had lucid dreams before the journal, so a dry spell can be one even with none logged,
    *  the journal is no news to a regular, and a logged lucid dream is not their first. */
   experience?: SetupExperience;
+  /** Milestone moments already shown (settings.milestones, LDJ-117): after the first lucid dream's own moment, which
+   *  already said well done and the three steps, the card only points on to the lesson. */
+  milestones?: Milestones;
   /** A safety page the check asked to show once (kept on the device; cleared when read or put away). */
   safetyPage?: SafetyPage;
 }
@@ -153,8 +157,13 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   // become lucid" (LaBerge, RESEARCH.md D1 ch. 6; the Course, D5 Unit 5). Not for people who told the setup they have
   // had lucid dreams before: the first one logged here is not their first.
   if (!experienced && lucidTotal === 1 && lastLucid! >= since(REC.firstLucidDays)) out.push({
-    id: "first-lucid", title: "Your first lucid dream",
-    body: "Well done. The next step is staying in it: new lucid dreamers often wake up the moment they realise. The lesson shows how: stay calm, take in the dream with your senses, and spin if it starts to fade.",
+    id: "first-lucid", ...(data.milestones?.["first-lucid"] ? {
+      title: "Staying in your next lucid dream",
+      body: "The lesson goes through it step by step, with a short practice to run before sleep so the steps come back to you in the dream.",
+    } : {
+      title: "Your first lucid dream",
+      body: "Well done. The next step is staying in it: new lucid dreamers often wake up the moment they realise. The lesson shows how: stay calm, take in the dream with your senses, and spin if it starts to fade.",
+    }),
     reason: `You logged your first lucid dream ${daysAgo(daysBetween(lastLucid!, today))}.`,
     sources: ["D1", "D5"], action: { label: "Open the lesson", to: "/train/lesson/stabilise" },
   });

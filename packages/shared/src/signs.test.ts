@@ -3,7 +3,7 @@ import * as lex from "@somnium/knowledge/lexicons";
 import { daysBetween } from "./course";
 import {
   categoryWeight, coOccurrence, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
-  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, themeComparison,
+  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison,
   type SignDream, type SignElement, type SignLink,
 } from "./signs";
 
@@ -176,5 +176,20 @@ describe("themeComparison", () => {
     const r = themeComparison(els, stats, lex.themes);
     expect(r.map((x) => [x.theme.id, x.yourDreams])).toEqual([[falling.id, 2], [chased.id, 1], ["tdq-05-arriving-too-late", 1]]);
     expect(r[0]!.theme.prevalenceTotal).toBe(73.8);
+  });
+});
+
+describe("signsInDream", () => {
+  const dreams = [dream("d1", "2026-11-01", true), dream("d2", "2026-11-03"), dream("d3", "2026-11-05")];
+  it("counts a known sign's dreams with this one, says when one was lucid, and offers unmarked sign-like ones", () => {
+    const linked = [el("plain"), el("hands", { isDreamSign: true }), el("odd", { signCategory: "form" }), el("ds", { kind: "dream_sign" }), el("fly", { signCategory: "action" }), el("more", { signCategory: "context" })];
+    const links = [link("d1", "hands"), link("d2", "hands"), link("gone", "hands"), link("now", "hands")];
+    const r = signsInDream("now", linked, links, dreams);
+    expect(r.known).toEqual([{ element: linked[1], seen: 3, lucidBefore: true }]);
+    expect(r.offer.map((e) => e.id)).toEqual(["odd", "ds", "fly"]);
+  });
+  it("this dream being lucid is not 'lucid before'", () => {
+    const r = signsInDream("d1", [el("hands", { isDreamSign: true })], [link("d1", "hands")], dreams);
+    expect(r.known[0]).toMatchObject({ seen: 1, lucidBefore: false });
   });
 });
