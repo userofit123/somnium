@@ -18,7 +18,7 @@ import { nightOfDate, sealText, unsealText, type Dream, type DreamDraft, type Dr
 import { plaintextSealedFields, uuidv7 } from "@somnium/engine/sealed-api";
 import { api, ApiError, isLocalDevice, server, usingHttp } from "./client";
 import { invalidate } from "./live";
-import { send } from "./outbox";
+import { isWaitable, send } from "./outbox";
 import { keyring } from "../core/keyring";
 import { readJson, writeJson } from "../core/prefs";
 import { draftStoreKey } from "./draftStore";
@@ -69,7 +69,6 @@ export class NeedsConnectionError extends Error {
   constructor() { super("Needs a connection, or turn on offline use"); this.name = "NeedsConnectionError"; }
 }
 
-const isWaitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 const status = (e: unknown) => (e instanceof ApiError ? e.status : -1);
 
 /**

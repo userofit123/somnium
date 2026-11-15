@@ -5,7 +5,7 @@ import { checkKindOf, type CheckOutcome } from "@somnium/shared";
 import { uuidv7 } from "@somnium/engine/sealed-api";
 import { sealText, unsealText } from "@somnium/shared";
 import { LockedError } from "@somnium/engine/sealed-api";
-import { send, waiting as outboxWaiting } from "./outbox";
+import { isWaitable, send, waiting as outboxWaiting } from "./outbox";
 import { api, ApiError, httpTransport, isLocalDevice, server } from "./client";
 import { noteStoreKey } from "./draftStore";
 import { readJson, writeJson } from "../core/prefs";
@@ -42,7 +42,6 @@ const noteAad = (checkId: string) => `somnium-checknote:${owner()}:${checkId}`;
 const readNotes = (): Notes => (owner() ? readJson<Notes>(notesKey(), {}) ?? {} : {});
 const writeNotes = (n: Notes) => { if (owner()) writeJson(notesKey(), Object.keys(n).length ? n : null); };
 const notePath = (checkId: string) => `/reality-checks/${encodeURIComponent(checkId)}`;
-const waitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 
 /** Saves a note on a check; true when it was kept sealed here to be sent later. */
 export async function saveCheckNote(checkId: string, note: string | null): Promise<boolean> {
@@ -55,7 +54,7 @@ export async function saveCheckNote(checkId: string, note: string | null): Promi
   // the check may still be waiting in the outbox: the note has to follow it, never overtake it
   if (!outboxWaiting.value.length) {
     try { await api.put(notePath(checkId), { note }); if (notes[checkId]) { delete notes[checkId]; writeNotes(notes); } return false; }
-    catch (e) { if (!waitable(e)) throw e; }
+    catch (e) { if (!isWaitable(e)) throw e; }
   }
   const key = keyring.get();
   if (!key) throw new LockedError();
@@ -82,7 +81,7 @@ export async function flushCheckNotes() {
       try { note = await unsealText(e.sealed, key, noteAad(id)); } catch { continue; } // another key's: left for it
       try { await api.put(notePath(id), { note }); }
       catch (err) {
-        if (waitable(err)) break;
+        if (isWaitable(err)) break;
         // refused (the check was deleted meanwhile is expected and quiet): dropped, and said
         if (!(err instanceof ApiError && err.status === 404)) toast(`A note made offline couldn't be saved: ${(err as Error).message}`, { kind: "err" });
       }

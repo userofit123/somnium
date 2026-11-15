@@ -253,7 +253,7 @@ export const EMOTION_ANCHORS = ["Very unpleasant", "Unpleasant", "Neutral or mix
 // A lucid dream's own questions (LDJ-78), one tap each: how you knew, how long, how it ended. Knowing which route
 // gets you lucid is what personal training is built on: noticing a dream sign (LaBerge, RESEARCH.md C1) and asking
 // the critical question (Tholey, D1, D6) are separate routes, and after WBTB most lucidity starts in the dream
-// (Aspy, B38, D13).
+// (Aspy, B38); how WBTB is best timed comes from Erlacher and Stumbrys's laboratory study (D13).
 export const LUCID_SOURCES = ["C1", "D1", "D6", "B38", "D13"] as const;
 /** How you knew it was a dream, in the editor's words; "spontaneous" reads as "it just happened". */
 export const BECAME_LUCID_LABEL: Record<BecameLucidHow, string> = {

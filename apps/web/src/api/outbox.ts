@@ -5,7 +5,7 @@
 import { ref } from "vue";
 import { api, ApiError } from "./client";
 import { readJson, storedKeys, writeJson } from "../core/prefs";
-import { createOutbox, leftByOthers, type OutboxItem } from "@somnium/shared";
+import { createOutbox, leftByOthers, nightOfDate, type OutboxItem } from "@somnium/shared";
 import { refuseSealedInClear, uuidv7 } from "@somnium/engine/sealed-api";
 import { savedUserIds } from "../native/accounts";
 import { invalidate } from "./live";
@@ -18,8 +18,9 @@ const OLD_KEY = "somniumOutbox";
 if (readJson(OLD_KEY, null)) writeJson(OLD_KEY, null);
 let key: string | null = null;
 export const waiting = ref<Item[]>([]);
-// no connection, or the journal key isn't open: nothing is wrong with the change, it just can't go yet
-const mustWait = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
+/** No connection, or the journal key isn't open: nothing is wrong with the change, it just can't go yet (waits or
+ *  is retried). The one test for it, used by the screens' offline paths too (api/journal.ts, api/train.ts). */
+export const isWaitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 
 // rows deleted on this screen whose deletion may still be waiting here: the screens treat them as gone straight away,
 // so a reload from a server that hasn't heard yet doesn't bring them back for a moment
@@ -33,14 +34,22 @@ const box = createOutbox({
   key: () => key,
   storage: { read: (k) => readJson(k, null), write: (k, v) => writeJson(k, v) },
   request: (method, path, body) => (api as any)[method](path, body),
-  mustWait,
+  mustWait: isWaitable,
+  // A night made offline for a date that has one by now (one per date, another device was first): the queued night
+  // and what follows it go to the one there (packages/shared/src/outbox.ts reaimed). A nap may share its date.
+  existingFor: async (e, it) => {
+    const b = it.body as { date?: unknown; nap?: unknown } | undefined;
+    if (!(e instanceof ApiError && e.status === 409 && it.path === "/nights" && typeof b?.date === "string" && !b.nap)) return null;
+    const date = b.date;
+    return nightOfDate(await api.get<{ id: string; date: string; nap: boolean }[]>("/nights", { from: date, to: date }), date)?.id ?? null;
+  },
   // nothing sealed waits in this browser's storage in the clear (the check note is kept sealed in api/checks.ts)
   refuseSealed: refuseSealedInClear,
   newId: uuidv7,
   onRefused: (e, it) => {
-    // a change to something deleted meanwhile is expected and quiet; anything else is said, never lost silently.
-    // A night made offline for a date that has one by now (one per date): the one there is used, nothing to say
-    if (!(e instanceof ApiError && (e.status === 404 || (e.status === 409 && it.method === "post" && it.path === "/nights")))) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });
+    // a change to something deleted meanwhile is expected and quiet; anything else is said, never lost silently
+    // (a night made offline for a date that has one by now isn't refused: existingFor aims it at that one)
+    if (!(e instanceof ApiError && e.status === 404)) toast(`A change made offline couldn't be saved: ${(e as Error).message}`, { kind: "err" });
   },
   onChange: (l) => { waiting.value = l; },
   onEmptied: () => { ended.clear(); invalidate(["*"]); },

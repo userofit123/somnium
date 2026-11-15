@@ -1,18 +1,18 @@
 // The outbox (packages/shared/src/outbox.ts) wired to the real sealed-column check, and the server side of its
 // resends: a create sent again with its id answers the row it made instead of 409 (rows.ts sameCreate).
 import { describe, it, expect, beforeAll } from "vitest";
-import { createOutbox, type OutboxItem } from "@somnium/shared";
+import { createOutbox, nightOfDate, reaimed, type OutboxItem } from "@somnium/shared";
 import { createEngine, type Engine } from "../src/index";
 import { pgliteDb } from "../src/adapters/pglite";
 import { uuidv7 } from "../src/ids";
 import { plaintextSealedFields, refuseSealedInClear } from "../src/sync/sealedApi";
 
 const offline = Object.assign(new Error("offline"), { status: 0 });
-function box(request: (m: string, p: string, b: unknown) => Promise<unknown>) {
+function box(request: (m: string, p: string, b: unknown) => Promise<unknown>, more: Partial<Parameters<typeof createOutbox>[0]> = {}) {
   const store = new Map<string, unknown>();
   const o = createOutbox({
     key: () => "list", storage: { read: (k) => store.get(k) ?? null, write: (k, v) => { store.set(k, v); } },
-    request, mustWait: (e) => (e as { status?: number }).status === 0, refuseSealed: refuseSealedInClear, newId: uuidv7,
+    request, mustWait: (e) => (e as { status?: number }).status === 0, refuseSealed: refuseSealedInClear, newId: uuidv7, ...more,
   });
   return { o, store };
 }
@@ -124,5 +124,55 @@ describe("a create sent again", () => {
     expect(o.list).toEqual([]);
     const nights = ((await handle(A, "GET", "/nights", undefined)).body as any[]).filter((n) => n.date === date);
     expect(nights.map((n) => [n.id, n.techniquesPlanned, n.wbtbMode])).toEqual([[id, ["mild", "wbtb"], "short"]]);
+  });
+  // LDJ-191: another device made that date's night first. The queued create gets 409; it and the change after it go to
+  // the night that is there (apps/web/src/api/outbox.ts existingFor), instead of the change getting 404 and being lost
+  it("a night made offline for a date another device made first: its changes land on that night", async () => {
+    let up = false;
+    const refused: unknown[] = [];
+    const call = async (m: string, p: string, b: unknown) => {
+      const r = await handle(A, m.toUpperCase().replace("DEL", "DELETE"), p, b);
+      if (r.status !== 200) throw Object.assign(new Error(String(r.status)), { status: r.status });
+      return r.body;
+    };
+    const date = "2026-04-03";
+    const { o } = box(async (m, p, b) => { if (!up) throw offline; return call(m, p, b); }, {
+      onRefused: (e) => refused.push(e),
+      existingFor: async (e, it) => {
+        const b = it.body as { date?: string; nap?: boolean };
+        if ((e as { status?: number }).status !== 409 || it.path !== "/nights" || !b?.date || b.nap) return null;
+        const r = await eng.handle({ method: "GET", path: "/nights", query: { from: b.date, to: b.date }, userId: A });
+        return nightOfDate(r.body as any[], b.date)?.id ?? null;
+      },
+    });
+    const mine = uuidv7(), theirs = uuidv7();
+    expect(await o.send("post", "/nights", { id: mine, date, nap: false, noRecall: false })).toBeNull();
+    expect(await o.send("put", `/nights/${mine}`, { techniquesPlanned: ["mild"], wbtbMode: "short" })).toBeNull();
+    expect((await handle(A, "POST", "/nights", { id: theirs, date, nap: false })).status).toBe(200); // the other device
+    up = true;
+    while (o.flushing) await new Promise((ok) => setTimeout(ok, 10));
+    await o.flush();
+    expect(o.list).toEqual([]);
+    expect(refused).toEqual([]);
+    const nights = ((await handle(A, "GET", "/nights", undefined)).body as any[]).filter((n) => n.date === date);
+    expect(nights.map((n) => [n.id, n.techniquesPlanned, n.wbtbMode])).toEqual([[theirs, ["mild"], "short"]]);
+    // the other person's night of that date is never the one aimed at (RLS: B sees only B's)
+    expect(((await handle(B, "GET", "/nights", undefined)).body as any[]).filter((n) => n.date === date)).toEqual([]);
+  });
+  it("re-aiming leaves earlier changes and other rows alone", () => {
+    const it0: OutboxItem = { id: "a", method: "put", path: "/nights/x", body: { a: 1 }, at: 1 };
+    const create: OutboxItem = { id: "x", method: "post", path: "/nights", body: { id: "x", date: "d" }, at: 2 };
+    const later: OutboxItem[] = [
+      { id: "b", method: "put", path: "/nights/x", body: { b: 2 }, at: 3 },
+      { id: "c", method: "post", path: "/practice", body: { id: "c", nightId: "x" }, at: 4 },
+      { id: "e", method: "put", path: "/nights/y", body: { e: 5 }, at: 5 },
+    ];
+    expect(reaimed([it0, create, ...later], create, "n", "new")).toEqual([
+      it0,
+      { id: "new", method: "put", path: "/nights/n", body: { date: "d" }, at: 2 },
+      { ...later[0], path: "/nights/n" },
+      { ...later[1], body: { id: "c", nightId: "n" } },
+      later[2],
+    ]);
   });
 });

@@ -5,8 +5,8 @@
 import { useQuery } from "@tanstack/vue-query";
 import { nightOfDate, tonightOf, pmSetId, pmHitId, pmMissId, MEDITATION_HABIT, type CourseProgress, type PracticeLog, type RealityCheck, type Night, type WbtbModeLog } from "@somnium/shared";
 import { uuidv7 } from "@somnium/engine/sealed-api";
-import { api, ApiError } from "./client";
-import { send } from "./outbox";
+import { api } from "./client";
+import { isWaitable, send } from "./outbox";
 import { invalidate, queryClient } from "./live";
 import { ensureNight, onDevice, type NightRow } from "./journal";
 import { localYmd } from "../core/format";
@@ -61,8 +61,6 @@ export const tonightNight = (nights: NightRow[] | undefined, date = tonightDate(
 // like a tick they go through the outbox: with no connection on the direct path the change waits on this device and
 // is sent when the server is back, and the screens show it at once. With the device copy the outbox sends it there.
 const NIGHTS = ["journal", "nights"];
-// no connection, or the journal key isn't open: the outbox's own test (api/outbox.ts mustWait)
-const mustWait = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 
 /** The change on the night in the lists the screens read, before the server has it (a night made here is added).
  *  Offline (`seed`) a list not loaded yet is started with it, so the next change offline builds on this one. */
@@ -107,7 +105,7 @@ async function changeNightPlan(date: string, change: (n: Night | undefined) => P
     night = await api.get<Night>(`/nights/${await ensureNight(date, false, wanted)}`);
     if (made) rememberMade(date, null);
   } catch (e) {
-    if (!mustWait(e) || onDevice()) throw e;
+    if (!isWaitable(e) || onDevice()) throw e;
     offline = true;
     night = nightOfDate(queryClient.getQueryData<NightRow[]>(NIGHTS) ?? [], date);
     if (!night && !made) { await send("post", "/nights", { id: wanted, date, nap: false }); rememberMade(date, wanted); }

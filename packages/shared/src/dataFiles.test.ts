@@ -63,6 +63,16 @@ describe("exports", () => {
     expect(exportCsv(tables, "nights", true)).toContain("secret note");
     expect(exportCsv(tables, "reality_checks", false)).not.toContain("bus");
   });
+  it("CSV leaves a dream's lucid answers out when it isn't lucid", () => {
+    const t = { ...tables, dreams: [
+      { id: "d1", night_id: "n1", position: 0, lucid: true, became_lucid_how: "dream_sign", lucid_trigger: "teeth", duration_est: 5, lucid_end: "woke_up" },
+      { id: "d2", night_id: "n1", position: 1, lucid: false, became_lucid_how: "spontaneous", lucid_trigger: "old", duration_est: 30, lucid_end: "faded" },
+    ] };
+    const [, lucid, plain] = exportCsv(t, "dreams", true).split("\r\n");
+    expect(lucid).toContain("dream_sign");
+    expect(lucid).toContain("teeth");
+    for (const v of ["spontaneous", "old", "30", "faded"]) expect(plain).not.toContain(v);
+  });
   it("Markdown: one file per live dream, in order, names unique", () => {
     const files = dreamMarkdownFiles(tables);
     expect(files.map((f) => f.filename)).toEqual(["dream-2026-11-01.md", "dream-2026-11-01-2.md"]);

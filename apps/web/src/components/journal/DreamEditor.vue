@@ -85,7 +85,12 @@ watch(() => f.text, () => { if (ready.value && f.unfinished) f.unfinished = fals
 // a level of lucidity means it was lucid; not lucid means level 0; marking lucid takes the lowest lucid step so the
 // two never disagree (a dream marked Lucid with level 0 would read "Not lucid")
 watch(() => f.lucidityLevel, (v) => { if (v > 0 && !f.lucid) f.lucid = true; });
-watch(() => f.lucid, (v) => { if (!v && f.lucidityLevel) f.lucidityLevel = 0; else if (v && !f.lucidityLevel) f.lucidityLevel = 1; });
+// and a dream set back to not lucid keeps none of its lucid answers (LDJ-184): they are hidden then, so left alone
+// they would stay saved unseen and still go out in the export
+watch(() => f.lucid, (v) => {
+  if (!v) { if (f.lucidityLevel) f.lucidityLevel = 0; f.becameLucidHow = null; f.lucidTrigger = null; f.durationEst = null; f.lucidEnd = null; }
+  else if (!f.lucidityLevel) f.lucidityLevel = 1;
+});
 
 const vivid = computed(() => (f.vividness ?? 0) >= 4);
 const CHIPS = [

@@ -139,11 +139,13 @@ const CSV_COLUMNS = {
   reality_checks: { plain: ["at", "id", "kind", "outcome", "prompted", "sign_id", "created_at"], text: ["note"] },
 } as const;
 export type CsvTable = keyof typeof CSV_COLUMNS;
+const NOT_LUCID = { became_lucid_how: null, lucid_trigger: null, duration_est: null, lucid_end: null };
 
 export function exportCsv(tables: Record<string, unknown>, table: CsvTable, includeText: boolean): string {
   const cols = [...CSV_COLUMNS[table].plain, ...(includeText ? CSV_COLUMNS[table].text : [])];
   let rows = live(tables[table]);
-  if (table === "dreams") rows = dreamsOf(tables).map(({ d, n }) => ({ ...d, date: dayOf(n?.date) }));
+  // a dream that isn't lucid has no lucid answers: any kept from before it was set back to not lucid stay out (LDJ-184)
+  if (table === "dreams") rows = dreamsOf(tables).map(({ d, n }) => ({ ...d, date: dayOf(n?.date), ...(d.lucid ? {} : NOT_LUCID) }));
   else if (table === "nights") rows = [...rows].sort((a, b) => dayOf(a.date).localeCompare(dayOf(b.date))).map((r) => ({ ...r, date: dayOf(r.date) }));
   else rows = [...rows].sort((a, b) => String(a.at).localeCompare(String(b.at)));
   return toCsv(cols, rows.map((r) => cols.map((c) => r[c])));

@@ -36,6 +36,26 @@ export function withRowId(method: OutboxItem["method"], body: unknown, id: strin
   return typeof b.id === "string" && b.id ? b : { ...b, id };
 }
 
+/** The list once a create refused because its row already stands under `to` (one night per date: another device
+ *  made that date's night first) is aimed at that row: the create becomes a change to it with the same fields, and
+ *  every later change to the row it would have made (in its path, or as a field such as nightId) goes there too.
+ *  Without this the create was dropped and the change after it found nothing (404), so what was done offline was lost. */
+export function reaimed(list: readonly OutboxItem[], item: OutboxItem, to: string, newId: string): OutboxItem[] {
+  const b = (item.body && typeof item.body === "object" && !Array.isArray(item.body) ? item.body : {}) as Record<string, unknown>;
+  const from = typeof b.id === "string" ? b.id : null;
+  const { id: _made, ...fields } = b;
+  const swap = (v: unknown) => (from && v === from ? to : v);
+  const at = list.findIndex((x) => x.id === item.id);
+  return list.flatMap((x, n) => {
+    if (n === at) return Object.keys(fields).length ? [{ id: newId, method: "put" as const, path: `${item.path}/${to}`, body: fields, at: item.at }] : [];
+    if (n < at || !from) return [x];
+    const path = x.path.split("/").map(swap).join("/");
+    const body = x.body && typeof x.body === "object" && !Array.isArray(x.body)
+      ? Object.fromEntries(Object.entries(x.body as Record<string, unknown>).map(([k, v]) => [k, swap(v)])) : x.body;
+    return [{ ...x, path, body }];
+  });
+}
+
 export interface OutboxStorage { read(key: string): unknown; write(key: string, value: unknown): void }
 interface Locks { request(name: string, opts: { ifAvailable: boolean }, cb: (lock: unknown) => Promise<void>): Promise<unknown> }
 
@@ -49,6 +69,9 @@ export interface OutboxDeps {
   /** Throws when the body carries a sealed column in the clear. */
   refuseSealed: (method: OutboxItem["method"], path: string, body: unknown) => void;
   newId: () => string;
+  /** A queued create the server refused because its row already stands under another id: that id (then the change
+   *  is aimed there, see reaimed), or null. May ask the server; an error it throws that mustWait holds the list. */
+  existingFor?: (e: unknown, item: OutboxItem) => Promise<string | null>;
   /** A queued change the server refused: it is dropped, and this says so. */
   onRefused?: (e: unknown, item: OutboxItem) => void;
   /** The list this tab holds changed. */
@@ -102,6 +125,18 @@ export function createOutbox(d: OutboxDeps) {
       try { await d.request(it.method, it.path, it.body); }
       catch (e) {
         if (d.mustWait(e)) break;
+        let to: string | null = null;
+        if (it.method === "post" && d.existingFor) {
+          try { to = await d.existingFor(e, it); }
+          catch (e2) { if (d.mustWait(e2)) break; }
+        }
+        if (to) {
+          if (d.key() !== mine) break;
+          reread();
+          if (!list.some((x) => x.id === it.id)) break; // cleared (signed out) meanwhile
+          set(reaimed(list, it, to, d.newId())); save();
+          continue;
+        }
         // refused: dropped rather than blocking the rest, and said (onRefused), never lost silently
         d.onRefused?.(e, it);
       }

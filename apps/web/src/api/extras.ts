@@ -5,13 +5,13 @@ import { ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { sealText, unsealText, type DayNote, type Goal, type GoalKind } from "@somnium/shared";
 import { LockedError, uuidv7 } from "@somnium/engine/sealed-api";
-import { api, ApiError, server } from "./client";
+import { api, server } from "./client";
 import { dayNoteStoreKey } from "./draftStore";
 import { readJson, writeJson } from "../core/prefs";
 import { session } from "../core/session";
 import { keyring } from "../core/keyring";
 import { toast } from "../core/toast";
-import { send } from "./outbox";
+import { isWaitable, send } from "./outbox";
 import { invalidate } from "./live";
 
 export const useDayNotes = () => useQuery({ queryKey: ["dayNotes"], queryFn: () => api.get<DayNote[]>("/day-notes") });
@@ -28,7 +28,6 @@ const storeKey = () => dayNoteStoreKey(server.value.base || location.origin, own
 const aad = (date: string) => `somnium-daynote:${owner()}:${date}`;
 const readWaiting = (): Waiting => (owner() ? readJson<Waiting>(storeKey(), {}) ?? {} : {});
 const writeWaiting = (w: Waiting) => { if (owner()) writeJson(storeKey(), Object.keys(w).length ? w : null); };
-const waitable = (e: unknown) => (e instanceof ApiError && e.status === 0) || (e as Error)?.name === "LockedError";
 /** Dates with a note kept here to send later (DayNoteCard says so). */
 export const waitingDayNotes = ref<string[]>(Object.keys(readWaiting()));
 const refresh = () => { waitingDayNotes.value = Object.keys(readWaiting()); };
@@ -59,7 +58,7 @@ export async function saveDayNote(date: string, text: string): Promise<boolean> 
     const w = readWaiting(); if (w[date]) { delete w[date]; writeWaiting(w); refresh(); }
     invalidate(["dayNotes"]);
     return false;
-  } catch (e) { if (!waitable(e)) throw e; }
+  } catch (e) { if (!isWaitable(e)) throw e; }
   const key = keyring.get();
   if (!key) throw new LockedError();
   try {
@@ -82,7 +81,7 @@ export async function flushDayNotes() {
       try { text = await unsealText(e.sealed, key, aad(date)); } catch { continue; } // another key's: left for it
       try { await sendNote(date, text); }
       catch (err) {
-        if (waitable(err)) break;
+        if (isWaitable(err)) break;
         toast(`A day note made offline couldn't be saved: ${(err as Error).message}`, { kind: "err" });
       }
       const now = readWaiting();
