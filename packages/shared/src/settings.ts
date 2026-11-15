@@ -70,6 +70,7 @@ export const HOME_BLOCKS: HomeBlock[] = [
   { id: "morning", on: true }, { id: "today", on: true }, { id: "tonight", on: true }, { id: "rates", on: true },
   { id: "goals", on: true }, { id: "dayNote", on: false },
   { id: "signs", on: false }, { id: "lesson", on: false }, { id: "tip", on: false }, { id: "lastLucid", on: false }, { id: "pastDream", on: false },
+  { id: "path", on: false },
 ];
 // Before Edit home these four cards were switches in Settings → Features; a layout never saved yet takes their state
 const LEGACY_HOME: Record<string, string> = { signs: "homeSigns", lesson: "homeLesson", tip: "homeTip", lastLucid: "homeLastLucid" };

@@ -9,10 +9,11 @@
 // shows a rate when either group has fewer than MIN_NIGHTS nights, gives both sample sizes, and says "went with",
 // never "caused": these are the person's own nights, not an experiment. The recommendation rules (PLAN.md §8.2,
 // LDJ-27) read the same Comparison objects, so the threshold and wording stay in one place.
+import { wakeHours, type WakeHour } from "./wakings";
 import { loggedNights, addDays, minutesToSleep, type NightLog } from "./rates";
 import { TECHNIQUES, lucidLength } from "./journal";
 import { lucidSplit, type SignDream, type SignLink } from "./signs";
-import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome, type LucidEnd } from "./types";
+import { BECAME_LUCID_HOW, CHECK_KINDS, CHECK_OUTCOMES, type BecameLucidHow, type CheckKind, type CheckOutcome, type LucidEnd, type PlanDone } from "./types";
 
 /** Fewer nights than this in either group: "not enough nights yet", and no rate. */
 export const MIN_NIGHTS = 10;
@@ -41,6 +42,11 @@ export interface InsightDream {
   /** how long it stayed lucid, in minutes (journal.ts LUCID_LENGTHS) */
   durationEst?: number | null;
   lucidEnd?: LucidEnd | null;
+  /** whether the night's plan for once lucid was carried out (LDJ-159) */
+  planDone?: PlanDone | null;
+  /** when you woke from it (LDJ-177) */
+  wokeAt?: string | null;
+  nap?: boolean;
 }
 export interface InsightCheck { at: string; kind: CheckKind; outcome: CheckOutcome; prompted: boolean; /** the dream sign (element id) the reminder paired it with (LDJ-111) */ signId?: string | null }
 
@@ -747,4 +753,28 @@ export function sleepWbtbText(s: Pick<SleepInsight, "wbtb" | "other">): string {
   if (parts.length) return parts.join("; ").replace(/^./, (c) => c.toUpperCase()) + ` (${plural(Math.max(w.timed, w.rated), WBTB_NIGHTS)}, ${plural(Math.max(o.timed, o.rated), OTHER)})`;
   if (!w.timed && !w.rated) return "No WBTB nights with times or a sleep rating yet";
   return `Not enough nights yet: ${plural(w.rated, WBTB_NIGHTS)} and ${plural(o.rated, OTHER)} with a sleep rating; it shows at ${MIN_NIGHTS} each`;
+}
+
+// ---------- hours after bedtime and plans carried out (LDJ-219, LDJ-224) ----------
+
+export const WAKE_HOURS_SOURCES = ["C31", "C1"] as const;
+export const PLAN_SOURCES = ["D1", "B64"] as const;
+// fewer lucid dreams with an answer than this are counts, not a share
+export const PLAN_SHARE_MIN = 5;
+
+/** Timed dreams of the period by hour after bedtime; naps out (their bedtime is not the night's). */
+export function wakeHoursInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string): { hours: WakeHour[]; timed: number } {
+  const ns = nightsIn(nights, from, to);
+  const bed = new Map(ns.filter((n) => !n.nap).map((n) => [n.id, n.bedtime]));
+  const rows = dreams.filter((d) => bed.has(d.nightId) && !d.nap && d.wokeAt).map((d) => ({ wokeAt: d.wokeAt, bedtime: bed.get(d.nightId), lucid: d.lucid }));
+  const hours = wakeHours(rows);
+  return { hours, timed: hours.reduce((a, h) => a + h.dreams, 0) };
+}
+
+/** Of the lucid dreams of the period that say whether the plan was carried out: yes, partly, no. */
+export function planDoneInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string): { yes: number; partly: number; no: number; total: number; enough: boolean } {
+  const ds = dreamsOf(nightsIn(nights, from, to), dreams).filter((d) => d.lucid && d.planDone);
+  const c = { yes: 0, partly: 0, no: 0 };
+  for (const d of ds) c[d.planDone!]++;
+  return { ...c, total: ds.length, enough: ds.length >= PLAN_SHARE_MIN };
 }

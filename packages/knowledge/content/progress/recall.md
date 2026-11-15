@@ -1,7 +1,7 @@
 ---
 title: Recall
 reviewed: 2026-11-15
-sources: [C33, B38, C2, D5, B48, C30, C30a, D1]
+sources: [C33, B38, C2, D5, B48, C30, C30a, D1, C31, C1]
 ---
 
 ## What this shows
@@ -10,11 +10,15 @@ sources: [C33, B38, C2, D5, B48, C30, C30a, D1]
 
 The top row and the line run since you started, whatever the period: the last 2 weeks against your first {RECALL_WINDOW} logged nights, once each side has {RECALL_MIN_NIGHTS} nights. The bars below follow the period you picked.
 
+The **hours after bedtime** chart counts the dreams you were woken from, by the hour of the night, when a capture opened in the night stamped the moment. Dreams written up later have no time and are left out.
+
 ## How to read it
 
 In a large study, people recalled on average 1.7 dreams a night on ordinary nights and 2.8 on nights with a lucid dream [C33], and people with better recall had more success with the techniques [B38]. The course's targets: a dream every night for {RECALL_RUN} nights in a row, then {RECALL_PER_NIGHT} a night, counting any fragment as a dream [C2, D5].
 
 Part of any rise is counting: writing dreams down each morning catches some you would have forgotten. For most people a journal also helps them remember more, though in one study it lowered recall in people who already remembered many [B48, C30, C30a]. Weekdays can differ if you sleep longer at weekends [C2].
+
+REM periods come about every 90 minutes and run longer toward morning, so more dreams in the later hours is the usual shape [C31, C1].
 
 ## What to do
 

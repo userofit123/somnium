@@ -10,7 +10,7 @@ import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
-  RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_COUNTING_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
+  RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_COUNTING_SOURCES, lucidityInsight, wakeHoursInsight, planDoneInsight, WAKE_HOURS_SOURCES, PLAN_SOURCES, PLAN_SHARE_MIN, PLAN_DONE_LABEL, eventsInsight, emotionsInsight,
   checksInsight, checksBySign, SIGN_ADVICE_SOURCES, whatWorks, lucidRecipes, techniqueTally, EARLY_SOURCES, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS,
   lucidQuality, QUALITY_SOURCES, LUCID_END_LABEL, sleepInsight, sleepWbtbText, SLEEP_MIN_NIGHTS, SLEEP_REM_SOURCES, SLEEP_FIRST_SOURCES, SLEEP_WBTB_SOURCES, retakeDue, loggedRates, RETAKE_SOURCES, DIARY_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck, type TechniqueTally,
 } from "@somnium/shared";
@@ -32,6 +32,7 @@ import Sheet from "../components/Sheet.vue";
 import GoalCards from "../components/goals/GoalCards.vue";
 import ChartInfo from "../components/insights/ChartInfo.vue";
 import LagCard from "../components/insights/LagCard.vue";
+import PathCard from "../components/insights/PathCard.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
 import CiteChips from "../components/learn/CiteChips.vue";
 import "../styles/components/learn.css";
@@ -74,6 +75,9 @@ const quality = computed(() => lucidQuality(nights.value, dreams.value, today.va
 // sleep (LDJ-160): naps out; the "sleep first" flag reads the latest nights whatever the period
 const sleep = computed(() => sleepInsight(nights.value, from.value, today.value, bucket.value, localClock));
 const lucid = computed(() => lucidityInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
+const wakes = computed(() => wakeHoursInsight(nights.value, dreams.value, from.value, today.value));
+const wakeBars = computed(() => wakes.value.hours.map((h) => ({ label: `${h.hour}-${h.hour + 1}`, value: h.dreams, dim: !h.dreams })));
+const planned = computed(() => planDoneInsight(nights.value, dreams.value, from.value, today.value));
 const events = computed(() => eventsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const emotions = computed(() => emotionsInsight(nights.value, dreams.value, from.value, today.value, bucket.value));
 const checks = computed(() => checksInsight(checksQ.data.value ?? [], from.value, today.value, localClock));
@@ -225,6 +229,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       </div></div>
 
     <GoalCards v-if="features.goals" :today="today" />
+    <PathCard />
 
     <!-- Lucidity -->
     <section>
@@ -262,6 +267,11 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         </div>
         <p v-if="quality.text" class="tiny ins-note">{{ quality.text }}. <CiteChips :ids="QUALITY_SOURCES" @cite="cite($event[0]!)" /></p>
       </template>
+      <div v-if="planned.total" class="card spt" data-testid="plan-done"><div class="lbl hgap">Did your plan</div>
+        <div v-if="planned.enough" class="grid g3"><div v-for="k in (['yes', 'partly', 'no'] as const)" :key="k" class="stat"><div class="lbl">{{ PLAN_DONE_LABEL[k] }}</div><div class="val num">{{ pct(planned[k] / planned.total) }}</div><div class="sub">{{ planned[k] }} of {{ plural(planned.total, "lucid dream") }}</div></div></div>
+        <p v-else class="tiny">{{ planned.yes }} yes · {{ planned.partly }} partly · {{ planned.no }} no, over {{ plural(planned.total, "lucid dream") }} on nights with a plan. Too few for a share: it shows from {{ PLAN_SHARE_MIN }}.</p>
+        <p class="tiny ins-note">Rehearsing a task in a lucid dream was found to help, so noting whether you did it shows what to practise. <CiteChips :ids="PLAN_SOURCES" @cite="cite($event[0]!)" /></p>
+      </div>
     </section>
 
     <!-- What works for you -->
@@ -275,7 +285,7 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
               <div class="grow"><div class="t">{{ r.text }}</div><div class="tiny">{{ nightLabel(r) }}{{ r.lucid > 1 ? ` · ${r.lucid} lucid dreams` : "" }}</div></div>
             </component>
           </div>
-          <button v-if="recipes.length > RECIPES_SHOWN" type="button" class="lnk inl tiny" @click="allRecipes = !allRecipes">{{ allRecipes ? "Show fewer" : `Show all ${recipes.length}` }}</button>
+          <button v-if="recipes.length > RECIPES_SHOWN" type="button" class="lnk inl" @click="allRecipes = !allRecipes">{{ allRecipes ? "Show fewer" : `Show all ${recipes.length}` }}</button>
         </div>
         <div v-if="tally.length" class="card">
           <div class="lbl hgap">Techniques you tried</div>
@@ -334,6 +344,9 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
         <div class="grid g2 spt">
           <div class="card"><div class="lbl hgap">Dreams a night, by {{ bucket }}, {{ SINCE[period] }}</div><BarChart :bars="recallBars" :fmt="one" :height="150" /></div>
           <div class="card"><div class="lbl hgap">Nights with a dream, by weekday</div><BarChart :bars="weekdayBars" :fmt="pct" :height="150" /></div>
+        </div>
+        <div v-if="wakes.timed" class="card spt" data-testid="wake-hours"><div class="lbl hgap">Hours after bedtime you woke from a dream</div><BarChart :bars="wakeBars" :height="130" />
+          <p class="tiny ins-note">{{ plural(wakes.timed, "timed dream") }}, {{ wakes.hours.reduce((a, h) => a + h.lucid, 0) }} lucid. Dreams written up later have no time and are left out. <CiteChips :ids="WAKE_HOURS_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>
     </section>

@@ -1,7 +1,7 @@
 ---
 title: Lucidity
 reviewed: 2026-11-15
-sources: [D11, D12, B32, B79, B22, C12a, D1]
+sources: [D11, D12, B32, B79, B22, C12a, D1, B64]
 ---
 
 ## What this shows
@@ -11,6 +11,8 @@ sources: [D11, D12, B32, B79, B22, C12a, D1]
 The level (1 to 5) and the control are your own ratings. Lucidity is a range, not a yes or no: people describe everything from a brief flash of knowing to full clarity, and the scale researchers use grades insight and control apart [B79, B22].
 
 The lower tiles and the two lines read every lucid dream since your first, whatever the period: the last 3 months against the 3 months before, once {QUALITY_MIN} lucid dreams on a side have a rating.
+
+**Did your plan** is, over lucid dreams on nights where you planned something for once lucid, how many you carried out, partly or not. It shows as a share from 5 such dreams; fewer are only counted. Practising a task in a lucid dream has been found to improve it afterwards [B64].
 
 ## How to read it
 
