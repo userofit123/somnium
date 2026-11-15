@@ -46,11 +46,11 @@ const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times
 </template>
 
 <style scoped>
-.jid { display: flex; flex-direction: column; gap: calc(var(--hg) / 2); }
+.jid { display: flex; flex-direction: column; gap: var(--tdy); }
 .jid-t { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
 .jid-sub { margin: 0; color: var(--tx2); }
 .jid-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.jid-row { display: flex; align-items: center; gap: var(--hg); padding: calc(var(--hg) / 2) 0; }
+.jid-row { display: flex; align-items: center; gap: var(--lpy); padding: var(--tdy) 0; }
 .jid-row + .jid-row { border-top: 1px solid var(--ol); }
 .jid-main { flex: 1; min-width: 0; }
 .jid-name { color: var(--tx); font-weight: 500; overflow-wrap: anywhere; }

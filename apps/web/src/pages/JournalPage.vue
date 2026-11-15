@@ -221,6 +221,6 @@ const menu = computed(() => [
 .jtoday .t { font-weight: 500; }
 .jmut { color: var(--tx2); }
 .lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
-.jg { gap: var(--hg); }
+.jg { gap: var(--lpy); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
 </style>

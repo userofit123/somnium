@@ -12,6 +12,7 @@ import { invalidate } from "../../api/live";
 import { deleteDream, useJournal } from "../../api/journal";
 import { confirmSuggestion, rejectSuggestion, restoreDream, setDreamSign } from "../../api/dreamPage";
 import { isPhone } from "../../core/device";
+import { backLabel } from "../../core/leave";
 import { loadLocalModel, modelReady, suggestFromModel, summariseDream } from "../../core/localModel";
 import { useSettings } from "../../api/queries";
 import { useFmt } from "../../core/format";
@@ -26,6 +27,8 @@ import { lexiconsReady, loadLexicons, suggestElements } from "./detect";
 const props = defineProps<{ id: string; back?: boolean }>();
 const emit = defineEmits<{ edit: []; close: [] }>();
 const router = useRouter();
+// the phone reader is a page of its own: its Back pill names where it returns to (JournalPage closeRead)
+const backText = props.back ? backLabel(router, "Journal") : "";
 const j = useJournal();
 const fmt = useFmt();
 onMounted(() => { void loadLexicons(); if (settings.value.features?.localModel) void loadLocalModel(); });
@@ -154,23 +157,29 @@ const menu = computed((): MenuItem[] => [
   { label: "Ask my model for elements", icon: "sparkle", hidden: !modelOn.value, run: () => askModel("elements") },
   { label: "Mark an element as a dream sign", icon: "target", hidden: !els.value.length, run: () => (signOpen.value = true) },
   { label: d.value?.favourite ? "Not a favourite" : "Favourite", icon: "star", run: favourite },
-  { label: "Export as Markdown", icon: "download", hidden: !settings.value.features?.markdownExport, run: exportMd },
-  { label: "Share as text", icon: "share", hidden: !settings.value.features?.shareText, run: () => (shareAsk.value = true) },
+  { label: "Export as Markdown", icon: "download", run: exportMd },
+  { label: "Share as text", icon: "share", run: () => (shareAsk.value = true) },
   { label: "Delete dream", icon: "trash", danger: true, sep: true, run: remove },
 ]);
+const nightText = computed(() => (night.value ? fmt.value.date(night.value.date, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + (night.value.nap ? " · Nap" : "") : ""));
 </script>
 
 <template>
   <div class="jview">
-    <div class="jbar">
-      <button v-if="back" class="ib sm plain" aria-label="Back" @click="emit('close')"><Icon name="left" :size="18" /></button>
-      <div class="grow tiny jmut">{{ night ? fmt.date(night.date, { weekday: "long", day: "numeric", month: "long", year: "numeric" }) + (night.nap ? " · Nap" : "") : "" }}</div>
+    <!-- phone: a page header like every other page; computer: a bar at the top of the side panel -->
+    <div v-if="back" class="ph">
+      <div><button type="button" class="back" @click="emit('close')"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
+        <h1>{{ d ? d.title?.trim() || "Untitled dream" : "Dream" }}</h1><div v-if="nightText" class="sub">{{ nightText }}</div></div>
+      <div v-if="d" class="acts"><Menu :items="menu" /><button class="btn keep" @click="emit('edit')">Edit</button></div>
+    </div>
+    <div v-else class="jbar">
+      <div class="grow tiny jmut">{{ nightText }}</div>
       <Menu v-if="d" :items="menu" />
       <button v-if="d" class="btn" @click="emit('edit')">Edit</button>
     </div>
     <div v-if="!d" class="card empty sm">This dream isn't here any more.</div>
     <template v-else>
-      <h2 class="ttl jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
+      <h2 v-if="!back" class="ttl jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
       <div v-if="flags.length" class="chips"><span v-for="m in flags" :key="m" class="fchip on">{{ m }}</span></div>
 
       <p class="jtx" :class="{ none: !d.text }">
@@ -258,14 +267,14 @@ const menu = computed((): MenuItem[] => [
 </template>
 
 <style scoped>
-.jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--hg); }
-.jview { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
-.jbar { display: flex; align-items: center; gap: calc(var(--hg) * .8); }
+.jnh { display: flex; align-items: baseline; justify-content: space-between; gap: var(--lpy); }
+.jview { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
+.jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .jtx.none { color: var(--tx2); }
 .jmut { color: var(--tx2); }
 .jon { color: var(--acc); font-weight: 600; }
-.jsec, .jfound { display: flex; flex-direction: column; gap: calc(var(--hg) * .5); }
+.jsec, .jfound { display: flex; flex-direction: column; gap: var(--tdy); }
 /* confirmed: a solid underline in the accent; found but not confirmed: dotted. Both are real buttons (keyboard, 44px reach by line height) */
 .dl, .ds { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; white-space: inherit; }
 .dl { text-decoration: underline; text-decoration-color: var(--acc); text-decoration-thickness: 2px; text-underline-offset: 3px; }
@@ -273,10 +282,10 @@ const menu = computed((): MenuItem[] => [
 .dl:hover, .dl:focus-visible { color: var(--acc); }
 .ds:hover, .ds:focus-visible, .ds.on { color: var(--acc); text-decoration-color: var(--acc); }
 .dl:focus-visible, .ds:focus-visible, .jsgo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
-.jpick { display: flex; align-items: center; gap: calc(var(--hg) * .4); flex-wrap: wrap; }
-.jsg { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
+.jpick { display: flex; align-items: center; gap: var(--tdy); flex-wrap: wrap; }
+.jsg { display: inline-flex; align-items: center; gap: var(--tdy); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
 .jsg.on { border-color: var(--acc); }
-.jsgo { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jsgo { display: inline-flex; align-items: center; gap: var(--tdy); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
 .jsgo:hover { color: var(--acc); }
 .jx { border: 0; background: none; color: var(--tx2); padding: 2px; cursor: pointer; display: inline-flex; }
 .jx:hover, .jx:focus-visible { color: var(--tx); }

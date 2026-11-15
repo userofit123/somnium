@@ -24,7 +24,7 @@ function typed(e: Event) {
 .nstep button { width: 36px; height: 100%; border: 0; background: none; color: var(--tx2); font-size: calc(18px * var(--fsc)); cursor: pointer; border-radius: var(--pill); }
 .nstep button:hover:not(:disabled) { color: var(--acc); background: var(--s2); }
 .nstep button:disabled { opacity: .35; cursor: default; }
-.nstep label { display: inline-flex; align-items: baseline; gap: calc(var(--hg) * .3); padding: 0 2px; }
+.nstep label { display: inline-flex; align-items: baseline; gap: calc(var(--lpy) * .3); padding: 0 2px; }
 .nstep input { width: 4ch; min-width: 0; border: 0; background: none; padding: 0; text-align: center; font-size: calc(15px * var(--fsc)); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--tx); }
 .nstep input:focus { outline: none; }
 .nstep span { font-size: var(--fs-sm); color: var(--tx2); }

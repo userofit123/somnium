@@ -1,9 +1,9 @@
 /* Progress (PLAN.md §6.5): stat tiles and one chart per card come from app.css (.card.stat, .grid, .lbl.hgap); this
    file only holds the With/Without comparison rows and the notes under the optional cards. Theme and density tokens
    only; the charts take theme colours (--acc, --acc2, --c1...). */
-.insights .ins-note { margin: calc(var(--hg) * .5) 0 0; }
+.insights .ins-note { margin: var(--tdy) 0 0; }
 .insights .grid > .span2 { grid-column: 1 / -1; }
-.insights .ins-cmp { padding: calc(var(--hg) * .5) 0; border-top: 1px solid var(--ol); }
+.insights .ins-cmp { padding: var(--tdy) 0; border-top: 1px solid var(--ol); }
 .insights .lbl + .ins-cmp { border-top: 0; padding-top: 0; }
 .insights .ins-cmp .t { font-weight: 600; }
 .insights .ins-cmp .s { margin-top: 4px; line-height: 1.45; }
@@ -16,4 +16,4 @@
 .insights .ins-early { margin-bottom: var(--spg); }
 
 /* checks per dream sign (LDJ-200): a plain list inside its card */
-.ins-signs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--hg); }
+.ins-signs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--lpy); }

@@ -408,9 +408,9 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 </template>
 
 <style scoped>
-.jed { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
+.jed { display: flex; flex-direction: column; gap: var(--lpy); min-width: 0; }
 .jfull { position: fixed; inset: 0; z-index: 100; background: var(--bg); overflow-y: auto; overscroll-behavior: contain; padding: calc(var(--st) + var(--hg)) calc(var(--sr) + var(--hg)) calc(var(--sb) + var(--spg)) calc(var(--sl) + var(--hg)); }
-.jbar { display: flex; align-items: center; gap: calc(var(--hg) * .8); }
+.jbar { display: flex; align-items: center; gap: calc(var(--lpy) * .8); }
 .jfull .jbar { position: sticky; top: calc(-1 * (var(--st) + var(--hg))); background: var(--bg); padding: var(--hg) 0; margin-top: calc(-1 * var(--hg)); z-index: 2; }
 .jst { color: var(--tx2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jst.err { color: var(--neg); }
@@ -419,32 +419,32 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jtext { min-height: 180px; resize: vertical; font-size: var(--fs-lg); line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
 .jchips { margin: 0; }
-.jupset { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
+.jupset { color: var(--tx2); margin-top: calc(-1 * var(--tdy)); }
 /* suggestions: quiet, so they read as an offer and not as part of the dream */
-.jfound { display: flex; flex-wrap: wrap; gap: calc(var(--hg) * .6); margin-top: calc(-1 * var(--hg) / 2); }
-.jsg { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
-.jsgo { display: inline-flex; align-items: center; gap: calc(var(--hg) * .4); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
+.jfound { display: flex; flex-wrap: wrap; gap: var(--tdy); margin-top: calc(-1 * var(--tdy)); }
+.jsg { display: inline-flex; align-items: center; gap: var(--tdy); border: 1px dashed var(--ol); border-radius: var(--pill); padding: 2px 8px 2px 4px; color: var(--tx2); font-size: var(--fs-sm); max-width: 100%; }
+.jsgo { display: inline-flex; align-items: center; gap: var(--tdy); border: 0; background: none; color: var(--tx); font: inherit; padding: 2px 4px; cursor: pointer; min-width: 0; text-align: start; }
 .jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
 .jkind { color: var(--tx2); font-size: var(--fs-xs); margin-left: 2px; }
 .jsg .jx { color: var(--tx2); padding: 2px; }
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
-.jan { margin-top: calc(var(--hg) * .6); color: var(--tx2); }
-.jels { margin-bottom: calc(var(--hg) * .8); }
-.jels .fchip { gap: calc(var(--hg) * .6); }
+.jan { margin-top: var(--tdy); color: var(--tx2); }
+.jels { margin-bottom: calc(var(--lpy) * .8); }
+.jels .fchip { gap: var(--tdy); }
 .jx { border: 0; background: none; color: inherit; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
 .jta { position: relative; }
-.jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: calc(var(--hg) * .4) var(--cpx); }
+.jsug { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; padding: var(--tdy) var(--cpx); }
 .jsug .li { width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; color: var(--tx); text-align: start; font: inherit; }
 .jsug .li.hi, .jnew.hi { background: var(--s2); }
 .jnew .li { background: none; }
-.jkinds { margin: 0; padding: 0 0 var(--hg); }
+.jkinds { margin: 0; padding: 0 0 var(--lpy); }
 /* a lucid dream's own questions sit under the lucidity scale, set in from the left so they read as part of it */
-.jlucid { display: flex; flex-direction: column; gap: var(--hg); padding-left: var(--hg); border-left: 2px solid var(--accc); }
+.jlucid { display: flex; flex-direction: column; gap: var(--lpy); padding-left: var(--lpy); border-left: 2px solid var(--accc); }
 .jlh { font-weight: 600; }
-.jan0 { color: var(--tx2); margin-top: calc(-1 * var(--hg) / 2); }
+.jan0 { color: var(--tx2); margin-top: calc(-1 * var(--tdy)); }
 .jopts { margin: 0; }
-.jtrig { margin-top: calc(var(--hg) * .8); width: 100%; }
+.jtrig { margin-top: calc(var(--lpy) * .8); width: 100%; }
 .jmore { align-self: flex-start; padding-left: 0; }
 .fld { margin-bottom: 0; }
 </style>

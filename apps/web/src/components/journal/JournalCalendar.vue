@@ -42,6 +42,6 @@ let x0 = 0;
 .dots i, .jkey i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: var(--tx2); }
 .dots i.l, .jkey i.l { background: var(--acc); }
 .dots i.nr, .jkey i.nr { background: none; border: 1px solid var(--tx2); }
-.jkey { display: flex; gap: var(--hg); margin-top: var(--hg); color: var(--tx2); }
-.jkey span { display: inline-flex; align-items: center; gap: calc(var(--hg) / 2); }
+.jkey { display: flex; gap: var(--lpy); margin-top: var(--lpy); color: var(--tx2); }
+.jkey span { display: inline-flex; align-items: center; gap: var(--tdy); }
 </style>

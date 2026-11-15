@@ -37,7 +37,7 @@ const open = ref<string[] | null>(null);
 </template>
 
 <style scoped>
-.jms { display: flex; flex-direction: column; gap: calc(var(--hg) / 2); border-left: 2px solid var(--acc); }
+.jms { display: flex; flex-direction: column; gap: var(--tdy); border-left: 2px solid var(--acc); }
 .jms-t { margin: 0; font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
 .jms p { margin: 0; line-height: 1.5; }
 .jms-l { color: var(--tx); }

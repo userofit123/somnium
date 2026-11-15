@@ -127,8 +127,8 @@ const quality = computed(() => (n.sleepQuality ? SLEEP_ANCHORS[n.sleepQuality - 
 </template>
 
 <style scoped>
-.jg { gap: var(--hg); }
+.jg { gap: var(--lpy); }
 .jscale { display: flex; width: 100%; }
 .jscale button { flex: 1; min-width: 0; }
-.jan { margin-top: calc(var(--hg) / 2); color: var(--tx2); }
+.jan { margin-top: var(--tdy); color: var(--tx2); }
 </style>

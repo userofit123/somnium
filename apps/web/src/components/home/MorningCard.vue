@@ -45,5 +45,5 @@ const noRecall = useChange(() => markNoRecall(props.date), ["journal", "home"]);
 </template>
 
 <style scoped>
-.hnci { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.hnci { margin-top: var(--lpy); padding-top: var(--lpy); border-top: 1px solid var(--ol); }
 </style>

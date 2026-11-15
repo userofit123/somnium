@@ -89,10 +89,10 @@ const detailsOpen = ref(false);
 </template>
 
 <style scoped>
-.nci { display: flex; flex-direction: column; gap: var(--hg); }
+.nci { display: flex; flex-direction: column; gap: var(--lpy); }
 .nci .t { color: var(--tx); }
-.nci-rows { display: flex; flex-direction: column; gap: var(--hg); }
-.nci-r { display: flex; align-items: center; gap: var(--hg); }
+.nci-rows { display: flex; flex-direction: column; gap: var(--lpy); }
+.nci-r { display: flex; align-items: center; gap: var(--lpy); }
 .nci-q { color: var(--tx2); }
 .nci-foot { display: flex; gap: var(--cpx); flex-wrap: wrap; }
 </style>

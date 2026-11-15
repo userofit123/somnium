@@ -9,6 +9,8 @@ import { mergeElements, saveElement, signLexicons } from "../../api/signs";
 import { choose } from "../../core/ask";
 import { useFmt } from "../../core/format";
 import { toast, toastError } from "../../core/toast";
+import { backLabel } from "../../core/leave";
+import { useRouter } from "vue-router";
 import Icon from "../Icon.vue";
 import Menu from "../Menu.vue";
 import Sheet from "../Sheet.vue";
@@ -19,6 +21,8 @@ import { CATEGORY_LABEL, KIND_ONE, dreamsText, useSigns } from "./useSigns";
 const props = defineProps<{ id: string; back?: boolean }>();
 const emit = defineEmits<{ close: []; open: [id: string] }>();
 const fmt = useFmt();
+// on a phone the element is a page of its own, with the Back pill every page has (SignsPage close)
+const backText = props.back ? backLabel(useRouter(), "Dream signs") : "";
 const { j, today, elements, links, dreams, byId, stats } = useSigns();
 const el = computed(() => byId.value.get(props.id));
 const stat = computed(() => stats.value.get(props.id));
@@ -79,18 +83,20 @@ const menu = computed(() => [
   { label: "Not a dream sign", icon: "close", run: () => markSign(false), hidden: !el.value?.isDreamSign },
   { label: "Merge into another", icon: "layers", run: mergeInto },
 ]);
+const meta = computed(() => { const e = el.value; return e ? [KIND_ONE[e.kind], e.isDreamSign && e.kind !== "dream_sign" ? "Dream sign" : "", e.signCategory ? CATEGORY_LABEL[e.signCategory] : "", e.confirmed ? "" : "Not confirmed"].filter(Boolean).join(" · ") : ""; });
 </script>
 
 <template>
-  <div v-if="!el" class="empty sm">
-    <div v-if="back"><button class="ib sm plain" aria-label="Back" @click="emit('close')"><Icon name="left" :size="18" /></button></div>
-    This element isn't in your journal any more.
+  <!-- phone: the page header every page has, the rest in a card below; computer: a header row inside the side panel -->
+  <div v-if="back" class="ph">
+    <div><button type="button" class="back" @click="emit('close')"><Icon name="left" :size="16" /><span>{{ backText }}</span></button>
+      <h1>{{ el?.name ?? "Element" }}</h1><div v-if="el" class="sub">{{ meta }}</div></div>
+    <div v-if="el" class="acts"><Menu :items="menu" /><button class="btn keep" @click="edit"><Icon name="edit" :size="16" />Edit</button></div>
   </div>
-  <div v-else class="sgp">
-    <div class="sgph">
-      <button v-if="back" class="ib sm plain" aria-label="Back" @click="emit('close')"><Icon name="left" :size="18" /></button>
-      <div class="grow sgmin"><div class="ttl sgt">{{ el.name }}</div>
-        <div class="tiny sgmut">{{ [KIND_ONE[el.kind], el.isDreamSign && el.kind !== "dream_sign" ? "Dream sign" : "", el.signCategory ? CATEGORY_LABEL[el.signCategory] : "", el.confirmed ? "" : "Not confirmed"].filter(Boolean).join(" · ") }}</div></div>
+  <div v-if="!el" class="empty sm" :class="{ card: back }">This element isn't in your journal any more.</div>
+  <div v-else class="sgp" :class="{ card: back }">
+    <div v-if="!back" class="sgph">
+      <div class="grow sgmin"><div class="ttl sgt">{{ el.name }}</div><div class="tiny sgmut">{{ meta }}</div></div>
       <Menu :items="menu" />
       <button class="btn" @click="edit"><Icon name="edit" :size="16" />Edit</button>
     </div>
@@ -149,15 +155,15 @@ const menu = computed(() => [
 </template>
 
 <style scoped>
-.sgp { display: flex; flex-direction: column; gap: var(--hg); }
-.sgph { display: flex; align-items: center; gap: var(--hg); }
+.sgp { display: flex; flex-direction: column; gap: var(--lpy); }
+.sgph { display: flex; align-items: center; gap: var(--lpy); }
 .sgmin { min-width: 0; }
 .sgmut { color: var(--tx2); }
 .sgacc { color: var(--acc); }
-.sgstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); }
+.sgstats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lpy); }
 .sgbig { font-size: calc(var(--fs-lg) * 1.25); font-weight: 600; }
-.sgbox { background: var(--s2); border-radius: var(--r-sm); padding: var(--cpy) var(--cpx); display: flex; flex-direction: column; gap: calc(var(--hg) / 2); }
-.sgbox .t { font-weight: 500; display: flex; align-items: center; gap: calc(var(--hg) / 2); }
-.sgh { margin: var(--hg) 0 0; font-size: var(--fs); }
+.sgbox { background: var(--s2); border-radius: var(--r-sm); padding: var(--cpy) var(--cpx); display: flex; flex-direction: column; gap: var(--tdy); }
+.sgbox .t { font-weight: 500; display: flex; align-items: center; gap: var(--tdy); }
+.sgh { margin: var(--lpy) 0 0; font-size: var(--fs); }
 .sglink { color: var(--tx); text-decoration: none; }
 </style>

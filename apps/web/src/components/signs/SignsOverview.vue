@@ -154,20 +154,20 @@ button.sgrow { cursor: pointer; }
 /* spans inside the row buttons (a button may only hold phrasing content), stacked as the divs were */
 .sgcol { display: flex; flex-direction: column; }
 .sgopen { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: start; cursor: pointer; }
-.sgrank { width: calc(var(--cpx) + var(--hg) / 2); flex: none; color: var(--acc); font-weight: 600; text-align: center; align-self: flex-start; }
-.sgcheck { color: var(--tx2); display: flex; gap: calc(var(--hg) / 2); align-items: flex-start; margin-top: calc(var(--hg) / 2); }
-.sgcheck :deep(svg) { flex: none; margin-top: calc(var(--hg) / 5); color: var(--acc); }
+.sgrank { width: calc(var(--cpx) + var(--lpy) / 2); flex: none; color: var(--acc); font-weight: 600; text-align: center; align-self: flex-start; }
+.sgcheck { color: var(--tx2); display: flex; gap: var(--tdy); align-items: flex-start; margin-top: var(--tdy); }
+.sgcheck :deep(svg) { flex: none; margin-top: calc(var(--tdy) / 3); color: var(--acc); }
 .sgspark { width: calc(var(--lmh) * 1.75); height: calc(var(--lmh) / 2); flex: none; }
 /* the Motus sparkline sits at the foot of a stat card; here it is a small trend in the row */
 .sgspark :deep(.spark) { position: static; display: block; width: 100%; height: 100%; }
-.sgacc { color: var(--acc); margin-inline-start: calc(var(--hg) / 2); vertical-align: -0.1em; display: inline-block; }
+.sgacc { color: var(--acc); margin-inline-start: var(--tdy); vertical-align: -0.1em; display: inline-block; }
 .sgmut { color: var(--tx2); margin: 0 0 var(--hg); }
 .sgsearch { margin-bottom: var(--hg); }
 /* the icon's room comes from the shared .search rule */
 section + section > .card { margin-top: var(--hg); }
 /* the kind's head is the button that folds it: a full-width .lbl row, like Motus's in-card titles */
-.sgk { display: flex; align-items: center; gap: calc(var(--hg) / 2); width: 100%; background: none; border: 0; padding: var(--cpy) var(--cpx); color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.sgk { display: flex; align-items: center; gap: var(--tdy); width: 100%; background: none; border: 0; padding: var(--cpy) var(--cpx); color: inherit; font: inherit; text-align: start; cursor: pointer; }
 .sgk[aria-expanded="true"] { padding-bottom: 0; }
-.sgcnt { margin-inline-start: calc(var(--hg) / 2); vertical-align: 0.15em; }
-.sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--hg)); text-align: end; }
+.sgcnt { margin-inline-start: var(--tdy); vertical-align: 0.15em; }
+.sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--lpy)); text-align: end; }
 </style>

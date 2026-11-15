@@ -67,12 +67,12 @@ const dreamsText = (n: number) => (n === 1 ? "1 dream" : `${n} dreams`);
 </template>
 
 <style scoped>
-.thsum { margin: 0 0 calc(var(--hg) * .5); font-weight: 600; color: var(--tx); }
-.thlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: calc(var(--hg) * 2); margin-top: calc(var(--hg) * .5); }
+.thsum { margin: 0 0 var(--tdy); font-weight: 600; color: var(--tx); }
+.thlist { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: calc(var(--lpy) * 2); margin-top: var(--tdy); }
 html.phone .thlist { grid-template-columns: minmax(0, 1fr); }
-.throw { display: grid; gap: calc(var(--hg) * .25); padding-block: calc(var(--hg) * .5); border-top: 1px solid var(--ol); min-width: 0; }
+.throw { display: grid; gap: calc(var(--lpy) * .25); padding-block: var(--tdy); border-top: 1px solid var(--ol); min-width: 0; }
 .throw .t { font-weight: 600; color: var(--tx); }
 .throw.few .t { color: var(--tx2); }
-.thbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: calc(var(--hg) * .5); }
+.thbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--tdy); }
 .thbar .num { color: var(--tx); min-width: 4ch; text-align: end; }
 </style>

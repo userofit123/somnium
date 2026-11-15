@@ -4,17 +4,17 @@
 .home .t { font-weight: 600; }
 
 /* this morning (the titles and links line up with the text beside the summary's icon) */
-.hwrite { display: flex; flex-direction: column; align-items: flex-start; gap: var(--hg); }
+.hwrite { display: flex; flex-direction: column; align-items: flex-start; gap: var(--lpy); }
 .hwrite .lnk { padding: 0; }
 html.phone .hwrite .btn { width: 100%; justify-content: center; }
-.hsum { display: flex; align-items: center; gap: var(--hg); color: var(--tx); }
+.hsum { display: flex; align-items: center; gap: var(--lpy); color: var(--tx); }
 .hsum > svg { color: var(--acc); flex: none; }
-.hmark { font-size: var(--fs-xs); font-weight: 600; border-radius: var(--pill); padding: calc(var(--hg) / 5) var(--hg); border: 1px solid var(--ol); color: var(--tx2); white-space: nowrap; }
+.hmark { font-size: var(--fs-xs); font-weight: 600; border-radius: var(--pill); padding: calc(var(--tdy) / 3) var(--lpy); border: 1px solid var(--ol); color: var(--tx2); white-space: nowrap; }
 .hmark.acc { color: var(--acc); border-color: color-mix(in srgb, var(--acc) 40%, transparent); }
-.htitles { display: flex; flex-direction: column; gap: calc(var(--hg) / 2); margin-top: var(--hg); padding-inline-start: calc(var(--cpx) + var(--hg) + var(--hg) / 2); }
+.htitles { display: flex; flex-direction: column; gap: var(--tdy); margin-top: var(--lpy); padding-inline-start: calc(var(--cpx) + var(--lpy) + var(--lpy) / 2); }
 .htitles a { color: var(--tx); text-decoration: none; }
 .htitles a:hover { color: var(--acc); }
-.hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--hg); padding-inline-start: calc(var(--cpx) + var(--hg) + var(--hg) / 2); }
+.hfoot { display: flex; gap: var(--cpx); flex-wrap: wrap; margin-top: var(--lpy); padding-inline-start: calc(var(--cpx) + var(--lpy) + var(--lpy) / 2); }
 .hfoot .lnk { padding: 0; }
 
 /* today */
@@ -22,12 +22,12 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hli { text-decoration: none; color: inherit; padding-inline: 0; }
 
 /* streaks and rates: three small numbers */
-.hnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--hg); }
-.hnums .hv { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); margin: calc(var(--hg) / 5) 0; }
+.hnums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--lpy); }
+.hnums .hv { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); margin: calc(var(--tdy) / 3) 0; }
 
 /* optional cards */
 .hcard { display: block; text-decoration: none; color: inherit; }
-.hcard .tiny { margin-top: calc(var(--hg) / 5); }
+.hcard .tiny { margin-top: calc(var(--tdy) / 3); }
 .hclamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 /* Edit home: switched-off blocks fade back; the always-shown ones keep the switch's place so the arrows line up */
@@ -37,14 +37,14 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 
 /* the recovery key reminder above the blocks (LDJ-151) */
 .hkey { margin-bottom: var(--spg); }
-.hkey-acts { display: flex; justify-content: flex-end; gap: var(--hg); flex-wrap: wrap; }
+.hkey-acts { display: flex; justify-content: flex-end; gap: var(--lpy); flex-wrap: wrap; }
 
 /* today's step (LDJ-107): above the blocks, full width; a quiet accent edge marks it as the one to start with */
 .hstep { margin-bottom: var(--spg); }
 .hstep > .sh { margin-top: 0; }
-.hstep > .card { display: flex; flex-direction: column; gap: var(--hg); border-inline-start: 3px solid var(--acc); }
-.hst-head { display: flex; align-items: flex-start; gap: var(--hg); color: var(--tx); }
-.hst-head > svg { color: var(--acc); flex: none; margin-top: calc(var(--hg) / 5); }
+.hstep > .card { display: flex; flex-direction: column; gap: var(--lpy); border-inline-start: 3px solid var(--acc); }
+.hst-head { display: flex; align-items: flex-start; gap: var(--lpy); color: var(--tx); }
+.hst-head > svg { color: var(--acc); flex: none; margin-top: calc(var(--tdy) / 3); }
 .hst-t { font-size: var(--fs-lg); font-weight: 600; color: var(--tx); }
 .hst-why { margin: 0; color: var(--tx2); }
 .hst-foot { display: flex; align-items: center; gap: var(--cpx); flex-wrap: wrap; }

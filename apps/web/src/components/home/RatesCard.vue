@@ -21,6 +21,6 @@ const recall = computed(() => recallLine(props.rates.recall));
 
 <style scoped>
 /* the full width of the three numbers' grid, set off by the card's own divider */
-.hrecall { grid-column: 1 / -1; padding-top: var(--hg); border-top: 1px solid var(--ol); color: var(--tx2); text-decoration: none; }
+.hrecall { grid-column: 1 / -1; padding-top: var(--lpy); border-top: 1px solid var(--ol); color: var(--tx2); text-decoration: none; }
 .hrecall b { color: var(--acc); font-weight: 600; }
 </style>

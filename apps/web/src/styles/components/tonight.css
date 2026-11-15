@@ -5,13 +5,13 @@
 .tplan .tpli > svg:first-child { color: var(--acc); flex: none; }
 .tplan .tpname { text-decoration: none; color: inherit; }
 .tplan .tpname:hover { color: var(--acc); }
-.tplan .tpadd { margin-top: calc(var(--hg) / 2); margin-inline-start: calc(var(--hg) / -2); }
-.tplan .tprow { display: flex; align-items: center; gap: var(--hg); }
-.tplan .tpsec { margin-top: var(--hg); padding-top: var(--hg); border-top: 1px solid var(--ol); }
+.tplan .tpadd { margin-top: var(--tdy); margin-inline-start: calc(var(--lpy) / -2); }
+.tplan .tprow { display: flex; align-items: center; gap: var(--lpy); }
+.tplan .tpsec { margin-top: var(--lpy); padding-top: var(--lpy); border-top: 1px solid var(--ol); }
 .tplan .tpx { overflow-wrap: anywhere; }
-.tplan .tpsug { display: flex; flex-direction: column; gap: calc(var(--hg) / 2); }
+.tplan .tpsug { display: flex; flex-direction: column; gap: var(--tdy); }
 .tplan .tpwhy { margin: 0; }
-.tplan .tpedit { display: flex; flex-direction: column; gap: var(--hg); }
+.tplan .tpedit { display: flex; flex-direction: column; gap: var(--lpy); }
 .tplan .tpedit input { width: 100%; }
-.tpfam + .tpfam { margin-top: var(--hg); }
-.tpfam .tpfh { margin-bottom: calc(var(--hg) / 2); }
+.tpfam + .tpfam { margin-top: var(--lpy); }
+.tpfam .tpfh { margin-bottom: var(--tdy); }
