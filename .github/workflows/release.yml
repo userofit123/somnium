@@ -97,7 +97,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - { os: ubuntu-latest, target: --linux, files: "release/*.AppImage release/*.deb release/*.rpm", feed: release/latest-linux.yml }
+          # ubuntu-latest moved to 26.04, where rpmbuild fails for the .rpm; pin the Linux build like the e2e job
+          - { os: ubuntu-24.04, target: --linux, files: "release/*.AppImage release/*.deb release/*.rpm", feed: release/latest-linux.yml }
           - { os: windows-latest, target: --win, files: "release/*.exe", feed: release/latest.yml }
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
