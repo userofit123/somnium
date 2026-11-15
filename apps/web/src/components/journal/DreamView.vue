@@ -167,7 +167,7 @@ const menu = computed((): MenuItem[] => [
     </div>
     <div v-if="!d" class="card empty sm">This dream isn't here any more.</div>
     <template v-else>
-      <h2 class="jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
+      <h2 class="ttl jt">{{ d.title?.trim() || "Untitled dream" }}</h2>
       <div v-if="flags.length" class="chips"><span v-for="m in flags" :key="m" class="fchip on">{{ m }}</span></div>
 
       <p class="jtx" :class="{ none: !d.text }">
@@ -256,7 +256,6 @@ const menu = computed((): MenuItem[] => [
 <style scoped>
 .jview { display: flex; flex-direction: column; gap: var(--hg); min-width: 0; }
 .jbar { display: flex; align-items: center; gap: 8px; }
-.jt { margin: 0; overflow-wrap: anywhere; }
 .jtx { white-space: pre-wrap; line-height: 1.6; margin: 0; overflow-wrap: anywhere; }
 .jtx.none { color: var(--tx2); }
 .jmut { color: var(--tx2); }

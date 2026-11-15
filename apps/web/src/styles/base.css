@@ -257,6 +257,20 @@ h2 {
   margin: calc(var(--spg) * 1.75) 0 var(--hg);
 }
 
+/* A detail screen's own title (a dream, a report, a sign): the strongest text on the screen, so it opts out of the
+   small grey section-label look every bare h2 gets above. */
+.ttl {
+  margin: 0;
+  display: block;
+  font-size: var(--fs-h2, 22px);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -.3px;
+  text-transform: none;
+  color: var(--tx);
+  overflow-wrap: anywhere;
+}
+
 .dt {
   display: inline-block;
   margin: 0 .3em;

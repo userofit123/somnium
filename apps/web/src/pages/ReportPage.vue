@@ -42,7 +42,7 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
     </div>
 
     <article class="rep-sheet" data-testid="report">
-      <h2 class="rep-title">{{ title }}</h2>
+      <h2 class="ttl">{{ title }}</h2>
       <div v-if="!s.nightsLogged && !s.dreams" class="card empty sm">Nothing logged in this {{ mode }}.</div>
       <template v-else>
         <div class="card ins-stats">
@@ -76,7 +76,6 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
 /* spacing from the density tokens and --spg between blocks, sizes from the type scale */
 .rep-pick { gap: var(--lpy); align-items: center; }
 .rep-sheet { display: grid; gap: var(--spg); }
-.rep-title { margin: 0; }
 .report h3 { margin: 0 0 var(--lpy); font-size: var(--fs); }
 /* Print uses the system colours (CanvasText, Canvas, GrayText) on purpose, not the theme's: paper is light whatever the
    theme on screen, and these are the printer's own black on white. */

@@ -86,7 +86,7 @@ const menu = computed(() => [
   <div v-else class="sgp">
     <div class="sgph">
       <button v-if="back" class="ib sm plain" aria-label="Back" @click="emit('close')"><Icon name="left" :size="18" /></button>
-      <div class="grow sgmin"><div class="sgt">{{ el.name }}</div>
+      <div class="grow sgmin"><div class="ttl sgt">{{ el.name }}</div>
         <div class="tiny sgmut">{{ [KIND_ONE[el.kind], el.isDreamSign && el.kind !== "dream_sign" ? "Dream sign" : "", el.signCategory ? CATEGORY_LABEL[el.signCategory] : "", el.confirmed ? "" : "Not confirmed"].filter(Boolean).join(" · ") }}</div></div>
       <Menu :items="menu" />
       <button class="btn" @click="edit"><Icon name="edit" :size="16" />Edit</button>
@@ -143,7 +143,6 @@ const menu = computed(() => [
 <style scoped>
 .sgp { display: flex; flex-direction: column; gap: var(--hg); }
 .sgph { display: flex; align-items: center; gap: var(--hg); }
-.sgt { font-size: calc(var(--fs-lg) * 1.25); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .sgmin { min-width: 0; }
 .sgmut { color: var(--tx2); }
 .sgacc { color: var(--acc); }
