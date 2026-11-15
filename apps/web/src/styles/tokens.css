@@ -31,14 +31,17 @@
   --r-md: 16px;
   --r-sheet: 26px;
   --pill: 99px;
-  --fs-xs: 11px;
-  --fs-sm: 12.5px;
-  --fs: 14px;
-  --fs-lg: 16px;
+  /* the text sizes, all times --fsc: Appearance's Text size sets it (html[data-fsz] in theme.css, put on <html> by
+     index.html before the first paint, so nothing jumps) */
+  --fsc: 1;
+  --fs-xs: calc(11px * var(--fsc));
+  --fs-sm: calc(12.5px * var(--fsc));
+  --fs: calc(14px * var(--fsc));
+  --fs-lg: calc(16px * var(--fsc));
   /* article body: a step above --fs-lg so long reading stays easy */
-  --fs-read: 16.5px;
-  --fs-h1: 30px;
-  --fs-val: 32px;
+  --fs-read: calc(16.5px * var(--fsc));
+  --fs-h1: calc(30px * var(--fsc));
+  --fs-val: calc(32px * var(--fsc));
   --shadow-pop: 0 14px 34px -12px rgba(0, 0, 0, .5);
   --shadow-sheet: 0 30px 80px -20px #000a;
   --scrim: #0007;

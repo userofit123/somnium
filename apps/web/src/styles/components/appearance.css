@@ -332,6 +332,11 @@ details.closing > *:not(summary) {
   color: var(--tx);
 }
 
+/* Text size tiles: the same "Aa" at each choice's scale (--z), from a smaller base so Larger still fits */
+.zv {
+  font-size: calc(18px * var(--z));
+}
+
 .apr {
   display: flex;
   align-items: center;

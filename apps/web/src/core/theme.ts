@@ -1,4 +1,4 @@
-// The look of the app (ported from Money Manager): light or dark, colour set, background, texture, surfaces, corners, density, font…
+// The look of the app (ported from Money Manager): light or dark, colour set, background, texture, surfaces, corners, density, font, text size…
 // The choice lives in `theme` (saved as "somniumTheme") and is put on the page by applyTheme(): CSS variables and
 // data-* attributes on <html>, and classes on <body>. The rules that use them are in styles/theme.css.
 // The default is Dusk (Somnium's own, PLAN.md §11), dark, with the glow background.
@@ -15,12 +15,12 @@ export const FONTS: Record<string, string> = {
 };
 export const CP: Pal = { L: ["#4355b9", "#c2185b", "#e68a00", "#00897b", "#7cb342", "#8e24aa", "#546e7a"], D: ["#9fb0ff", "#f48fb1", "#ffcc80", "#80cbc4", "#c5e1a5", "#ce93d8", "#b0bec5"] };
 export const ST0 = { mode: "dark", atm: "Dusk", cc: "#5b4de0", cu: { L: {}, D: {} } as Record<string, Record<string, string>>, cp: { L: {}, D: {} } as Record<string, Record<number, string>>, gi: 100,
-  surf: "solid", gbl: 50, gsat: 140, gop: 55, bg: "glow", tex: "none", tsc: 100, toa: 50, rad: "round", den: "cozy", spc: "standard", nsp: "standard", fnt: "sans", nav: "full", ls: "" as string };
+  surf: "solid", gbl: 50, gsat: 140, gop: 55, bg: "glow", tex: "none", tsc: 100, toa: 50, rad: "round", den: "cozy", spc: "standard", nsp: "standard", fnt: "sans", fsz: "standard", nav: "full", ls: "" as string };
 export type Theme = typeof ST0;
 export const BGS = ["glow", "mesh", "diagonal", "spot", "aurora", "horizon", "duo", "corners", "sweep", "flat"];
 export const AKEYS = ["acc", "accc", "onc", "bg", "acc2", "on"];
 const XDEF: Record<string, Record<string, string>> = { L: { tx: XDEF_TX.L, pos: "#1b7f4b", neg: "#c0392b" }, D: { tx: XDEF_TX.D, pos: "#6fd69b", neg: "#ff9c8f" } };
-export const PKEYS = ["atm", "cc", "cu", "cp", "gi", "surf", "gbl", "gsat", "gop", "bg", "tex", "tsc", "toa", "rad", "den", "spc", "nsp", "fnt", "nav"] as const;
+export const PKEYS = ["atm", "cc", "cu", "cp", "gi", "surf", "gbl", "gsat", "gop", "bg", "tex", "tsc", "toa", "rad", "den", "spc", "nsp", "fnt", "fsz", "nav"] as const;
 
 export const copy = <T>(v: T): T => JSON.parse(JSON.stringify(v));
 export const theme = reactive<Theme>({ ...copy(ST0), ...(readJson("somniumTheme", {}) as Partial<Theme>) });
@@ -75,7 +75,7 @@ export function applyTheme() {
   // colour change keeps the old colour wherever the page is pulled past its edge
   r.background = a[3]!;
   h.dataset.mode = d ? "dark" : "light";
-  (["bg", "tex", "rad", "den", "spc", "nsp", "fnt", "nav"] as const).forEach((x) => { h.dataset[x] = String(theme[x]); });
+  (["bg", "tex", "rad", "den", "spc", "nsp", "fnt", "fsz", "nav"] as const).forEach((x) => { h.dataset[x] = String(theme[x]); });
   r.setProperty("--tsc", String((+theme.tsc || 100) / 100));
   r.setProperty("--toa", String((theme.toa == null ? 50 : +theme.toa) / 50));
   r.setProperty("--gi", String((theme.gi == null ? 100 : +theme.gi) / 100));

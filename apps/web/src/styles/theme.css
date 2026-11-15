@@ -91,6 +91,19 @@ html[data-nsp="roomy"] {
   --nvp: 5px;
 }
 
+/* text size: scales every --fs-* size in tokens.css; Standard is --fsc: 1 there */
+html[data-fsz="small"] {
+  --fsc: .92;
+}
+
+html[data-fsz="large"] {
+  --fsc: 1.1;
+}
+
+html[data-fsz="larger"] {
+  --fsc: 1.22;
+}
+
 /* density: the space inside blocks (cards), list rows and fields. Cozy is the default in tokens.css; the blocks read these
    variables, so a block's own padding (a menu card with no padding, a tight card) still wins over the density */
 html[data-den="compact"] {

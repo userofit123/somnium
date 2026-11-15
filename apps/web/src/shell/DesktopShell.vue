@@ -46,7 +46,7 @@ const onResize = () => place(false);
 let mo: MutationObserver | null = null;
 onMounted(() => {
   nextTick(() => place(false)); setTimeout(onResize, 80); addEventListener("resize", onResize);
-  mo = new MutationObserver(onResize); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-rad", "data-nav", "data-nsp", "data-fnt"] });
+  mo = new MutationObserver(onResize); mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-rad", "data-nav", "data-nsp", "data-fnt", "data-fsz"] });
   document.fonts?.ready.then(onResize);
 });
 onBeforeUnmount(() => { removeEventListener("resize", onResize); mo?.disconnect(); });

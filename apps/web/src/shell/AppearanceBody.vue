@@ -25,6 +25,8 @@ const GLASS: [keyof Theme, string, number, number, number, number, string, strin
 const gval = (g: (typeof GLASS)[number]) => (theme[g[0]] == null ? g[5] : +(theme[g[0]] as number));
 const RAD: [string, number, string][] = [["round", 18, "Round"], ["soft", 9, "Soft"], ["sharp", 2, "Sharp"]];
 const FNT: [string, string][] = [["sans", "Sans"], ["serif", "Serif"], ["round", "Rounded"], ["mono", "Mono"]];
+// the scale each choice gives --fsc in theme.css, here only to size the preview
+const FSZ: [string, number, string][] = [["small", 0.92, "Small"], ["standard", 1, "Standard"], ["large", 1.1, "Large"], ["larger", 1.22, "Larger"]];
 const DEN: [string, number, string][] = [["compact", 3, "Compact"], ["cozy", 6, "Cozy"], ["roomy", 10, "Roomy"]];
 const SPC: [string, number, string][] = [["tight", 2, "Tight"], ["standard", 5, "Standard"], ["loose", 9, "Loose"], ["wide", 13, "Wide"]];
 const LAY: ["auto" | "desktop" | "phone", string][] = [["auto", "Automatic"], ["desktop", "Computer"], ["phone", "Phone"]];
@@ -129,6 +131,9 @@ const lookDot = (x: { v: Partial<Theme> }) => { const c = lookPal(x.v, k.value);
       </div>
       <div class="aps"><h4>Font</h4>
         <div class="apg c4"><button v-for="[v, l] in FNT" :key="v" class="apt" :class="{ on: theme.fnt === v }" :aria-pressed="theme.fnt === v" @click="opt('fnt', v)"><span class="apv fv" :style="{ fontFamily: FONTS[v] }">Aa</span><span class="apl">{{ l }}</span></button></div>
+      </div>
+      <div class="aps"><h4>Text size</h4>
+        <div class="apg c4"><button v-for="[v, z, l] in FSZ" :key="v" class="apt" :class="{ on: theme.fsz === v }" :aria-pressed="theme.fsz === v" @click="opt('fsz', v)"><span class="apv fv zv" :style="{ '--z': z }">Aa</span><span class="apl">{{ l }}</span></button></div>
       </div>
     </div>
     <div class="apbt" :class="{ on: tab === 'lay' }">
