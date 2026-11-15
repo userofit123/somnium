@@ -50,8 +50,6 @@
 @media (prefers-reduced-motion: reduce) { .gd .gpulse { animation: none; } }
 @media (min-width: 900px) { .gd h1 { font-size: var(--fs-h1); } .gd .gbody { padding-top: var(--spg); } }
 
-/* Train's entry card */
-.tguided .li { text-decoration: none; color: inherit; }
 /* the source chips and the shared pickers, mixed down to the night surface */
 .gd .cite { background: var(--sdim2); color: var(--sdimtx); }
 .gd .gbox input, .gd .gbox button:not(.btn) { background-color: var(--sdim); color: var(--sdimtx); border-color: var(--sdim2); }

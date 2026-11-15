@@ -2,7 +2,6 @@
 .tplan .tpnote { margin-bottom: var(--hg); }
 .tplan .tplist { display: flex; flex-direction: column; }
 .tplan .tpli { padding-inline: 0; }
-.tplan .tpli > svg:first-child { color: var(--acc); flex: none; }
 .tplan .tpname { text-decoration: none; color: inherit; }
 .tplan .tpname:hover { color: var(--acc); }
 .tplan .tpadd { margin-top: var(--tdy); margin-inline-start: calc(var(--lpy) / -2); }

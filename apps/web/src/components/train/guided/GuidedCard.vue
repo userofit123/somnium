@@ -44,10 +44,10 @@ const review = { to: "/train/review", t: "Evening review", s: "The last step bef
   <section class="tguided">
     <div class="sh"><h2>{{ group === "tonight" ? "Guided bedtime" : "Guided tools" }}</h2></div>
     <div class="card flush">
-      <router-link v-for="r in group === 'tonight' ? [...rows, review] : rows" :key="r.to" :to="r.to" class="li">
-        <Icon :name="r.icon" :size="18" />
+      <router-link v-for="r in group === 'tonight' ? [...rows, review] : rows" :key="r.to" :to="r.to" class="li click">
+        <span class="bi sg"><Icon :name="r.icon" :size="18" /></span>
         <div class="grow"><div class="t">{{ r.t }}</div><div class="s">{{ r.s }}</div></div>
-        <Icon name="right" :size="16" />
+        <Icon name="right" :size="16" class="muted" />
       </router-link>
     </div>
   </section>

@@ -15,6 +15,7 @@ import { REMINDERS_KEY, fetchReminders, rcRow } from "../native/reminders";
 import { localYmd } from "../core/format";
 import { putSafetyPageAway, safetyPage } from "./setup/safety";
 import { useToday } from "../core/today";
+import Icon from "./Icon.vue";
 import Menu from "./Menu.vue";
 import SourceSheet from "./learn/SourceSheet.vue";
 import CiteChips from "./learn/CiteChips.vue";
@@ -57,8 +58,9 @@ const hide = (id: string) => saveSettings({ recommend: { dismissed: dismiss(sett
 
 <template>
   <section v-if="recs.length" class="foryou">
-    <div class="sh"><h2>For you</h2><button v-if="recs.length > 1" type="button" class="lnk" :aria-expanded="more" @click="more = !more">{{ more ? "Less" : `More (${recs.length - 1})` }}</button></div>
-    <div class="card"><div class="fylist">
+    <div class="card">
+    <div class="lbl hgap"><span class="bi"><Icon name="sparkle" :size="16" /></span><span class="grow">For you</span><button v-if="recs.length > 1" type="button" class="lnk" :aria-expanded="more" @click="more = !more">{{ more ? "Less" : `More (${recs.length - 1})` }}</button></div>
+    <div class="fylist">
       <article v-for="r in shown" :key="r.id" class="fyitem" :data-rec="r.id">
         <div class="fyhead">
           <div class="t">{{ r.title }}</div>

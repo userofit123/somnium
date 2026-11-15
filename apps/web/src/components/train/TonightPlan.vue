@@ -102,7 +102,7 @@ const use = useChange(async (i: TonightIdea) => {
 
       <div v-if="planned.length" class="tplist">
         <div v-for="p in planned" :key="p.id" class="li tpli">
-          <Icon name="moon" :size="18" />
+          <span class="bi sg"><Icon name="moon" :size="18" /></span>
           <router-link :to="'/train/technique/' + p.id" class="grow t tpname">{{ p.title }}</router-link>
           <button v-if="!compact" type="button" class="ib sm plain" :aria-label="'Remove ' + p.title" :title="'Remove ' + p.title" :disabled="remove.busy.value" @click="remove.run(p.id)"><Icon name="close" :size="16" /></button>
         </div>
