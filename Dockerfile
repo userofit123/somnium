@@ -1,6 +1,8 @@
 # Somnium server image: the API and the web app in one container.
 # Build:  docker build -t somnium .
-FROM node:22-alpine AS build
+# The web app is the same files on every platform, so it is built once on the build machine's own platform; building
+# it under arm64 emulation (with the speech model's engine) took over an hour. Only the server's packages are per target.
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
 WORKDIR /src
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
@@ -8,7 +10,7 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/engine/package.json packages/engine/
 COPY packages/shared/package.json packages/shared/
-RUN corepack pnpm install --frozen-lockfile --filter @somnium/server... --filter @somnium/web...
+RUN corepack pnpm install --frozen-lockfile --filter @somnium/web...
 COPY . .
 # the version the web app shows (Settings); the release workflow passes it
 ARG SOMNIUM_VERSION=
@@ -17,6 +19,18 @@ ENV SOMNIUM_VERSION=$SOMNIUM_VERSION
 # (the release fetches it first), else from Hugging Face, kept in BuildKit's cache. Unreachable: built without it.
 RUN --mount=type=cache,target=/root/.cache/somnium-speech node scripts/fetch-speech-model.mjs --cache /root/.cache/somnium-speech
 RUN corepack pnpm --filter @somnium/web exec vite build
+
+FROM node:22-alpine AS build
+WORKDIR /src
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY packages/engine/package.json packages/engine/
+COPY packages/shared/package.json packages/shared/
+RUN corepack pnpm install --frozen-lockfile --filter @somnium/server...
+COPY . .
+COPY --from=web /src/apps/web/dist /src/apps/web/dist
 RUN corepack pnpm deploy --filter @somnium/server --prod /out \
  && cp -r apps/web/dist /out/web \
  && node -p "require('./package.json').version" > /out/VERSION
