@@ -10,12 +10,15 @@ import SyncPill from "./SyncPill.vue";
 import UpdateButton from "./UpdateButton.vue";
 import AccountSwitcher from "./AccountSwitcher.vue";
 import { useAutoUpdate } from "../core/updater";
+import { useNeedsRecoveryKey } from "../core/recoveryNudge";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
 useAutoUpdate();
 
 const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
 // Settings sits at the bottom of the rail, under the account (Motus's rail)
+// a dot on Settings while there is no recovery key (LDJ-151)
+const needsKey = useNeedsRecoveryKey();
 const top = NAV.filter((p) => p.name !== "settings"), settings = NAV.find((p) => p.name === "settings")!;
 const nav = ref<HTMLElement | null>(null), pill = ref<HTMLElement | null>(null);
 
@@ -64,7 +67,7 @@ const arrived = (el: Element) => el.classList?.add("in");
         <!-- from the bottom up: Settings, the account, Appearance -->
         <button id="themeBtn" type="button" class="nb" @click.stop="appearanceOpen = !appearanceOpen"><span class="ic"><Icon name="palette" :size="22" /></span>Appearance</button>
         <AccountSwitcher variant="rail" />
-        <button type="button" class="nb" :class="{ on: cur === 'settings' }" :aria-current="cur === 'settings' ? 'page' : undefined" @click="router.push(settings.to)"><span class="ic"><Icon :name="settings.icon" :size="22" /></span>{{ settings.label }}</button>
+        <button type="button" class="nb" :class="{ on: cur === 'settings' }" :aria-current="cur === 'settings' ? 'page' : undefined" @click="router.push(settings.to)"><span class="ic"><Icon :name="settings.icon" :size="22" /><i v-if="needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></span>{{ settings.label }}</button>
       </div>
     </nav>
     <main><router-view v-slot="{ Component, route: r }"><Suspense><Transition name="page" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></main>

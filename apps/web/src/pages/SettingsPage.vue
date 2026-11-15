@@ -8,6 +8,7 @@ import { READY_FEATURES, CYCLE_RANGE, cycleOf, deviceFormats } from "@somnium/sh
 import { useMe, useSettings, saveSettings, loaded } from "../api/queries";
 import { session, signOut, isLocalAccount } from "../core/session";
 import { isPhone } from "../core/device";
+import { useNeedsRecoveryKey } from "../core/recoveryNudge";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
 import NumStep from "../components/NumStep.vue";
@@ -44,7 +45,7 @@ const local = ref(false);
 isLocalAccount().then((v) => { local.value = v; });
 // order as in PLAN.md §6.7
 const ALL = computed<[string, Section[]][]>(() => [
-  ["You", [["account", "Account", "user", "Name, password, devices, sync"],
+  ["You", [["account", "Account", "user", "Name, devices, sync"],
     // the apps keep several servers and on-device accounts; in a browser the server is the site, so this only names it
     (globalThis as any).somniumNative?.accounts ? ["accounts", "Servers & accounts", "server", "Switch, add or remove a server"] : ["accounts", "Server", "server", location.host],
     ["security", "Security", "lock", "App lock, password, two-factor, recovery"]]],
@@ -57,7 +58,7 @@ const ALL = computed<[string, Section[]][]>(() => [
 ]);
 // words people look for that the names don't carry
 const KEYWORDS: Record<string, string> = {
-  account: "name username devices signed in sync delete", security: "lock delay idle device verification password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
+  account: "name username devices signed in sync delete", security: "lock delay idle device verification fingerprint face screen lock windows hello touch id password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
   accounts: "server local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm bedtime wbtb morning journal practice tray login test",
   "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
   sleep: "sleep times bedtime wake cycle 90 minutes setup first run onboarding start again morning capture still dim", features: "optional extras", backup: "backups restore automatic encrypted", data: "export import json delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
@@ -72,6 +73,8 @@ const GROUPS = computed<[string, Section[]][]>(() => {
   return ALL.value.map(([g, xs]) => [g, xs.filter(([k, n, , h]) => `${n} ${h} ${KEYWORDS[k] ?? ""}`.toLowerCase().includes(t))] as [string, Section[]]).filter(([, xs]) => xs.length);
 });
 const SECTIONS = computed(() => ALL.value.flatMap(([, xs]) => xs));
+// a dot on Security while there is no recovery key (LDJ-151)
+const needsKey = useNeedsRecoveryKey();
 const go = (k: string) => router.push(`/settings/${k}`);
 const set = (patch: Record<string, unknown>) => saveSettings(patch);
 const groups = computed(() => { const m = new Map<string, typeof READY_FEATURES>(); for (const f of READY_FEATURES) m.set(f.group, [...(m.get(f.group) ?? []), f]); return [...m]; });
@@ -90,7 +93,7 @@ await loaded(me);
         <template v-for="([g, xs], gi) in GROUPS" :key="g">
           <div class="sh" :class="{ first: gi === 0 }"><h2>{{ g }}</h2></div>
           <div class="card flush">
-            <button type="button" v-for="[k, l, ic, h] in xs" :key="k" class="li click" @click="go(k)"><span class="bi sg"><Icon :name="ic" :size="17" /></span><div class="grow"><div class="t">{{ l }}</div><div class="s">{{ h }}</div></div><Icon name="right" :size="16" class="muted" /></button>
+            <button type="button" v-for="[k, l, ic, h] in xs" :key="k" class="li click" @click="go(k)"><span class="bi sg"><Icon :name="ic" :size="17" /></span><div class="grow"><div class="t">{{ l }}</div><div class="s">{{ h }}</div></div><i v-if="k === 'security' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /><Icon name="right" :size="16" class="muted" /></button>
           </div>
         </template>
         <div class="card flush spt"><button type="button" class="li click" @click="signOut()"><span class="bi sg"><Icon name="logout" :size="17" /></span><span class="grow t">Sign out</span></button></div>
@@ -102,7 +105,7 @@ await loaded(me);
       <p v-if="!GROUPS.length" class="tiny">Nothing matches.</p>
         <template v-for="[g, xs] in GROUPS" :key="g">
           <div class="sng">{{ g }}</div>
-          <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k || SUB[sec]?.[0] === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span>{{ l }}</span></button>
+          <button v-for="[k, l, ic] in xs" :key="k" type="button" class="sni" :class="{ on: sec === k || SUB[sec]?.[0] === k }" :aria-current="sec === k ? 'page' : undefined" @click="go(k)"><Icon :name="ic" :size="17" /><span class="grow">{{ l }}</span><i v-if="k === 'security' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></button>
         </template>
       </div>
       <Transition name="sw" mode="out-in"><div v-if="sec" :key="sec" class="stack">

@@ -128,4 +128,15 @@ describe("restoring", () => {
     expect((await call<any[]>("GET", "/dreams")).map((d) => d.text).sort()).toEqual(["Over the harbour at dawn", "The school again"]);
     expect((await eng.db.admin.query("SELECT username FROM users WHERE id = $1", [A])).rows[0].username).toBe("a");
   });
+
+  // LDJ-145: the email is gone from the account, the export and /me; a backup made while it existed still restores
+  it("has no email, and still restores a backup that carries one", async () => {
+    const out = await call("GET", "/export");
+    expect(out.user).not.toHaveProperty("email");
+    expect((await call("GET", "/me")).user).not.toHaveProperty("email");
+    await call("PUT", "/me", { displayName: "A", email: "old@example.invalid" }); // an older app still sends it: ignored
+    const older = { ...plain, user: { ...plain.user, email: "old@example.invalid" } };
+    await call("POST", "/import", { data: older, mode: "replace" });
+    expect((await call<any[]>("GET", "/nights")).map((n) => n.date).sort()).toEqual(["2026-11-01", "2026-11-03"]);
+  });
 });

@@ -492,3 +492,8 @@ html.phone[data-den="compact"] { --lmh: 44px; }
   content: ""; position: absolute;
   inset-block: min(0px, calc(50% - 23px)); inset-inline: min(0px, calc(50% - 23px));
 }
+
+/* "needs you" dot (LDJ-151: no recovery key yet): top right of a menu icon, or inline at the end of a list row */
+.ndot { width: 8px; height: 8px; border-radius: 50%; background: var(--neg); flex: none; display: inline-block; }
+.nb .ic, .tabbar button .ic { position: relative; }
+.ic > .ndot { position: absolute; top: 2px; right: 8px; }

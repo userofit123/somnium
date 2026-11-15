@@ -5,7 +5,6 @@ export interface Me {
   id: string;
   username: string;
   displayName: string;
-  email: string | null;
   role: "admin" | "user";
   mode: "server" | "local";
 }
@@ -105,9 +104,9 @@ export interface Dream extends Owned {
   /** how the lucid part ended (LUCID_ENDS); absent on rows from before migration 020 */
   lucidEnd?: LucidEnd | null;
   wakeMethod: WakeMethod | null;
+  favourite: boolean;
   /** saved from the morning capture as key words only, to write out later (LDJ-80); absent before migration 021 */
   unfinished?: boolean;
-  favourite: boolean;
   /** suggestion keys dismissed for this dream, a JSON list (LDJ-18) */
   dismissed: string | null; // sealed
 }

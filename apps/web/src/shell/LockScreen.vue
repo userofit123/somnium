@@ -308,7 +308,7 @@ async function leave() {
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="busy" @click="makeFirstKey">{{ busy ? "Making your key..." : "Make recovery key" }}</button>
       <p class="center tiny auth-link"><button type="button" class="lock-link acc" @click="openJournal">Skip for now</button></p>
-      <p class="center tiny muted auth-link">You can make it later in Settings · Security.</p>
+      <p class="center tiny muted auth-link">Until you make it, Home and Settings remind you. It is in Settings · Security.</p>
     </div>
 
     <div v-else-if="step === 'offer'" class="card">

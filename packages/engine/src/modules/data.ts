@@ -23,7 +23,7 @@ export async function exportAll(q: Sql, userId: string, sealed = false) {
   for (const t of TABLES) tables[t] = (await q.query(`SELECT * FROM ${t}`)).rows.map((r: any) => { const o = { ...r }; delete o.user_id; return o; });
   const settings = (await q.query("SELECT data FROM user_settings")).rows[0]?.data ?? {};
   // the owner's id says whose rows these are, so a restore into another account knows to give them ids of their own
-  const user = (await q.query("SELECT id, username, display_name, email FROM users WHERE id = $1", [userId])).rows[0];
+  const user = (await q.query("SELECT id, username, display_name FROM users WHERE id = $1", [userId])).rows[0];
   return { app: "somnium", format: EXPORT_FORMAT, exportedAt: new Date().toISOString(), sealed, user, settings, tables };
 }
 

@@ -7,6 +7,7 @@ import Icon from "../components/Icon.vue";
 import SyncPill from "./SyncPill.vue";
 import { sheetIsOpen } from "../core/sheets";
 import { useAutoUpdate } from "../core/updater";
+import { useNeedsRecoveryKey } from "../core/recoveryNudge";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
 useAutoUpdate();
 
@@ -27,6 +28,8 @@ const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
 const add = () => router.push({ name: "capture" });
 // the pages listed on the More tab
 const IN_MORE = ["more", "signs", "learn", "settings"];
+// Settings is under More here: the dot for a missing recovery key goes on More (LDJ-151)
+const needsKey = useNeedsRecoveryKey();
 const moreOn = computed(() => IN_MORE.includes(cur.value));
 // one key per page (Train's three tabs share one, which switches them itself), so moving between pages animates; pages wait for their data inside <Suspense> (see loaded() in api/queries) and fade in whole
 const pageKey = (r: any) => (TRAIN_TABS.includes(r.name) ? "train" : r.path);
@@ -70,7 +73,7 @@ function te(e: TouchEvent) {
       <div class="tabbar">
         <template v-for="t in TABS" :key="t.name">
           <button v-if="t.name === 'add'" type="button" aria-label="Write a dream" @click="add"><span class="start"><Icon name="plus" /></span></button>
-          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /></span>{{ t.label }}</button>
+          <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></span>{{ t.label }}</button>
         </template>
       </div>
     </div>

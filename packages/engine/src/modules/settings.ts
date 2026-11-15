@@ -12,11 +12,11 @@ export async function getSettings(q: Sql, userId: string): Promise<Settings> {
 
 export function settingsRoutes(r: Router) {
   r.get("/me", async ({ q, userId, mode }) => {
-    const u = (await q.query("SELECT id, username, display_name, email, role FROM users WHERE id = $1", [userId])).rows[0];
-    return { user: { id: u.id, username: u.username, displayName: u.display_name, email: u.email, role: u.role, mode }, settings: await getSettings(q, userId) };
+    const u = (await q.query("SELECT id, username, display_name, role FROM users WHERE id = $1", [userId])).rows[0];
+    return { user: { id: u.id, username: u.username, displayName: u.display_name, role: u.role, mode }, settings: await getSettings(q, userId) };
   });
   r.put("/me", async (ctx, _p, b) => {
-    await ctx.q.query("UPDATE users SET display_name = $2, email = $3 WHERE id = $1", [ctx.userId, str(b.displayName, 80), b.email ? str(b.email, 200) : null]);
+    await ctx.q.query("UPDATE users SET display_name = $2 WHERE id = $1", [ctx.userId, str(b.displayName, 80)]);
     ctx.changed("settings");
     return { ok: true };
   });

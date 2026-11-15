@@ -46,3 +46,7 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hed.off .grow { opacity: .55; }
 .hed label { cursor: pointer; min-width: 0; }
 .hed .hfix { visibility: hidden; }
+
+/* the recovery key reminder above the blocks (LDJ-151) */
+.hkey { margin-bottom: var(--spg); }
+.hkey-acts { display: flex; justify-content: flex-end; gap: var(--hg); flex-wrap: wrap; }

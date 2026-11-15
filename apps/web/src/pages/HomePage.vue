@@ -29,6 +29,8 @@ import ForYouCard from "../components/ForYouCard.vue";
 import Menu from "../components/Menu.vue";
 import Icon from "../components/Icon.vue";
 import { isPhone } from "../core/device";
+import { useNeedsRecoveryKey, nudgeHidden, hideNudgeForAWeek } from "../core/recoveryNudge";
+import { useRouter } from "vue-router";
 
 const j = useJournal();
 const t = useTrain();
@@ -124,6 +126,12 @@ const shown = computed(() => listed.value.filter((x) => x.on && !empty[x.id]?.()
 // two columns on a computer, filled in turn; For you leads the second (on a phone it follows the first block)
 const columns = computed(() => isPhone.value ? [shown.value] : [shown.value.filter((_, i) => i % 2 === 0), shown.value.filter((_, i) => i % 2 === 1)]);
 
+// ---- the recovery key reminder (LDJ-151): above the blocks while there is none, "Later" puts it away for a week.
+// Not a block in Edit home: it goes for good once the key is made. It says nothing about the journal.
+const router = useRouter();
+const needsKey = useNeedsRecoveryKey();
+const keyNudge = computed(() => needsKey.value && !nudgeHidden());
+
 // ---- Edit home: every block, in order, with its arrows and its switch; changes save as you go
 const editing = ref(false);
 const setOn = (id: string, v: boolean) => saveSettings({ home: { blocks: settings.value.home.blocks.map((x) => (x.id === id ? { ...x, on: v } : x)) } }, { quiet: true });
@@ -163,7 +171,12 @@ async function reset() {
       </div>
     </TransitionGroup></div>
 
-    <div v-else class="grid hgrid" :class="{ g2: !isPhone }">
+    <div v-if="!editing && keyNudge" class="card hkey" role="status">
+      <div class="li"><Icon name="key" :size="20" class="muted" />
+        <div class="grow"><div class="t">Make your recovery key</div><div class="s">Nobody can send you your password. Without the key, a forgotten one locks your journal for good.</div></div></div>
+      <div class="hkey-acts"><button class="qb" @click="hideNudgeForAWeek">Later</button><button class="qb acc" @click="router.push('/settings/security')">Make key</button></div>
+    </div>
+    <div v-if="!editing" class="grid hgrid" :class="{ g2: !isPhone }">
       <div v-for="(col, ci) in columns" :key="ci" class="hcol">
         <ForYouCard v-if="ci === 1" />
         <template v-for="(id, k) in col" :key="id">

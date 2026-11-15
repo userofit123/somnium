@@ -14,7 +14,7 @@ export function syncRoutes(r: Router) {
   r.get("/sync/snapshot", async ({ q, userId }) => {
     // the position first: anything changed while the rows are read is simply sent again on the next pull
     const cursor = Number((await q.query("SELECT coalesce(max(seq), 0) AS s FROM sync_log")).rows[0].s);
-    const user = (await q.query("SELECT id, username, display_name, email, role FROM users WHERE id = $1", [userId])).rows[0];
+    const user = (await q.query("SELECT id, username, display_name, role FROM users WHERE id = $1", [userId])).rows[0];
     return { cursor, user, tables: await allRows(q) };
   });
 

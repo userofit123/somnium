@@ -4,7 +4,8 @@
 // PLAN.md §4.1). With two-factor on, the server asks for a code before it answers. "Forgot password?" (§4.4) takes the
 // recovery key (opens the journal here, sets a new password, makes a new key) or a reset code from the admin (a new
 // password, with the journal sealed until the recovery key opens it; no device can: the reset signed them out, which forgets their keys, LDJ-10).
-// Straight after sign-up it offers to make the recovery key; skipping leaves Settings → Security's checklist warning.
+// Straight after sign-up it offers to make the recovery key; skipping leaves a reminder on Home, Settings and the menu
+// until one is made (LDJ-151, core/recoveryNudge.ts).
 import { ref, computed, onBeforeUnmount, watch } from "vue";
 import { createAccountKeys, keyProof, openWithEncKey, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
 import { api, newSessionEra } from "../api/client";
@@ -23,7 +24,7 @@ import { current, setToken } from "../native/accounts";
 const accounts = (globalThis as any).somniumNative?.accounts;
 
 const mode = ref<"login" | "register">("login");
-const f = ref({ username: "", password: "", displayName: "", invite: new URLSearchParams(location.search).get("invite") ?? "" });
+const f = ref({ username: "", password: "", confirm: "", displayName: "", invite: new URLSearchParams(location.search).get("invite") ?? "" });
 if (f.value.invite) mode.value = "register";
 // after the password: the second factor. backup = the code field takes a one-time backup code instead
 const step = ref<"form" | "code" | "forgot" | "reset" | "recovery" | "recoveryPassword" | "newKey" | "offerKey" | "resetDone">("form");
@@ -35,6 +36,8 @@ const resetMessage = ref("");
 let resetSignIn: unknown = null;
 const setup = computed(() => session.setupNeeded);
 const creating = computed(() => setup.value || mode.value === "register");
+// open sign-ups need no invite, so the words only speak of one when the server asks for it (LDJ-152)
+const invited = computed(() => session.registration === "invite");
 let keys: SignInKeys | null = null; // kept between the password step and the code step, so Argon2id runs once
 // the recovery key: what was typed, the data key it opened (held until the new key has been shown), and the new key
 const rec = ref({ key: "", password: "", confirm: "", code: "" });
@@ -61,7 +64,7 @@ async function finish(r: any, encKey: Uint8Array | null, dataKey?: Uint8Array) {
   // then the lock screen is where the recovery key brings it back
   if (keyring.isOpen()) markUnlocked(); else lockNow();
   const proven = keys?.authKeyText ?? null;
-  keys = null; f.value.password = ""; code.value = "";
+  keys = null; f.value.password = ""; f.value.confirm = ""; code.value = "";
   await loadSession();
   // the password was just proven: the server learns this account's key proof now (LDJ-10, core/deviceKey.ts)
   if (proven && keyring.isOpen()) void registerKeyProof(proven);
@@ -76,6 +79,8 @@ async function go() {
     if (creating.value) {
       const problem = await passwordProblem(f.value.password);
       if (problem) { err.value = problem; return; }
+      // it seals the journal and nobody can send it back: a typo here would lock the person out from the start
+      if (f.value.password !== f.value.confirm) { err.value = "The two passwords are not the same"; return; }
       busy.value = "unlock";
       const made = await createAccountKeys(f.value.password);
       try {
@@ -85,7 +90,7 @@ async function go() {
         // hold on until the recovery key is made or skipped: the next step needs the data key and the authKey
         pending = { r: { ...r, kdfSalt: made.salt, wrappedByPassword: made.wrappedByPassword }, dataKey: new Uint8Array(made.dataKey) };
         signUpAuthKey = made.authKey;
-        f.value.password = ""; saved.value = false; newKey.value = "";
+        f.value.password = ""; f.value.confirm = ""; saved.value = false; newKey.value = "";
         step.value = "offerKey";
       } finally { made.dataKey.fill(0); }
       return;
@@ -235,7 +240,7 @@ async function leaveReset() {
       <div v-if="err" class="err" role="alert">{{ err }}</div>
       <button type="button" class="btn block lg" :disabled="!!busy" @click="makeFirstKey">{{ busy ? "Making your key..." : "Make recovery key" }}</button>
       <p class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="leaveWithKey">Skip for now</a></p>
-      <p class="center tiny muted auth-link">You can make it later in Settings · Security.</p>
+      <p class="center tiny muted auth-link">Until you make it, Home and Settings remind you. It is in Settings · Security.</p>
     </div>
     <div v-else-if="step === 'newKey'" class="card">
       <Logo />
@@ -267,18 +272,19 @@ async function leaveReset() {
     <form v-else class="card" @submit.prevent="go">
       <Logo />
       <h1>{{ setup ? "Welcome to Somnium" : mode === "login" ? "Sign in" : "Create your account" }}</h1>
-      <p class="muted auth-lede">{{ setup ? "Create the first account. It will be the admin of this server." : mode === "login" ? "Your dreams, sealed." : "You need an invite code from the admin." }}</p>
+      <p class="muted auth-lede">{{ setup ? "Create the first account. It will be the admin of this server." : mode === "login" ? "Your dreams, sealed." : invited ? "You need an invite code from the admin." : "Choose a username and a password." }}</p>
       <div v-if="creating" class="fld"><label>Your name</label><input v-model="f.displayName" autocomplete="name" /></div>
       <div class="fld"><label>Username</label><input aria-label="Username" v-model="f.username" autocomplete="username" autocapitalize="off" required /></div>
       <div class="fld"><label>Password</label><input aria-label="Password" v-model="f.password" type="password" :autocomplete="creating ? 'new-password' : 'current-password'" required :minlength="creating ? PASSWORD_MIN : undefined" />
         <p v-if="creating" class="tiny auth-hint">At least {{ PASSWORD_MIN }} characters. It seals your journal: the server never sees it, so nobody can send it to you if it is lost - you will get a recovery key.</p></div>
-      <div v-if="!setup && mode === 'register' && session.registration === 'invite'" class="fld"><label>Invite code</label><input v-model="f.invite" required /></div>
+      <div v-if="creating" class="fld"><label>Password again</label><input aria-label="Password again" v-model="f.confirm" type="password" autocomplete="new-password" required :minlength="PASSWORD_MIN" /></div>
+      <div v-if="!setup && mode === 'register' && invited" class="fld"><label>Invite code</label><input v-model="f.invite" required /></div>
       <div v-if="err" class="err">{{ err }}</div>
       <button class="btn block lg" :disabled="!!busy">{{ busy === "unlock" ? "Unlocking..." : busy ? (creating ? "Creating..." : "Signing in...") : creating ? "Create account" : "Sign in" }}</button>
       <p v-if="!setup && mode === 'login'" class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="step = 'forgot'; err = ''">Forgot password?</a></p>
       <p v-if="!setup && session.registration !== 'closed'" class="center tiny auth-link">
-        <a v-if="mode === 'login'" class="acc click" href="#" role="button" @click.prevent="mode = 'register'; err = ''">Have an invite? Create an account</a>
-        <a v-else class="acc click" href="#" role="button" @click.prevent="mode = 'login'; err = ''">Already have an account? Sign in</a>
+        <a v-if="mode === 'login'" class="acc click" href="#" role="button" @click.prevent="mode = 'register'; err = ''">{{ invited ? "Have an invite? Create an account" : "New here? Create an account" }}</a>
+        <a v-else class="acc click" href="#" role="button" @click.prevent="mode = 'login'; err = ''; f.confirm = ''">Already have an account? Sign in</a>
       </p>
       <p v-if="accounts" class="center tiny auth-link"><a class="acc click" href="#" role="button" @click.prevent="accounts.chooser()">Other accounts and servers</a></p>
     </form>

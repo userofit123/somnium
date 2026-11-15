@@ -51,8 +51,8 @@ export async function loadSnapshot(db: Db, snap: { cursor: number; user: any; ta
   await db.tx(async (q) => {
     await q.query("SELECT set_config('somnium.sync_apply', '1', true)");
     const u = snap.user;
-    await q.query(`INSERT INTO users (id, username, display_name, email, role) VALUES ($1, $2, $3, $4, $5)
-      ON CONFLICT (id) DO UPDATE SET username = $2, display_name = $3, email = $4, role = $5`, [u.id, u.username, u.display_name ?? "", u.email ?? null, u.role ?? "user"]);
+    await q.query(`INSERT INTO users (id, username, display_name, role) VALUES ($1, $2, $3, $4)
+      ON CONFLICT (id) DO UPDATE SET username = $2, display_name = $3, role = $4`, [u.id, u.username, u.display_name ?? "", u.role ?? "user"]);
     for (const t of SYNCED) {
       const rows = tables[t.name]!;
       const insert = (part: unknown[]) => q.query(`INSERT INTO ${t.name} SELECT * FROM jsonb_populate_recordset(NULL::${t.name}, $1::jsonb) ON CONFLICT DO NOTHING`, [JSON.stringify(part)]);

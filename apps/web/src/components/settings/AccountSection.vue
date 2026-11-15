@@ -1,8 +1,8 @@
 <script setup lang="ts">
-// Settings → Account: everything about your account in one place. Who you are (name, optional email), username and role,
-// password, signing out, sync, every other place this account is signed in, and deleting it.
-// A local account (no server) has no username to show and no other devices: those rows are left out. Its password is
-// changed on this device (core/localLock.ts).
+// Settings → Account: who you are (name, username and role), signing out, sync, every other place this account is
+// signed in, and deleting it. The password is changed under Security, with everything else about getting in (LDJ-144).
+// No email (LDJ-145): the server sends no mail, so asking for one would only collect personal data for nothing.
+// A local account (no server) has no username to show and no other devices: those rows are left out.
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
@@ -11,11 +11,7 @@ import { api } from "../../api/client";
 import { invalidate } from "../../api/live";
 import { sync, schedule } from "../../api/replica";
 import { signOut, isLocalAccount } from "../../core/session";
-import { changeLocalPassword } from "../../core/localLock";
-import { keyring } from "../../core/keyring";
-import { rememberBundle } from "../../core/unlock";
-import { authKeyFor, keysFor } from "../../core/auth";
-import { changePassword as rewrap, passwordProblem, PASSWORD_MIN } from "@somnium/shared";
+import { authKeyFor } from "../../core/auth";
 import { prompt } from "../../core/ask";
 import { toast, toastError, savedToast, savedError } from "../../core/toast";
 import { useFmt, ago } from "../../core/format";
@@ -31,10 +27,9 @@ const localAccount = ref<boolean | null>(null);
 isLocalAccount().then((v) => { localAccount.value = v; });
 
 const val = (e: Event) => (e.target as HTMLInputElement).value.trim();
-async function saveMe(patch: { displayName?: string; email?: string }) {
-  const u = user.value;
-  if ((patch.displayName ?? u?.displayName) === u?.displayName && (patch.email ?? u?.email ?? "") === (u?.email ?? "")) return;
-  try { await api.put("/me", { displayName: patch.displayName ?? u?.displayName, email: patch.email ?? u?.email }); invalidate(["settings"]); savedToast(); } catch (e) { savedError(e); }
+async function saveName(displayName: string) {
+  if (displayName === user.value?.displayName) return;
+  try { await api.put("/me", { displayName }); invalidate(["settings"]); savedToast(); } catch (e) { savedError(e); }
 }
 
 // every place this account is signed in; API tokens are listed under Integrations, not here
@@ -47,40 +42,6 @@ const icon = (x: Session) => (x.platform === "android" || /Android|iPhone/.test(
 async function endSession(id: string) { try { await api.del(`/auth/sessions/${id}`); sessions.refetch(); toast("Signed out that device"); } catch (e) { toastError(e); } }
 async function endOthers() { try { await api.post("/auth/logout-others"); sessions.refetch(); toast("Signed out everywhere else"); } catch (e) { toastError(e); } }
 
-// The password never goes to the server (PLAN.md §4.1): this device turns the current one into its authKey (the
-// proof), wraps the data key under the new one and sends the new bundle. The other devices are signed out.
-async function changePassword() {
-  const current = await prompt("Current password", { secret: true }); if (!current) return;
-  const next = await prompt("New password", { text: `At least ${PASSWORD_MIN} characters.`, secret: true, autocomplete: "new-password" }); if (!next) return;
-  const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
-  if (again !== next) { toastError(new Error("The passwords don't match")); return; }
-  const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
-  if (!keyring.isOpen()) { toastError(new Error("This device has not unlocked your journal. Sign out and in again first.")); return; }
-  const opened = keyring.generation();
-  try {
-    toast("Unlocking...");
-    const cur = await keysFor(user.value!.username, current);
-    // locked during that slow step: nothing more happens, and no copy of the key is made
-    const dataKey = keyring.generation() === opened ? keyring.get() : null;
-    if (!dataKey) return;
-    let bundle;
-    try { bundle = await rewrap(dataKey, next); } finally { dataKey.fill(0); }
-    if (keyring.generation() !== opened) return;
-    await api.post("/auth/password", { current: cur.authKeyText, authKey: bundle.authKey, kdfSalt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword });
-    rememberBundle({ salt: bundle.salt, wrappedByPassword: bundle.wrappedByPassword }); // the lock screen takes the new password from now on
-    sessions.refetch(); toast("Password changed. Other devices were signed out.");
-  } catch (e) { toastError(e); }
-}
-// a local account (LDJ-53): the same re-wrap, kept in the account's record on this device
-async function changeLocal() {
-  const current = await prompt("Current password", { secret: true }); if (!current) return;
-  const next = await prompt("New password", { text: `At least ${PASSWORD_MIN} characters.`, secret: true, autocomplete: "new-password" }); if (!next) return;
-  const again = await prompt("Type it again", { secret: true, autocomplete: "new-password" }); if (!again) return;
-  if (again !== next) { toastError(new Error("The passwords don't match")); return; }
-  const problem = await passwordProblem(next); if (problem) { toastError(new Error(problem)); return; }
-  try { toast("Unlocking..."); if (await changeLocalPassword(current, next)) toast("Password changed"); else toastError(new Error("Wrong password")); }
-  catch (e) { toastError(e); }
-}
 // straight to the server, never queued: without a connection it fails and nothing is deleted.
 // A wrong password leaves you signed in; ask again.
 async function deleteAccount() {
@@ -102,9 +63,7 @@ async function deleteAccount() {
 
   <!-- flush cards: rows run edge to edge, so a tapped row lights up the full width like every other list -->
   <div class="card flush">
-    <div class="li"><div class="grow t">Name</div><input class="ac-in" :value="user?.displayName ?? ''" placeholder="Your name" autocomplete="name" @change="saveMe({ displayName: val($event) })" /></div>
-    <div class="li"><div class="grow"><div class="t">Email</div><div class="s">Optional</div></div><input class="ac-in" type="email" :value="user?.email ?? ''" placeholder="you@example.com" autocomplete="email" @change="saveMe({ email: val($event) })" /></div>
-    <div v-if="localAccount !== null" class="li"><div class="grow t">Password</div><button class="qb" @click="localAccount ? changeLocal() : changePassword()">Change</button></div>
+    <div class="li"><div class="grow t">Name</div><input class="ac-in" :value="user?.displayName ?? ''" placeholder="Your name" autocomplete="name" @change="saveName(val($event))" /></div>
     <div class="li"><div class="grow"><div class="t">Sign out</div><div class="s">From this device</div></div><button class="qb" @click="signOut()">Sign out</button></div>
   </div>
 
