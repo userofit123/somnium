@@ -65,11 +65,11 @@ html[data-rad="sharp"] {
   --r-sheet: 6px;
 }
 
-html[data-rad="soft"] :is(.sheet,.pop,.bgrp,.toast,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
+html[data-rad="soft"] :is(.sheet,.pop,.bgrp,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
   border-radius: 12px;
 }
 
-html[data-rad="sharp"] :is(.sheet,.pop,.bgrp,.toast,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
+html[data-rad="sharp"] :is(.sheet,.pop,.bgrp,.jstats > div,.trstats > div,.phs > div,.inf,.bbin,.exo,.kin,.minibar,.tst > div) {
   border-radius: 4px;
 }
 
@@ -290,7 +290,7 @@ body.glass :is(.sheet,.sht,.pop,.askb,.help,.rcal,.dvbox) {
   background: var(--gpbg);
 }
 
-body.glass :is(.tsug,.ddm,.cmenu,.mnu,.toast,.sugb) {
+body.glass :is(.tsug,.ddm,.cmenu,.mnu,.sugb) {
   background: var(--gp1);
   -webkit-backdrop-filter: var(--gpfx);
   backdrop-filter: var(--gpfx);
@@ -313,7 +313,7 @@ body.glass :is(.rktip,.trtip) {
 /* filled parts that stand on the page by themselves (tab rows, round buttons, fields) blur what is behind them directly;
    inside a block they need not,
    the block already does */
-body.glass :is(.rkbr,.inf,.exo,.exbox,.exd,.exsamp,.txs-c,.jstat3,.stl,.phs > div,.trstats > div,.jstats > div,.exst > div,.cstn > div,.jfs > div,.wct,.bq,.sinfo,.trex,.trtog,.trleg .lgi,.tcs,.hdemo,.jt,.jct,.kvc,.atile,.phb,.phl,.txs2,.rule,.wnc,input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,.fpick,.ftools select):not(:is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq,.sheet,.pop,.askb,.help,.rcal,.dvbox,.tsug,.ddm,.cmenu,.toast,.sugb) *) {
+body.glass :is(.rkbr,.inf,.exo,.exbox,.exd,.exsamp,.txs-c,.jstat3,.stl,.phs > div,.trstats > div,.jstats > div,.exst > div,.cstn > div,.jfs > div,.wct,.bq,.sinfo,.trex,.trtog,.trleg .lgi,.tcs,.hdemo,.jt,.jct,.kvc,.atile,.phb,.phl,.txs2,.rule,.wnc,input:not([type=checkbox],[type=radio],[type=range],[type=color]),textarea,.fpick,.ftools select):not(:is(.card,table,.bgrp,.jhero,.fcard,.setnav,.rkeq,.sheet,.pop,.askb,.help,.rcal,.dvbox,.tsug,.ddm,.cmenu,.sugb) *) {
   -webkit-backdrop-filter: var(--gfx);
   backdrop-filter: var(--gfx);
 }

@@ -21,8 +21,10 @@ function inlineHashes(html: string): { scripts: string[]; styles: string[] } {
  * - style-src-attr 'unsafe-inline': Vue writes style="" attributes (static template styles it turns into HTML, the
  *   splash); <style> elements and style sheets still have to come from the app itself or match a hash.
  * - worker-src blob:: what tesseract.js may fall back to for its worker; ours is loaded from the app (ocr.ts).
- * - connect-src: only the app's own server. The update check goes through the server (/api/update-check), so the
- *   browser never talks to GitHub; the Android app's policy adds what it needs (prepare-web.mjs).
+ * - connect-src: the app's own server, and GitHub's public releases API for the update check only. A server account
+ *   asks its server (/api/update-check), but a local account (desktop app) has no server and asks GitHub directly, and
+ *   a server account falls back to that when its server can't answer. Downloads open as links, never fetched. The
+ *   Android app's policy adds what it needs (prepare-web.mjs).
  */
 function cspFor(html: string | null): string {
   const { scripts, styles } = html ? inlineHashes(html) : { scripts: [], styles: [] };
@@ -34,7 +36,7 @@ function cspFor(html: string | null): string {
     "img-src 'self' blob: data:",
     "media-src 'self' blob:",
     "font-src 'self'",
-    "connect-src 'self'",
+    "connect-src 'self' https://api.github.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "frame-ancestors 'none'",

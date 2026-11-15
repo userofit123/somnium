@@ -57,3 +57,15 @@
   padding: 8px 6px;
   overflow-x: hidden;
 }
+
+/* the menus' fade-in from just above */
+@keyframes tin {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

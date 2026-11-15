@@ -422,6 +422,8 @@ describe("security headers (LDJ-59)", () => {
         expect(csp, url).toContain(`'sha256-${crypto.createHash("sha256").update(body).digest("base64")}'`);
         expect(csp, url).toContain(`style-src 'self' 'sha256-${crypto.createHash("sha256").update("b{}").digest("base64")}'`);
         expect(csp, url).toContain("frame-ancestors 'none'");
+        // the update check may reach GitHub's releases API, and nothing else off the app's own server
+        expect(csp, url).toContain("connect-src 'self' https://api.github.com;");
         expect(csp, url).not.toContain("'unsafe-eval'");
         expect(r.headers["referrer-policy"]).toBe("no-referrer");
         expect(r.headers["cross-origin-opener-policy"]).toBe("same-origin");

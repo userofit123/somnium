@@ -64,7 +64,7 @@ const devHeaders = {
     "img-src 'self' blob: data:",
     "media-src 'self' blob:",
     "font-src 'self'",
-    "connect-src 'self' ws: wss:",
+    "connect-src 'self' ws: wss: https://api.github.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "frame-ancestors 'none'",
