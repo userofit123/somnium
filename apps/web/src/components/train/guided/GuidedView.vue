@@ -45,7 +45,7 @@ const running = ref(false);
       <span class="grow" />
       <span class="gname">{{ name }}</span>
     </div>
-    <BedtimeRoutine v-if="mode === 'bedtime'" @cite="cite = $event" @go="go" @running="running = $event" @done="close" />
+    <BedtimeRoutine v-if="mode === 'bedtime'" @cite="cite = $event" @go="go" @running="running = $event" />
     <WbtbPlanner v-else-if="mode === 'wbtb'" @cite="cite = $event" @done="close" />
     <ImUp v-else-if="mode === 'up'" @cite="cite = $event" @go="go" />
     <MildFlow v-else-if="mode === 'mild'" @cite="cite = $event" @done="close" />

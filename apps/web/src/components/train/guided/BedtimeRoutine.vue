@@ -21,7 +21,7 @@ import { useWakeLock } from "./useGuided";
 import type { GuidedMode } from "./GuidedView.vue";
 import Ev from "./Ev.vue";
 
-const emit = defineEmits<{ cite: [ids: string[]]; done: []; go: [mode: GuidedMode]; running: [on: boolean] }>();
+const emit = defineEmits<{ cite: [ids: string[]]; go: [mode: GuidedMode]; running: [on: boolean] }>();
 const settings = useSettings();
 const fmt = useFmt();
 const j = useJournal();
@@ -31,7 +31,10 @@ const date = tonightDate();
 const night = computed(() => j.nights.data.value?.find((n) => n.date === date && !n.nap));
 
 // the lesson decides the intention and whether the dream sign step is there (from lesson 3, "reality-checks")
-const lesson = computed(() => (course.data.value ? currentLesson(course.data.value) : null));
+// while the course rows load nothing is decided (a calm loading state); with no course data at all (offline, failed) it
+// falls back to lesson 1, the recall intention, never to "every lesson done"
+const rows = computed(() => course.data.value ?? (course.isError.value ? [] : null));
+const lesson = computed(() => (rows.value ? currentLesson(rows.value) : null));
 const lessonAt = computed(() => (lesson.value === null ? COURSE_LESSONS.length : Math.max(0, (COURSE_LESSONS as readonly string[]).indexOf(lesson.value))));
 const suggested = computed(() => {
   const s = settings.value;
@@ -79,7 +82,10 @@ const label = (m: GuidedMode) => ({ mild: "Start MILD", ssild: "Start SSILD", wi
 </script>
 
 <template>
-  <template v-if="!dark">
+  <template v-if="!rows && !dark">
+    <div class="gbody" role="status"><p class="gp">Getting tonight ready...</p></div>
+  </template>
+  <template v-else-if="!dark">
     <div class="gbody">
       <div class="gsteps" aria-hidden="true"><i v-for="(s, i) in steps" :key="s" :class="{ on: i === step }" /></div>
       <template v-if="at === 'intention'">
@@ -115,6 +121,5 @@ const label = (m: GuidedMode) => ({ mild: "Start MILD", ssild: "Start SSILD", wi
   </template>
   <template v-else>
     <div class="gbody" role="status"><h1>Sleep well</h1></div>
-    <div class="gfoot"><button type="button" class="glink" @click="emit('done')">Close</button></div>
   </template>
 </template>

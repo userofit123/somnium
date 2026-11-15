@@ -9,7 +9,7 @@ import { topSigns } from "@somnium/shared";
 import { useSigns } from "../../signs/useSigns";
 import { useJournal } from "../../../api/journal";
 import { saveIntention } from "../../../api/home";
-import { nightNowDate } from "../../../api/train";
+import { nightNowDate, tonightDate } from "../../../api/train";
 import { toastError } from "../../../core/toast";
 import { useWakeLock } from "./useGuided";
 import Ev from "./Ev.vue";
@@ -20,7 +20,13 @@ const SENTENCE = "Next time I'm dreaming, I will remember that I'm dreaming.";
 const j = useJournal();
 const { elements, links, dreams, today, stats } = useSigns();
 const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value })[0]?.element.name ?? null);
-const date = nightNowDate();
+// the night up in the small hours is in (nightNowDate); but when the bedtime routine handed over between 05:00 and 12:00,
+// the plan (and the intention it saved) is on tonightDate's night, so MILD follows the one that plans it
+const date = (() => {
+  const planned = (d: string) => j.nights.data.value?.find((n) => n.date === d && !n.nap)?.techniquesPlanned?.includes("mild");
+  const now = nightNowDate(), tonight = tonightDate();
+  return now !== tonight && !planned(now) && planned(tonight) ? tonight : now;
+})();
 const night = computed(() => j.nights.data.value?.find((n) => n.date === date && !n.nap));
 const saved = night.value?.intention?.trim() || "";
 const text = ref(saved || SENTENCE);
