@@ -26,12 +26,12 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
 <template>
   <div class="page">
     <ElementPanel v-if="isPhone && id" :id="id" :key="id" back @close="close" @open="open" />
-    <div v-else class="sgcols" :class="{ split: !isPhone }">
-      <div class="sglist">
+    <div v-else :class="{ split: !isPhone }">
+      <div>
         <div class="ph"><div><h1>Dream signs</h1><div class="sub">Elements are the people, places, things and feelings in your dreams. Dream signs are the ones that keep coming back, your cue to check whether you are dreaming.</div></div></div>
         <SignsOverview :selected="id || undefined" @open="open" />
       </div>
-      <aside v-if="!isPhone" class="sgside">
+      <aside v-if="!isPhone" class="side">
         <div class="card">
           <ElementPanel v-if="id" :id="id" :key="id" @close="close" @open="open" />
           <div v-else class="empty sm"><Icon name="sparkle" :size="34" /><b>No sign open</b>Pick a sign or an element to see its dreams here.</div>
@@ -40,9 +40,3 @@ const close = () => (history.state?.back ? router.back() : router.replace("/sign
     </div>
   </div>
 </template>
-
-<style scoped>
-.sgcols.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spg); align-items: start; }
-.sglist { min-width: 0; }
-.sgside { position: sticky; top: var(--spg); min-width: 0; max-height: calc(100vh - 2 * var(--spg)); overflow-y: auto; }
-</style>

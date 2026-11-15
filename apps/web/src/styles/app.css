@@ -51,6 +51,34 @@ hr.sep { border: 0; border-top: 1px solid var(--ol); margin: 14px 0; }
 .ph h1 { font-size: var(--fs-h1); font-weight: 600; letter-spacing: -.6px; line-height: 1.15; }
 .ph .sub { color: var(--tx2); font-size: var(--fs-sm); margin-top: 4px; }
 .ph .acts { display: flex; gap: 8px; align-items: center; flex: none; }
+/* Master-detail on a computer, from Motus (its Settings grid and the workout's sticky side): one layout for Journal,
+   Dream signs, Learn and Settings. .split is a list beside a sticky detail card (.side); .split.nav is a sticky section
+   nav (.snav) beside the page. The phone never gets it: each pane is a screen of its own there, with a Back pill. */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spg); align-items: start; }
+.split.nav { grid-template-columns: 240px minmax(0, 1fr); }
+.split > * { min-width: 0; }
+/* sticks where main's top padding ends and scrolls on its own when taller than the window */
+.split > .side { position: sticky; top: calc(24px + var(--st)); max-height: calc(100vh - 48px - var(--st)); max-height: calc(100dvh - 48px - var(--st)); overflow-y: auto; }
+/* Motus's settings nav: small group names over plain rows, the open one filled; Learn adds a count and article rows */
+.snav { padding: calc(var(--cpy) / 2); display: flex; flex-direction: column; gap: 1px; }
+/* the group names and rows share one side inset, and the first group name sits that far below the top too, so the
+   list's space is even all round */
+.sng { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--tx2); padding: calc(var(--cpx) - 4px) calc(var(--cpx) - 4px) 4px; }
+.sni { display: flex; align-items: center; gap: 12px; padding: calc(var(--lpy) - 2px) calc(var(--cpx) - 4px); border: 0; background: none; border-radius: var(--r-sm); color: var(--tx); font: inherit; font-size: var(--fs); text-align: start; text-decoration: none; cursor: pointer; }
+.sni:hover { background: var(--s2); }
+.sni.on { background: var(--accc); color: var(--onc); font-weight: 600; }
+.sni .ico { color: var(--tx2); flex: none; }
+.sni.on .ico { color: inherit; }
+/* the open section while one of its articles is open: marked, not filled (the article row is) */
+.sni.in { font-weight: 600; }
+.sni .n { color: var(--tx2); font-size: var(--fs-sm); font-weight: 400; }
+.sni.on .n { color: inherit; }
+/* an article under its section: text lined up with the section's label (17px icon + 12px gap), a tick once read */
+.sni.sub { padding-inline-start: calc(var(--cpx) - 4px + 29px); font-size: var(--fs-sm); line-height: 1.35; color: var(--tx2); }
+.sni.sub.on { color: var(--onc); }
+.sni.sub .ico { color: var(--acc); }
+.sni.sub.on .ico { color: inherit; }
+.snav .tiny { padding: var(--lpy) calc(var(--cpx) - 4px) calc(var(--cpx) - 4px); color: var(--tx2); }
 /* a page's Back: a small pill, the chevron on its own tinted dot; same height as the old text link */
 .back { display: inline-flex; align-items: center; gap: 6px; color: var(--tx2); font-size: var(--fs-sm); line-height: 20px; font-weight: 500; margin: 0 0 8px -4px; cursor: pointer; background: none; border: 0; padding: 3px 10px 3px 3px; border-radius: var(--pill); transition: background .2s, color .2s; }
 .back svg { display: block; flex: none; width: 20px; height: 20px; padding: 3px; box-sizing: border-box; border-radius: 50%; background: var(--s2); color: var(--tx); transition: background .2s, color .2s; }
@@ -522,7 +550,6 @@ html.phone[data-den="compact"] { --lmh: 44px; }
 .scr.top { align-items: flex-start; padding-top: 12vh; }
 .btn.mid { margin: var(--hg) auto 0; display: flex; }
 .apr.flush { margin-top: 0; }
-.grid.set-g { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
 .ring { transform: rotate(-90deg); }
 .ring circle { transition: stroke-dashoffset .5s; }
 #splash i { color: var(--on); }

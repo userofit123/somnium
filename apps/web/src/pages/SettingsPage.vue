@@ -76,7 +76,7 @@ await loaded(me);
 <template>
   <div class="page">
     <div class="ph"><div><button v-if="isPhone && sec" class="back" @click="goBack(router, SUB[sec] ? `/settings/${SUB[sec]![0]}` : '/settings')"><Icon name="left" :size="16" /><span>{{ SUB[sec] ? SECTIONS.find((x) => x[0] === SUB[sec]![0])?.[1] : "Settings" }}</span></button><h1>{{ isPhone && sec ? SUB[sec]?.[1] ?? SECTIONS.find((x) => x[0] === sec)?.[1] : "Settings" }}</h1></div></div>
-    <div :class="isPhone ? '' : 'grid set-g'">
+    <div :class="{ 'split nav': !isPhone }">
       <!-- phone: the groups as short lists, each row saying what's inside -->
       <div v-if="isPhone && !sec">
         <input v-model="q" type="search" class="sq sqp" placeholder="Search settings" aria-label="Search settings" />
@@ -91,7 +91,7 @@ await loaded(me);
       </div>
       <!-- computer: the same groups down the side -->
       <!-- a div, not <nav>: the app's <nav> styles are the side rail's -->
-      <div v-else-if="!isPhone" class="card snav" role="navigation" aria-label="Settings sections">
+      <div v-else-if="!isPhone" class="card snav side" role="navigation" aria-label="Settings sections">
         <input v-model="q" type="search" class="sq" placeholder="Search settings" aria-label="Search settings" />
         <!-- inside the side card: the short form, with the one way back -->
         <div v-if="!GROUPS.length" class="empty sm"><b>Nothing matches</b><button class="btn tonal" type="button" @click="q = ''">Clear search</button></div>
@@ -173,14 +173,5 @@ await loaded(me);
 .apset { padding: 0; overflow: hidden; }
 .sq { width: 100%; box-sizing: border-box; margin-bottom: var(--hg); }
 .sqp { margin-bottom: var(--spg); }
-/* the computer's section list: small group names over plain rows, the open one filled */
-.snav { position: sticky; top: calc(24px + var(--st)); padding: calc(var(--cpy) / 2); display: flex; flex-direction: column; gap: 1px; }
-/* the group names and rows share one side inset, and the first group name sits that far below the top too, so the
-   list's space is even all round (a 4px top here left it closer to the top than to the sides) */
-.sng { font-size: var(--fs-xs); font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--tx2); padding: calc(var(--cpx) - 4px) calc(var(--cpx) - 4px) 4px; }
-.sni { display: flex; align-items: center; gap: 12px; padding: calc(var(--lpy) - 2px) calc(var(--cpx) - 4px); border: 0; background: none; border-radius: var(--r-sm); color: var(--tx); font: inherit; font-size: var(--fs); text-align: start; cursor: pointer; }
-.sni:hover { background: var(--s2); }
-.sni.on { background: var(--accc); color: var(--onc); font-weight: 600; }
-.sni .ico { color: var(--tx2); }
-.sni.on .ico { color: inherit; }
+/* the section nav (.split.nav, .snav, .sng, .sni) is app.css's, shared with Learn */
 </style>

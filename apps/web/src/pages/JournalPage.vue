@@ -181,7 +181,7 @@ const menu = computed(() => [
       <DreamView v-else :id="id" :key="'r' + id" back @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
     </template>
     <div v-else class="jcols" :class="{ split: !isPhone }">
-      <div class="jlist">
+      <div>
         <div class="ph">
           <div><h1>Journal</h1></div>
           <div class="acts">
@@ -233,7 +233,7 @@ const menu = computed(() => [
           </template>
         </template>
       </div>
-      <aside v-if="!isPhone" class="jside">
+      <aside v-if="!isPhone" class="side">
         <div class="card">
           <DreamEditor v-if="mode === 'write'" :id="id" :key="id" :date="date" :fresh="fresh" @close="closeWrite" />
           <DreamView v-else-if="mode === 'read'" :id="id" :key="'r' + id" @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
@@ -271,9 +271,7 @@ const menu = computed(() => [
 </template>
 
 <style scoped>
-.jcols.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--spg); align-items: start; }
-.jlist { min-width: 0; }
-.jside { position: sticky; top: var(--spg); min-width: 0; max-height: calc(100vh - 2 * var(--spg)); overflow-y: auto; }
+/* the list beside the open dream is app.css's .split (shared with Dream signs, Learn and Settings) */
 .jsearch { display: flex; gap: 8px; align-items: center; margin-bottom: var(--hg); }
 .jsearch .search { min-width: 0; }
 .jsearch .search input { width: 100%; padding-left: 38px; }
