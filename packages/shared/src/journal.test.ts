@@ -202,3 +202,11 @@ describe("the morning's night question (LDJ-79)", () => {
     expect(nightLine({ techniquesDone: ["mild"], wbtbUsed: true })).toBe("MILD · WBTB");
   });
 });
+
+describe("the bedtime routine's techniques have plain names (LDJ-214)", () => {
+  it("names intention and journaling in the night line and keeps a planned journaling in the check-in", () => {
+    expect(nightLine({ techniquesDone: ["intention", "journaling"] } as never)).toBe("Bedtime intention · Recall intention");
+    const r = checkInTechniques({ techniquesPlanned: ["journaling"] } as never, []);
+    expect(r.ids).toEqual(["journaling"]);
+  });
+});

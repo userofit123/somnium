@@ -11,7 +11,7 @@ import { api, ApiError } from "../../api/client";
 import { beginDraft, changeDream, deleteDream, draftBusy, endDraft, flagElement, linkElement, madeInDraft, teachAlias, liveDraft, openStored, saveError, saveNow, saveState, unlinkElement, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { localYmd, useFmt } from "../../core/format";
 import { confirm } from "../../core/ask";
-import { readJson, writeJson } from "../../core/prefs";
+import { readHardSeen, readSignsShown, rememberSignsShown, writeHardSeen } from "../../core/seenOnDevice";
 import { toastError } from "../../core/toast";
 import { saveSettings, useSettings } from "../../api/queries";
 import { loadSignLexicons, setElementFlags, signLexicons } from "../../api/signs";
@@ -44,6 +44,9 @@ const chosen = ref<string[]>([]);
 const made = ref<(Pick<Element, "id" | "name" | "kind" | "aliases"> & Partial<Pick<Element, "isDreamSign" | "signCategory">>)[]>([]);
 const ready = ref(false), loadError = ref(""), more = ref(false), nightOpen = ref(false), existed = ref(false);
 const textEl = ref<HTMLTextAreaElement | null>(null);
+// an unfinished dream's key words (the capture saves them comma-separated on one line), each offered as a prompt until
+// a line has been added for it; read from the decrypted draft here only, kept in memory
+const prompts = ref<string[]>([]);
 
 async function load() {
   let row: DreamFull | null = null;
@@ -67,6 +70,8 @@ async function load() {
   else if (night) Object.assign(where, { date: night.date, nap: night.nap, nightId: night.id });
   else where.nightId = nightOfDate(nights, where.date)?.id ?? uuidv7();
   if (!liveDraft(props.id)) beginDraft(draft ?? { dreamId: props.id, nightId: where.nightId, date: where.date, nap: where.nap, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
+  const t = String(f.text ?? "");
+  prompts.value = f.unfinished && t.trim() && !t.includes("\n") ? [...new Set(t.split(",").map((w) => w.trim()).filter(Boolean))].slice(0, 12) : [];
   await nextTick();
   ready.value = true;
   // a draft kept here that the server hasn't got yet goes now
@@ -105,15 +110,15 @@ function toggleChip(k: string) {
 // Marking sleep paralysis, a false awakening or a frightening dream brings a calm note under the marks (LDJ-158):
 // the first time, then at most once a month for each, and for the same dream again however often it is toggled.
 // Kept on this device: the kind, when, and the dream's id, nothing of what it says.
-const HARD_SEEN = "somniumHardNoteSeen", MONTH = 30 * 864e5;
+const MONTH = 30 * 864e5;
 const hardOffered = ref<HardKind[]>([]);
 function offerHardNote(k: HardKind) {
   if (!(k in HARD_NOTES) || hardOffered.value.includes(k)) return;
-  const seen = readJson<Record<string, { at: number; dream: string } | undefined>>(HARD_SEEN, {}) ?? {};
+  const seen = readHardSeen();
   const last = seen[k];
   if (last && last.dream !== props.id && Date.now() - last.at < MONTH) return;
   hardOffered.value.push(k);
-  writeJson(HARD_SEEN, { ...seen, [k]: { at: last?.dream === props.id ? last.at : Date.now(), dream: props.id } });
+  writeHardSeen({ ...seen, [k]: { at: last?.dream === props.id ? last.at : Date.now(), dream: props.id } });
 }
 const hardOn = (k: HardKind) => (k === "nightmare" ? upset.value : !!f[k]);
 const hardShown = computed(() => hardOffered.value.filter(hardOn));
@@ -206,6 +211,13 @@ function confirmSug(s: Suggestion) {
 /** Not this one, for this dream: kept with the dream (sealed), so it stays gone after a reload and on other devices. */
 function dismissSug(s: Suggestion) { f.dismissed = JSON.stringify([...dismissedKeys.value, s.key]); }
 
+/** A prompt tapped: a line for that key word under the text, the cursor after it, and the prompt is done. */
+function promptLine(w: string) {
+  const now = (f.text ?? "").trimEnd();
+  f.text = `${now}${now.includes("\n") ? "\n" : "\n\n"}${w}: `;
+  prompts.value = prompts.value.filter((x) => x !== w);
+  void nextTick(() => { const t = textEl.value; if (!t) return; t.focus({ preventScroll: true }); t.setSelectionRange(t.value.length, t.value.length); t.scrollTop = t.scrollHeight; });
+}
 // the checked text of a photographed page goes at the end of the dream, and is read for elements like typed text
 function addText(t: string) { const now = (f.text ?? "").trimEnd(); f.text = now ? `${now}\n\n${t}` : t; }
 
@@ -222,9 +234,7 @@ const night = computed(() => (j.nights.data.value ?? []).find((n) => n.id === wh
 const howLabel = computed(() => (f.becameLucidHow ? MILESTONE_HOW[f.becameLucidHow] ?? null : null));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 // the dreams "In this dream" was shown for, on this device: ids only, nothing of what they say; the newest few hundred
-const SHOWN = "somniumSignsShown";
-const signsShown = () => { const v = readJson<unknown>(SHOWN, []); return Array.isArray(v) ? (v as string[]) : []; };
-const rememberShown = (id: string) => writeJson(SHOWN, [...signsShown().filter((x) => x !== id), id].slice(-300));
+const signsShown = readSignsShown, rememberShown = rememberSignsShown;
 
 /** The milestone this dream reaches, recorded as seen at once so no other screen or device shows it again. */
 function findMilestone() {
@@ -335,6 +345,12 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <button class="qb jnight" @click="nightOpen = true"><Icon name="moon" :size="16" />{{ fmt.date(where.date, { weekday: "long", day: "numeric", month: "long" }) }}{{ where.nap ? " · Nap" : "" }}<span class="muted" aria-hidden="true">·</span><span class="muted">Night details</span></button>
       <input v-model="f.title" class="jtitle" placeholder="Title" maxlength="200" />
       <p v-if="f.unfinished" class="tiny muted" style="margin:0">Saved as key words this morning. Write it out while some of it is still there.</p>
+      <div v-if="prompts.length" class="jprompts" role="group" aria-label="Key words to write out">
+        <div class="tiny muted">Each key word: what happened there? Tap one to add a line for it.</div>
+        <div class="chips jopts">
+          <button v-for="w in prompts" :key="w" type="button" class="fchip" :aria-label="'Add a line for ' + w" @click="promptLine(w)"><Icon name="plus" :size="12" />{{ w }}</button>
+        </div>
+      </div>
       <textarea ref="textEl" v-model="f.text" class="jtext" placeholder="I am standing in a house I don't know. The light is strange..." />
       <div v-if="suggested.length" class="jfound" aria-label="Found in the text">
         <span v-for="s in suggested" :key="s.key" class="jsg">
@@ -447,6 +463,8 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
 .jtext { min-height: 180px; resize: vertical; font-size: var(--fs-lg); line-height: 1.55; }
 .jfull .jtext { min-height: 42vh; }
 .jchips { margin: 0; }
+.jprompts { display: flex; flex-direction: column; gap: var(--tdy); }
+.jprompts .fchip { gap: var(--tdy); }
 .jupset { color: var(--tx2); margin-top: calc(-1 * var(--tdy)); }
 /* suggestions: quiet, so they read as an offer and not as part of the dream */
 .jfound { display: flex; flex-wrap: wrap; gap: var(--tdy); margin-top: calc(-1 * var(--tdy)); }

@@ -288,7 +288,7 @@ export const TECHNIQUES: readonly { id: string; label: string }[] = [
   { id: "ssild", label: "SSILD" }, { id: "wild", label: "WILD" }, { id: "fild", label: "FILD" }, { id: "deild", label: "DEILD" },
   { id: "vild", label: "VILD" }, { id: "dream-signs", label: "Dream signs" }, { id: "incubation", label: "Incubation" },
   { id: "autosuggestion", label: "Autosuggestion" }, { id: "meditation", label: "Meditation" }, { id: "sound-cue", label: "Sound cue" },
-  { id: "re-entry", label: "Re-entry" }, { id: "ada", label: "All-day awareness" }, { id: "cat", label: "CAT" },
+  { id: "re-entry", label: "Re-entry" }, { id: "intention", label: "Bedtime intention" }, { id: "journaling", label: "Recall intention" }, { id: "ada", label: "All-day awareness" }, { id: "cat", label: "CAT" },
 ];
 
 const techLabel = (id: string) => TECHNIQUES.find((t) => t.id === id)?.label ?? id;
