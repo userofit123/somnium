@@ -7,7 +7,9 @@ import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useDayNotes, saveDayNote, waitingDayNote, waitingDayNotes, flushDayNotes } from "../../api/extras";
 import { toast, toastError } from "../../core/toast";
 
-const props = defineProps<{ today: string }>();
+// bare: inside the + sheet (shell/StartSheet.vue), which already gives the title and the surface
+const props = defineProps<{ today: string; bare?: boolean }>();
+const fid = props.bare ? "s-daynote" : "h-daynote";
 const notes = useDayNotes();
 const date = ref(props.today);
 const existing = computed(() => (notes.data.value ?? []).find((n) => n.date === date.value));
@@ -54,11 +56,12 @@ onBeforeUnmount(() => { if (dirty()) void save(); });
 </script>
 
 <template>
-  <section class="hextra" data-testid="daynote">
-    <div class="sh"><h2>Day note</h2><input v-model="date" type="date" :max="today" class="tiny" aria-label="Date of the note" /></div>
-    <div class="card">
-      <div class="fld"><label for="h-daynote">What happened {{ date === today ? "today" : "that day" }}</label>
-        <textarea id="h-daynote" v-model="text" rows="2" maxlength="1000" placeholder="A line is enough: people, places, things you did" @blur="save()" /></div>
+  <section :class="{ hextra: !bare }" data-testid="daynote">
+    <div class="sh"><h2 v-if="!bare">Day note</h2><input v-model="date" type="date" :max="today" class="tiny" aria-label="Date of the note" /></div>
+    <div :class="{ card: !bare }">
+      <!-- the + sheet can open over Home, which may show this card too: each field its own id -->
+      <div class="fld"><label :for="fid">What happened {{ date === today ? "today" : "that day" }}</label>
+        <textarea :id="fid" v-model="text" rows="2" maxlength="1000" placeholder="A line is enough: people, places, things you did" @blur="save()" /></div>
       <div class="tiny">{{ waiting ? "Kept sealed on this device. Sent when you're back online." : "Kept sealed like your dreams. Progress uses it to see what comes back in dreams days later." }}</div>
     </div>
   </section>

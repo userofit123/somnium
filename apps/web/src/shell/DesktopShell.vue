@@ -3,7 +3,7 @@
 import { ref, watch, nextTick, onMounted, onBeforeUnmount, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { NAV, section, TRAIN_TABS } from "./nav";
-import { appearanceOpen } from "../core/ui";
+import { appearanceOpen, startOpen } from "../core/ui";
 import Icon from "../components/Icon.vue";
 import Logo from "./Logo.vue";
 import SyncPill from "./SyncPill.vue";
@@ -71,6 +71,8 @@ const arrived = (el: Element) => el.classList?.add("in");
       </div>
     </nav>
     <main><router-view v-slot="{ Component, route: r }"><Suspense><Transition name="page" mode="out-in" appear @after-enter="arrived"><component :is="Component" :key="pageKey(r)" /></Transition></Suspense></router-view></main>
+    <!-- the + sheet (PLAN.md §6.0, Motus's .fab): not over a dream being written, whose panel has its own buttons there -->
+    <button v-if="route.name !== 'journal-write'" type="button" class="fab" aria-label="Add" title="Write a dream, log a check, plan tonight (N)" @click="startOpen = true"><Icon name="plus" /></button>
     <SyncPill />
   </div>
 </template>

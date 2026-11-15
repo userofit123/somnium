@@ -66,7 +66,6 @@ const searchNote = computed(() => {
 });
 
 const empty = computed(() => !groups.value.length);
-const fab = computed(() => isPhone.value && !mode.value && !empty.value);
 const todayLogged = computed(() => !!loggedOn(today.value));
 // Night details of any night, a no-recall one too (LDJ-99): opened from its row in the list or the calendar's day
 const nightOpen = ref<string | null>(null);
@@ -122,7 +121,7 @@ const menu = computed(() => [
 </script>
 
 <template>
-  <div class="page" :class="{ jfab: fab }">
+  <div class="page">
     <template v-if="isPhone && mode">
       <DreamEditor v-if="mode === 'write'" :id="id" :key="id" :date="date" :fresh="fresh" full @close="closeWrite" />
       <DreamView v-else :id="id" :key="'r' + id" back @edit="router.push({ name: 'journal-write', params: { id } })" @close="closeRead" />
@@ -178,9 +177,6 @@ const menu = computed(() => [
         </div>
       </aside>
     </div>
-    <!-- on the body, as in Motus's shell: inside the page, a transform from the page transition would make the page,
-         not the screen, what it is fixed to, and it would float over the list -->
-    <Teleport to="body"><button v-if="fab" class="fab" aria-label="Write a dream" @click="write()"><Icon name="plus" :size="26" /></button></Teleport>
 
     <NightSheet v-if="openNight" :key="openNight.id" :date="openNight.date" :nap="openNight.nap" :night-id="openNight.id" @close="nightOpen = null" />
 
@@ -215,6 +211,4 @@ const menu = computed(() => [
 .sh .row { gap: var(--hg); }
 .jg { gap: var(--hg); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
-/* the last row scrolls clear of the + button (58px tall, sitting above the tab bar) */
-.jfab { padding-bottom: calc(58px + var(--spg)); }
 </style>

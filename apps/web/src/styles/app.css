@@ -275,6 +275,11 @@ nav .navb .upd { color: var(--acc); }
 .logo svg { width: 26px; height: 26px; }
 main, .lmain { position: relative; }
 .fab.pos2 { bottom: 22px; }
+/* the floating + sits 22px from the edge and is 58px wide: keep that strip free so it never covers a card's right edge
+   (wider than 1480px the centred page leaves it room anyway). The shell already adds the safe-area insets. Above 1280px
+   both sides, so the page stays centred; narrower, the left strip would cost 96px of a small width, so only the right one. */
+@media (max-width: 1480px) { main { padding-right: 96px; } }
+@media (min-width: 1281px) and (max-width: 1480px) { main { padding-left: 96px; } }
 
 /* ---------- phone frame ---------- */
 html.phone { --tabh: 64px; }
@@ -287,8 +292,6 @@ html.phone { --tabh: 64px; }
 .pmain .ph .acts .btn.lg { min-height: 44px; padding: 10px 20px; font-size: 15px; }
 /* the bottom dock: the tab bar on one blurred background */
 .dock { position: fixed; left: 0; right: 0; bottom: 0; padding-inline: var(--sl) var(--sr); z-index: 50; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(16px) saturate(1.4); border-top: 1px solid var(--ol); }
-/* the add button stands clear of the phone tabs */
-html.phone .fab { bottom: calc(var(--tabh) + var(--sb) + 16px); }
 .tabbar { display: grid; grid-template-columns: repeat(6, 1fr); align-items: center; height: calc(var(--tabh) + var(--sb)); padding: 0 4px var(--sb); }
 .tabbar button { border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10.5px; color: var(--tx2); padding: 4px 0; min-width: 0; cursor: pointer; }
 .tabbar button .ic { width: 44px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }

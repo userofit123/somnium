@@ -6,6 +6,7 @@ import { section, TRAIN_TABS } from "./nav";
 import Icon from "../components/Icon.vue";
 import SyncPill from "./SyncPill.vue";
 import { sheetIsOpen } from "../core/sheets";
+import { startOpen } from "../core/ui";
 import { useAutoUpdate } from "../core/updater";
 import { useNeedsRecoveryKey } from "../core/recoveryNudge";
 // the apps check for (and, if chosen, download) updates on their own while someone is signed in
@@ -13,7 +14,8 @@ useAutoUpdate();
 
 const route = useRoute(), router = useRouter();
 const cur = computed(() => section(route.name as string));
-// the centre + is an action, not a page (Motus's Start tab)
+// the centre + is an action, not a page (Motus's Start tab): the + sheet (StartSheet.vue, PLAN.md §6.0), shared with
+// the desktop's + button
 const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
   { name: "home", label: "Home", icon: "home", to: "/" },
   { name: "journal", label: "Journal", icon: "book", to: "/journal" },
@@ -22,10 +24,6 @@ const TABS: { name: string; label?: string; icon?: string; to?: string }[] = [
   { name: "progress", label: "Progress", icon: "stats", to: "/progress" },
   { name: "more", label: "More", icon: "moreH", to: "/more" },
 ];
-// the + starts the morning capture for now (LDJ-80: still, then key words, then the editor). LDJ-92 turns it into the
-// quick-add sheet (Write a dream, No recall, Log a reality check, Plan tonight, Day note; PLAN.md §6.0) shared with
-// the desktop's + button: open that sheet here instead, its "Write a dream" going to the capture (name "capture")
-const add = () => router.push({ name: "capture" });
 // the pages listed on the More tab
 const IN_MORE = ["more", "signs", "learn", "settings"];
 // Settings is under More here: the dot for a missing recovery key goes on More (LDJ-151)
@@ -72,7 +70,7 @@ function te(e: TouchEvent) {
     <div class="dock">
       <div class="tabbar">
         <template v-for="t in TABS" :key="t.name">
-          <button v-if="t.name === 'add'" type="button" aria-label="Write a dream" @click="add"><span class="start"><Icon name="plus" /></span></button>
+          <button v-if="t.name === 'add'" type="button" aria-label="Add" @click="startOpen = true"><span class="start"><Icon name="plus" /></span></button>
           <button v-else type="button" :class="{ on: t.name === 'more' ? moreOn : cur === t.name }" :aria-current="(t.name === 'more' ? moreOn : cur === t.name) ? 'page' : undefined" @click="router.push(t.to!)"><span class="ic"><Icon :name="t.icon!" :size="22" /><i v-if="t.name === 'more' && needsKey" class="ndot" role="img" aria-label="Make your recovery key" /></span>{{ t.label }}</button>
         </template>
       </div>
