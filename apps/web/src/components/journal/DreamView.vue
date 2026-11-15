@@ -247,19 +247,19 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
 
     <Sheet v-if="shareAsk" title="Share this dream as text?" @close="shareAsk = false">
       <p class="jtx">This sends the dream's title and text outside Somnium, to the app you pick next (or onto your clipboard if this device has no share sheet). Once it leaves, Somnium can't take it back.</p>
-      <div class="jpick"><button class="btn" data-testid="share-go" @click="shareNow">Share</button><button class="btn o" @click="shareAsk = false">Cancel</button></div>
+      <template #foot><button class="btn o" @click="shareAsk = false">Cancel</button><button class="btn" data-testid="share-go" @click="shareNow">Share</button></template>
     </Sheet>
     <Sheet v-if="mdl?.kind === 'summary'" title="Summary from my model" @close="mdl = null">
       <p class="jtx">{{ mdl.summary }}</p>
       <p class="tiny jmut">Written by the model you run, not checked by Somnium. Keeping it saves it, sealed, in this night's notes.</p>
-      <div class="jpick"><button class="btn" :disabled="busy || !night" @click="keepSummary">Keep as a note</button><button class="btn o" @click="mdl = null">Discard</button></div>
+      <template #foot><button class="btn o" @click="mdl = null">Discard</button><button class="btn" :disabled="busy || !night" @click="keepSummary">Keep as a note</button></template>
     </Sheet>
     <Sheet v-if="mdl?.kind === 'elements'" title="Elements from my model" @close="mdl = null">
       <p v-if="!modelSugs.length" class="tiny jmut">Nothing new was suggested.</p>
       <p v-else class="tiny jmut">Suggestions, not yet in your dream. Add the ones that fit.</p>
       <div class="list">
         <div v-for="s in modelSugs" :key="s.key" class="li jrel"><div class="grow"><div class="t">{{ s.name }}</div><div class="s">{{ ELEMENT_KIND_LABEL[s.kind] }}</div></div>
-          <button class="btn s" :disabled="busy" @click="addModelSug(s)">Add</button></div>
+          <button class="btn tonal s" :disabled="busy" @click="addModelSug(s)">Add</button></div>
       </div>
     </Sheet>
     <Sheet v-if="signOpen" title="Dream signs" @close="signOpen = false">

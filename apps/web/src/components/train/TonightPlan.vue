@@ -103,7 +103,7 @@ const use = useChange(async (i: TonightIdea) => {
         <p class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.reason)" @cite="cite = $event" /></p>
         <p v-if="suggestion.noWbtb" class="tiny tpwhy"><LearnInline :nodes="parseInline(suggestion.noWbtb)" @cite="cite = $event" /></p>
         <div class="tprow">
-          <button type="button" class="btn s" :disabled="use.busy.value" @click="use.run(suggestion)">Use this plan</button>
+          <button type="button" class="btn s" :class="{ tonal: compact }" :disabled="use.busy.value" @click="use.run(suggestion)">Use this plan</button>
           <button type="button" class="qb acc" @click="picking = true">Change</button>
         </div>
         <template v-if="suggestion.alt">

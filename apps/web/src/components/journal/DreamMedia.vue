@@ -160,7 +160,7 @@ onBeforeUnmount(() => {
       <span class="jdot" aria-hidden="true" />
       <div class="grow">Recording {{ clock(rec.secs) }} <span class="tiny jmut">· stops at {{ clock(VOICE_MAX_SECONDS) }}</span></div>
       <button class="qb" @click="drop">Cancel</button>
-      <button class="btn s" @click="stop">Stop</button>
+      <button class="btn tonal s" @click="stop">Stop</button>
     </div>
 
     <div v-if="pictures.length" class="jthumbs">
@@ -193,10 +193,10 @@ onBeforeUnmount(() => {
         <p class="tiny jmut">Check the text and fix what was misread. It is added to the end of the dream.</p>
         <textarea v-model="ocr.text" class="jocrt" aria-label="Text read from the photo" />
       </template>
-      <div class="jocrf">
+      <template #foot>
         <button class="btn o" @click="ocr = null">Cancel</button>
         <button class="btn" :disabled="!ocr.done || !ocr.text.trim() || !!busy" @click="useOcr">Use this text</button>
-      </div>
+      </template>
     </Sheet>
 
     <Sheet v-if="viewing" :title="viewing.kind === 'sketch' ? 'Sketch' : 'Photo'" size="wide" @close="viewing = null">

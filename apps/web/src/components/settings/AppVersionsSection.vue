@@ -78,13 +78,13 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
     <div v-if="suggest === 'android'" class="card">
       <div class="li"><div class="grow"><div class="t">Get the Android app</div>
         <div class="s">It can keep your data on the phone alone, without a server, and works without a connection. Reminders ring on time even with the app closed, the app opens with your fingerprint or screen lock, backups go to Documents/Somnium on the phone, and it updates itself.</div></div>
-        <a v-if="mine" class="btn s" :href="mine.url" target="_blank" rel="noopener">{{ DOWNLOAD_LABEL.android }}</a>
-        <a v-else class="btn s" :href="RELEASES_URL" target="_blank" rel="noopener">See releases</a></div>
+        <a v-if="mine" class="btn tonal s" :href="mine.url" target="_blank" rel="noopener">{{ DOWNLOAD_LABEL.android }}</a>
+        <a v-else class="btn tonal s" :href="RELEASES_URL" target="_blank" rel="noopener">See releases</a></div>
     </div>
     <div v-else-if="suggest === 'desktop' && mine" class="card">
       <div class="li"><div class="grow"><div class="t">Get the desktop app</div>
         <div class="s">Somnium in its own window. It can keep your data on this computer alone, without a server, works without a connection and updates itself.</div></div>
-        <a class="btn s" :href="mine.url" target="_blank" rel="noopener">{{ DOWNLOAD_LABEL[mine.key] }}</a></div>
+        <a class="btn tonal s" :href="mine.url" target="_blank" rel="noopener">{{ DOWNLOAD_LABEL[mine.key] }}</a></div>
     </div>
     <div v-if="others.length || showServer" class="card">
       <div class="lbl hgap">Other devices</div>

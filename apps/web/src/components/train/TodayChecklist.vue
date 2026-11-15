@@ -13,7 +13,7 @@ import { useFmt } from "../../core/format";
 import { useHabits } from "./useHabits";
 import ProgressBar from "../ProgressBar.vue";
 
-const props = defineProps<{ lesson: { id: string; title: string; items: { id: string; text: string }[] } | null; primary?: boolean; home?: boolean }>();
+const props = defineProps<{ lesson: { id: string; title: string; items: { id: string; text: string }[] } | null; home?: boolean }>();
 const h = useHabits(), router = useRouter(), fmt = useFmt();
 const tickToday = (id: string, on = true) => tickPractice(id, h.today.value, on, h.rowOf(id)).catch(toastError);
 
@@ -85,7 +85,7 @@ const sent = new Set<string>();
             <div class="tiny"><span class="num">{{ checks.done }} of {{ checks.target }}</span><template v-if="h.remindersOn.value && next"> · next reminder {{ fmt.time(new Date(next).toISOString()) }}</template><template v-else-if="!h.remindersOn.value"> · reminders off</template></div>
           </div>
           <!-- one tap opens /check, which returns here when done -->
-          <button type="button" class="btn s" :class="{ o: !primary }" @click="router.push('/check')">Log a check</button>
+          <button type="button" class="btn o s" @click="router.push('/check')">Log a check</button>
         </div>
         <ProgressBar :percent="checks.pct" label="Reality checks done today" />
       </div>
