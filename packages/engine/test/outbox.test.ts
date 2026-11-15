@@ -98,4 +98,26 @@ describe("a create sent again", () => {
     const rows = ((await handle(A, "GET", "/practice", undefined)).body as any[]).filter((r) => r.date === "2026-04-01");
     expect(rows.length).toBe(1);
   });
+  // apps/web/src/api/train.ts changeNight: tonight's plan made with no connection is a night create with the id
+  // ensureNight asked for, then the plan; the create may already have reached the server before the connection went
+  it("tonight's plan queued offline lands on one night, also when its create reached the server first", async () => {
+    let up = false;
+    const { o } = box(async (m, p, b) => {
+      if (!up) throw offline;
+      const r = await handle(A, m.toUpperCase().replace("DEL", "DELETE"), p, b);
+      if (r.status !== 200) throw Object.assign(new Error(String(r.status)), { status: r.status });
+      return r.body;
+    });
+    const id = uuidv7(), date = "2026-04-02";
+    expect((await handle(A, "POST", "/nights", { id, date, nap: false })).status).toBe(200); // ensureNight's own create
+    expect(await o.send("post", "/nights", { id, date, nap: false })).toBeNull();
+    expect(await o.send("put", `/nights/${id}`, { techniquesPlanned: ["mild", "wbtb"], wbtbWakeAt: "2026-04-02T03:30:00.000Z", wbtbMode: "short" })).toBeNull();
+    up = true;
+    // the second send started a flush of its own (that failed offline): wait for it, as api/outbox.ts settle() does
+    while (o.flushing) await new Promise((ok) => setTimeout(ok, 10));
+    await o.flush();
+    expect(o.list).toEqual([]);
+    const nights = ((await handle(A, "GET", "/nights", undefined)).body as any[]).filter((n) => n.date === date);
+    expect(nights.map((n) => [n.id, n.techniquesPlanned, n.wbtbMode])).toEqual([[id, ["mild", "wbtb"], "short"]]);
+  });
 });
