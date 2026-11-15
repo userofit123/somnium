@@ -41,7 +41,7 @@ async function back() {
     done.value = true;
   } catch (e) { toastError(e); } finally { busy.value = false; }
 }
-const writeDream = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", date } });
+const writeDream = () => router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", date, then: "up" } });
 </script>
 
 <template>

@@ -10,7 +10,8 @@ const TrainPage = () => import("./pages/TrainPage.vue");
 function captureFirst(to: RouteLocationNormalized) {
   const q = to.query, today = localYmd(new Date());
   if (q.new !== "1" || q.date !== today) return true;
-  return { name: "capture", query: { date: today, id: String(to.params.id), new: "1" } };
+  // then=up (the WBTB guide's "Write down the last dream") goes along, so the capture hands back to the guide
+  return { name: "capture", query: { date: today, id: String(to.params.id), new: "1", ...(q.then === "up" ? { then: "up" } : {}) } };
 }
 // links from before Train's sub-screens had addresses: reminders, bookmarks, recommendations already shown. Run from
 // router.beforeEach, not the route's beforeEnter: vue-router skips beforeEnter when only the query changes, so a reminder

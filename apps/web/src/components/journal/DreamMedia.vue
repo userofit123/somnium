@@ -17,7 +17,8 @@ import Sheet from "../Sheet.vue";
 import SketchPad from "./SketchPad.vue";
 
 const props = defineProps<{ dreamId: string; edit?: boolean; voice?: boolean }>();
-const emit = defineEmits<{ text: [string] }>();
+// upload: a file is about to go up (the morning capture makes its dream first, LDJ-80)
+const emit = defineEmits<{ text: [string]; upload: [] }>();
 const settings = useSettings();
 const on = computed(() => { const m = mediaFeatures(settings.value.features); return props.voice ? { ...m, photos: false, sketches: false, any: m.voice } : m; });
 const list = useDreamMedia(() => props.dreamId, () => on.value.any);
@@ -33,6 +34,7 @@ watch(items, (ms) => { for (const m of ms) if (!src[m.id]) mediaObjectUrl(m.id).
 const busy = ref("");
 /** Up it goes; a dream written a moment ago may not have reached the server yet, so a few short waits for it. */
 async function upload(file: Blob, extra?: { kind?: "sketch"; duration?: number }) {
+  emit("upload");
   saveNow(props.dreamId);
   for (let i = 0; ; i++) {
     try { return await addMedia(props.dreamId, file, extra); }

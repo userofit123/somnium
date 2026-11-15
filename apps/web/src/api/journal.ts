@@ -97,6 +97,9 @@ export async function ensureNight(date: string, nap: boolean, wantedId: string):
  * the outbox (nothing sealed).
  */
 export async function markNoRecall(date: string) {
+  // a dream of that night kept only on this device (sealed, waiting for the server) counts too: offline the night
+  // would otherwise go up as "no recall" and the dream after it
+  if (await draftOnNight(date)) throw new Error("A dream of that night is still waiting to be sent");
   // never on a night that holds dreams: whatever asked (a button, a reminder's address), the dreams say otherwise
   const known = await api.get<NightRow[]>("/nights", { from: date, to: date }).catch((e) => { if (!isWaitable(e) || onDevice()) throw e; return null; });
   if ((nightOfDate(known ?? [], date)?.dreamCount ?? 0) > 0) throw new Error("That night already has dreams");
@@ -308,6 +311,27 @@ export async function deleteDream(dreamId: string) {
   dropStored(dreamId, Number.MAX_SAFE_INTEGER);
   await api.del(`/dreams/${dreamId}`).catch((e) => { if (status(e) !== 404) throw e; });
   invalidate(["journal", "home"]);
+}
+
+/**
+ * Drops a draft that never left this device (nothing of it sent from this tab, nothing on its way) and says so; a
+ * draft that may be on the server is left alone (false), for deleteDream.
+ */
+export function dropLocalDraft(dreamId: string): boolean {
+  if (sentUpTo.has(dreamId) || pushing.has(dreamId)) return false;
+  drafts.delete(dreamId); clearTimeout(pushTimers.get(dreamId)); pushTimers.delete(dreamId);
+  dropStored(dreamId, Number.MAX_SAFE_INTEGER);
+  delete saveState[dreamId]; delete saveError[dreamId];
+  return true;
+}
+
+/** Whether a dream of that night (not a nap) waits sealed on this device for the server. */
+async function draftOnNight(date: string) {
+  for (const id of Object.keys(readStore())) {
+    const d = drafts.get(id) ?? (await openStored(id));
+    if (d && d.date === date && !d.nap) return true;
+  }
+  return false;
 }
 
 /** Finished with a draft in this tab (the editor closed and everything was sent). */

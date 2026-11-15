@@ -9,8 +9,9 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { useRoute, useRouter } from "vue-router";
 import { nightOfDate } from "@somnium/shared";
 import { api, ApiError } from "../../api/client";
-import { beginDraft, changeDream, deleteDream, endDraft, liveDraft, markNoRecall, openStored, saveError, saveNow, saveState, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
+import { beginDraft, changeDream, deleteDream, dropLocalDraft, endDraft, liveDraft, markNoRecall, openStored, saveError, saveNow, saveState, useJournal, uuidv7, type DreamFull, type NightRow } from "../../api/journal";
 import { useSettings } from "../../api/queries";
+import { useDreamMedia, type MediaRow } from "../../api/media";
 import { localYmd } from "../../core/format";
 import { goBack } from "../../core/leave";
 import { vTrap } from "../../core/focusTrap";
@@ -27,7 +28,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const date = typeof route.query.date === "string" && DATE.test(route.query.date) ? route.query.date : localYmd(new Date());
 // the id goes into the address at once, so coming back after the lock (or a reload) takes up the same dream
 const id = typeof route.query.id === "string" && route.query.id ? route.query.id : uuidv7();
-if (route.query.id !== id) void router.replace({ query: { ...route.query, date, id } });
+// one opened without an id (the WBTB alarm's /capture?date=..&then=up) is new too: new=1 keeps a reload before the
+// first word (offline: nothing on the server to look at) in the capture
+if (route.query.id !== id) void router.replace({ query: { ...route.query, date, id, ...(route.query.id ? {} : { new: "1" }) } });
 // a capture just opened for a new dream (captureFirst): nothing on the server can be written over, so a failed look
 // there means nothing; the mark goes from the address as soon as there is something saved
 const fresh = route.query.new === "1" || !route.query.id;
@@ -50,6 +53,15 @@ let stillTimer: ReturnType<typeof setTimeout> | null = null;
 const voiceOn = computed(() => !!settings.value.features.voiceNotes);
 const text = () => [...words.value, typed.value.trim()].filter(Boolean).join(", ");
 const empty = computed(() => !words.value.length && !typed.value.trim() && !marks.lucid && !marks.nightmare && !marks.feeling);
+// a voice note (or any file) on the dream is content as much as words: a dream holding one is never removed from here.
+// The list is shared with DreamMedia's (it reloads after an upload); leaving checks the server again (holdsMedia)
+const media = useDreamMedia(() => id, () => ready.value);
+const blank = computed(() => empty.value && !media.data.value?.length);
+/** Whether the dream has files on the server; when that can't be known (offline), it may have. */
+async function holdsMedia() {
+  if (media.data.value?.length) return true;
+  try { return (await api.get<MediaRow[]>("/media", { dreamId: id })).length > 0; } catch (e) { return !(e instanceof ApiError && e.status === 404); }
+}
 // "Just a feeling" is the lowest step of recall clarity ("Only a fragment"); Lucid takes the lowest lucid level, as
 // in the editor; a nightmare clears a bad dream on the server (one or the other, C18)
 const fields = (unfinished: boolean, t = text()) => ({
@@ -79,8 +91,9 @@ function toEditor() { void router.replace({ name: "journal-write", params: { id 
 let started = false;
 // the dream is (or may be) on the server: leaving it empty, or No recall, takes it away again
 let made = false;
-// a voice note may hang on the dream even with no words: it is never removed for being empty
-let voiced = false;
+// taken up from the server or from this device's storage: some of it may be on the server already, so emptied it is
+// deleted there; one only ever made here (dropLocalDraft knows whether any of it was sent) just loses its draft
+let earlier = false;
 async function open(): Promise<boolean> {
   const live = liveDraft(id), stored = live ? null : await openStored(id), draft = live ?? stored;
   if (draft) {
@@ -88,7 +101,7 @@ async function open(): Promise<boolean> {
     const d = draft.dream as Record<string, unknown>;
     if (!captureShaped(d)) { toEditor(); return false; }
     takeUp(d);
-    made = started;
+    made = started; earlier = true;
     if (!live) beginDraft(draft);
     if (stored && started) changeDream(id, fields(true));
   } else {
@@ -99,7 +112,7 @@ async function open(): Promise<boolean> {
     if (row && (!captureShaped(row as unknown as Record<string, unknown>) || row.elements.length)) { toEditor(); return false; }
     const nights: NightRow[] = j.nights.data.value ?? (await api.get<NightRow[]>("/nights").catch(() => []));
     const night = row ? nights.find((n) => n.id === row!.nightId) : null;
-    if (row) { takeUp(row as unknown as Record<string, unknown>); made = true; }
+    if (row) { takeUp(row as unknown as Record<string, unknown>); made = earlier = true; }
     beginDraft({ dreamId: id, nightId: row?.nightId ?? nightOfDate(nights, date)?.id ?? uuidv7(), date: night?.date ?? date, nap: night?.nap ?? false, dream: {}, night: {}, link: [], unlink: [], newElements: [], savedAt: row?.updatedAt ? Date.parse(row.updatedAt) : 0 });
   }
   ready.value = true;
@@ -114,8 +127,15 @@ function save() {
   changeDream(id, fields(true));
 }
 watch([words, typed, marks], save, { deep: true });
-// a voice note needs the dream on the server first: tapping it saves what is here now (DreamMedia waits for it)
-function beforeVoice() { if (!ready.value) return; started = made = voiced = true; changeDream(id, fields(true)); }
+// a voice note needs the dream on the server first: a recording about to go up saves what is here now (DreamMedia
+// waits for it); playing, cancelling or a recording that fails leaves nothing made beyond that (see leave)
+function beforeUpload() { if (!ready.value) return; started = made = true; changeDream(id, fields(true)); }
+/** Takes away the dream made here and emptied again: just the draft when none of it left this device. */
+async function unmake() {
+  started = false;
+  if (!earlier && dropLocalDraft(id)) { made = false; return; }
+  await deleteDream(id); made = false;
+}
 
 // ----- the still moment -----
 function toWords() {
@@ -145,11 +165,10 @@ const state = computed(() => saveState[id]);
 const stateText = computed(() => ({ saving: "Saving", saved: "Saved", waiting: "Kept on this device", error: saveError[id] ?? "Couldn't save" } as Record<string, string>)[state.value ?? ""] ?? "");
 function go() { if (afterUp) void router.replace("/train/guided/up"); else goBack(router, "/"); }
 async function leave() {
-  if (empty.value && !voiced) {
+  if (empty.value && !(made && (await holdsMedia()))) {
     // nothing entered: nothing is kept, and a dream already made from words since taken off goes again (if that
-    // fails, offline, the last words saved stay: better than an empty dream)
-    started = false;
-    if (made) await deleteDream(id).catch(() => undefined); else endDraft(id);
+    // fails, offline, the last words saved stay: better than an empty dream). One holding a voice note stays.
+    if (made) await unmake().catch(() => undefined); else { started = false; endDraft(id); }
   } else { saveNow(id); endDraft(id); }
   go();
 }
@@ -169,7 +188,9 @@ async function noRecall() {
   busy.value = true; err.value = "";
   try {
     // a dream made here before the words were taken off goes first, or it would be a night with a dream and no recall
-    if (made) { started = false; await deleteDream(id); made = false; } else endDraft(id);
+    // (never one holding a voice note: that is a dream remembered)
+    if (made && (await holdsMedia())) throw new Error("This dream has a voice note. Remove it first, or keep the dream.");
+    if (made) await unmake(); else endDraft(id);
     await markNoRecall(date);
     go();
   } catch (e) {
@@ -220,13 +241,13 @@ onBeforeUnmount(() => { if (stillTimer) clearTimeout(stillTimer); if (started) s
         <button type="button" class="gchip" :class="{ on: marks.lucid }" :aria-pressed="marks.lucid" @click="toggle('lucid')"><b>Lucid</b></button>
         <button type="button" class="gchip" :class="{ on: marks.nightmare }" :aria-pressed="marks.nightmare" @click="toggle('nightmare')"><b>Nightmare</b></button>
         <button type="button" class="gchip" :class="{ on: marks.feeling }" :aria-pressed="marks.feeling" @click="toggle('feeling')"><b>Just a feeling</b></button>
-        <button v-if="empty && !otherDreams" type="button" class="gchip" :disabled="busy" @click="noRecall"><b>No recall</b></button>
+        <button v-if="blank && !otherDreams" type="button" class="gchip" :disabled="busy" @click="noRecall"><b>No recall</b></button>
       </div>
       <p v-if="err" class="gev" role="alert">{{ err }}</p>
-      <div v-if="voiceOn && ready" class="gbox" @click.capture="beforeVoice"><DreamMedia :dream-id="id" edit voice /></div>
+      <div v-if="voiceOn && ready" class="gbox"><DreamMedia :dream-id="id" edit voice @upload="beforeUpload" /></div>
       <span class="grow" />
       <button type="button" class="btn lg block" @click="writeOut">Write it out</button>
-      <button type="button" class="glink" @click="later">{{ empty ? "Not now" : "Later" }}</button>
+      <button type="button" class="glink" @click="later">{{ blank ? "Not now" : "Later" }}</button>
     </div>
 
     <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
