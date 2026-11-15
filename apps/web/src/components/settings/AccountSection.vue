@@ -16,6 +16,7 @@ import { prompt } from "../../core/ask";
 import { toast, toastError, savedToast, savedError } from "../../core/toast";
 import { useFmt, ago } from "../../core/format";
 import Icon from "../Icon.vue";
+import QueryState from "../QueryState.vue";
 
 const router = useRouter();
 const me = useMe();
@@ -74,7 +75,8 @@ async function deleteAccount() {
   <template v-if="localAccount === false">
     <div class="sh"><h2>Signed-in devices</h2><button v-if="others" class="lnk" @click="endOthers">Sign out the others</button></div>
     <p class="tiny hgap">{{ !sessions.data.value ? "" : others ? `This account is also signed in on ${others} other device${others === 1 ? "" : "s"}. Sign out any you don't know.` : "This account isn't signed in anywhere else." }}</p>
-    <div class="card flush">
+    <QueryState v-if="sessions.isLoading.value || sessions.isError.value" :q="sessions" what="your devices" sm />
+    <div v-else class="card flush">
       <div v-for="x in devices" :key="x.id" class="li"><Icon :name="icon(x)" :size="18" class="muted" />
         <div class="grow"><div class="t">{{ x.deviceName || x.platform }}</div>
           <div class="s">{{ (x.current ? "This device · active now" : `Last active ${ago(x.lastSeenAt)} · signed in ${fmt.date(x.createdAt, { day: "numeric", month: "short", year: "numeric" })}`) + (x.holdsKey ? " · holds your key" : "") }}</div></div>

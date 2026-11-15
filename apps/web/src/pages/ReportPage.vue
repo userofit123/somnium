@@ -12,6 +12,7 @@ import { useFmt } from "../core/format";
 import AppSelect from "../components/AppSelect.vue";
 import Menu from "../components/Menu.vue";
 import Icon from "../components/Icon.vue";
+import QueryState from "../components/QueryState.vue";
 import { goBack, backLabel } from "../core/leave";
 
 const j = useJournal();
@@ -22,6 +23,12 @@ const router = useRouter();
 const back = backLabel(router, "Progress");
 watch(() => !settings.value.features.reports, (off) => { if (off) void router.replace("/progress"); }, { immediate: true });
 await loaded(j.nights, j.dreams, j.elements, j.links);
+// The page waits for data in <Suspense>, so only a failed load shows here; the report would otherwise read as an empty period
+const failed = {
+  isLoading: computed(() => false),
+  isError: computed(() => [j.nights, j.dreams, j.elements, j.links].some((q) => q.isError.value)),
+  refetch: () => { for (const q of [j.nights, j.dreams, j.elements, j.links]) void q.refetch(); },
+};
 const today = useToday();
 const fmt = useFmt();
 const nights = computed(() => (j.nights.data.value ?? []) as NightRow[]);
@@ -53,7 +60,8 @@ const pct = (x: number | null) => (x == null ? "-" : Math.round(x * 100) + "%");
         <Menu :items="menu" />
       </div></div>
 
-    <article class="rep-sheet" data-testid="report">
+    <QueryState v-if="failed.isError.value" :q="failed" what="your report" />
+    <article v-else class="rep-sheet" data-testid="report">
       <h2 class="ttl">{{ title }}</h2>
       <div v-if="!s.nightsLogged && !s.dreams" class="card empty"><Icon name="stats" :size="34" /><b>Nothing logged in this {{ mode }}</b>Each night you log, with a dream or with No recall, is counted here.<br /><button class="btn tonal noprint" type="button" @click="write">Write a dream</button></div>
       <template v-else>

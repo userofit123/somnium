@@ -526,7 +526,6 @@ html.phone[data-den="compact"] { --lmh: 44px; }
 .scr.top { align-items: flex-start; padding-top: 12vh; }
 .qb.mid { margin: var(--hg) auto 0; display: flex; }
 .apr.flush { margin-top: 0; }
-.card.loading { opacity: .4; min-height: 120px; }
 .grid.set-g { grid-template-columns: 220px minmax(0, 1fr); align-items: start; }
 .ring { transform: rotate(-90deg); }
 .ring circle { transition: stroke-dashoffset .5s; }
