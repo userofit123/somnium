@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import { nextTick, ref, watch } from "vue";
+import { nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { asking } from "../core/ask";
 import Sheet from "./Sheet.vue";
+import { holdOverlay } from "../core/sheets";
 
+// a dialog counts as open for shortcuts even when it keeps out of the Back stack (noHistory)
+let release = () => {};
+watch(() => !!asking.cur, (on) => { release(); release = on ? holdOverlay() : () => {}; });
+onBeforeUnmount(() => release());
 const inp = ref<HTMLInputElement | null>(null);
 watch(() => asking.cur, async (c) => { if (c?.input) { await nextTick(); inp.value?.focus(); inp.value?.select(); } });
 function done(v: unknown) { const c = asking.cur; asking.cur = null; c?.resolve(v); }

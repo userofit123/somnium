@@ -10,7 +10,7 @@ import { toast } from "../core/toast";
 import CommandPalette from "./CommandPalette.vue";
 import StartSheet from "./StartSheet.vue";
 import { startOpen } from "../core/ui";
-import { sheetIsOpen } from "../core/sheets";
+import { overlayIsOpen } from "../core/sheets";
 
 // automatic backups (Settings → Backup): checked when the journal opens and every hour; where the browser can't save
 // files on its own, a due backup is offered as a download once per visit
@@ -22,10 +22,10 @@ watch(() => !!settings.value.features?.soundCue, (on, was) => {
 });
 startAutoBackups(() => settings.value?.backup ?? null, (run) => toast("A backup is due", { action: { label: "Download", run }, ms: 12000 }));
 
-// N opens the + sheet from anywhere on a computer (Motus); not while typing, over another sheet or in the morning capture
+// N opens the + sheet from anywhere on a computer (Motus); not while typing, over a sheet, dialog or menu, or while a dream is being written or captured
 const route = useRoute();
 const key = (e: KeyboardEvent) => {
-  if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey || route.name === "capture" || sheetIsOpen()) return;
+  if (e.key !== "n" || e.metaKey || e.ctrlKey || e.altKey || route.name === "capture" || route.name === "journal-write" || overlayIsOpen()) return;
   if ((e.target as HTMLElement).closest?.("input,textarea,select,[contenteditable]")) return;
   startOpen.value = true;
 };

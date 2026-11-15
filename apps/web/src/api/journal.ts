@@ -39,11 +39,14 @@ export { uuidv7 };
 /** Whether the journal being read is the one on this device (the copy or a local account), not the server's. */
 export const onDevice = () => !usingHttp() || isLocalDevice();
 
+/** The journal's list of nights (every night, all=1), shared by the Journal and the + sheet so both read one query. */
+export const useNights = () => useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights", { all: 1 }) });
+
 // every list is filed under "journal", so a change to nights, dreams or elements refreshes it live (shared live.ts)
 export function useJournal() {
   return {
     // every night (all=1): the counts and rates must never stop at an older night
-    nights: useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights", { all: 1 }) }),
+    nights: useNights(),
     dreams: useQuery({ queryKey: ["journal", "dreams"], queryFn: () => api.get<DreamRow[]>("/dreams", { limit: DREAM_LIMIT }) }),
     elements: useQuery({ queryKey: ["journal", "elements"], queryFn: () => api.get<Element[]>("/elements") }),
     links: useQuery({ queryKey: ["journal", "links"], queryFn: () => api.get<DreamElement[]>("/dream-elements") }),

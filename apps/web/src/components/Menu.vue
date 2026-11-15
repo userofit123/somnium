@@ -3,6 +3,7 @@
 import { ref, nextTick, onBeforeUnmount } from "vue";
 import { lockScroll } from "../core/scrollLock";
 import { isPhone, safeArea } from "../core/device";
+import { holdOverlay } from "../core/sheets";
 import Icon from "./Icon.vue";
 
 // checked: the one chosen among options (a set's type, a side), marked with a tick at the end so every item keeps its own icon
@@ -13,10 +14,11 @@ const props = defineProps<{ items: MenuItem[]; icon?: string; label?: string; al
 const open = ref(false), pos = ref({ top: 0, left: 0 }), btn = ref<HTMLElement | null>(null), el = ref<HTMLElement | null>(null);
 // on the phone the menu is a bottom sheet over a scrim, so the page stays still behind it; on a computer it is a small popover with
 // no scrim, and locking would shift fixed elements (the add button, bottom bars) by the scrollbar width on every open
-let unlock = () => {};
+let unlock = () => {}, release = () => {};
 async function toggle() {
   open.value = !open.value;
-  if (!open.value) { unlock(); unlock = () => {}; return; }
+  if (!open.value) { unlock(); unlock = () => {}; release(); return; }
+  release = holdOverlay();
   if (isPhone.value) unlock = lockScroll();
   const b = btn.value!.getBoundingClientRect();
   pos.value = { top: b.bottom + 6, left: b.right };
@@ -28,7 +30,7 @@ async function toggle() {
   setTimeout(() => addEventListener("click", away, true));
 }
 const away = (e: Event) => { if (!el.value?.contains(e.target as Node)) { e.stopPropagation(); close(); } };
-const close = () => { open.value = false; unlock(); unlock = () => {}; removeEventListener("click", away, true); };
+const close = () => { open.value = false; unlock(); unlock = () => {}; release(); removeEventListener("click", away, true); };
 const pick = (i: MenuItem) => { close(); i.run(); };
 onBeforeUnmount(close);
 </script>

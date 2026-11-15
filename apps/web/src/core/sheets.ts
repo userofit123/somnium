@@ -5,6 +5,16 @@
 const stack: { id: number; close: () => void }[] = [];
 let n = 0, popped = false;
 export const sheetIsOpen = () => stack.length > 0;
+// Overlays that must not join the Back stack (a menu, a confirm that opts out of history) but still count as "something
+// is open" for keyboard shortcuts such as N. Kept apart from the stack so Back and swipes behave as before.
+let held = 0;
+export const overlayIsOpen = () => stack.length > 0 || held > 0;
+/** Mark an overlay open; call the returned function once when it closes */
+export function holdOverlay() {
+  held++;
+  let done = false;
+  return () => { if (!done) { done = true; held--; } };
+}
 
 export function sheetOpened(close: () => void) {
   const id = ++n;

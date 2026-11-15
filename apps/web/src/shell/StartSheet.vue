@@ -4,11 +4,9 @@
 // the reality check screen, Train > Tonight, and the day note (only while that feature is on).
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useQuery } from "@tanstack/vue-query";
 import { isPlanOnly, nightOfDate } from "@somnium/shared";
-import { api } from "../api/client";
 import { useSettings } from "../api/queries";
-import { markNoRecall, uuidv7, type NightRow } from "../api/journal";
+import { markNoRecall, useNights, uuidv7 } from "../api/journal";
 import { useToday } from "../core/today";
 import { toast, toastError } from "../core/toast";
 import Sheet from "../components/Sheet.vue";
@@ -21,7 +19,7 @@ const s = useSettings();
 const today = useToday();
 // the journal's own list of nights (same query as the Journal), so No recall goes once last night is logged; if the
 // list can't be had it still shows (markNoRecall itself refuses a night with dreams)
-const nights = useQuery({ queryKey: ["journal", "nights"], queryFn: () => api.get<NightRow[]>("/nights", { all: 1 }) });
+const nights = useNights();
 // a night that is only tonight's plan is not a logged morning (as on the Journal)
 const lastLogged = computed(() => { const n = nightOfDate(nights.data.value ?? [], today.value); return !!n && !isPlanOnly(n); });
 const dayNote = ref(false);
