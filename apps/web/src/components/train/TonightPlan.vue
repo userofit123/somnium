@@ -12,7 +12,7 @@
 // the WBTB alarm as the planner would set it, and the intention when none is set; "Change" opens the picker. On Home
 // (`compact`) only its name, under the button to Train > Tonight.
 import { computed, defineAsyncComponent, ref, watch } from "vue";
-import { bedtimeAt, currentLesson, freeNightsOf, suggestTonight, type TonightIdea } from "@somnium/shared";
+import { bedtimeAt, currentLesson, freeNightsOf, suggestTonight, wbtbNightsOf, type TonightIdea } from "@somnium/shared";
 import { parseInline } from "@somnium/knowledge/markdown";
 import { applyTonightPlan, planTonight, setTonightBedtime, useCourse } from "../../api/train";
 import { useJournal } from "../../api/journal";
@@ -65,8 +65,7 @@ const suggestion = computed(() => {
   if (!rows) return null;
   const s = settings.value;
   // WBTB nights used or planned, tonight's own left out: not two in a row, at most 3 a week
-  const wbtbNights = (j.nights.data.value ?? []).filter((n) => !n.nap && n.date !== props.date
-    && (n.wbtbUsed || !!n.wbtbWakeAt || n.techniquesDone?.includes("wbtb") || n.techniquesPlanned?.includes("wbtb"))).map((n) => n.date);
+  const wbtbNights = wbtbNightsOf(j.nights.data.value ?? [], props.date);
   return suggestTonight({ lesson: currentLesson(rows), date: props.date, freeNights: freeNightsOf(s.sleep.freeNights), sleepFirst: s.safety.sleepFirst, safetyChecked: s.safety.checked, wbtbNights });
 });
 // the alarm the WBTB planner would set (its kept mode and cycle length, wbtbDefaults.ts), never its nap mode

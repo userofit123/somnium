@@ -6,7 +6,7 @@
 // updates every screen. The lesson texts come from the page (they load with it, not with this component).
 import { computed, onUnmounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
-import { CORE_HABITS, allDoneStreak, habitStreak, nextReminder, pmDay } from "@somnium/shared";
+import { CORE_HABITS, allDoneStreak, eveningOf, habitStreak, nextReminder, pmDay } from "@somnium/shared";
 import { tickPractice } from "../../api/train";
 import { toastError } from "../../core/toast";
 import { useFmt } from "../../core/format";
@@ -51,9 +51,11 @@ const pm = computed(() => {
   return d.targets.length ? { done: !open, line: [`${hit} of ${d.targets.length} hit`, open ? `${open} still open` : ""].filter(Boolean).join(" · ") } : null;
 });
 const evening = computed(() => new Date(now.value).getHours() >= 18);
+// after midnight the evening is still yesterday's: a review done at 22:00 stays ticked until the new day's 05:00 cutoff
+const reviewed = computed(() => !!h.rowAt("habit:review", eveningOf(h.today.value, new Date(now.value).getHours())));
 const sixPm = computed(() => { const d = new Date(h.today.value + "T18:00:00"); return fmt.value.time(d.toISOString()); });
 const count = computed(() => {
-  const all = [on("habit:journal"), on("habit:checks"), ...practice.value.map((p) => p.on), on("habit:sign"), on("habit:review")];
+  const all = [on("habit:journal"), on("habit:checks"), ...practice.value.map((p) => p.on), on("habit:sign"), reviewed.value];
   return `${all.filter(Boolean).length} of ${all.length}`;
 });
 const all = computed(() => allDoneStreak(h.rows.value, h.today.value));
@@ -108,9 +110,9 @@ const sent = new Set<string>();
       </component>
 
       <div class="li">
-        <input type="checkbox" class="ro" :checked="on('habit:review')" tabindex="-1" aria-hidden="true" @click.prevent />
-        <router-link v-if="evening" to="/train/review" class="grow tdl"><div class="t"><span class="sr">{{ said(on("habit:review")) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">{{ habit("habit:review").auto }}</div></router-link>
-        <div v-else class="grow"><div class="t"><span class="sr">{{ said(on("habit:review")) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">From {{ sixPm }}: tomorrow's intention and your top sign.</div></div>
+        <input type="checkbox" class="ro" :checked="reviewed" tabindex="-1" aria-hidden="true" @click.prevent />
+        <router-link v-if="evening" to="/train/review" class="grow tdl"><div class="t"><span class="sr">{{ said(reviewed) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">{{ habit("habit:review").auto }}</div></router-link>
+        <div v-else class="grow"><div class="t"><span class="sr">{{ said(reviewed) }}</span>{{ habit("habit:review").name }}</div><div class="tiny">From {{ sixPm }}: tomorrow's intention and your top sign.</div></div>
         <span v-if="streak('habit:review')" class="tiny tdstreak num">{{ days(streak("habit:review")) }}</span>
       </div>
     </div>
