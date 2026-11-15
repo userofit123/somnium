@@ -9,9 +9,9 @@ export const HARD_NOTES: Record<HardKind, { title: string; lines: Line[]; help: 
   sleepParalysis: {
     title: "Sleep paralysis",
     lines: [
-      { text: "It is common and harmless. It is the same stillness that keeps you from acting out every dream, lasting for a moment after you wake.", sources: ["B4", "B6", "D1"] },
+      { text: "It is common and harmless. It is the same stillness that keeps you from acting out every dream, lasting for a while as you fall asleep or wake up.", sources: ["B4", "B6", "D1"] },
       { text: "To end it, don't fight it. Relax, breathe slowly, remember it is only the dreaming state, and move one finger or toe.", sources: ["D1", "D5"] },
-      { text: "Broken-up sleep, such as waking early to practise, makes it more likely.", sources: ["B6", "B7"] },
+      { text: "Broken-up sleep, such as waking in the night to practise and going back to sleep, makes it more likely.", sources: ["B6", "B7"] },
     ],
     help: { text: "If it comes often and frightens you, pause the night techniques and talk to a doctor.", sources: ["B70", "B71"] },
     short: { text: "Sleep paralysis is common and harmless. Relax, breathe and move one finger to end it.", sources: ["B6", "D1"] },
@@ -24,7 +24,7 @@ export const HARD_NOTES: Record<HardKind, { title: string; lines: Line[]; help: 
       { text: "Dreaming that you woke up is common among people who practise lucid dreaming, and it often turns into a lucid dream.", sources: ["B8"] },
       { text: "Treat it as a chance: do a reality check every time you wake, such as trying a light switch or looking at a clock.", sources: ["C4", "D1", "D19"] },
     ],
-    help: { text: "If dreams and waking life start to blur, pause the practice and talk to someone.", sources: ["B70", "B71"] },
+    help: { text: "If dreams and waking life start to blur, pause the practice and talk to a doctor.", sources: ["B70", "B71"] },
     short: { text: "A false awakening is a chance to become lucid. Do a reality check every time you wake.", sources: ["B8", "D19"] },
     article: "/learn/safety/false-awakenings-and-sleep-paralysis",
     more: "Read about false awakenings",
@@ -33,9 +33,9 @@ export const HARD_NOTES: Record<HardKind, { title: string; lines: Line[]; help: 
     title: "A frightening dream",
     lines: [
       { text: "Nothing in a dream can hurt you. If you become lucid, you can stay and face what frightens you, or ask it what it wants; a calm talk works better than a fight.", sources: ["D1", "D10"] },
-      { text: "Awake, you can rewrite it: choose a new ending and picture the dream with it. This is imagery rehearsal, the best-proven help for nightmares.", sources: ["B57", "B61", "B63"] },
+      { text: "Awake, you can rewrite it: choose a new ending and picture the dream with it. This is imagery rehearsal, the better-proven treatment for nightmares.", sources: ["B57", "B61", "B63"] },
     ],
-    help: { text: "If nightmares wake you several times a week, or come after something hard such as a loss or trauma, talk to a doctor or therapist before starting the night techniques.", sources: ["B60", "B69", "B73"] },
+    help: { text: "If nightmares wake you several times a week, or come while you are depressed, grieving or after a trauma, talk to a doctor or therapist before starting the night techniques.", sources: ["B60", "B69", "B73"] },
     short: { text: "Nothing in a dream can hurt you, and a nightmare can be rewritten while awake.", sources: ["D1", "B61"] },
     article: "/learn/benefits/nightmares",
     more: "Read about nightmares",
