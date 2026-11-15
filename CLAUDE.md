@@ -2,7 +2,7 @@
 
 ## Task queue
 The chat message "Work the queue" means: read and follow `workflow/RUNNER.md` (tasks from the Focus list
-"Lucid Dreaming journal", account "New Team"). Otherwise tasks come from the chat as usual. `workflow/` is
+"Lucid Dreaming journal", account "Server"). Otherwise tasks come from the chat as usual. `workflow/` is
 git-ignored and never committed.
 
 Self-hosted lucid-dreaming journal and trainer. Plan: PLAN.md (security in §4, decisions in §16). Evidence and
