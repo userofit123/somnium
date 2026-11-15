@@ -15,8 +15,18 @@ const base = (o: Partial<RecommendData> = {}): RecommendData => ({ nights: night
 const ids = (rs: Recommendation[]) => rs.map((r) => r.id);
 const all = (d: RecommendData) => recommend(d, TODAY, 99);
 const has = (d: RecommendData, id: string) => ids(all(d)).includes(id as never);
-// a lucid dream 30 days ago keeps the MILD + WBTB rule out of tests about something else
-const quietLucid = (ns: InsightNight[]) => ns.filter((x) => x.date === day(1)).map((x) => ({ nightId: x.id, lucid: true }));
+// lucid dreams yesterday and the day before keep the MILD + WBTB rule out of tests about something else (two, so it is
+// not the first lucid dream either)
+const quietLucid = (ns: InsightNight[]) => ns.filter((x) => x.date === day(1) || x.date === day(2)).map((x) => ({ nightId: x.id, lucid: true }));
+const lucidOn = (...is: number[]) => is.map((i) => ({ nightId: `n${i}`, lucid: true }));
+const leveled = (levels: number[]) => levels.map((l, k) => ({ nightId: `n${k + 1}`, lucid: true, lucidityLevel: l }));
+// the new rules' cases (LDJ-114), shared with the wording test below
+const firstLucid = () => base({ dreams: lucidOn(3) });
+const drySpell = () => base({ nights: nights(40), dreams: lucidOn(30) });
+const briefLucid = () => base({ dreams: leveled([1, 1, 3]) });
+const mildNight = { techniquesDone: ["mild"] };
+const slowMild = (slow: number, quick = 0) => base({ nights: nights(20, (i) => (i <= slow ? { ...mildNight, minutesToSleep: 30 } : i <= slow + quick ? { ...mildNight, minutesToSleep: 5 } : {})), dreams: lucidOn(15, 16) });
+const mildWbtb = (count: number, o: Partial<InsightNight> = {}) => nights(20, (i) => (i <= count ? { wbtbUsed: true, techniquesDone: ["mild"], ...o } : {}));
 
 describe("recommend: keep journaling", () => {
   it("shows under 7 logged nights, not at 7; plans and naps don't count", () => {
@@ -175,6 +185,113 @@ describe("recommend: false awakenings and nightmares", () => {
   });
 });
 
+describe("recommend: the first lucid dream", () => {
+  it("one lucid dream in the last 14 days opens the staying-lucid lesson", () => {
+    const r = all(firstLucid()).find((x) => x.id === "first-lucid")!;
+    expect(r.reason).toBe("You logged your first lucid dream 3 days ago.");
+    expect(r.action).toEqual({ label: "Open the lesson", to: "/train/lesson/stabilise" });
+    expect(r.sources).toEqual(["D1", "D5"]);
+    expect(has(base({ dreams: lucidOn(13) }), "first-lucid")).toBe(true);
+    expect(has(base({ dreams: lucidOn(14) }), "first-lucid")).toBe(false);
+    expect(has(base({ dreams: lucidOn(3, 10) }), "first-lucid")).toBe(false);
+    expect(has(base({ nights: nights(20, (i) => (i === 2 ? { lucidCount: 1 } : {})) }), "first-lucid")).toBe(true);
+  });
+  it("not for people who told the setup they have had lucid dreams before", () => {
+    expect(has({ ...firstLucid(), experience: "some" }, "first-lucid")).toBe(false);
+    expect(has({ ...firstLucid(), experience: "regular" }, "first-lucid")).toBe(false);
+    expect(has({ ...firstLucid(), experience: "new" }, "first-lucid")).toBe(true);
+  });
+});
+
+describe("recommend: a dry spell", () => {
+  it("lucid dreams before, none in the last 4 weeks of journaling; it replaces MILD + WBTB", () => {
+    const r = all(drySpell()).find((x) => x.id === "dry-spell")!;
+    expect(r.reason).toBe("Your last lucid dream was 30 days ago, and you have logged 27 nights in the last 4 weeks.");
+    expect(r.sources).toEqual(expect.arrayContaining(["D1", "D5", "D24"]));
+    expect(r.link!.to).toBe("/learn/basics/common-mistakes-and-dry-spells");
+    expect(r.action!.to).toBe("/train/lesson/troubleshooting");
+    expect(has(drySpell(), "mild-wbtb")).toBe(false);
+    expect(has(base({ nights: nights(40), dreams: lucidOn(28) }), "dry-spell")).toBe(true);
+    expect(has(base({ nights: nights(40), dreams: lucidOn(27) }), "dry-spell")).toBe(false);
+  });
+  it("needs a journal kept through it, and lucid dreams before it", () => {
+    const sparse = [...nights(6), ...Array.from({ length: 10 }, (_, k) => night(30 + k))];
+    expect(has(base({ nights: sparse, dreams: lucidOn(35) }), "dry-spell")).toBe(false);
+    expect(has(base({ nights: nights(40) }), "dry-spell")).toBe(false);
+    expect(has(base({ nights: nights(40) }), "mild-wbtb")).toBe(true);
+  });
+  it("counts the lucid dreams the setup was told about once the journal is 4 weeks old", () => {
+    const r = all(base({ nights: nights(40), experience: "regular" })).find((x) => x.id === "dry-spell")!;
+    expect(r.reason).toBe("You said in setup that you have had lucid dreams, and none are logged in the last 4 weeks (27 nights logged).");
+    expect(has(base({ nights: nights(40), experience: "some" }), "dry-spell")).toBe(true);
+    expect(has(base({ nights: nights(40), experience: "new" }), "dry-spell")).toBe(false);
+    expect(has(base({ nights: nights(20), experience: "regular" }), "dry-spell")).toBe(false);
+  });
+});
+
+describe("recommend: brief lucidity", () => {
+  it("over half of 3+ rated lucid dreams in 60 days at level 1", () => {
+    const r = all(briefLucid()).find((x) => x.id === "stabilise")!;
+    expect(r.reason).toBe("2 of your 3 rated lucid dreams in the last 60 days were a brief flash, lost at once.");
+    expect(r.action!.to).toBe("/train/lesson/stabilise");
+    expect(has(base({ dreams: leveled([1, 3, 3]) }), "stabilise")).toBe(false);
+    expect(has(base({ dreams: leveled([1, 1]) }), "stabilise")).toBe(false);
+    expect(has(base({ dreams: leveled([1, 1, 2, 3]) }), "stabilise")).toBe(false);
+    // unrated lucid dreams don't count either way
+    expect(has(base({ dreams: [...leveled([1, 1, 3]), ...lucidOn(5, 6, 7)] }), "stabilise")).toBe(true);
+  });
+  it("only the last 60 days", () => {
+    const ns = nights(70);
+    const at = (i: number, l: number) => ({ nightId: `n${i}`, lucid: true, lucidityLevel: l });
+    expect(has(base({ nights: ns, dreams: [at(1, 1), at(59, 1), at(2, 3)] }), "stabilise")).toBe(true);
+    expect(has(base({ nights: ns, dreams: [at(1, 1), at(60, 1), at(2, 3)] }), "stabilise")).toBe(false);
+  });
+});
+
+describe("recommend: slow to sleep after MILD", () => {
+  it("over half of 3+ timed MILD nights in 30 days took more than 20 minutes", () => {
+    const r = all(slowMild(3, 1)).find((x) => x.id === "mild-sleep")!;
+    expect(r.reason).toBe("On 3 of your 4 MILD nights in the last 30 days it took you more than 20 minutes to fall asleep.");
+    expect(r.sources).toEqual(expect.arrayContaining(["B38", "B37"]));
+    expect(has(slowMild(2, 2), "mild-sleep")).toBe(false);
+    expect(has(slowMild(2), "mild-sleep")).toBe(false);
+    const exactly20 = base({ nights: nights(20, (i) => (i <= 3 ? { ...mildNight, minutesToSleep: i === 1 ? 20 : 30 } : {})) });
+    expect(has(exactly20, "mild-sleep")).toBe(true);
+    const at20 = base({ nights: nights(20, (i) => (i <= 3 ? { ...mildNight, minutesToSleep: i === 1 ? 30 : "20" } : {})) });
+    expect(has(at20, "mild-sleep")).toBe(false);
+  });
+  it("only MILD nights count", () => {
+    expect(has(base({ nights: nights(20, (i) => (i <= 3 ? { minutesToSleep: 40 } : {})) }), "mild-sleep")).toBe(false);
+  });
+});
+
+describe("recommend: try SSILD", () => {
+  it("8 MILD + WBTB nights since the last lucid dream, in 6 weeks", () => {
+    const r = all(base({ nights: mildWbtb(8) })).find((x) => x.id === "try-ssild")!;
+    expect(r.reason).toBe("You have done MILD with WBTB on 8 nights in the last 6 weeks without a lucid dream.");
+    expect(r.sources).toEqual(expect.arrayContaining(["B38", "D19"]));
+    expect(r.action!.to).toBe("/train/technique/ssild");
+    expect(has(base({ nights: mildWbtb(7) }), "try-ssild")).toBe(false);
+    expect(has(base({ nights: mildWbtb(10), dreams: lucidOn(5) }), "try-ssild")).toBe(false);
+    expect(all(base({ nights: mildWbtb(10), dreams: lucidOn(9) })).find((x) => x.id === "try-ssild")!.reason).toContain("on 8 nights in the last 6 weeks without a lucid dream since your last one");
+  });
+  it("not once SSILD is in use, not after sleep first, not on MILD alone", () => {
+    expect(has(base({ nights: mildWbtb(8, { techniquesDone: ["mild", "ssild"] }) }), "try-ssild")).toBe(false);
+    expect(has(base({ nights: mildWbtb(8), sleepFirst: true }), "try-ssild")).toBe(false);
+    expect(has(base({ nights: nights(20, (i) => (i <= 8 ? mildNight : {})) }), "try-ssild")).toBe(false);
+  });
+});
+
+describe("recommend: the setup's experience answer", () => {
+  it("a regular lucid dreamer is not told to keep a journal; recall still comes up from their numbers", () => {
+    expect(has(base({ nights: nights(3), experience: "regular" }), "journal")).toBe(false);
+    expect(has(base({ nights: nights(3), experience: "some" }), "journal")).toBe(true);
+    expect(has(base({ nights: nights(3) }), "journal")).toBe(true);
+    expect(has(base({ nights: nights(3, () => ({ dreamCount: 0 })), experience: "regular" }), "recall")).toBe(false);
+    expect(has(base({ nights: nights(10, () => ({ dreamCount: 0 })), experience: "regular" }), "recall")).toBe(true);
+  });
+});
+
 describe("recommend: order, the cap and dismissals", () => {
   // everything at once: few checks, nightmares, false awakenings, under 7 nights
   const busy = (): RecommendData => {
@@ -213,6 +330,8 @@ describe("recommend: never a substance, plain wording", () => {
       base({ nights: ns, dreams, checkDays: [] }), base({ nights: [], checkDays: [], reminders: { on: false } }),
       base({ nights: nights(25) }), base({ nights: nights(14, (i) => ({ dreamCount: i % 4 ? 0 : 1 })) }),
       base({ nights: nights(30, (i) => ({ wbtbUsed: i % 2 === 0 })), dreams: nights(30).filter((_, k) => k % 2 === 1).map((x) => ({ nightId: x.id, lucid: true })) }),
+      firstLucid(), drySpell(), base({ nights: nights(40), experience: "regular" }), briefLucid(), slowMild(3), base({ nights: mildWbtb(8) }),
+      base({ safetyPage: "sleep-first" }), base({ safetyPage: "who-should-be-careful" }),
     ];
     const out = cases.flatMap((c) => all(c));
     expect([...new Set(out.map((r) => r.id))].sort()).toEqual([...RECOMMENDATION_IDS].sort());
@@ -226,5 +345,27 @@ describe("recommend: never a substance, plain wording", () => {
   });
   it("thresholds are the ones in PLAN.md §8.2", () => {
     expect(REC).toMatchObject({ journalNights: 7, recallRate: 0.5, recallDays: 14, noLucidDays: 21, wbtbLead: 0.1, easeWbtb: 3, checksPerDay: 3, checkDays: 7, faCount: 3, faDays: 30, nmCount: 2 });
+  });
+});
+
+describe("recommend: the safety check (LDJ-116)", () => {
+  it("sleep first leaves out MILD + WBTB and WBTB works", () => {
+    const ns = nights(25);
+    expect(has(base({ nights: ns, sleepFirst: true }), "mild-wbtb")).toBe(false);
+    const ws = [...nights(10, () => ({ wbtbUsed: true })), ...Array.from({ length: 10 }, (_, k) => night(1000 + k))];
+    const dreams = [...ws.slice(0, 5)].map((x) => ({ nightId: x.id, lucid: true }));
+    expect(has(base({ nights: ws, dreams }), "wbtb-works")).toBe(true);
+    expect(has(base({ nights: ws, dreams, sleepFirst: true }), "wbtb-works")).toBe(false);
+  });
+  it("nothing it shows points at WBTB, the CAT alarm or naps", () => {
+    for (const r of all(base({ nights: nights(25), sleepFirst: true }))) expect(r.action?.to ?? "").not.toMatch(/wbtb|cat|nap/);
+  });
+  it("the page it asked for comes first, with its sources and link", () => {
+    const r = all(base({ safetyPage: "who-should-be-careful" }))[0]!;
+    expect(r.id).toBe("safety");
+    expect(r.link?.to).toBe("/learn/safety/who-should-be-careful");
+    expect(r.sources.length).toBeGreaterThan(0);
+    expect(all(base({ safetyPage: "sleep-first" }))[0]!.link?.to).toBe("/learn/safety/sleep-first");
+    expect(has(base(), "safety")).toBe(false);
   });
 });

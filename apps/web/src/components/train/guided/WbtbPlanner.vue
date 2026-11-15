@@ -7,8 +7,11 @@
 // LDJ-49: a mode switch on top. Short (Aspy: alarm at 5 h, 5-10 minutes up, MILD [D11][D12]), Long (Erlacher and
 // Stumbrys 2020: about 6 h, 60 minutes of dream work and MILD [D13]) and LaBerge nap (about 6 h, 60 minutes up, a
 // 90-minute nap [D4]); each sets the alarm, the time up and the next step, and the mode goes on the night (wbtb_mode).
+// LDJ-116: the safety check before the first WBTB (a link to it until it has been answered), a calm "sleep first" note
+// when it said so, "Can you sleep in tomorrow?" (WBTB only on nights you can [B69][D1]) and a note when tonight would
+// be the third WBTB night or more in 7 days (two or three a week at most [B69]). Advice only: nothing is blocked.
 import { computed, ref } from "vue";
-import { bedtimeAt, durationText, wbtbAfter, wbtbModePlan, isWbtbMode, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
+import { addDays, bedtimeAt, durationText, wbtbAfter, wbtbModePlan, isWbtbMode, CYCLE_RANGE, cycleOf, WBTB_CYCLES, WBTB_MODES, WBTB_MODE_DEFS, WBTB_TOO_EARLY_MIN, type WbtbMode } from "@somnium/shared";
 import { useSettings } from "../../../api/queries";
 import { useJournal } from "../../../api/journal";
 import { planWbtb, tonightDate, tonightNight, unplanWbtb } from "../../../api/train";
@@ -18,6 +21,7 @@ import { toast, toastError } from "../../../core/toast";
 import TimePicker from "../../TimePicker.vue";
 import NumStep from "../../NumStep.vue";
 import Ev from "./Ev.vue";
+import { startSafetyCheck } from "../../setup/useSetup";
 
 const emit = defineEmits<{ cite: [ids: string[]]; done: [] }>();
 const settings = useSettings();
@@ -64,6 +68,17 @@ const NEXT: Record<WbtbMode, string> = {
   long: "When the alarm goes: get up for the hour. Write the dream down, mark its dream signs, rehearse MILD, then back to bed.",
   nap: "When the alarm goes: get up and stay up for an hour, reading about lucid dreaming and testing reality. Then lie down for a 90-minute nap (set a 90-120 minute alarm [D5]) with MILD as you fall asleep.",
 };
+// the safety side (LDJ-116)
+const safety = computed(() => settings.value.safety);
+const sleepIn = ref<"" | "yes" | "no">("");
+const SLEEP_IN = [{ v: "yes", l: "Yes" }, { v: "no", l: "No" }] as const;
+/** WBTB nights in the 6 nights before tonight, used or planned, plus tonight's. */
+const weekCount = computed(() => {
+  const from = addDays(date, -6);
+  return 1 + (j.nights.data.value ?? []).filter((n) => !n.nap && n.date >= from && n.date < date
+    && (n.wbtbUsed || !!n.wbtbWakeAt || n.techniquesDone?.includes("wbtb") || n.techniquesPlanned?.includes("wbtb"))).length;
+});
+
 const desktop = !!(globalThis as any).somniumNative?.reminders;
 const perm = ref(typeof Notification === "undefined" ? "unsupported" : Notification.permission);
 
@@ -94,6 +109,30 @@ async function clear() {
   <div class="gbody">
     <h1>Wake back to bed</h1>
     <p class="glead">Sleep first, get up for a while, then go back to bed with MILD or SSILD.</p>
+
+    <div v-if="safety.sleepFirst" class="gbox gwarn" data-safety="sleep-first">
+      <div class="t">Sleep first</div>
+      <Ev text="Your safety check said sleep comes first, so Somnium doesn't suggest WBTB for now. If you plan it anyway, keep it to a night you can sleep in, and let it go for a while if you find you are losing sleep [B69][D1]." @cite="emit('cite', $event)" />
+      <button type="button" class="glink" @click="startSafetyCheck">Change your answers</button>
+    </div>
+    <div v-else-if="!safety.checked" class="gbox" data-safety="unchecked">
+      <div class="t">Before your first WBTB</div>
+      <p class="gev">WBTB breaks up your sleep. A few quick questions check it suits you.</p>
+      <button type="button" class="glink" @click="startSafetyCheck">Take the safety check</button>
+    </div>
+
+    <div class="glabel">Can you sleep in tomorrow?</div>
+    <div class="gchips" role="radiogroup" aria-label="Can you sleep in tomorrow?">
+      <button v-for="o in SLEEP_IN" :key="o.v" type="button" class="gchip" :class="{ on: sleepIn === o.v }" role="radio" :aria-checked="sleepIn === o.v" @click="sleepIn = o.v"><b>{{ o.l }}</b></button>
+    </div>
+    <div v-if="sleepIn === 'no'" class="gbox gwarn" data-safety="no-lie-in">
+      <div class="t">Better on another night</div>
+      <Ev text="WBTB costs sleep, so keep it to nights you can sleep in afterwards. If you can't give more time to sleep, LaBerge advises leaving the practice for now [B69][D1]." @cite="emit('cite', $event)" />
+    </div>
+    <div v-if="weekCount >= 3" class="gbox gwarn" data-safety="week">
+      <div class="t">WBTB night {{ weekCount }} in 7 days</div>
+      <Ev text="Two or three nights a week is the most the sleep-first advice suggests; stop for a while if you feel sleepy, low or unfocused in the day [B69]." @cite="emit('cite', $event)" />
+    </div>
 
     <div class="glabel">Mode</div>
     <div class="gchips" role="radiogroup" aria-label="Mode">

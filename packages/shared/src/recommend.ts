@@ -5,8 +5,9 @@
 // Nothing here ever recommends a substance (PLAN.md §8.2): the substances evidence is information in Learn, and the
 // tests check every output for substance names.
 // Naps are not nights (insights.ts): they stay out of night counts, but their dreams count as dreams.
-import { addDays, loggedNights } from "./rates";
+import { addDays, loggedNights, minutesToSleep } from "./rates";
 import { bucketOf, compareLucid, isWbtb, MIN_NIGHTS, type InsightDream, type InsightNight } from "./insights";
+import type { SetupExperience } from "./settings";
 
 export interface Recommendation {
   /** Stable rule id: what a dismissal remembers. */
@@ -23,7 +24,7 @@ export interface Recommendation {
   link?: { label: string; to: string };
 }
 
-export const RECOMMENDATION_IDS = ["wbtb-ease", "nightmares", "journal", "recall", "mild-wbtb", "wbtb-works", "false-awakenings", "checks"] as const;
+export const RECOMMENDATION_IDS = ["safety", "wbtb-ease", "nightmares", "journal", "recall", "mild-wbtb", "wbtb-works", "false-awakenings", "checks", "first-lucid", "dry-spell", "stabilise", "mild-sleep", "try-ssild"] as const;
 export type RecommendationId = (typeof RECOMMENDATION_IDS)[number];
 
 /** A dismissal: the rule id and the day it was dismissed. Plain and non-personal, so it syncs in the clear with settings. */
@@ -38,7 +39,30 @@ export interface RecommendData {
   checkDays: string[];
   reminders: { on: boolean; perDay?: number; habits?: number };
   dismissed?: Dismissal[];
+  /** The safety check's outcome (settings.safety.sleepFirst, LDJ-116): nothing suggests WBTB, the CAT alarm or naps. */
+  sleepFirst?: boolean;
+  /** The first-run setup's answer to "how much lucid dreaming have you done" (settings.setup.experience, LDJ-183):
+   *  "some" and "regular" have had lucid dreams before the journal, so a dry spell can be one even with none logged,
+   *  the journal is no news to a regular, and a logged lucid dream is not their first. */
+  experience?: SetupExperience;
+  /** A safety page the check asked to show once (kept on the device; cleared when read or put away). */
+  safetyPage?: SafetyPage;
 }
+
+/** The Learn safety pages the safety check can point to (packages/knowledge/content/safety). */
+export type SafetyPage = "who-should-be-careful" | "sleep-first";
+const SAFETY_RECS: Record<SafetyPage, Omit<Recommendation, "id" | "reason">> = {
+  "who-should-be-careful": {
+    title: "Worth reading before you start",
+    body: "A short page on who should go slowly with lucid dreaming, or talk it over with a doctor first. Until you change your answers, Somnium leaves the techniques that cut into sleep out of its suggestions.",
+    sources: ["B69", "B70", "B71", "B72"], link: { label: "Who should be careful", to: "/learn/safety/who-should-be-careful" },
+  },
+  "sleep-first": {
+    title: "Sleep comes first",
+    body: "Lucid dreaming needs good sleep, and the techniques that wake you in the night cut into it. Somnium leaves wake back to bed, the CAT alarm and naps out of its suggestions for now. If you find you are losing sleep, let it go for a few days.",
+    sources: ["B69", "B77", "D1"], link: { label: "Sleep first", to: "/learn/safety/sleep-first" },
+  },
+};
 
 // thresholds, named so the tests and the reasons read the same numbers
 export const REC = {
@@ -50,6 +74,11 @@ export const REC = {
   checkDays: 7, checksPerDay: 3, // under 3 reality checks a day over the last 7 days
   faDays: 30, faCount: 3, // 3 or more false awakenings in 30 days
   nmDays: 30, nmCount: 2, // 2 or more nightmares in 30 days
+  drySpellDays: 28, // had lucid dreams before, none in the last 4 weeks while still journaling (journalNights of them)
+  briefDays: 60, briefMin: 3, // over half of 3+ rated lucid dreams in 60 days at level 1 ("a brief flash, lost at once")
+  firstLucidDays: 14, // the one and only lucid dream, in the last 2 weeks
+  mildSleepDays: 30, mildSleepNights: 3, mildSleepMinutes: 20, // over half of 3+ MILD nights took more than 20 minutes to sleep
+  ssildDays: 42, ssildNights: 8, // 8+ MILD + WBTB nights in 6 weeks since the last lucid dream, and no SSILD then
 } as const;
 
 /** Still hidden: dismissed less than DISMISS_DAYS days ago (it comes back on the 14th day after). */
@@ -64,6 +93,7 @@ export function dismiss(dismissed: Dismissal[] | undefined, id: string, today: s
 const pct = (r: number) => `${Math.round(r * 100)}%`;
 const n = (k: number, one: string, many = one + "s") => `${k} ${k === 1 ? one : many}`;
 const round1 = (x: number) => Math.round(x * 10) / 10;
+const daysAgo = (k: number) => (k <= 0 ? "today" : k === 1 ? "yesterday" : `${k} days ago`);
 
 /** At most `max` recommendations for today, most important first, dismissed ones left out. */
 export function recommend(data: RecommendData, today: string, max = 3): Recommendation[] {
@@ -72,6 +102,22 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   const dateOf = new Map(data.nights.map((x) => [x.id, x.date]));
   const dreamsSince = (days: number) => { const from = since(days); return data.dreams.filter((d) => { const day = dateOf.get(d.nightId); return day != null && day >= from && day <= today; }); };
   const out: Recommendation[] = [];
+  // lucid dreams per day, naps included: the dream list where it has them, else the night's own count (GET /nights)
+  const lucidOn = new Map<string, number>();
+  const lucidByNight = new Map<string, number>();
+  for (const d of data.dreams) if (d.lucid) lucidByNight.set(d.nightId, (lucidByNight.get(d.nightId) ?? 0) + 1);
+  for (const x of loggedNights(data.nights)) {
+    const k = Math.max(lucidByNight.get(x.id) ?? 0, x.lucidCount ?? 0);
+    if (k && x.date <= today) lucidOn.set(x.date, (lucidOn.get(x.date) ?? 0) + k);
+  }
+  const lucidDays = [...lucidOn.keys()].sort();
+  const lucidTotal = [...lucidOn.values()].reduce((a, b) => a + b, 0);
+  const lastLucid = lucidDays.at(-1);
+  const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000);
+  const experienced = data.experience === "some" || data.experience === "regular";
+
+  // the safety check's page, once, ahead of everything (it is put away for good, not for 14 days: ForYouCard)
+  if (data.safetyPage) out.push({ id: "safety", ...SAFETY_RECS[data.safetyPage], reason: "You said yes to a question in the safety check." });
 
   // sleep first: weeks with 3+ WBTB nights went with lower sleep quality
   const from8 = since(REC.easeWeeks * 7);
@@ -103,39 +149,114 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
     sources: ["B57", "B62", "B63", "B61", "C18"], action: { label: "Open the lesson", to: "/train/lesson/dream-control" }, link: { label: "When to stop", to: "/learn/safety/when-to-stop" },
   });
 
+  // the first lucid dream: well done, and the next lesson is staying in it. Novices "often wake up the moment they
+  // become lucid" (LaBerge, RESEARCH.md D1 ch. 6; the Course, D5 Unit 5). Not for people who told the setup they have
+  // had lucid dreams before: the first one logged here is not their first.
+  if (!experienced && lucidTotal === 1 && lastLucid! >= since(REC.firstLucidDays)) out.push({
+    id: "first-lucid", title: "Your first lucid dream",
+    body: "Well done. The next step is staying in it: new lucid dreamers often wake up the moment they realise. The lesson shows how: stay calm, take in the dream with your senses, and spin if it starts to fade.",
+    reason: `You logged your first lucid dream ${daysAgo(daysBetween(lastLucid!, today))}.`,
+    sources: ["D1", "D5"], action: { label: "Open the lesson", to: "/train/lesson/stabilise" },
+  });
+
   // keep journaling, and recall before anything else
   const recallFrom = since(REC.recallDays);
   const last14 = nights.filter((x) => x.date >= recallFrom);
   const recalled = last14.filter((x) => (x.dreamCount ?? 0) > 0).length;
   const recall = last14.length ? recalled / last14.length : 0;
   const recallGood = nights.length >= REC.journalNights && last14.length > 0 && recall >= REC.recallRate;
-  if (nights.length < REC.journalNights) out.push({
+  // someone who told the setup they have lucid dreams regularly already knows the journal; their own numbers still
+  // bring up recall below when it is low (recall predicts success, B38)
+  if (nights.length < REC.journalNights && data.experience !== "regular") out.push({
     id: "journal", title: "Keep journaling",
     body: "Write down whatever you remember each morning, even a fragment, or mark \"No recall\". Recall grows with a journal, and the rest of the training builds on it.",
     reason: nights.length ? `You have logged ${n(nights.length, "night")} so far; after ${REC.journalNights} the suggestions here can use your own numbers.` : `Nothing logged yet; after ${REC.journalNights} nights the suggestions here can use your own numbers.`,
     sources: ["B48", "C30"],
   });
-  else if (last14.length && recall < REC.recallRate) out.push({
+  else if (nights.length >= REC.journalNights && last14.length && recall < REC.recallRate) out.push({
     id: "recall", title: "Work on recall first",
     body: "Before any technique, aim to remember a dream most mornings: lie still on waking, ask what you were just dreaming, and note even a fragment. Better recall went with more success with MILD in the studies.",
     reason: `You remembered a dream on ${recalled} of your ${n(last14.length, "logged night")} in the last ${REC.recallDays} days (${pct(recall)}).`,
     sources: ["B37", "B38", "B48"], action: { label: "Open the recall lesson", to: "/train/lesson/recall" },
   });
 
-  // MILD + WBTB when recall is good, no lucid dream for 3 weeks, and no WBTB nights then
+  // a dry spell: lucid dreams before (logged, or from the setup's answer), none in the last 4 weeks of journaling.
+  // The literature treats dry spells as expected; LaBerge's remedies are rest, renewed motivation and a lower-effort
+  // method such as autosuggestion (RESEARCH.md Part D §7: D1 ch. 1 and 3, D5 Unit 3); Love refreshes the first steps
+  // every few months (D24); recall predicts success (B38). It replaces MILD + WBTB below: more effort is the wrong
+  // advice for someone who may be trying too hard.
+  const dryFrom = since(REC.drySpellDays);
+  const firstLogged = nights.length ? nights.reduce((a, x) => (x.date < a ? x.date : a), nights[0]!.date) : null;
+  const loggedDry = nights.filter((x) => x.date >= dryFrom).length;
+  const lucidBefore = lucidDays.some((d) => d < dryFrom);
+  const dry = !lucidDays.some((d) => d >= dryFrom) && loggedDry >= REC.journalNights && (lucidBefore || (experienced && firstLogged! < dryFrom));
+  if (dry) out.push({
+    id: "dry-spell", title: "A dry spell: rest, then try something easier",
+    body: "Dry spells are normal and they pass. Let lucid dreaming go for a few days and just sleep. Then come back with a lower-effort method, such as relaxing in bed and gently suggesting to yourself that you will have a lucid dream soon, without forcing it, and remind yourself why you wanted lucid dreams in the first place. Keep the journal going, and go back over the first steps: recall is what the rest builds on.",
+    reason: lucidBefore
+      ? `Your last lucid dream was ${daysAgo(daysBetween(lastLucid!, today))}, and you have logged ${n(loggedDry, "night")} in the last 4 weeks.`
+      : `You said in setup that you have had lucid dreams, and none are logged in the last 4 weeks (${n(loggedDry, "night")} logged).`,
+    sources: ["D1", "D5", "D24", "B38"], action: { label: "Open the lesson", to: "/train/lesson/troubleshooting" },
+    link: { label: "Common mistakes and dry spells", to: "/learn/basics/common-mistakes-and-dry-spells" },
+  });
+
+  // MILD + WBTB when recall is good, no lucid dream for 3 weeks, and no WBTB nights then; never after the safety check
+  // said sleep first (sleep fragmentation, B69, B77)
   const lucidFrom = since(REC.noLucidDays);
   const lucidLately = dreamsSince(REC.noLucidDays).some((d) => d.lucid) || nights.some((x) => x.date >= lucidFrom && ((x as InsightNight).lucidCount ?? 0) > 0);
   const wbtbLately = nights.some((x) => x.date >= lucidFrom && isWbtb(x));
-  if (recallGood && !lucidLately && !wbtbLately) out.push({
+  if (recallGood && !lucidLately && !wbtbLately && !data.sleepFirst && !dry) out.push({
     id: "mild-wbtb", title: "Try MILD with WBTB",
     body: "On your next free night, when you can sleep in, set an alarm about 5 hours after bedtime, stay up 30-60 minutes quietly, then do MILD as you fall back asleep. Aim to be asleep within about 10 minutes of finishing it: in the largest study, falling asleep that quickly went with lucid dreams on 18% of nights against 11%. Log how long it took in the night details. It is the best-supported combination in the studies.",
     reason: `Your recall is good (${pct(recall)} of nights in the last ${REC.recallDays} days), you have had no lucid dream in the last 3 weeks and no WBTB nights.`,
     sources: ["B37", "B38", "B39"], action: { label: "Plan WBTB", to: "/train/technique/wbtb" },
   });
 
+  // lucid but lost at once: over half of the rated lucid dreams lately at level 1 ("A brief flash, lost at once",
+  // journal.ts LUCIDITY_ANCHORS). Stabilising is a skill: stay calm, engage the senses, spin when vision fades
+  // (D1 ch. 6, D5 Unit 5), keep the eyes moving because a fixed gaze ends the dream (Tholey, D8); LaBerge lost lucidity in 18% of his lucid dreams in his first year, under 1% after (D1 ch. 6).
+  // Not alongside the first lucid dream's card, which opens the same lesson.
+  const briefFrom = since(REC.briefDays);
+  const ratedLucid = data.dreams.filter((d) => { const day = dateOf.get(d.nightId); return d.lucid && (d.lucidityLevel ?? 0) > 0 && day != null && day >= briefFrom && day <= today; });
+  const brief = ratedLucid.filter((d) => Math.round(d.lucidityLevel!) === 1).length;
+  if (ratedLucid.length >= REC.briefMin && brief * 2 > ratedLucid.length && !out.some((r) => r.id === "first-lucid")) out.push({
+    id: "stabilise", title: "Staying lucid for longer",
+    body: "Becoming lucid is the hard part, and you are doing it. Staying is a skill of its own: keep calm, touch things and rub your hands, look at details while keeping your eyes moving, and spin like a top if the dream starts to fade. LaBerge lost his lucidity in nearly 1 in 5 lucid dreams in his first year, and almost never after that.",
+    reason: `${brief} of your ${n(ratedLucid.length, "rated lucid dream")} in the last ${REC.briefDays} days were a brief flash, lost at once.`,
+    sources: ["D1", "D5", "D8"], action: { label: "Open the lesson", to: "/train/lesson/stabilise" },
+  });
+
+  // slow to sleep after MILD: falling asleep within 10 minutes of finishing went with more lucid nights (18% against
+  // 11%, ILDIS, B38; the 5-minute finding in B37). Do it lying down in the dark (the NALDIS instructions, B37); ILDIS
+  // told people who could not get back to sleep to keep the lights off, use a quieter alarm and stay up for less time
+  // (D12); after 20 minutes, let go and keep the intention as the last thought (the Course, D5 Unit 3).
+  const mildFrom = since(REC.mildSleepDays);
+  const mildTimed = nights.filter((x) => x.date >= mildFrom && x.techniquesDone?.includes("mild") && minutesToSleep(x) != null);
+  const slow = mildTimed.filter((x) => minutesToSleep(x)! > REC.mildSleepMinutes).length;
+  if (mildTimed.length >= REC.mildSleepNights && slow * 2 > mildTimed.length) out.push({
+    id: "mild-sleep", title: "Falling asleep sooner after MILD",
+    body: "Do MILD lying down, with the lights off, ready to sleep. If you got up for it, keep the time up short and quiet, and use a softer alarm. If you are still awake after about 20 minutes, stop trying: let the intention be your last thought and drift off. In the largest study, falling asleep within 10 minutes of finishing went with lucid dreams on 18% of nights against 11%.",
+    reason: `On ${slow} of your ${n(mildTimed.length, "MILD night")} in the last ${REC.mildSleepDays} days it took you more than ${REC.mildSleepMinutes} minutes to fall asleep.`,
+    sources: ["B38", "B37", "D12", "D5"], action: { label: "Open MILD", to: "/train/technique/mild" },
+  });
+
+  // MILD + WBTB for a while and no lucid dream: SSILD after the same alarm did as well as MILD in ILDIS (16.9% of nights,
+  // B38), though it rests on that one study (B35); its author's advice is to expect nothing (D19). It cuts into sleep
+  // like WBTB, so never after the safety check said sleep first or while sleep says ease off.
+  const ssildFrom = since(REC.ssildDays);
+  const triedFrom = lastLucid && lastLucid >= ssildFrom ? addDays(lastLucid, 1) : ssildFrom;
+  const tried = nights.filter((x) => x.date >= triedFrom && isWbtb(x) && x.techniquesDone?.includes("mild")).length;
+  const ssildLately = nights.some((x) => x.date >= triedFrom && x.techniquesDone?.includes("ssild"));
+  if (tried >= REC.ssildNights && !ssildLately && !ease && !data.sleepFirst) out.push({
+    id: "try-ssild", title: "Try SSILD after WBTB",
+    body: "After the same WBTB alarm, try SSILD instead of MILD for a while: lie down, close your eyes and move your attention through sight, sound and touch in a few quick rounds, then a few slow ones, then let yourself sleep. Expect nothing. In the largest study it did as well as MILD, though that is the only study so far.",
+    reason: `You have done MILD with WBTB on ${n(tried, "night")} in the last ${REC.ssildDays / 7} weeks without a lucid dream${lastLucid ? " since your last one" : ""}.`,
+    sources: ["B38", "B35", "D19"], action: { label: "Open SSILD", to: "/train/technique/ssild" },
+  });
+
   // WBTB works for you (not while sleep says ease off)
   const w = compareLucid(nights, data.dreams, { id: "wbtb", label: "WBTB", has: isWbtb, withNoun: { one: "WBTB night", many: "WBTB nights" }, withoutNoun: { one: "other night", many: "other nights" } });
-  if (!ease && w.enough && w.with.rate! - w.without.rate! >= REC.wbtbLead - 1e-9) out.push({
+  if (!ease && !data.sleepFirst && w.enough && w.with.rate! - w.without.rate! >= REC.wbtbLead - 1e-9) out.push({
     id: "wbtb-works", title: "WBTB works for you: plan 2-3 a week",
     body: "Lucid nights went with your WBTB nights more often than with other nights. Two or three a week, on nights you can sleep in, is what the sleep-first advice suggests.",
     reason: w.text, sources: ["B38", "B39", "B69"], action: { label: "Plan WBTB", to: "/train/technique/wbtb" },

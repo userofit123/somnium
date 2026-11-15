@@ -4,7 +4,7 @@ section: safety
 order: 1
 summary: People with psychotic, bipolar or dissociative conditions, active sleep disorders, or acute depression, grief or PTSD should get advice before attempting induction.
 reviewed: 2026-11-06
-sources: [B6, B7, B15, B52, B56, B60, B69, B70, B71, B72, B73, B76]
+sources: [B6, B7, B15, B52, B56, B60, B69, B70, B71, B72, B73, B76, B77]
 ---
 
 Lucid dreaming is an ordinary experience that most people have had. Deliberately cultivating it is a different matter: the main methods interrupt sleep, and the long-term effects of practising a hybrid state of consciousness are unknown [B69]. This page sets out who the research suggests should hold back or seek advice first. It is not medical advice.
@@ -28,6 +28,8 @@ Based on the above, this app advises against induction practice, or recommends d
 - have an active sleep disorder (insomnia, untreated sleep apnoea, narcolepsy under treatment) or are already sleep-deprived [B69];
 - are in acute depression, grief or PTSD without clinical support; nightmare work is best done with a therapist [B60][B73];
 - are under 18, pregnant, or have cardiac, respiratory or seizure conditions, if any substance is contemplated [B52][B56].
+
+The safety check in the app's setup (and again from Settings, Sleep, or before your first wake-back-to-bed) asks about these in plain yes/no questions. A yes keeps wake-back-to-bed, the CAT alarm and naps out of the app's suggestions, because they fragment sleep [B69][B77]. Your answers stay on your device; only "sleep first" goes with your account.
 
 ## Sleep paralysis and distressing lucid dreams
 

@@ -3,7 +3,8 @@
 // Train. The rules are pure (packages/shared/src/recommend.ts); this card only loads what they read and shows the top
 // one, with "More" for the rest. Each says why (the person's own numbers) and cites its sources, which open the same
 // sheet as Learn. A quiet card: links only, never the screen's primary button; nothing at all when nothing applies.
-// Hiding one for 14 days is a plain rule id and date in the synced settings (nothing personal).
+// Hiding one for 14 days is a plain rule id and date in the synced settings (nothing personal). The safety check's page
+// (LDJ-116) is the exception: it shows once, and opening it or putting it away clears it on this device for good.
 import { computed, ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { recommend, dismiss, rcSchedule, type Recommendation } from "@somnium/shared";
@@ -12,6 +13,7 @@ import { useTrain } from "../api/train";
 import { saveSettings, useSettings } from "../api/queries";
 import { REMINDERS_KEY, fetchReminders, rcRow } from "../native/reminders";
 import { localYmd } from "../core/format";
+import { putSafetyPageAway, safetyPage } from "./setup/safety";
 import { useToday } from "../core/today";
 import Menu from "./Menu.vue";
 import SourceSheet from "./learn/SourceSheet.vue";
@@ -35,12 +37,18 @@ const recs = computed<Recommendation[]>(() => {
     checkDays: t.checks.data.value.map((c) => localYmd(new Date(c.at))),
     reminders: { on: !!row?.enabled, perDay: s?.perDay, habits: s?.habits.length },
     dismissed: settings.value.recommend?.dismissed ?? [],
+    sleepFirst: settings.value.safety.sleepFirst,
+    experience: settings.value.setup?.experience,
+    safetyPage: safetyPage.value,
   }, today.value);
 });
 
 const more = ref(false);
 const open = ref<string[] | null>(null);
 const shown = computed(() => (more.value ? recs.value : recs.value.slice(0, 1)));
+const menu = (id: string) => id === "safety"
+  ? [{ label: "Got it", icon: "check", run: putSafetyPageAway }]
+  : [{ label: "Hide for 2 weeks", icon: "clock", run: () => hide(id) }];
 const hide = (id: string) => saveSettings({ recommend: { dismissed: dismiss(settings.value.recommend?.dismissed, id, today.value) } }, { quiet: true });
 </script>
 
@@ -51,14 +59,14 @@ const hide = (id: string) => saveSettings({ recommend: { dismissed: dismiss(sett
       <article v-for="r in shown" :key="r.id" class="fyitem" :data-rec="r.id">
         <div class="fyhead">
           <div class="t">{{ r.title }}</div>
-          <Menu :items="[{ label: 'Hide for 2 weeks', icon: 'clock', run: () => hide(r.id) }]" label="More actions" />
+          <Menu :items="menu(r.id)" label="More actions" />
         </div>
         <p class="fybody">{{ r.body }}</p>
         <p class="fywhy tiny"><b>Why:</b> {{ r.reason }}</p>
         <div class="fyfoot">
           <span class="fycites"><button v-for="id in r.sources" :key="id" type="button" class="cite" :aria-label="'Source ' + id" @click="open = [id]">{{ id }}</button></span>
           <router-link v-if="r.action" :to="r.action.to" class="lnk inl">{{ r.action.label }}</router-link>
-          <router-link v-if="r.link" :to="r.link.to" class="lnk inl">{{ r.link.label }}</router-link>
+          <router-link v-if="r.link" :to="r.link.to" class="lnk inl" @click="r.id === 'safety' && putSafetyPageAway()">{{ r.link.label }}</router-link>
         </div>
       </article>
     </div></div>

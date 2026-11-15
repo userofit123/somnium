@@ -2,7 +2,8 @@
 // The first-run setup (LDJ-77): a few short steps after the account is made, so day one has a plan instead of an empty,
 // unexplained app. Each step is skippable, with Back, and one primary button. Every answer goes through the normal
 // write paths (settings, the reminders rows, the course and tonight's night: outbox and live topics), so it syncs
-// and every screen updates; nothing here is sealed. Shown by App.vue only behind an open lock (useSetup.ts).
+// and every screen updates; nothing here is sealed. The safety check's answers are the exception: they stay on the
+// device (safety.ts), and only their outcome syncs. Shown by App.vue only behind an open lock (useSetup.ts).
 import { computed, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
@@ -14,7 +15,8 @@ import { setLesson, planTonight } from "../../api/train";
 import { REMINDERS_KEY, fetchReminders, rcRow, putRcReminder, putNightReminder, androidReminders } from "../../native/reminders";
 import { askNotificationPermission } from "../../native/notifications";
 import { toastError } from "../../core/toast";
-import { setupRun, setupStep as step } from "./useSetup";
+import { setupOnly, setupRun, setupStep as step } from "./useSetup";
+import { SAFETY_ITEMS, keepSafetyAnswers, safetyAnswers, type SafetyItem } from "./safety";
 import Logo from "../../shell/Logo.vue";
 import ChoiceTiles from "../ChoiceTiles.vue";
 import TimePicker from "../TimePicker.vue";
@@ -27,12 +29,13 @@ const course = useQuery({ queryKey: ["course"], queryFn: () => api.get<CoursePro
 // once it shows it stays until the person leaves it, even after "done" is saved on the last step
 onMounted(() => { setupRun.value = true; });
 
-// The steps in order. The safety check (its own task, "A safety check in setup and before WBTB") goes in as one more
-// id here, before "technique", with its block in the template; nothing else needs to change.
-const STEPS = ["experience", "sleep", "reminders", "technique", "extras"] as const;
+// The steps in order. The safety check comes before "technique", so tonight's suggestion already follows it.
+const STEPS = ["experience", "sleep", "reminders", "safety", "technique", "extras"] as const;
 type StepId = (typeof STEPS)[number] | "done";
 const at = computed<StepId>(() => STEPS[step.value] ?? "done");
 const busy = ref(false);
+// one step on its own (setupOnly: the safety check from Settings or the WBTB planner) opens on that step
+watch(setupOnly, (id) => { const i = STEPS.indexOf(id as (typeof STEPS)[number]); if (i >= 0) step.value = i; }, { immediate: true });
 
 // 1. experience: picks the course lesson to start on
 const experience = ref<SetupExperience>(settings.value.setup.experience || "new");
@@ -66,7 +69,14 @@ const limits = desktopApp ? "They come while Somnium is running, in the tray too
   : androidReminders() ? "Android shows them on time, also with the app closed."
   : "A browser shows them only while Somnium is open in a tab or as an installed app; on a phone, the Android app is reliable.";
 
-// 4. tonight's technique
+// 4. the safety check (LDJ-116, Learn's "Who should be careful" and "Sleep first"): plain yes/no items. A yes keeps
+// WBTB, the CAT alarm and naps out of suggestions (settings.safety.sleepFirst, synced) and shows the matching safety
+// page once in "For you". The answers themselves stay on this device (safety.ts). Calm wording: advice, not a verdict.
+const safe = ref<SafetyItem[]>([...safetyAnswers.value]);
+const health = computed(() => safe.value.some((x) => x !== "alert"));
+const sleepFirst = computed(() => settings.value.safety.sleepFirst);
+
+// 5. tonight's technique
 const technique = ref("mild");
 const TECHS = [
   { value: "mild", label: "MILD", hint: "Suggested: rehearse becoming lucid as you fall asleep" },
@@ -74,7 +84,7 @@ const TECHS = [
   { value: "", label: "Nothing yet", hint: "Just the journal tomorrow morning" },
 ];
 
-// 5. extras: the optional features most people want, switched on here instead of in Settings → Features, and the
+// 6. extras: the optional features most people want, switched on here instead of in Settings → Features, and the
 // Next lesson block on Home (Edit home's switch, settings.home.blocks; not a feature)
 const EXTRAS = [
   { value: "goals", label: "Goals", hint: "A lucid dream a week, a full journal month" },
@@ -102,6 +112,9 @@ async function next() {
       await putNightReminder(rs, "morning_journal", nightRow(rs, "morning_journal").s, morning.value);
       await putNightReminder(rs, "bedtime", nightRow(rs, "bedtime").s, bed.value);
       invalidate(["reminders"]);
+    } else if (at.value === "safety") {
+      keepSafetyAnswers(safe.value);
+      void saveSettings({ safety: { checked: true, sleepFirst: safe.value.length > 0 } }, { quiet: true });
     } else if (at.value === "technique") {
       if (technique.value) {
         await planTonight(technique.value, true);
@@ -123,19 +136,21 @@ async function next() {
   skip();
 }
 function skip() {
+  if (setupOnly.value) return close();
   step.value++;
   if (at.value === "done") void saveSettings({ setup: { done: true } }, { quiet: true });
 }
 function skipAll() { step.value = STEPS.length; void saveSettings({ setup: { done: true } }, { quiet: true }); }
 function back() { if (step.value > 0) step.value--; }
-function finish(to: string) { setupRun.value = false; step.value = 0; void router.push(to); }
+function close() { setupRun.value = false; setupOnly.value = null; step.value = 0; }
+function finish(to: string) { close(); void router.push(to); }
 </script>
 
 <template>
   <div class="auth" role="main">
     <div class="card su">
       <Logo />
-      <p v-if="at !== 'done'" class="tiny su-count">Step {{ step + 1 }} of {{ STEPS.length }}</p>
+      <p v-if="at !== 'done' && !setupOnly" class="tiny su-count">Step {{ step + 1 }} of {{ STEPS.length }}</p>
 
       <template v-if="at === 'experience'">
         <h1>Welcome to Somnium</h1>
@@ -163,11 +178,23 @@ function finish(to: string) { setupRun.value = false; step.value = 0; void route
         <p class="tiny su-gap">{{ limits }} More in Settings · Reminders.</p>
       </template>
 
+      <template v-else-if="at === 'safety'">
+        <h1>Before you start</h1>
+        <p class="muted su-lede">So Somnium suggests only what suits you. The research advises a few people to go slowly, or to talk to a doctor first (RESEARCH.md B69, B70, B72). Does any of these apply to you now?</p>
+        <label v-for="x in SAFETY_ITEMS" :key="x.id" class="tgl"><div class="grow"><div class="t">{{ x.label }}</div><div class="s">{{ x.hint }}</div></div><span class="tg"><input v-model="safe" type="checkbox" :value="x.id" /></span></label>
+        <p v-if="safe.length" class="tiny su-gap">
+          Thanks for saying. Somnium will leave wake back to bed, the CAT alarm and naps out of its suggestions, since they break up sleep (B69, B77), and Home will show a short page to read.
+          <template v-if="health"> Before you practise, it's worth talking it over with a doctor or therapist (B70, B72).</template>
+          <template v-else> Lucid dreaming needs good sleep; if you find you are losing sleep, let it go for a while (LaBerge, D1).</template>
+        </p>
+        <p class="tiny su-gap">Your answers stay on this device. Only "sleep first" goes with your account, so your other devices follow it without knowing why. Change them any time in Settings · Sleep.</p>
+      </template>
+
       <template v-else-if="at === 'technique'">
         <h1>Tonight</h1>
         <p class="muted su-lede">A technique for tonight, added to tonight's plan in Train.</p>
         <ChoiceTiles v-model="technique" :options="TECHS" :cols="1" label="Technique" />
-        <p class="tiny su-gap">In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020; RESEARCH.md [38]).</p>
+        <p class="tiny su-gap">In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020; RESEARCH.md [38]).<template v-if="sleepFirst"> With sleep first, do it as you fall asleep at bedtime, without an alarm in the night.</template></p>
       </template>
 
       <template v-else-if="at === 'extras'">
@@ -186,9 +213,12 @@ function finish(to: string) { setupRun.value = false; step.value = 0; void route
       <template v-if="at !== 'done'">
         <button type="button" class="btn block lg su-gap" :disabled="busy" @click="next">{{ busy ? "Saving..." : "Next" }}</button>
         <p class="center tiny su-link">
-          <a v-if="step > 0" class="acc click" href="#" role="button" @click.prevent="back">Back</a><template v-if="step > 0"> · </template>
-          <a class="acc click" href="#" role="button" @click.prevent="skip">Skip</a> ·
-          <a class="acc click" href="#" role="button" @click.prevent="skipAll">Skip setup</a>
+          <a v-if="setupOnly" class="acc click" href="#" role="button" @click.prevent="close">Not now</a>
+          <template v-else>
+            <a v-if="step > 0" class="acc click" href="#" role="button" @click.prevent="back">Back</a><template v-if="step > 0"> · </template>
+            <a class="acc click" href="#" role="button" @click.prevent="skip">Skip</a> ·
+            <a class="acc click" href="#" role="button" @click.prevent="skipAll">Skip setup</a>
+          </template>
         </p>
       </template>
     </div>

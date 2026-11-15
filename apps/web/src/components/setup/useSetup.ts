@@ -14,7 +14,13 @@ import { withDefaults } from "@somnium/shared";
 export const setupRun = ref(false);
 export const setupStep = ref(0);
 
-export function startSetup() { setupStep.value = 0; setupRun.value = true; }
+/** One step on its own (the safety check from Settings or the WBTB planner): the screen closes after it, back to where
+ *  the person was, instead of going on through the rest of the setup. */
+export const setupOnly = ref<string | null>(null);
+
+export function startSetup() { setupOnly.value = null; setupStep.value = 0; setupRun.value = true; }
+/** The safety check alone (LDJ-116). SetupScreen finds its step by id. */
+export function startSafetyCheck() { setupOnly.value = "safety"; setupRun.value = true; }
 
 export function useSetupGate() {
   // the same query as useMe, asked only once someone is signed in and the lock is open
