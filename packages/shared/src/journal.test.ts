@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { groupByNight, nightOfDate, searchJournal, matchDream, dayMarks, monthGrid, shiftMonth, mergeDraft, mergeLinks, elementMatches, nightClock, clockOf, filterActive, journalNights, dreamListMarks, lucidLength, LUCID_LENGTHS, type DreamDraft } from "./journal";
+import { journalCount, unfinishedOf, type DreamRef } from "./journal";
 import { checkInTechniques, checkInAnswered, techniquesDoneOf, ASLEEP_CHIPS, asleepChip, nightLine } from "./journal";
 import { ASLEEP_WITHIN } from "./insights";
 import { dreamMarks } from "./exportDream";
@@ -44,6 +45,32 @@ describe("search", () => {
     expect(searchJournal(groups, of, { text: "a" }).some((g) => g.night.id === "c")).toBe(false);
     expect(searchJournal(groups, of, {})).toBe(groups);
     expect(filterActive({ text: "  " })).toBe(false);
+  });
+  it("filters by marks, the night's techniques and naps, and counts the lucid ones (LDJ-163)", () => {
+    const g = groupByNight(
+      [{ ...night("p", "2026-04-01"), techniquesDone: ["mild"], wbtbUsed: true }, night("q", "2026-04-02"), night("r", "2026-04-02", true)],
+      [{ ...dream("m1", "p", { lucid: true }), nightmare: true }, { ...dream("m2", "p"), recurring: true, unfinished: true },
+        { ...dream("m3", "q"), nightmare: true, favourite: true }, { ...dream("m4", "r", { lucid: true }), sleepParalysis: true }],
+    );
+    const ids = (f: Parameters<typeof searchJournal>[2]) => searchJournal(g, of, f).flatMap((x) => x.dreams.map((d) => d.id));
+    expect(ids({ marks: ["nightmare"] })).toEqual(["m3", "m1"]);
+    expect(ids({ marks: ["nightmare", "favourite"] })).toEqual(["m3"]);
+    expect(ids({ marks: ["unfinished"] })).toEqual(["m2"]);
+    expect(ids({ marks: ["sleepParalysis"] })).toEqual(["m4"]);
+    // WBTB logged as wbtb_used counts as done (techniquesDoneOf)
+    expect(ids({ night: ["wbtb"] })).toEqual(["m1", "m2"]);
+    expect(ids({ night: ["wbtb", "mild"], marks: ["nightmare"] })).toEqual(["m1"]);
+    expect(ids({ night: ["nap"] })).toEqual(["m4"]);
+    expect(ids({ night: ["ssild"] })).toEqual([]);
+    expect(filterActive({ marks: ["recurring"] })).toBe(true);
+    expect(filterActive({ night: ["nap"] })).toBe(true);
+    expect(journalCount(searchJournal(g, of, { night: ["wbtb"] }))).toEqual({ dreams: 2, lucid: 1 });
+    expect(unfinishedOf(g.flatMap((x) => x.dreams as DreamRef[])).map((d) => d.id)).toEqual(["m2"]);
+  });
+  it("keeps a no-recall night for a Night-group filter, never for a mark", () => {
+    const g = groupByNight([{ ...night("n", "2026-04-03"), techniquesDone: ["mild"] }], []);
+    expect(searchJournal(g, of, { night: ["mild"] }).map((x) => x.night.id)).toEqual(["n"]);
+    expect(searchJournal(g, of, { marks: ["nightmare"] })).toEqual([]);
   });
   it("matchDream with nothing to match is true", () => {
     expect(matchDream(dream("z", "a"), "2026-01-01", [], {})).toBe(true);

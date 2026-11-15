@@ -3,6 +3,8 @@
 // on one line that ends in "..." when it runs out of room), favourite, and how many elements.
 // A night without dreams is a night logged with no recall. Each night opens its Night details from its own row (LDJ-99):
 // bedtime, wake time and techniques on one line, or the invitation to add them.
+// A dream the morning capture saved as key words carries a quiet "Finish writing" (LDJ-162), and its tap opens it to
+// write rather than to read, so finishing it is one tap (RESEARCH.md C1, C2).
 import { dreamListMarks, nightLine, type NightGroup } from "@somnium/shared";
 import type { DreamRow, NightRow } from "../../api/journal";
 import { useFmt } from "../../core/format";
@@ -10,7 +12,7 @@ import Icon from "../Icon.vue";
 
 // bare: without the date headings (the calendar's day already says which night)
 defineProps<{ groups: NightGroup<NightRow, DreamRow>[]; counts: Map<string, number>; selected?: string; bare?: boolean }>();
-const emit = defineEmits<{ open: [id: string]; night: [id: string] }>();
+const emit = defineEmits<{ open: [id: string]; finish: [id: string]; night: [id: string] }>();
 const fmt = useFmt();
 const label = (d: DreamRow) => d.title?.trim() || d.text?.trim().slice(0, 90) || "Untitled dream";
 const details = (n: NightRow) => nightLine(n) || "Add bedtime and techniques";
@@ -25,9 +27,9 @@ const sub = (d: DreamRow, els: number) => [...dreamListMarks(d), els ? `${els} e
         <Icon name="moon" :size="18" class="jmut" />
         <div class="grow jmin"><div v-if="!g.dreams.length" class="t jmut">No recall</div><div class="s ellipsis" :class="{ jacc: !nightLine(g.night) }">{{ details(g.night) }}</div></div>
       </button>
-      <button v-for="d in g.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="emit('open', d.id)">
+      <button v-for="d in g.dreams" :key="d.id" class="li click jrow" :class="{ on: selected === d.id }" :aria-current="(selected === d.id) || undefined" @click="d.unfinished ? emit('finish', d.id) : emit('open', d.id)">
         <Icon :name="d.lucid ? 'sparkle' : 'book'" :size="18" :class="d.lucid ? 'jacc' : 'jmut'" />
-        <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s ellipsis">{{ sub(d, counts.get(d.id) ?? 0) }}</div></div>
+        <div class="grow jmin"><div class="t ellipsis">{{ label(d) }}</div><div class="s ellipsis"><span v-if="d.unfinished" class="jacc">Finish writing · </span>{{ sub(d, counts.get(d.id) ?? 0) }}</div></div>
         <span class="r jmk"><Icon v-if="d.nightmare" name="flame" :size="16" class="jneg" :aria-label="'Nightmare'" /><Icon v-if="d.favourite" name="star" :size="16" class="jacc" :aria-label="'Favourite'" /></span>
       </button>
     </div></div>

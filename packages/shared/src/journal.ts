@@ -5,11 +5,13 @@ import type { BecameLucidHow, ElementKind, LucidEnd } from "./types";
 import { isPlanOnly, minutesToSleep, type NightLog } from "./rates";
 
 /** The fields of a night and a dream this logic reads (rows from the engine, opened on the device). */
-export interface NightRef { id: string; date: string; nap: boolean; dreamCount?: number }
+export interface NightRef { id: string; date: string; nap: boolean; dreamCount?: number; techniquesDone?: string[] | null; wbtbUsed?: boolean | null }
 export interface DreamRef {
   id: string; nightId: string; position: number; createdAt?: string;
   title: string | null; text: string | null; lucid: boolean; nightmare: boolean; favourite: boolean;
-  badDream?: boolean; recurring?: boolean; falseAwakening?: boolean;
+  badDream?: boolean; recurring?: boolean; falseAwakening?: boolean; sleepParalysis?: boolean;
+  /** saved as key words by the morning capture, not yet written out (LDJ-80, LDJ-162) */
+  unfinished?: boolean;
 }
 
 /**
@@ -49,19 +51,46 @@ export const journalNights = <N extends NightRef & NightLog>(nights: N[], today:
 /** The night of a date (not a nap): one per date is the rule (PLAN.md §5). */
 export const nightOfDate = <N extends NightRef>(nights: N[], date: string): N | undefined => nights.find((n) => n.date === date && !n.nap);
 
-export interface JournalFilter { text?: string; elementIds?: string[]; from?: string; to?: string; lucidOnly?: boolean }
+/** The dream marks the filter can ask for (LDJ-163): pulling up "all my nightmares" is how a person finds their own
+ *  patterns (RESEARCH.md Part C §5.1). Unfinished is a dream saved as key words, still to write out. */
+export const DREAM_FILTER_MARKS = [
+  { key: "nightmare", label: "Nightmare" }, { key: "badDream", label: "Bad dream" }, { key: "recurring", label: "Recurring" },
+  { key: "favourite", label: "Favourite" }, { key: "falseAwakening", label: "False awakening" },
+  { key: "sleepParalysis", label: "Sleep paralysis" }, { key: "unfinished", label: "Unfinished" },
+] as const;
+export type DreamFilterMark = (typeof DREAM_FILTER_MARKS)[number]["key"];
+/** What the filter's Night group asks for: a technique id done that night (WBTB included however it was logged), or "nap". */
+export const NAP_FILTER = "nap";
+
+export interface JournalFilter {
+  text?: string; elementIds?: string[]; from?: string; to?: string; lucidOnly?: boolean;
+  /** the dream has every one of these marks */
+  marks?: DreamFilterMark[];
+  /** the dream's night had every one of these: technique ids (techniquesDoneOf) or NAP_FILTER */
+  night?: string[];
+}
 /** Whether anything narrows the list at all. */
-export const filterActive = (f: JournalFilter): boolean => !!(f.text?.trim() || f.elementIds?.length || f.from || f.to || f.lucidOnly);
+export const filterActive = (f: JournalFilter): boolean =>
+  !!(f.text?.trim() || f.elementIds?.length || f.from || f.to || f.lucidOnly || f.marks?.length || f.night?.length);
 
 /** Lower case, accents gone, so "Café" finds "cafe". */
 export const fold = (s: string): string => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
+/** Whether a night had everything the Night group asks for. */
+export function nightMatches(n: Pick<NightRef, "nap" | "techniquesDone" | "wbtbUsed">, want: readonly string[] | undefined): boolean {
+  if (!want?.length) return true;
+  const done = techniquesDoneOf(n);
+  return want.every((w) => (w === NAP_FILTER ? n.nap : done.includes(w)));
+}
+
 /**
  * Whether a dream matches: every word of the text is somewhere in its title, text or element names; it has every
- * chosen element; its night is in the dates; and it is lucid if only lucid ones are wanted.
+ * chosen element and mark; its night is in the dates; and it is lucid if only lucid ones are wanted.
+ * The Night group is checked per night, by searchJournal.
  */
 export function matchDream(d: DreamRef, date: string, elements: { id: string; name: string | null }[], f: JournalFilter): boolean {
   if (f.lucidOnly && !d.lucid) return false;
+  if (f.marks?.length && !f.marks.every((m) => !!d[m])) return false;
   if (f.from && date < f.from) return false;
   if (f.to && date > f.to) return false;
   if (f.elementIds?.length && !f.elementIds.every((id) => elements.some((e) => e.id === id))) return false;
@@ -72,18 +101,19 @@ export function matchDream(d: DreamRef, date: string, elements: { id: string; na
 }
 
 /**
- * The groups that match. A night without dreams ("no recall") stays only when the filter is no more than dates:
- * it has nothing a text, an element or "lucid only" could match.
+ * The groups that match. A night without dreams ("no recall") stays only when the filter is no more than dates and
+ * the Night group: it has nothing a text, an element, a mark or "lucid only" could match.
  */
 export function searchJournal<N extends NightRef, D extends DreamRef>(
   groups: NightGroup<N, D>[], elementsOf: (dreamId: string) => { id: string; name: string | null }[], f: JournalFilter,
 ): NightGroup<N, D>[] {
   if (!filterActive(f)) return groups;
-  const datesOnly = !f.text?.trim() && !f.elementIds?.length && !f.lucidOnly;
+  const nightOnly = !f.text?.trim() && !f.elementIds?.length && !f.lucidOnly && !f.marks?.length;
   const out: NightGroup<N, D>[] = [];
   for (const g of groups) {
+    if (!nightMatches(g.night, f.night)) continue;
     if (!g.dreams.length) {
-      if (datesOnly && (!f.from || g.night.date >= f.from) && (!f.to || g.night.date <= f.to)) out.push(g);
+      if (nightOnly && (!f.from || g.night.date >= f.from) && (!f.to || g.night.date <= f.to)) out.push(g);
       continue;
     }
     const dreams = g.dreams.filter((d) => matchDream(d, g.night.date, elementsOf(d.id), f));
@@ -91,6 +121,16 @@ export function searchJournal<N extends NightRef, D extends DreamRef>(
   }
   return out;
 }
+
+/** How many dreams the groups hold and how many of them are lucid: "12 dreams · 3 lucid". */
+export function journalCount<D extends DreamRef>(groups: NightGroup<NightRef, D>[]): { dreams: number; lucid: number } {
+  let dreams = 0, lucid = 0;
+  for (const g of groups) for (const d of g.dreams) { dreams++; if (d.lucid) lucid++; }
+  return { dreams, lucid };
+}
+
+/** The dreams of a night still saved as key words (Home's morning card and the Journal list mark them, LDJ-162). */
+export const unfinishedOf = <D extends Pick<DreamRef, "unfinished">>(dreams: readonly D[]): D[] => dreams.filter((d) => !!d.unfinished);
 
 /** What the calendar shows on a day: lucid dreams apart from the others, and whether the night was logged without recall. */
 export interface DayMark { lucid: number; other: number; noRecall: boolean }

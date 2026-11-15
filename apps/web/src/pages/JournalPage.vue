@@ -6,7 +6,7 @@
 // search never goes to the server.
 import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { dayMarks, filterActive, groupByNight, isPlanOnly, journalNights, nightOfDate, searchJournal, type JournalFilter } from "@somnium/shared";
+import { DREAM_FILTER_MARKS, NAP_FILTER, TECHNIQUES, dayMarks, filterActive, groupByNight, isPlanOnly, journalCount, journalNights, nightOfDate, searchJournal, techniquesDoneOf, type DreamFilterMark, type JournalFilter } from "@somnium/shared";
 import { loaded } from "../api/queries";
 import { DREAM_LIMIT, markNoRecall, onDevice, saveState, unsent, useJournal, uuidv7 } from "../api/journal";
 import { isPhone } from "../core/device";
@@ -18,6 +18,8 @@ import { confirm } from "../core/ask";
 import Icon from "../components/Icon.vue";
 import Menu from "../components/Menu.vue";
 import Sheet from "../components/Sheet.vue";
+import FilterPanel from "../components/FilterPanel.vue";
+import FilterRow from "../components/FilterRow.vue";
 import DatePicker from "../components/DatePicker.vue";
 import NightList from "../components/journal/NightList.vue";
 import NightSheet from "../components/journal/NightSheet.vue";
@@ -51,14 +53,43 @@ const byId = computed(() => new Map((j.elements.data.value ?? []).map((e) => [e.
 const counts = computed(() => new Map([...linksBy.value].map(([k, v]) => [k, v.length])));
 const elementsOf = (id: string) => (linksBy.value.get(id) ?? []).map((eid) => ({ id: eid, name: byId.value.get(eid)?.name ?? null }));
 
-const filter = reactive<Required<JournalFilter>>({ text: "", elementIds: [], from: "", to: "", lucidOnly: false });
+// all of it runs here, over the journal as opened on this device (the server never sees a search, PLAN.md §4)
+const filter = reactive<Required<JournalFilter>>({ text: "", elementIds: [], from: "", to: "", lucidOnly: false, marks: [], night: [] });
 const shown = computed(() => searchJournal(groups.value, elementsOf, filter));
 const active = computed(() => filterActive(filter));
-const narrowed = computed(() => filter.elementIds.length + (filter.from ? 1 : 0) + (filter.to ? 1 : 0) + (filter.lucidOnly ? 1 : 0));
+const narrowed = computed(() => filter.elementIds.length + filter.marks.length + filter.night.length + (filter.from ? 1 : 0) + (filter.to ? 1 : 0) + (filter.lucidOnly ? 1 : 0));
 const filterOpen = ref(false);
-const clearFilter = () => Object.assign(filter, { elementIds: [], from: "", to: "", lucidOnly: false });
+const clearFilter = () => Object.assign(filter, { elementIds: [], from: "", to: "", lucidOnly: false, marks: [], night: [] });
 const named = computed(() => (j.elements.data.value ?? []).filter((e) => e.name).sort((a, b) => a.name!.localeCompare(b.name!)));
-const toggleEl = (id: string) => { filter.elementIds = filter.elementIds.includes(id) ? filter.elementIds.filter((x) => x !== id) : [...filter.elementIds, id]; };
+const flip = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
+const toggleEl = (id: string) => { filter.elementIds = flip(filter.elementIds, id); };
+const toggleMark = (k: DreamFilterMark) => { filter.marks = flip(filter.marks, k); };
+const toggleNight = (k: string) => { filter.night = flip(filter.night, k); };
+// the Night group (LDJ-163): WBTB always, then the techniques this journal has logged on some night, then Nap if any
+const nightOptions = computed(() => {
+  const nights = journalNights(j.nights.data.value ?? [], today.value);
+  const used = new Set(nights.flatMap((n) => techniquesDoneOf(n)));
+  const opts = TECHNIQUES.filter((t) => t.id === "wbtb" || used.has(t.id)).map((t) => ({ value: t.id, label: t.label }));
+  if (nights.some((n) => n.nap)) opts.push({ value: NAP_FILTER, label: "Nap" });
+  return opts;
+});
+// "12 dreams · lucid among these: 3 of 12": how often a kind of night or dream went lucid is the pattern worth seeing
+const countLine = computed(() => {
+  const c = journalCount(shown.value);
+  if (!c.dreams) return "No dreams";
+  const n = c.dreams === 1 ? "1 dream" : `${c.dreams} dreams`;
+  return filter.lucidOnly ? n : `${n} · lucid among these: ${c.lucid} of ${c.dreams}`;
+});
+// what is narrowing the list, as chips above it: a tap takes one off
+const fmtDay = (d: string) => fmt.value.date(d, { day: "numeric", month: "short", year: "numeric" });
+const activeChips = computed(() => [
+  ...(filter.lucidOnly ? [{ key: "lucid", label: "Lucid", off: () => (filter.lucidOnly = false) }] : []),
+  ...filter.marks.map((m) => ({ key: "m" + m, label: DREAM_FILTER_MARKS.find((x) => x.key === m)?.label ?? m, off: () => toggleMark(m) })),
+  ...filter.night.map((t) => ({ key: "n" + t, label: t === NAP_FILTER ? "Nap" : TECHNIQUES.find((x) => x.id === t)?.label ?? t, off: () => toggleNight(t) })),
+  ...filter.elementIds.map((id) => ({ key: "e" + id, label: byId.value.get(id)?.name ?? "Element", off: () => toggleEl(id) })),
+  ...(filter.from ? [{ key: "from", label: `From ${fmtDay(filter.from)}`, off: () => (filter.from = "") }] : []),
+  ...(filter.to ? [{ key: "to", label: `To ${fmtDay(filter.to)}`, off: () => (filter.to = "") }] : []),
+]);
 // what a search covered: the device's own journal, or (no copy on this device) what the server sent, opened here
 const searchNote = computed(() => {
   if (!active.value) return "";
@@ -85,6 +116,8 @@ const id = computed(() => String(route.params.id ?? ""));
 const date = computed(() => (typeof route.query.date === "string" ? route.query.date : undefined));
 function write(d?: string) { router.push({ name: "journal-write", params: { id: uuidv7() }, query: { new: "1", ...(d ? { date: d } : {}) } }); }
 const fresh = computed(() => route.query.new === "1");
+// an unfinished dream (key words only) opens straight to writing it out (LDJ-162)
+const finish = (did: string) => (mode.value ? router.replace : router.push)({ name: "journal-write", params: { id: did } });
 const open = (did: string) => (mode.value ? router.replace : router.push)({ name: "journal-dream", params: { id: did } });
 function closeWrite() {
   // written out from the capture after the WBTB alarm: on to the "I'm up" guide, as the capture itself would
@@ -160,9 +193,13 @@ const menu = computed(() => [
               <div class="search grow"><Icon name="search" :size="18" /><input v-model="filter.text" type="search" placeholder="Search your dreams" aria-label="Search your dreams" /></div>
               <button class="ib sm" :class="{ on: narrowed }" aria-label="Search filters" @click="filterOpen = true"><Icon name="filter" :size="18" /></button>
             </div>
-            <div v-if="searchNote" class="tiny jmut">{{ searchNote }}<template v-if="narrowed"> · <button class="lnk" @click="clearFilter">Clear filters</button></template></div>
+            <FilterPanel v-if="narrowed" :count="countLine" active @clear="clearFilter">
+              <FilterRow label="Showing"><button v-for="c in activeChips" :key="c.key" class="fchip on" :aria-label="`Remove ${c.label}`" @click="c.off()">{{ c.label }}<Icon name="close" :size="14" /></button></FilterRow>
+            </FilterPanel>
+            <div v-else-if="active" class="tiny jmut jcount">{{ countLine }}</div>
+            <div v-if="searchNote" class="tiny jmut">{{ searchNote }}</div>
             <div v-if="active && !shown.length" class="card empty sm">Nothing matches.</div>
-            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" @night="(n) => (nightOpen = n)" />
+            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
           </template>
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
@@ -174,7 +211,7 @@ const menu = computed(() => [
               </span>
             </div>
             <div v-if="!dayGroups.length" class="card empty sm">Nothing written for this night.</div>
-            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @night="(n) => (nightOpen = n)" />
+            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
           </template>
         </template>
       </div>
@@ -199,11 +236,13 @@ const menu = computed(() => [
         <div class="fld"><label>From</label><DatePicker v-model="filter.from" :max="filter.to || today" clearable /></div>
         <div class="fld"><label>To</label><DatePicker v-model="filter.to" :min="filter.from || undefined" :max="today" clearable /></div>
       </div>
+      <FilterRow label="Dream"><button v-for="m in DREAM_FILTER_MARKS" :key="m.key" class="fchip" :class="{ on: filter.marks.includes(m.key) }" :aria-pressed="filter.marks.includes(m.key)" @click="toggleMark(m.key)">{{ m.label }}</button></FilterRow>
+      <FilterRow label="Night"><button v-for="o in nightOptions" :key="o.value" class="fchip" :class="{ on: filter.night.includes(o.value) }" :aria-pressed="filter.night.includes(o.value)" @click="toggleNight(o.value)">{{ o.label }}</button></FilterRow>
       <div class="fld"><label>Elements</label>
         <div v-if="named.length" class="chips"><button v-for="e in named" :key="e.id" class="fchip" :class="{ on: filter.elementIds.includes(e.id) }" :aria-pressed="filter.elementIds.includes(e.id)" @click="toggleEl(e.id)">{{ e.name }}</button></div>
         <div v-else class="tiny jmut">Elements you add to dreams show here.</div>
       </div>
-      <template #foot><button class="btn o" :disabled="!narrowed" @click="clearFilter">Clear</button><button class="btn" @click="filterOpen = false">Show</button></template>
+      <template #foot><button class="btn o" :disabled="!narrowed" @click="clearFilter">Clear</button><button class="btn" @click="filterOpen = false">Show {{ journalCount(shown).dreams }}</button></template>
     </Sheet>
   </div>
 </template>
@@ -220,6 +259,7 @@ const menu = computed(() => [
 .jtoday { margin-bottom: var(--hg); }
 .jtoday .t { font-weight: 500; }
 .jmut { color: var(--tx2); }
+.jcount { margin-bottom: 4px; }
 .lnk { background: none; border: 0; color: var(--acc); cursor: pointer; font-family: inherit; font-size: var(--fs-sm); font-weight: 600; padding: 0; display: inline-flex; align-items: center; gap: 2px; }
 .jg { gap: var(--lpy); }
 .ph .acts { flex-wrap: wrap; justify-content: flex-end; }
