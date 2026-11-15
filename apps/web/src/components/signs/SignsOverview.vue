@@ -71,8 +71,7 @@ async function dismissOne(e: Element) {
     <div v-if="!elements.length" class="card empty sm">The people, places, things and feelings in your dreams show here once you add them to a dream.</div>
     <div v-else-if="!groups.length" class="card empty sm">Nothing matches.</div>
     <section v-for="g in groups" :key="g.kind">
-      <div class="sh sgk"><h3>{{ KIND_LABEL[g.kind] }}</h3><span class="tiny">{{ g.rows.length }}</span></div>
-      <div class="card"><div class="list">
+      <div class="card"><div class="lbl sgk">{{ KIND_LABEL[g.kind] }}<span class="tiny sgn">{{ g.rows.length }}</span></div><div class="list">
         <button v-for="r in g.rows" :key="r.element.id" class="li click sgrow" :class="{ on: selected === r.element.id }" :aria-current="(selected === r.element.id) || undefined" @click="emit('open', r.element.id)">
           <span class="grow sgmin sgcol"><span class="t ellipsis">{{ r.element.name }}<Icon v-if="r.element.isDreamSign" name="sparkle" :size="13" class="sgacc" aria-label="Dream sign" /></span>
             <span class="s">{{ [dreamsText(r.stat.dreamCount), seen(r.stat.lastSeen)].filter(Boolean).join(" · ") }}</span></span>
@@ -140,7 +139,8 @@ button.sgrow { cursor: pointer; }
 .sgmut { color: var(--tx2); margin: 0 0 var(--hg); }
 .sgsearch { margin-bottom: var(--hg); }
 /* the icon's room comes from the shared .search rule */
-.sgk { margin-top: var(--spg); }
-.sgk h3 { margin: 0; font-size: var(--fs); }
+section + section > .card { margin-top: var(--hg); }
+.sgk { padding: var(--cpy) var(--cpx) 0; }
+.sgn { margin-inline-start: auto; }
 .sgcount { font-weight: 600; min-width: calc(var(--cpx) + var(--hg)); text-align: end; }
 </style>

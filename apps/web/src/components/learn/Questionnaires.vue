@@ -40,7 +40,7 @@ const date = (d: string) => fmt.value.date(d, { day: "numeric", month: "short", 
         <button type="button" class="btn" :disabled="pick == null || busy" @click="save">Save answer</button>
       </div>
     </div>
-    <h2 v-if="history.length" class="qh">Your answers</h2>
+    <div v-if="history.length" class="sh"><h2>Your answers</h2></div>
     <div v-if="history.length" class="card flush">
       <div v-for="h in history" :key="h.date" class="li">
         <div class="grow"><div class="t">{{ optionFor(which, h.value)?.label }}</div><div class="s">{{ rate(which, h.value) }}</div></div>

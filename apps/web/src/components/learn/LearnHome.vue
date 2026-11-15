@@ -87,7 +87,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
       </div>
 
       <template v-if="pinRows.length">
-        <h2 class="sh">Pinned</h2>
+        <div class="sh"><h2>Pinned</h2></div>
         <div class="card flush">
           <div v-for="p in pinRows" :key="p.id" class="li lrow">
             <router-link :to="p.to" class="grow rlink"><div class="t">{{ p.title }}</div><div class="s">{{ p.kind }}</div></router-link>
@@ -101,7 +101,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
         <Icon name="right" />
       </router-link>
 
-      <h2 class="sh">Start here</h2>
+      <div class="sh"><h2>Start here</h2></div>
       <p class="s startlede">A short path through the most important articles, in order. {{ pathProg.read }} of {{ pathProg.total }} read.</p>
       <ProgressBar :percent="pathProg.percent" class="pgap" />
       <div class="card flush">
@@ -115,7 +115,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
         </div>
       </div>
 
-      <h2 class="sh">Sections</h2>
+      <div class="sh"><h2>Sections</h2></div>
       <div class="card flush">
         <router-link v-for="s in sections" :key="s.id" :to="'/learn/' + s.id" class="li click">
           <div class="grow">
@@ -127,7 +127,7 @@ const pinRows = computed<PinRow[]>(() => pinned.value.flatMap((id): PinRow[] => 
         </router-link>
       </div>
 
-      <h2 class="sh">Course lessons</h2>
+      <div class="sh"><h2>Course lessons</h2></div>
       <div class="card flush">
         <div v-for="l in lessons" :key="l.id" class="li lrow">
           <router-link :to="{ path: '/train', query: { lesson: l.id } }" class="grow rlink"><div class="t"><span class="num">{{ l.number }}.</span> {{ l.title }}</div><div class="s">{{ l.summary }}</div></router-link>
