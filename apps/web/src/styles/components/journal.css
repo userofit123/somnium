@@ -9,9 +9,9 @@
 .jsgo:hover, .jsgo:focus-visible { color: var(--acc); }
 .jsgo:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 3px; }
 .jkind { color: var(--tx2); font-size: var(--fs-xs); margin-inline-start: 4px; }
-.jx { border: 0; background: none; color: inherit; padding: 0; display: inline-grid; place-items: center; cursor: pointer; }
-.jsg .jx { color: var(--tx2); padding: 2px; }
-.jsg .jx:hover, .jsg .jx:focus-visible { color: var(--tx); }
+/* the small remove button inside a chip is chip-sized, not a full small icon button */
+.jsg .ib.sm, .fchip .ib.sm { width: 24px; height: 24px; margin-inline-end: -4px; color: var(--tx2); }
+.jsg .ib.sm svg, .fchip .ib.sm svg { width: 12px; height: 12px; }
 /* the dream's flags (lucid, nightmare, favourite) are static labels, not filters: the same meta chip on Home, in the
    Journal list and on the dream page */
 .mchip.lucid { color: var(--acc); background: color-mix(in srgb, var(--acc) 14%, transparent); }

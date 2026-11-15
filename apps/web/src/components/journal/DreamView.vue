@@ -213,7 +213,7 @@ const nightText = computed(() => (night.value ? fmt.value.date(night.value.date,
         <div class="chips">
           <span v-for="s in found.slice(0, 8)" :key="s.key" class="jsg" :class="{ on: picked === s.key }">
             <button class="jsgo" :aria-label="'Add ' + s.name" @click="confirmSug(s)"><Icon name="plus" :size="12" />{{ s.name }}<span class="jkind">{{ ELEMENT_KIND_LABEL[s.kind] }}</span></button>
-            <button class="jx" :aria-label="'Not ' + s.name" @click="rejectSug(s)"><Icon name="close" :size="12" /></button>
+            <button class="ib plain sm" :aria-label="'Not ' + s.name" @click="rejectSug(s)"><Icon name="close" :size="12" /></button>
           </span>
         </div>
       </div>

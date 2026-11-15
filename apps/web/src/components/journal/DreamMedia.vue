@@ -171,7 +171,7 @@ onBeforeUnmount(() => {
         </button>
         <div v-if="edit" class="jthact">
           <button v-if="m.kind === 'photo'" class="btn tonal s" :aria-label="'Read the text'" @click="readPhoto(m)">{{ m.ocrText ? "Text" : "Read the text" }}</button>
-          <button class="jx" aria-label="Delete" @click="remove(m)"><Icon name="trash" :size="14" /></button>
+          <button class="ib plain sm" aria-label="Delete" @click="remove(m)"><Icon name="trash" :size="14" /></button>
         </div>
       </div>
     </div>
@@ -179,7 +179,7 @@ onBeforeUnmount(() => {
       <audio v-if="src[m.id]" controls preload="metadata" :src="src[m.id]" />
       <span v-else class="tiny jmut">Opening the voice note...</span>
       <span v-if="m.duration" class="tiny jmut">{{ clock(m.duration) }}</span>
-      <button v-if="edit" class="jx" aria-label="Delete voice note" @click="remove(m)"><Icon name="trash" :size="14" /></button>
+      <button v-if="edit" class="ib plain sm" aria-label="Delete voice note" @click="remove(m)"><Icon name="trash" :size="14" /></button>
     </div>
 
     <Sheet v-if="ocr" title="Text in the photo" @close="ocr = null">
@@ -219,8 +219,6 @@ onBeforeUnmount(() => {
 .jthb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .jthact { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .jthact .btn.tonal { min-width: 0; }
-.jx { border: 0; background: none; color: var(--tx2); padding: 2px; display: inline-grid; place-items: center; cursor: pointer; }
-.jx:hover, .jx:focus-visible { color: var(--neg); }
 .jvoice { display: flex; align-items: center; gap: var(--lpy); min-width: 0; }
 .jvoice audio { flex: 1; min-width: 0; max-width: 100%; }
 .jrec { display: flex; align-items: center; gap: var(--lpy); }

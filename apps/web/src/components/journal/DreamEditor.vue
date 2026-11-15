@@ -362,7 +362,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <div v-if="suggested.length" class="jfound" aria-label="Found in the text">
         <span v-for="s in suggested" :key="s.key" class="jsg">
           <button class="jsgo" :aria-label="'Add ' + s.name" @click="confirmSug(s)"><Icon name="plus" :size="12" />{{ s.name }}<span class="jkind">{{ ELEMENT_KIND_LABEL[s.kind] }}</span></button>
-          <button class="jx" :aria-label="'Not ' + s.name" @click="dismissSug(s)"><Icon name="close" :size="12" /></button>
+          <button class="ib plain sm" :aria-label="'Not ' + s.name" @click="dismissSug(s)"><Icon name="close" :size="12" /></button>
         </span>
       </div>
 
@@ -419,7 +419,7 @@ onBeforeUnmount(() => { clearTimeout(readTimer); removeEventListener("pagehide",
       <div class="fld">
         <label>Elements</label>
         <div v-if="chosenEls.length" class="chips jels">
-          <span v-for="e in chosenEls" :key="e.id" class="fchip on">{{ e.name }}<button class="jx" :aria-label="'Remove ' + e.name" @click="removeEl(e.id)"><Icon name="close" :size="12" /></button></span>
+          <span v-for="e in chosenEls" :key="e.id" class="fchip on">{{ e.name }}<button class="ib plain sm" :aria-label="'Remove ' + e.name" @click="removeEl(e.id)"><Icon name="close" :size="12" /></button></span>
         </div>
         <div class="jta">
           <input v-model="typed" placeholder="Add a person, place, thing..." maxlength="80" @keydown="onElKey" @input="hi = 0" />
