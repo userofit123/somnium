@@ -1,13 +1,15 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from "vue-router";
 
 const TrainPage = () => import("./pages/TrainPage.vue");
-// links from before Train's sub-screens had addresses: reminders, bookmarks, recommendations already shown
+// links from before Train's sub-screens had addresses: reminders, bookmarks, recommendations already shown. Run from
+// router.beforeEach, not the route's beforeEnter: vue-router skips beforeEnter when only the query changes, so a reminder
+// pushing /train?guided=up while Train is already open would otherwise do nothing
 function oldTrainLink(to: RouteLocationNormalized) {
   const q = to.query, one = (k: string) => (typeof q[k] === "string" && q[k] ? encodeURIComponent(q[k] as string) : "");
   if (one("technique")) return `/train/technique/${one("technique")}`;
   if (one("lesson")) return `/train/lesson/${one("lesson")}`;
   if (one("guided")) return `/train/guided/${one("guided")}`;
-  if (q.review) return "/train/review";
+  if ("review" in q) return "/train/review"; // "?review" alone parses as null, so test for the key
   return true;
 }
 
@@ -32,7 +34,7 @@ export const router = createRouter({
     { path: "/signs/:id", name: "signs-element", component: () => import("./pages/SignsPage.vue") },
     // Train's three tabs (PLAN.md §6.3), each its own address so Home and reminders can link straight to one, and its
     // sub-screens. The old query links (/train?technique=, ?lesson=, ?guided=, ?review=1) still land on them.
-    { path: "/train", name: "train", component: TrainPage, beforeEnter: oldTrainLink },
+    { path: "/train", name: "train", component: TrainPage },
     { path: "/train/tonight", name: "train-tonight", component: TrainPage },
     { path: "/train/techniques", name: "train-techniques", component: TrainPage },
     { path: "/train/technique/:id", name: "train-technique", component: TrainPage },
@@ -52,3 +54,5 @@ export const router = createRouter({
     { path: "/:rest(.*)", redirect: "/" },
   ],
 });
+
+router.beforeEach((to) => (to.name === "train" && Object.keys(to.query).length ? oldTrainLink(to) : true));

@@ -3,13 +3,14 @@
 // The journal and reality-check items tick themselves from the day's own data (a row is written once, when the
 // condition is first true); the sign item ticks when its page is opened; the evening review has its own short screen.
 import { computed, watch } from "vue";
+import { useRouter } from "vue-router";
 import { CORE_HABITS, allDoneStreak, habitStreak } from "@somnium/shared";
 import { tickPractice } from "../../api/train";
 import { toastError } from "../../core/toast";
 import { useHabits } from "./useHabits";
 import Icon from "../Icon.vue";
 
-const h = useHabits();
+const h = useHabits(), router = useRouter();
 const tickToday = (id: string, on = true) => tickPractice(id, h.today.value, on, h.rowOf(id)).catch(toastError);
 
 // automatic ticks: only ever on, once the lists are in; a flag per day and item stops a second write while the first is in flight
@@ -43,6 +44,8 @@ const days = (n: number) => (n === 1 ? "1 day" : `${n} days`);
         <router-link v-else-if="i.id === 'habit:sign'" :to="h.topSign.value ? '/signs/' + h.topSign.value.id : '/signs'" class="grow hl" @click="tickToday(i.id)"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></router-link>
         <div v-else class="grow"><div class="t">{{ i.name }}</div><div class="tiny">{{ i.detail }}</div></div>
         <span v-if="i.streak" class="tiny hstreak num">{{ days(i.streak) }}</span>
+        <!-- the same check flow as Home's Today card: one tap opens /check, which returns here when done -->
+        <button v-if="i.id === 'habit:checks'" type="button" class="btn o s" @click="router.push('/check')">Log a check</button>
       </div>
     </div>
     <p class="tiny hall">Days with all four done in a row: <b class="num">{{ all }}</b></p>

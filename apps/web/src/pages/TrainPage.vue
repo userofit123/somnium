@@ -3,9 +3,9 @@
 // targets, meditation and dream yoga when on), Tonight (/train/tonight: tonight's plan and the bedtime guided modes)
 // and Techniques (/train/techniques: the library and the guided tools). The sub-screens have addresses too:
 // /train/technique/:id (Learn's "Try it" lands there), /train/lesson/:id, /train/guided/:mode and /train/review; their
-// Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so the
-// underline glides between them. Everything Train shows (the lesson and article texts) loads with this page only: it
-// is a lazy route, so the first screen stays small.
+// Back returns to where you came from (core/leave.ts). The shells keep this page mounted across the three tabs, so
+// switching tabs doesn't reload it; the underline (.tabs) simply moves to the active tab, it doesn't animate. Everything
+// Train shows (the lesson and article texts) loads with this page only: it is a lazy route, so the first screen stays small.
 import { computed, ref, shallowRef, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { currentLesson, nextLesson, moveOn } from "@somnium/shared";

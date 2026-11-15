@@ -27,8 +27,8 @@ async function pick(outcome: CheckOutcome) {
   finally { busy.value = false; }
 }
 // leaving: back to the screen the check started from (the note takes this screen's place, so it returns there too);
-// from a reminder, to Train. The lock screen comes back by itself if the app is locked (App.vue)
-const close = () => (lock.locked ? router.replace("/") : goBack(router, "/train"));
+// from a reminder (nothing to go back to), Home. The lock screen comes back by itself if the app is locked (App.vue)
+const close = () => (lock.locked ? router.replace("/") : goBack(router, "/"));
 const addNote = () => router.replace(`/check/note/${done.value!.id}`);
 </script>
 
