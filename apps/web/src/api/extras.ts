@@ -1,7 +1,7 @@
 // The optional features' data (LDJ-41): day notes (sealed text, one per date) and goals (plain). Saved through the
 // outbox like Train's ticks (goals) or straight to the api (day notes: sealed text, kept sealed here while offline);
 // every list is read on the device.
-import { ref } from "vue";
+import { ref, type Ref } from "vue";
 import { useQuery } from "@tanstack/vue-query";
 import { sealText, unsealText, type DayNote, type Goal, type GoalKind } from "@somnium/shared";
 import { LockedError, uuidv7 } from "@somnium/engine/sealed-api";
@@ -14,7 +14,8 @@ import { toast } from "../core/toast";
 import { isWaitable, send } from "./outbox";
 import { invalidate } from "./live";
 
-export const useDayNotes = () => useQuery({ queryKey: ["dayNotes"], queryFn: () => api.get<DayNote[]>("/day-notes") });
+// enabled: a page that is there with the feature off (the Journal) asks only once it is on
+export const useDayNotes = (enabled: Ref<boolean> | boolean = true) => useQuery({ queryKey: ["dayNotes"], queryFn: () => api.get<DayNote[]>("/day-notes"), enabled });
 export const useGoals = () => useQuery({ queryKey: ["goals"], queryFn: () => api.get<Goal[]>("/goals") });
 
 // ---------- day notes written offline ----------

@@ -63,12 +63,13 @@ export interface Settings {
 
 export interface HomeBlock { id: string; on: boolean }
 /** Every Home block, in the default order; `on` is whether a new account sees it. Goals and Day note also need their
- *  feature switched on, and are absent from Home and Edit home while it is off. Ids added later are appended to a saved
- *  order. (Ported from Motus's HOME_BLOCKS.) */
+ *  feature switched on, and are absent from Home and Edit home while it is off. Day note is off unless Edit home shows
+ *  it: notes are written from the + sheet and live in the Journal (PLAN.md §6.2, LDJ-123). Ids added later are appended
+ *  to a saved order. (Ported from Motus's HOME_BLOCKS.) */
 export const HOME_BLOCKS: HomeBlock[] = [
   { id: "morning", on: true }, { id: "today", on: true }, { id: "tonight", on: true }, { id: "rates", on: true },
-  { id: "goals", on: true }, { id: "dayNote", on: true },
-  { id: "signs", on: false }, { id: "lesson", on: false }, { id: "tip", on: false }, { id: "lastLucid", on: false },
+  { id: "goals", on: true }, { id: "dayNote", on: false },
+  { id: "signs", on: false }, { id: "lesson", on: false }, { id: "tip", on: false }, { id: "lastLucid", on: false }, { id: "pastDream", on: false },
 ];
 // Before Edit home these four cards were switches in Settings → Features; a layout never saved yet takes their state
 const LEGACY_HOME: Record<string, string> = { signs: "homeSigns", lesson: "homeLesson", tip: "homeTip", lastLucid: "homeLastLucid" };

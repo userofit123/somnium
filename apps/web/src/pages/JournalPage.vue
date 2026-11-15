@@ -3,11 +3,13 @@
 // and writing a dream. No recall is on the Last night strip (LDJ-129) and, for older unlogged nights, the calendar day: adding otherwise lives in the
 // + sheet (§6.0), which offers the same No recall last night. On a computer the dream opens in a panel beside the list; on the phone it is a step of its
 // own (read, or write full screen). Everything shown and searched is the journal as opened on this device: a
-// search never goes to the server.
+// search never goes to the server. With day notes on, each note shows inside its day and opens to read and edit there
+// (LDJ-123); writing one is in the + sheet, and an older day's from its calendar day, as for dreams.
 import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { DREAM_FILTER_MARKS, NAP_FILTER, TECHNIQUES, dayMarks, filterActive, groupByNight, isPlanOnly, journalCount, journalNights, nightOfDate, searchJournal, techniquesDoneOf, type DreamFilterMark, type JournalFilter } from "@somnium/shared";
-import { loaded } from "../api/queries";
+import { loaded, useSettings } from "../api/queries";
+import { useDayNotes, waitingDayNotes } from "../api/extras";
 import { DREAM_LIMIT, markNoRecall, onDevice, saveState, unsent, useJournal, uuidv7 } from "../api/journal";
 import { isPhone } from "../core/device";
 import { useFmt } from "../core/format";
@@ -28,6 +30,7 @@ import JournalCalendar from "../components/journal/JournalCalendar.vue";
 import ImportFlow from "../components/settings/ImportFlow.vue";
 import DreamView from "../components/journal/DreamView.vue";
 import DreamEditor from "../components/journal/DreamEditor.vue";
+import DayNoteCard from "../components/home/DayNoteCard.vue";
 
 const route = useRoute(), router = useRouter();
 const fmt = useFmt();
@@ -103,6 +106,16 @@ const todayLogged = computed(() => !!loggedOn(today.value));
 // Night details of any night, a no-recall one too (LDJ-99): opened from its row in the list or the calendar's day
 const nightOpen = ref<string | null>(null);
 const openNight = computed(() => (nightOpen.value ? j.nights.data.value?.find((n) => n.id === nightOpen.value) : undefined));
+
+// day notes (optional): asked for only while the feature is on; the list shows them while nothing narrows it (a search
+// is of dreams), a calendar day always shows its own
+const settings = useSettings();
+const notesOn = computed(() => !!settings.value.features.dayNotes);
+const dayNotes = useDayNotes(notesOn);
+const notes = computed(() => (notesOn.value ? dayNotes.data.value ?? [] : []));
+const waitingNotes = computed(() => (notesOn.value ? waitingDayNotes.value : []));
+const noteOpen = ref<string | null>(null);
+const hasNote = (d: string) => waitingNotes.value.includes(d) || notes.value.some((n) => n.date === d && !!n.text?.trim());
 
 // the calendar
 const month = ref(today.value.slice(0, 7)), sel = ref(today.value);
@@ -199,7 +212,7 @@ const menu = computed(() => [
             <div v-else-if="active" class="tiny jmut jcount">{{ countLine }}</div>
             <div v-if="searchNote" class="tiny jmut">{{ searchNote }}</div>
             <div v-if="active && !shown.length" class="card empty sm"><Icon name="search" :size="34" /><b>Nothing matches</b>No dream fits this search and these filters.<br /><button class="btn tonal" type="button" @click="clearFilter">Clear filters</button></div>
-            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
+            <NightList :groups="shown" :counts="counts" :selected="mode ? id : undefined" :notes="active ? [] : notes" :waiting="active ? [] : waitingNotes" @open="open" @finish="finish" @night="(n) => (nightOpen = n)" @note="(d) => (noteOpen = d)" />
           </template>
           <template v-else>
             <JournalCalendar v-model:month="month" :marks="marks" :selected="sel" @pick="pick" />
@@ -208,10 +221,11 @@ const menu = computed(() => [
                 <!-- older nights only: last night has the strip and the + sheet; a logged night (dreams or no recall) has nothing to mark -->
                 <button v-if="sel < today && !loggedOn(sel)" class="lnk" @click="noRecall(sel)">No recall</button>
                 <button v-if="sel <= today" class="lnk" @click="write(sel)"><Icon name="plus" :size="14" />Dream</button>
+                <button v-if="notesOn && sel <= today && !hasNote(sel)" class="lnk" @click="noteOpen = sel"><Icon name="plus" :size="14" />Day note</button>
               </span>
             </div>
-            <div v-if="!dayGroups.length" class="card empty sm"><Icon name="book" :size="34" /><b>Nothing written for this night</b>Add what you remember from this night.<br /><button v-if="sel <= today" class="btn tonal" type="button" @click="write(sel)">Write a dream</button></div>
-            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" bare @open="open" @finish="finish" @night="(n) => (nightOpen = n)" />
+            <div v-if="!dayGroups.length && !hasNote(sel)" class="card empty sm"><Icon name="book" :size="34" /><b>Nothing written for this night</b>Add what you remember from this night.<br /><button v-if="sel <= today" class="btn tonal" type="button" @click="write(sel)">Write a dream</button></div>
+            <NightList :groups="dayGroups" :counts="counts" :selected="mode ? id : undefined" :notes="notes.filter((n) => n.date === sel)" :waiting="waitingNotes.filter((d) => d === sel)" bare @open="open" @finish="finish" @night="(n) => (nightOpen = n)" @note="(d) => (noteOpen = d)" />
           </template>
         </template>
       </div>
@@ -225,6 +239,11 @@ const menu = computed(() => [
     </div>
 
     <NightSheet v-if="openNight" :key="openNight.id" :date="openNight.date" :nap="openNight.nap" :night-id="openNight.id" @close="nightOpen = null" />
+
+    <!-- read and edit a day's note where it shows; saved as the field is left or the sheet closes -->
+    <Sheet v-if="noteOpen && notesOn" title="Day note" @close="noteOpen = null">
+      <DayNoteCard :key="noteOpen" :today="today" :date="noteOpen" bare />
+    </Sheet>
 
     <Sheet v-if="importOpen" title="Import from a file" @close="importOpen = false">
       <div class="stack"><ImportFlow first @done="importOpen = false" /></div>

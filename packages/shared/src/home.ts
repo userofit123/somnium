@@ -122,3 +122,58 @@ export function tipIndex(date: string, count: number): number {
   for (const c of date) h = Math.imul(h ^ c.charCodeAt(0), 16777619);
   return (h >>> 0) % count;
 }
+
+// ---------- a dream from your past (LDJ-161) ----------
+// Re-reading old entries is how the dreamsign inventory is made: mark the signs in your reports, then count them
+// (LaBerge and Rheingold 1990, Levitan and LaBerge 1995: RESEARCH.md C1 §1.3, C2), and MILD starts by recalling a
+// dream and its sign (D1). So Home brings one back, preferring the ones that held a dream sign.
+export const PAST_DREAM_SOURCES = ["C1", "C2", "D1"] as const;
+/** Only dreams at least this old come back: last week's are still fresh, and the Journal lists them anyway. */
+export const PAST_DREAM_MIN_DAYS = 7;
+
+/** A dream sign one dream holds: the element's id and its (decrypted) name. */
+export interface PastSign { id: string; name: string }
+export interface PastDreamPick<D extends HomeDream> { dream: D; why: string }
+
+/** The same day `months` months earlier, or null when that month has no such day (the 31st, 29 February). */
+function monthsBack(ymd: string, months: number): string | null {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  const t = y * 12 + (m - 1) - months, yy = Math.floor(t / 12), mm = (t % 12) + 1;
+  if (d > new Date(Date.UTC(yy, mm, 0)).getUTCDate()) return null;
+  return `${String(yy).padStart(4, "0")}-${String(mm).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+/**
+ * Today's dream from the past, the same one all day: a titled, live dream at least a week old (Home shows titles only,
+ * never text). In order: one from a year or a month ago to the day; one that held this week's target sign; one that held
+ * any dream sign; a past lucid dream; then any. Within a group the day picks (tipIndex), so it changes from day to day.
+ * `signs` maps a dream id to the dream signs it held; `target` is the weekly review's target sign (an element id, "" for
+ * none). `why` is the line under the title: why this one, never a word of the dream.
+ */
+export function pastDream<D extends HomeDream>(dreams: readonly D[], today: string, signs: ReadonlyMap<string, readonly PastSign[]> = new Map(), target = ""): PastDreamPick<D> | null {
+  const before = addDays(today, -PAST_DREAM_MIN_DAYS);
+  const pool = dreams.filter((d) => !d.deletedAt && d.title?.trim() && d.date <= before)
+    .sort((a, b) => (a.date === b.date ? (a.id < b.id ? -1 : 1) : a.date < b.date ? -1 : 1));
+  if (!pool.length) return null;
+  const pick = (list: D[]) => list[tipIndex(today, list.length)]!;
+  for (const [n, why] of [[12, "A year ago today"], [1, "A month ago today"]] as const) {
+    const day = monthsBack(today, n), hit = day ? pool.filter((d) => d.date === day) : [];
+    if (hit.length) return { dream: pick(hit), why };
+  }
+  const signOf = (d: D) => signs.get(d.id) ?? [];
+  if (target) {
+    const hit = pool.filter((d) => signOf(d).some((s) => s.id === target));
+    if (hit.length) {
+      const name = signOf(hit[0]!).find((s) => s.id === target)!.name;
+      return { dream: pick(hit), why: name ? `Held this week's dream sign: ${name}` : "Held this week's dream sign" };
+    }
+  }
+  const withSigns = pool.filter((d) => signOf(d).length);
+  if (withSigns.length) {
+    const d = pick(withSigns), names = signOf(d).map((s) => s.name).filter(Boolean);
+    return { dream: d, why: names.length ? `Dream ${names.length === 1 ? "sign" : "signs"}: ${names.slice(0, 3).join(", ")}` : "Held a dream sign" };
+  }
+  const lucid = pool.filter((d) => d.lucid);
+  if (lucid.length) return { dream: pick(lucid), why: "A lucid dream" };
+  return { dream: pick(pool), why: "From your journal" };
+}

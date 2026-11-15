@@ -8,7 +8,7 @@
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, weekTarget, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, weekTarget, homeNights, homeRates, morningState, lastLucid, pastDream, tipIndex, type PastSign } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
@@ -28,6 +28,8 @@ import TodayChecklist from "../components/train/TodayChecklist.vue";
 import TonightPlan from "../components/train/TonightPlan.vue";
 import RatesCard from "../components/home/RatesCard.vue";
 import ExtraCards from "../components/home/ExtraCards.vue";
+import PastDreamCard from "../components/home/PastDreamCard.vue";
+import { pastDreamPutAway, putPastDreamAway } from "../components/home/pastDream";
 import DayNoteCard from "../components/home/DayNoteCard.vue";
 import GoalCards from "../components/goals/GoalCards.vue";
 import ForYouCard from "../components/ForYouCard.vue";
@@ -110,6 +112,7 @@ const META: Record<string, { name: string; desc: string }> = {
   lesson: { name: "Next lesson", desc: "The course lesson you are on" },
   tip: { name: "A tip from Learn", desc: "A short article summary, a different one each day" },
   lastLucid: { name: "Last lucid dream", desc: "The title and date of your latest lucid dream" },
+  pastDream: { name: "From your journal", desc: "A past dream to re-read, a different one each day" },
 };
 // a block whose feature is off is absent everywhere, Edit home included
 const FEATURE: Record<string, string> = { goals: "goals", dayNote: "dayNotes" };
@@ -139,7 +142,21 @@ const lucid = computed(() => {
   const d = lastLucid(dreams.value);
   return d ? { id: d.id, date: d.date, title: d.title?.trim() || "Untitled dream" } : null;
 });
-const empty: Record<string, () => boolean> = { lesson: () => !lessonCard.value, tip: () => !tip.value, lastLucid: () => !lucid.value };
+// a past dream to re-read (LDJ-161), preferring ones that held a dream sign: the dream signs each dream held, by name
+const past = computed(() => {
+  if (!isOn("pastDream") || pastDreamPutAway(today.value)) return null;
+  const sign = new Map((j.elements.data.value ?? []).filter((e) => e.isDreamSign).map((e) => [e.id, e.name ?? ""]));
+  const held = new Map<string, PastSign[]>();
+  for (const l of j.links.data.value ?? []) {
+    const name = sign.get(l.elementId);
+    if (name === undefined) continue;
+    const list = held.get(l.dreamId) ?? [];
+    if (!list.some((x) => x.id === l.elementId)) held.set(l.dreamId, [...list, { id: l.elementId, name }]);
+  }
+  const p = pastDream(dreams.value, today.value, held, weekTarget(settings.value));
+  return p ? { id: p.dream.id, date: p.dream.date, title: p.dream.title!.trim(), why: p.why } : null;
+});
+const empty: Record<string, () => boolean> = { lesson: () => !lessonCard.value, tip: () => !tip.value, lastLucid: () => !lucid.value, pastDream: () => !past.value };
 const shown = computed(() => listed.value.filter((x) => x.on && !empty[x.id]?.()).map((x) => x.id));
 // two columns on a computer, filled in turn; For you leads the second (on a phone it follows the first block)
 const columns = computed(() => isPhone.value ? [shown.value] : [shown.value.filter((_, i) => i % 2 === 0), shown.value.filter((_, i) => i % 2 === 1)]);
@@ -207,12 +224,13 @@ async function reset() {
           <TodayChecklist v-else-if="id === 'today'" :lesson="checklistLesson" home />
           <TonightPlan v-else-if="id === 'tonight'" compact :night="tonight" :date="when.tonight" :same="when.same" :title-of="titleOf" />
           <RatesCard v-else-if="id === 'rates'" :rates="rates" />
-          <GoalCards v-else-if="id === 'goals'" :today="today" />
+          <GoalCards v-else-if="id === 'goals'" compact :today="today" />
           <DayNoteCard v-else-if="id === 'dayNote'" :today="today" />
           <ExtraCards v-else-if="id === 'signs'" :signs="signs" />
           <ExtraCards v-else-if="id === 'lesson'" :lesson="lessonCard" />
           <ExtraCards v-else-if="id === 'tip'" :tip="tip" />
           <ExtraCards v-else-if="id === 'lastLucid'" :lucid="lucid" />
+          <PastDreamCard v-else-if="id === 'pastDream' && past" :past="past" @not-now="putPastDreamAway(today)" />
           <ForYouCard v-if="isPhone && k === 0" />
         </template>
       </div>

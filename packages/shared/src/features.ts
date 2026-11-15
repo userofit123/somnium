@@ -13,7 +13,7 @@ export const FEATURES: FeatureDef[] = [
   { id: "voiceNotes", group: "Journal", name: "Voice notes", desc: "Record a dream by voice in the morning (up to 5 minutes); the recording is sealed before it leaves this device.", where: "Capture · Dream editor", to: "/capture", on: false },
   { id: "sketches", group: "Journal", name: "Sketches", desc: "Draw a scene from a dream next to its text.", where: "Dream editor", to: "/journal", on: false },
   { id: "photos", group: "Journal", name: "Photos and OCR", desc: "Add photos to a dream and read a paper journal page into its text. The reading happens on this device; place data is taken out of every photo.", where: "Dream editor", to: "/journal", on: false },
-  { id: "dayNotes", group: "Journal", name: "Day notes", desc: "A line about your day, to see what shows up in dreams days later.", where: "Home", to: "/", on: false },
+  { id: "dayNotes", group: "Journal", name: "Day notes", desc: "A line about your day, to see what shows up in dreams days later.", where: "+ sheet · Journal · Progress", to: "/journal", on: false },
   // Training
   { id: "meditationTimer", group: "Training", name: "Meditation timer", desc: "A quiet timer (5 to 20 minutes) with a soft end tone and a dim screen, logged as a daily habit.", where: "Train", to: "/train", on: false },
   { id: "soundCue", group: "Training", name: "Sound cue training", desc: "Pair a soft tone with reality checks while awake, then play it quietly during a nap or after waking in the night (wake back to bed, targeted lucidity reactivation). On Android the cues play with the screen off; elsewhere keep the app open with the screen on.", where: "Train", to: "/train", on: false },

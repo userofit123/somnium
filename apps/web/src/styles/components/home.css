@@ -46,3 +46,4 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hst-foot { display: flex; align-items: center; gap: var(--cpx); flex-wrap: wrap; }
 .hst-foot .lnk { padding: 0; }
 html.phone .hst-foot .btn { width: 100%; justify-content: center; }
+.hpast > p { margin: calc(var(--tdy) / 2) 0 0; }

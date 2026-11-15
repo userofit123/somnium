@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tipIndex, homeNights, morningState, morningLine, nextReminder, checksOn, homeRates, recallLine, lastLucid, type HomeDream } from "./home";
+import { tipIndex, homeNights, morningState, morningLine, nextReminder, checksOn, homeRates, recallLine, lastLucid, pastDream, type HomeDream, type PastSign } from "./home";
 import { addDays } from "./rates";
 
 const night = (id: string, date: string, o: Record<string, unknown> = {}) => ({ id, date, nap: false, dreamCount: 0, noRecall: false, ...o });
@@ -104,5 +104,43 @@ describe("tipIndex", () => {
     expect(tipIndex("2026-11-07", 40)).toBe(tipIndex("2026-11-07", 40));
     for (const d of ["2026-11-07", "2026-11-08", "2027-01-01"]) { const i = tipIndex(d, 7); expect(i).toBeGreaterThanOrEqual(0); expect(i).toBeLessThan(7); }
     expect(tipIndex("2026-11-07", 0)).toBe(-1);
+  });
+});
+
+describe("pastDream", () => {
+  const today = "2026-11-15";
+  const t = (id: string, date: string, o: Partial<HomeDream> = {}) => dream(id, "n" + id, date, { title: "Dream " + id, ...o });
+  const signs = (m: Record<string, PastSign[]>) => new Map(Object.entries(m));
+
+  it("only titled, live dreams at least a week old; none at all gives null", () => {
+    expect(pastDream([], today)).toBeNull();
+    expect(pastDream([t("1", "2026-11-10"), t("2", "2026-10-01", { title: "  " }), t("3", "2026-10-01", { deletedAt: "x" })], today)).toBeNull();
+    expect(pastDream([t("1", "2026-11-08")], today)?.dream.id).toBe("1");
+  });
+
+  it("a year or a month ago to the day comes first", () => {
+    const d = [t("1", "2025-11-15"), t("2", "2026-10-15"), t("3", "2026-09-01", { lucid: true })];
+    expect(pastDream(d, today)).toMatchObject({ dream: { id: "1" }, why: "A year ago today" });
+    expect(pastDream(d.slice(1), today)).toMatchObject({ dream: { id: "2" }, why: "A month ago today" });
+    // the 31st has no day in a 30-day month: no anniversary, the lucid one instead
+    expect(pastDream([t("1", "2026-11-30"), t("3", "2026-09-01", { lucid: true })], "2026-12-31")?.why).toBe("A lucid dream");
+  });
+
+  it("prefers this week's target sign, then any dream sign, then a lucid dream", () => {
+    const d = [t("1", "2026-09-01", { lucid: true }), t("2", "2026-09-02"), t("3", "2026-09-03"), t("4", "2026-09-04")];
+    const s = signs({ "2": [{ id: "e1", name: "school" }], "3": [{ id: "e2", name: "flying" }, { id: "e1", name: "school" }] });
+    expect(pastDream(d, today, s, "e2")).toMatchObject({ dream: { id: "3" }, why: "Held this week's dream sign: flying" });
+    const any = pastDream(d, today, s);
+    expect(["2", "3"]).toContain(any?.dream.id);
+    expect(any?.why).toMatch(/^Dream signs?: /);
+    expect(pastDream(d, today, new Map())).toMatchObject({ dream: { id: "1" }, why: "A lucid dream" });
+    expect(pastDream([t("2", "2026-09-02")], today)?.why).toBe("From your journal");
+  });
+
+  it("is the same all day and moves between days", () => {
+    const d = Array.from({ length: 20 }, (_, i) => t(String(i).padStart(2, "0"), addDays("2026-08-01", i)));
+    expect(pastDream(d, today)?.dream.id).toBe(pastDream([...d].reverse(), today)?.dream.id);
+    const ids = new Set(["2026-11-15", "2026-11-16", "2026-11-17", "2026-11-18", "2026-11-19"].map((x) => pastDream(d, x)?.dream.id));
+    expect(ids.size).toBeGreaterThan(1);
   });
 });

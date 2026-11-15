@@ -1,17 +1,20 @@
 <script setup lang="ts">
-// Day note (optional, LDJ-41): a short sealed line about a day, for the dream-lag view in Insights. Written for today
-// or any earlier date; saved on leaving the field, on changing the date and on leaving the page. Offline it is kept
+// Day note (optional, LDJ-41): a short sealed line about a day, for the dream-lag view in Progress. Written from the
+// + sheet, read and edited inside its day in the Journal (LDJ-123), and on Home only if Edit home shows it. For today or
+// any earlier date; saved on leaving the field, on changing the date and on leaving the page. Offline it is kept
 // sealed on this device and sent later (api/extras.ts), and the card says so. Only shown while Settings → Features →
 // Day notes is on.
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useDayNotes, saveDayNote, waitingDayNote, waitingDayNotes, flushDayNotes } from "../../api/extras";
 import { toast, toastError } from "../../core/toast";
 
-// bare: inside the + sheet (shell/StartSheet.vue), which already gives the title and the surface
-const props = defineProps<{ today: string; bare?: boolean }>();
-const fid = props.bare ? "s-daynote" : "h-daynote";
+// bare: inside a sheet (the + sheet, the Journal's day), which already gives the title and the surface;
+// date: the day it opens on (the Journal opens the note of the day it was tapped on), today without it
+const props = defineProps<{ today: string; bare?: boolean; date?: string }>();
+// the + sheet can open over Home or the Journal, which may show this card too: each place its own field id
+const fid = props.bare ? (props.date ? "j-daynote" : "s-daynote") : "h-daynote";
 const notes = useDayNotes();
-const date = ref(props.today);
+const date = ref(props.date ?? props.today);
 const existing = computed(() => (notes.data.value ?? []).find((n) => n.date === date.value));
 const waiting = computed(() => waitingDayNotes.value.includes(date.value));
 const text = ref("");
@@ -59,7 +62,6 @@ onBeforeUnmount(() => { if (dirty()) void save(); });
   <section :class="{ hextra: !bare }" data-testid="daynote">
     <div class="sh"><h2 v-if="!bare">Day note</h2><input v-model="date" type="date" :max="today" class="tiny" aria-label="Date of the note" /></div>
     <div :class="{ card: !bare }">
-      <!-- the + sheet can open over Home, which may show this card too: each field its own id -->
       <div class="fld"><label :for="fid">What happened {{ date === today ? "today" : "that day" }}</label>
         <textarea :id="fid" v-model="text" rows="2" maxlength="1000" placeholder="A line is enough: people, places, things you did" @blur="save()" /></div>
       <div class="tiny">{{ waiting ? "Kept sealed on this device. Sent when you're back online." : "Kept sealed like your dreams. Progress uses it to see what comes back in dreams days later." }}</div>
