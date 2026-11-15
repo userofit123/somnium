@@ -18,11 +18,11 @@ import { CATEGORY_LABEL, KIND_LABEL, KIND_ONE, dreamsText, useSigns } from "./us
 const props = defineProps<{ selected?: string }>();
 const emit = defineEmits<{ open: [id: string] }>();
 const fmt = useFmt();
-const { today, elements, links, dreams, byId, stats } = useSigns();
+const { today, elements, links, dreams, byId, stats, target } = useSigns();
 
 // recurring dreams (marked "recurring") joined by shared elements; their content ranks first (shared signs.ts, RESEARCH.md C17)
 const recurring = computed(() => recurringGroups(elements.value, links.value, dreams.value));
-const shortlist = computed(() => topSigns(elements.value, links.value, dreams.value, signLexicons.value?.checks ?? [], today.value, undefined, { stats: stats.value, groups: recurring.value }));
+const shortlist = computed(() => topSigns(elements.value, links.value, dreams.value, signLexicons.value?.checks ?? [], today.value, undefined, { stats: stats.value, groups: recurring.value, target: target.value }));
 const search = ref("");
 const groups = computed(() => elementsByKind(elements.value, stats.value, search.value));
 const suggestions = computed(() => elementSuggestions(elements.value, links.value, stats.value));

@@ -19,7 +19,7 @@
 // (sealed) are in the words only when the person switched that on, and only while this device can read them. With
 // guided checks on (LDJ-112) a tap opens the 15-second check, and there are no one-tap outcome buttons to skip it with.
 import { QueryObserver } from "@tanstack/vue-query";
-import { catDay, hmToMin, pairSigns, parseTriggers, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type NightKind, type NightPlans, type NightSchedules, type Night, type PairedSign, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
+import { catDay, hmToMin, weekTarget, pairSigns, parseTriggers, planDay, planNight, nightRow, nightText, nightUrl, rcSchedule, reminderText, queuedChecksOf, splitQueuedChecks, withDefaults, type NightKind, type NightPlans, type NightSchedules, type Night, type PairedSign, type QueuedCheck, type Reminder, type RealityCheckSchedule, type Settings } from "@somnium/shared";
 import { api } from "../api/client";
 import { send } from "../api/outbox";
 import { queryClient } from "../api/live";
@@ -117,8 +117,9 @@ async function topSigns(): Promise<PairedSign[]> {
     const [els, links] = await Promise.all([api.get<any[]>("/elements", { signs: 1 }), api.get<any[]>("/dream-elements")]);
     const n = new Map<string, number>();
     for (const l of links) if (!l.deletedAt) n.set(l.elementId, (n.get(l.elementId) ?? 0) + 1);
-    const top = els.filter((e) => e.isDreamSign && !e.deletedAt && typeof e.name === "string" && e.name)
-      .sort((a, b) => (+b.confirmed - +a.confirmed) || (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 3)
+    const target = weekTarget(current.settings);
+    const top = els.filter((e) => (e.isDreamSign || e.id === target) && !e.deletedAt && typeof e.name === "string" && e.name)
+      .sort((a, b) => (+(b.id === target) - +(a.id === target)) || (+b.confirmed - +a.confirmed) || (n.get(b.id) ?? 0) - (n.get(a.id) ?? 0)).slice(0, 3)
       .map((e): PairedSign => ({ id: e.id, name: e.name, triggers: parseTriggers(e.triggers) }));
     writeOwned(SIGN_IDS, top.map((x) => x.id));
     return top;
@@ -348,7 +349,7 @@ export function startReminders() {
     const settings = withDefaults(m?.settings ?? {});
     const plans = plansOf(nightsQ.getCurrentResult().data as Night[] | undefined), was = JSON.stringify(nightPlans());
     if (plans) writeOwned(PLANS, plans);
-    if (JSON.stringify([rows, settings.sleep]) === JSON.stringify([current.rows, current.settings.sleep]) && JSON.stringify(nightPlans()) === was) return;
+    if (JSON.stringify([rows, settings.sleep, weekTarget(settings)]) === JSON.stringify([current.rows, current.settings.sleep, weekTarget(current.settings)]) && JSON.stringify(nightPlans()) === was) return;
     current = { rows, settings };
     void replan();
   };

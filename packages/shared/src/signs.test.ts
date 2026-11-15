@@ -3,7 +3,7 @@ import * as lex from "@somnium/knowledge/lexicons";
 import { daysBetween } from "./course";
 import {
   categoryWeight, coOccurrence, recurringGroups, recurringSignIds, elementStats, elementsByKind, elementSuggestions, frequencyText, isSignCandidate, lucidSplit,
-  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison, topSigns,
+  mergePlan, mergeMark, mergingInto, withoutMergeMark, pairedCheck, recencyWeight, signFrequency, signScore, signsBeforeLucidity, signShortlist, signsInDream, themeComparison, topSigns, weekTarget,
   type SignDream, type SignElement, type SignLink,
 } from "./signs";
 
@@ -239,5 +239,20 @@ describe("recurringGroups (LDJ-164)", () => {
     // without the boost the recurring dream's content would not be there at all
     expect(signShortlist(signs, stats, more, [], TODAY).map((s) => s.element.id)).toEqual(["teeth"]);
     expect(topSigns(signs, l2, more, [], TODAY, 1)).toHaveLength(1);
+  });
+  it("topSigns puts the weekly target first while it exists, and not twice (LDJ-215)", () => {
+    const signs = [...els, el("teeth", { isDreamSign: true, signCategory: "form" })];
+    const more = [...dreams, rd("g", "2026-11-02", false), rd("h", "2026-11-03", false), rd("i", "2026-11-04", false)];
+    const l2 = [...links, link("g", "teeth"), link("h", "teeth"), link("i", "teeth")];
+    const plain = topSigns(signs, l2, more, [], TODAY).map((s) => s.element.id);
+    const led = topSigns(signs, l2, more, [], TODAY, undefined, { target: plain[plain.length - 1] }).map((s) => s.element.id);
+    expect(led[0]).toBe(plain[plain.length - 1]);
+    expect(new Set(led).size).toBe(led.length);
+    expect(topSigns(signs, l2, more, [], TODAY, 1, { target: "stairs" })[0]!.element.id).toBe("stairs");
+    expect(topSigns(signs, l2, more, [], TODAY, undefined, { target: "gone" }).map((s) => s.element.id)).toEqual(plain);
+  });
+  it("weekTarget is empty unless the weekly review is on", () => {
+    expect(weekTarget({ features: { weekReview: true }, week: { sign: "x" } })).toBe("x");
+    expect(weekTarget({ features: { weekReview: false }, week: { sign: "x" } })).toBe("");
   });
 });

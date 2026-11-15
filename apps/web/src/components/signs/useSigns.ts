@@ -2,9 +2,10 @@
 // (packages/shared/src/signs.ts does the maths). Nothing here goes to the server. The sums run over every dream's plain
 // facts (GET /dream-facts, no limit), never the Journal's capped list, which only lends titles.
 import { computed } from "vue";
-import { elementStats, elementSuggestions, type ElementKind, type SignCategory } from "@somnium/shared";
+import { elementStats, elementSuggestions, weekTarget, type ElementKind, type SignCategory } from "@somnium/shared";
 import { useJournal } from "../../api/journal";
 import { useToday } from "../../core/today";
+import { useSettings } from "../../api/queries";
 
 export const KIND_LABEL: Readonly<Record<ElementKind, string>> = {
   character: "Characters", place: "Places", object: "Objects", action: "Actions", emotion: "Emotions", theme: "Themes", sensation: "Sensations", dream_sign: "Dream signs",
@@ -24,7 +25,10 @@ export function useSigns() {
   const dreams = computed(() => j.facts.data.value ?? []);
   const byId = computed(() => new Map(elements.value.map((e) => [e.id, e])));
   const stats = computed(() => elementStats(elements.value, links.value, dreams.value, today.value));
-  return { j, today, elements, links, dreams, byId, stats };
+  // the weekly review's target sign leads every top-sign list for the week (LDJ-215)
+  const settings = useSettings();
+  const target = computed(() => weekTarget(settings.value));
+  return { j, today, elements, links, dreams, byId, stats, target };
 }
 
 /** How many elements wait in Dream signs' To confirm (PLAN.md §6.4): the count on the menu entry and the page's head.

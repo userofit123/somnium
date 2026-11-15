@@ -8,7 +8,7 @@
 // Only titles of dreams appear here, never their text. Which night is which, the summary and the progress strings
 // are pure (packages/shared/src/home.ts); the course texts and Learn's articles load with this page only.
 import { computed, onUnmounted, ref, watch } from "vue";
-import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
+import { HOME_BLOCKS, FIXED_HOME_BLOCKS, nextLesson, stepFor, eveningOf, suggestTonight, freeNightsOf, wbtbNightsOf, frequencyText, topSigns, weekTarget, homeNights, homeRates, morningState, lastLucid, tipIndex } from "@somnium/shared";
 import { useJournal } from "../api/journal";
 import { loadSignLexicons, signLexicons } from "../api/signs";
 import { useTrain, tonightNight } from "../api/train";
@@ -131,7 +131,7 @@ watch(() => isOn("signs"), (v) => { if (v) void loadSignLexicons(); }, { immedia
 const signs = computed(() => {
   if (!isOn("signs")) return null;
   const els = j.elements.data.value ?? [], facts = j.facts.data.value ?? [];
-  const list = topSigns(els, j.links.data.value ?? [], facts, signLexicons.value?.checks ?? [], today.value, 3);
+  const list = topSigns(els, j.links.data.value ?? [], facts, signLexicons.value?.checks ?? [], today.value, 3, { target: weekTarget(settings.value) });
   return list.map((x) => ({ id: x.element.id, name: x.element.name ?? "", line: [x.check ? `Check: ${x.check.name}` : "", frequencyText(x.frequency)].filter(Boolean).join(" · ") }));
 });
 const lucid = computed(() => {

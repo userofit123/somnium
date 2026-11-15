@@ -357,11 +357,20 @@ export const recurringSignIds = (groups: readonly RecurringGroup[]): Set<string>
 /**
  * The dream sign shortlist as every screen shows it (Signs, Home, MILD, the habits): stats over every dream, ranked
  * with the recurring-dream boost (recurringSignIds), so the top sign is the same everywhere. A screen that already
- * worked out the stats or the recurring groups passes them in `pre`.
+ * worked out the stats or the recurring groups passes them in `pre`. `pre.target` is the weekly review's target sign
+ * (an element id): it leads the list while that element still exists, even if it would not rank (LDJ-215).
  */
 export function topSigns<C extends SignCheck, E extends SignElement>(elements: readonly E[], links: readonly SignLink[], dreams: readonly SignDream[], checks: readonly C[], today: string, size = SHORTLIST_SIZE,
-  pre: { stats?: ReadonlyMap<string, ElementStat>; groups?: readonly RecurringGroup[] } = {}): ShortlistEntry<C, E>[] {
+  pre: { stats?: ReadonlyMap<string, ElementStat>; groups?: readonly RecurringGroup[]; target?: string } = {}): ShortlistEntry<C, E>[] {
   const stats = pre.stats ?? elementStats(elements, links, dreams, today);
   const groups = pre.groups ?? recurringGroups(elements, links, dreams);
-  return signShortlist(elements, stats, dreams, checks, today, size, recurringSignIds(groups));
+  const rec = recurringSignIds(groups);
+  const t = pre.target ? elements.find((e) => e.id === pre.target) : undefined, ts = t && stats.get(t.id);
+  if (!t || !ts) return signShortlist(elements, stats, dreams, checks, today, size, rec);
+  const first: ShortlistEntry<C, E> = { element: t, stat: ts, score: signScore(t, ts, today), category: t.signCategory, frequency: signFrequency(ts, dreams), advice: SIGN_ADVICE[t.signCategory ?? "none"], check: pairedCheck(t.signCategory, checks), recurring: rec.has(t.id) };
+  // the rest ranks as usual, without the target, so it is not there twice
+  return [first, ...signShortlist(elements.filter((e) => e.id !== t.id), stats, dreams, checks, today, Math.max(0, size - 1), rec)].slice(0, size);
 }
+
+/** The weekly review's target sign for topSigns: only while the review is switched on ("" for none). */
+export const weekTarget = (s: { features: { weekReview?: boolean }; week?: { sign?: string } }): string => (s.features.weekReview ? s.week?.sign ?? "" : "");

@@ -18,8 +18,8 @@ const emit = defineEmits<{ cite: [ids: string[]]; done: [] }>();
 /** Aspy 2017's sentence, as RESEARCH.md quotes it [D11]. */
 const SENTENCE = "Next time I'm dreaming, I will remember that I'm dreaming.";
 const j = useJournal();
-const { elements, links, dreams, today, stats } = useSigns();
-const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value })[0]?.element.name ?? null);
+const { elements, links, dreams, today, stats, target } = useSigns();
+const top = computed(() => topSigns(elements.value, links.value, dreams.value, [], today.value, 1, { stats: stats.value, target: target.value })[0]?.element.name ?? null);
 // the night up in the small hours is in (nightNowDate); but when the bedtime routine handed over between 05:00 and 12:00,
 // the plan (and the intention it saved) is on tonightDate's night, so MILD follows the one that plans it
 const date = (() => {
