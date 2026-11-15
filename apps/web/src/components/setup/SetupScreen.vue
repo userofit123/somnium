@@ -17,6 +17,9 @@ import { askNotificationPermission } from "../../native/notifications";
 import { toastError } from "../../core/toast";
 import { setupOnly, setupRun, setupStep as step } from "./useSetup";
 import { SAFETY_ITEMS, keepSafetyAnswers, safetyAnswers, type SafetyItem } from "./safety";
+import { parseInline } from "@somnium/knowledge/markdown";
+import LearnInline from "../learn/LearnInline.vue";
+import SourceSheet from "../learn/SourceSheet.vue";
 import Logo from "../../shell/Logo.vue";
 import ChoiceTiles from "../ChoiceTiles.vue";
 import TimePicker from "../TimePicker.vue";
@@ -73,8 +76,24 @@ const limits = desktopApp ? "They come while Somnium is running, in the tray too
 // WBTB, the CAT alarm and naps out of suggestions (settings.safety.sleepFirst, synced) and shows the matching safety
 // page once in "For you". The answers themselves stay on this device (safety.ts). Calm wording: advice, not a verdict.
 const safe = ref<SafetyItem[]>([...safetyAnswers.value]);
+// the answers open a moment after the lock does (sealed, safety.ts): take them if nothing is ticked yet
+watch(safetyAnswers, (v) => { if (!safe.value.length) safe.value = [...v]; });
 const health = computed(() => safe.value.some((x) => x !== "alert"));
 const sleepFirst = computed(() => settings.value.safety.sleepFirst);
+// Sources as buttons that open the source sheet, the way the guided screens do (train/guided/Ev.vue). Advice to talk
+// to someone first cites only the sources for what was a yes (RESEARCH.md Part B §6.2).
+const cite = ref<string[] | null>(null);
+const cites = (ids: readonly string[]) => [...new Set(ids)].map((id) => `[${id}]`).join("");
+const SAFETY_LEDE = "So Somnium suggests only what suits you. The research advises a few people to go slowly, or to talk to a doctor first [B69][B70][B72]. Does any of these apply to you now?";
+const safetyNote = computed(() => {
+  const why = "Thanks for saying. Somnium will leave wake back to bed, the CAT alarm and naps out of its suggestions, since they break up sleep [B69][B70], and Home will show a short page to read.";
+  const asked = SAFETY_ITEMS.filter((x) => x.id !== "alert" && safe.value.includes(x.id)).flatMap((x) => x.sources);
+  return health.value
+    ? `${why} Before you practise, it's worth talking it over with a doctor or therapist ${cites(asked)}.`
+    : `${why} Lucid dreaming needs good sleep; if you find you are losing sleep, let it go for a while [D1].`;
+});
+const techniqueNote = computed(() => "In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020) [B38]."
+  + (sleepFirst.value ? " With sleep first, do it as you fall asleep at bedtime, without an alarm in the night." : ""));
 
 // 5. tonight's technique
 const technique = ref("mild");
@@ -180,13 +199,9 @@ function finish(to: string) { close(); void router.push(to); }
 
       <template v-else-if="at === 'safety'">
         <h1>Before you start</h1>
-        <p class="muted su-lede">So Somnium suggests only what suits you. The research advises a few people to go slowly, or to talk to a doctor first (RESEARCH.md B69, B70, B72). Does any of these apply to you now?</p>
+        <p class="muted su-lede"><LearnInline :nodes="parseInline(SAFETY_LEDE)" @cite="cite = $event" /></p>
         <label v-for="x in SAFETY_ITEMS" :key="x.id" class="tgl"><div class="grow"><div class="t">{{ x.label }}</div><div class="s">{{ x.hint }}</div></div><span class="tg"><input v-model="safe" type="checkbox" :value="x.id" /></span></label>
-        <p v-if="safe.length" class="tiny su-gap">
-          Thanks for saying. Somnium will leave wake back to bed, the CAT alarm and naps out of its suggestions, since they break up sleep (B69, B77), and Home will show a short page to read.
-          <template v-if="health"> Before you practise, it's worth talking it over with a doctor or therapist (B70, B72).</template>
-          <template v-else> Lucid dreaming needs good sleep; if you find you are losing sleep, let it go for a while (LaBerge, D1).</template>
-        </p>
+        <p v-if="safe.length" class="tiny su-gap"><LearnInline :nodes="parseInline(safetyNote)" @cite="cite = $event" /></p>
         <p class="tiny su-gap">Your answers stay on this device. Only "sleep first" goes with your account, so your other devices follow it without knowing why. Change them any time in Settings · Sleep.</p>
       </template>
 
@@ -194,7 +209,7 @@ function finish(to: string) { close(); void router.push(to); }
         <h1>Tonight</h1>
         <p class="muted su-lede">A technique for tonight, added to tonight's plan in Train.</p>
         <ChoiceTiles v-model="technique" :options="TECHS" :cols="1" label="Technique" />
-        <p class="tiny su-gap">In the largest home study, MILD and SSILD did about equally well (about 16 to 20% of nights with a lucid dream), both done after waking in the night (Aspy 2020; RESEARCH.md [38]).<template v-if="sleepFirst"> With sleep first, do it as you fall asleep at bedtime, without an alarm in the night.</template></p>
+        <p class="tiny su-gap"><LearnInline :nodes="parseInline(techniqueNote)" @cite="cite = $event" /></p>
       </template>
 
       <template v-else-if="at === 'extras'">
@@ -222,6 +237,7 @@ function finish(to: string) { close(); void router.push(to); }
         </p>
       </template>
     </div>
+    <SourceSheet v-if="cite" :ids="cite" @close="cite = null" />
   </div>
 </template>
 

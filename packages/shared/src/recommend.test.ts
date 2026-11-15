@@ -246,6 +246,13 @@ describe("recommend: brief lucidity", () => {
     expect(has(base({ nights: ns, dreams: [at(1, 1), at(59, 1), at(2, 3)] }), "stabilise")).toBe(true);
     expect(has(base({ nights: ns, dreams: [at(1, 1), at(60, 1), at(2, 3)] }), "stabilise")).toBe(false);
   });
+  it("not in a dry spell: brief lucid dreams 28-60 days ago and none since", () => {
+    const ns = nights(70);
+    const at = (i: number) => ({ nightId: `n${i}`, lucid: true, lucidityLevel: 1 });
+    const d = base({ nights: ns, dreams: [at(28), at(40), at(55)] });
+    expect(has(d, "dry-spell")).toBe(true);
+    expect(has(d, "stabilise")).toBe(false);
+  });
 });
 
 describe("recommend: slow to sleep after MILD", () => {
@@ -279,6 +286,11 @@ describe("recommend: try SSILD", () => {
     expect(has(base({ nights: mildWbtb(8, { techniquesDone: ["mild", "ssild"] }) }), "try-ssild")).toBe(false);
     expect(has(base({ nights: mildWbtb(8), sleepFirst: true }), "try-ssild")).toBe(false);
     expect(has(base({ nights: nights(20, (i) => (i <= 8 ? mildNight : {})) }), "try-ssild")).toBe(false);
+  });
+  it("not in a dry spell, even with many MILD + WBTB nights: the dry spell's card says to rest first", () => {
+    const d = base({ nights: nights(40, (i) => (i <= 12 ? { wbtbUsed: true, techniquesDone: ["mild"] } : {})), dreams: lucidOn(30) });
+    expect(has(d, "dry-spell")).toBe(true);
+    expect(has(d, "try-ssild")).toBe(false);
   });
 });
 

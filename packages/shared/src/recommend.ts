@@ -60,7 +60,7 @@ const SAFETY_RECS: Record<SafetyPage, Omit<Recommendation, "id" | "reason">> = {
   "sleep-first": {
     title: "Sleep comes first",
     body: "Lucid dreaming needs good sleep, and the techniques that wake you in the night cut into it. Somnium leaves wake back to bed, the CAT alarm and naps out of its suggestions for now. If you find you are losing sleep, let it go for a few days.",
-    sources: ["B69", "B77", "D1"], link: { label: "Sleep first", to: "/learn/safety/sleep-first" },
+    sources: ["B69", "B70", "D1"], link: { label: "Sleep first", to: "/learn/safety/sleep-first" },
   },
 };
 
@@ -201,7 +201,7 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   });
 
   // MILD + WBTB when recall is good, no lucid dream for 3 weeks, and no WBTB nights then; never after the safety check
-  // said sleep first (sleep fragmentation, B69, B77)
+  // said sleep first (sleep-interrupting methods can harm sleep, B69, B70)
   const lucidFrom = since(REC.noLucidDays);
   const lucidLately = dreamsSince(REC.noLucidDays).some((d) => d.lucid) || nights.some((x) => x.date >= lucidFrom && ((x as InsightNight).lucidCount ?? 0) > 0);
   const wbtbLately = nights.some((x) => x.date >= lucidFrom && isWbtb(x));
@@ -215,11 +215,12 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
   // lucid but lost at once: over half of the rated lucid dreams lately at level 1 ("A brief flash, lost at once",
   // journal.ts LUCIDITY_ANCHORS). Stabilising is a skill: stay calm, engage the senses, spin when vision fades
   // (D1 ch. 6, D5 Unit 5), keep the eyes moving because a fixed gaze ends the dream (Tholey, D8); LaBerge lost lucidity in 18% of his lucid dreams in his first year, under 1% after (D1 ch. 6).
-  // Not alongside the first lucid dream's card, which opens the same lesson.
+  // Not alongside the first lucid dream's card, which opens the same lesson, nor in a dry spell: those brief lucid
+  // dreams were over 4 weeks ago, and the dry spell's card already says to rest first.
   const briefFrom = since(REC.briefDays);
   const ratedLucid = data.dreams.filter((d) => { const day = dateOf.get(d.nightId); return d.lucid && (d.lucidityLevel ?? 0) > 0 && day != null && day >= briefFrom && day <= today; });
   const brief = ratedLucid.filter((d) => Math.round(d.lucidityLevel!) === 1).length;
-  if (ratedLucid.length >= REC.briefMin && brief * 2 > ratedLucid.length && !out.some((r) => r.id === "first-lucid")) out.push({
+  if (ratedLucid.length >= REC.briefMin && brief * 2 > ratedLucid.length && !out.some((r) => r.id === "first-lucid") && !dry) out.push({
     id: "stabilise", title: "Staying lucid for longer",
     body: "Becoming lucid is the hard part, and you are doing it. Staying is a skill of its own: keep calm, touch things and rub your hands, look at details while keeping your eyes moving, and spin like a top if the dream starts to fade. LaBerge lost his lucidity in nearly 1 in 5 lucid dreams in his first year, and almost never after that.",
     reason: `${brief} of your ${n(ratedLucid.length, "rated lucid dream")} in the last ${REC.briefDays} days were a brief flash, lost at once.`,
@@ -242,12 +243,13 @@ export function recommend(data: RecommendData, today: string, max = 3): Recommen
 
   // MILD + WBTB for a while and no lucid dream: SSILD after the same alarm did as well as MILD in ILDIS (16.9% of nights,
   // B38), though it rests on that one study (B35); its author's advice is to expect nothing (D19). It cuts into sleep
-  // like WBTB, so never after the safety check said sleep first or while sleep says ease off.
+  // like WBTB, so never after the safety check said sleep first or while sleep says ease off, nor in a dry spell, whose
+  // card says to rest and try something lower-effort, not another technique after the alarm.
   const ssildFrom = since(REC.ssildDays);
   const triedFrom = lastLucid && lastLucid >= ssildFrom ? addDays(lastLucid, 1) : ssildFrom;
   const tried = nights.filter((x) => x.date >= triedFrom && isWbtb(x) && x.techniquesDone?.includes("mild")).length;
   const ssildLately = nights.some((x) => x.date >= triedFrom && x.techniquesDone?.includes("ssild"));
-  if (tried >= REC.ssildNights && !ssildLately && !ease && !data.sleepFirst) out.push({
+  if (tried >= REC.ssildNights && !ssildLately && !ease && !data.sleepFirst && !dry) out.push({
     id: "try-ssild", title: "Try SSILD after WBTB",
     body: "After the same WBTB alarm, try SSILD instead of MILD for a while: lie down, close your eyes and move your attention through sight, sound and touch in a few quick rounds, then a few slow ones, then let yourself sleep. Expect nothing. In the largest study it did as well as MILD, though that is the only study so far.",
     reason: `You have done MILD with WBTB on ${n(tried, "night")} in the last ${REC.ssildDays / 7} weeks without a lucid dream${lastLucid ? " since your last one" : ""}.`,
