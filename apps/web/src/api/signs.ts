@@ -2,7 +2,7 @@
 // opened here; the only writes are the ordinary ones on elements, links and dreams, sealed like every other.
 // With the device copy they go into the journal on this device (offline too); on the direct path to the server.
 import { shallowRef } from "vue";
-import { mergeMark, mergePlan, mergingInto, parseDismissed, suggestionKey, withoutMergeMark, type Dream, type DreamElement, type Element, type ElementKind, type SignCategory, type SignCheck, type SignTheme } from "@somnium/shared";
+import { mergeMark, mergePlan, mergingInto, parseDismissed, parseTriggers, suggestionKey, withoutMergeMark, type Dream, type DreamElement, type Element, type ElementKind, type SignCategory, type SignCheck, type SignTheme } from "@somnium/shared";
 import { api, ApiError } from "./client";
 import { invalidate, queryClient } from "./live";
 import { send } from "./outbox";
@@ -62,11 +62,18 @@ export async function mergeElements(fromEl: Element, intoEl: Element) {
   done();
 }
 
+/** Both elements' waking triggers (sealed), the kept one's first, no repeats; left out when the other has none to add. */
+function triggersOf(from: Element, into: Element): { triggers?: string } {
+  const add = parseTriggers(from.triggers);
+  if (!add.length) return {};
+  return { triggers: parseTriggers([...parseTriggers(into.triggers), ...add].join("\n")).join("\n") };
+}
+
 async function mergeSteps(from: Element, into: Element) {
   const links = await api.get<DreamElement[]>("/dream-elements");
   const p = mergePlan(from, into, links);
   for (const l of p.repoint) await api.post(`/dreams/${l.dreamId}/elements`, { elementId: into.id, source: l.source, confidence: l.confidence, span: l.span });
-  await api.put(`/elements/${into.id}`, { aliases: p.aliases, isDreamSign: p.isDreamSign, signCategory: p.signCategory, note: p.note, confirmed: true });
+  await api.put(`/elements/${into.id}`, { aliases: p.aliases, isDreamSign: p.isDreamSign, signCategory: p.signCategory, note: p.note, confirmed: true, ...triggersOf(from, into) });
   await api.del(`/elements/${from.id}`);
 }
 
