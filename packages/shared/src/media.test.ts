@@ -53,8 +53,8 @@ describe("photo size cap", () => {
 });
 
 describe("feature gating", () => {
-  it("photos, sketches and voice notes are built, and off for a new account", () => {
-    for (const id of ["photos", "sketches", "voiceNotes"]) {
+  it("photos, sketches, voice notes and their transcription are built, and off for a new account", () => {
+    for (const id of ["photos", "sketches", "voiceNotes", "transcribe"]) {
       expect(READY_FEATURES.some((f) => f.id === id)).toBe(true);
       expect(FEATURE_DEFAULTS[id]).toBe(false);
       expect(FEATURES.find((f) => f.id === id)?.group).toBe("Journal");

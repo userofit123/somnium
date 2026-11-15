@@ -10,6 +10,7 @@
 const BUILD = "__SOMNIUM_BUILD__";
 const CACHE = `somnium-app-${BUILD}`;
 const MEDIA = "somnium-media";
+const STT = "somnium-stt";
 const DEV = (p) => p.startsWith("/@") || p.startsWith("/src/") || p.startsWith("/node_modules/") || p.includes("?t=") || p.includes("?v=");
 
 // installing fetches this build's page and everything it can load, so the app still opens offline once the old
@@ -27,7 +28,8 @@ self.addEventListener("install", (e) => e.waitUntil((async () => {
 self.addEventListener("activate", (e) => e.waitUntil((async () => {
   // every earlier build's cache (and the ones from before caches had a build id) goes; photos stay. The development
   // server's worker (no build id) keeps nothing of its own, so it has nothing to replace them with and clears nothing
-  if (!BUILD.startsWith("__")) for (const k of await caches.keys()) if (k !== CACHE && k !== MEDIA) await caches.delete(k);
+  // The speech model's own cache (src/core/transcribe.ts, STT) stays too: 55 MB that only changes with the model.
+  if (!BUILD.startsWith("__")) for (const k of await caches.keys()) if (k !== CACHE && k !== MEDIA && k !== STT) await caches.delete(k);
   await self.clients.claim();
 })()));
 
@@ -58,6 +60,8 @@ self.addEventListener("fetch", (e) => {
   if (r.method !== "GET" || u.origin !== location.origin || DEV(u.pathname + u.search)) return;
   const photo = u.pathname.startsWith("/api/media/");
   if (u.pathname.startsWith("/api/") && !photo) return;
+  // the speech model is kept by the page itself, once (src/core/transcribe.ts): never a second copy here
+  if (u.pathname.startsWith("/assets/stt-model-")) return;
   if (r.mode === "navigate") { e.respondWith(page(e)); return; }
   if (keep(u.pathname)) {
     e.respondWith(caches.match(r).then((m) => m ?? fetch(r).then((res) => {
@@ -136,7 +140,8 @@ const IMPORTED = /(?:\.\/|\/?assets\/)([\w.-]+(?:\/[\w.-]+)?\.(?:js|css|wasm|dat
 // The text reader for photos (core/ocr.ts, LDJ-20) is several megabytes that only people with Photos and OCR switched
 // on ever use. Its files (named ocr-*, vite.config.ts) are kept like any other lazy chunk once fetched, and carried over
 // from the last version's cache when unchanged, but never fetched here ahead of use for everyone.
-const HEAVY = /^\/assets\/ocr-/;
+// The speech worker (core/stt.worker.ts, LDJ-176, named stt-*) is the same.
+const HEAVY = /^\/assets\/(ocr|stt)-/;
 async function keepImported(cc) {
   const roots = [];
   for (const r of await cc.keys()) { const p = new URL(r.url).pathname; if (p.startsWith("/assets/") && p.endsWith(".js")) roots.push(p); }

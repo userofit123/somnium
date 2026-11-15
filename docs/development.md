@@ -24,6 +24,9 @@ Without the proxy, the same app is at http://127.0.0.1:8800.
 Run pnpm through the same image: `./scripts/pnpm.sh -r typecheck`, `./scripts/pnpm.sh --filter @somnium/engine test`,
 `./scripts/pnpm.sh --filter @somnium/web exec vite build`.
 
+"Transcribe voice notes" needs the speech model (about 43 MB, git-ignored): `node scripts/fetch-speech-model.mjs` puts
+it in `apps/web/stt-model` once; without it the app is built and runs with that feature hidden.
+
 ## One-time setup on this computer
 
 1. **Name lookup** (needs sudo): `echo '127.0.0.1 somnium.local' | sudo tee -a /etc/hosts` (done on this machine).

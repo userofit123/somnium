@@ -13,6 +13,9 @@ COPY . .
 # the version the web app shows (Settings); the release workflow passes it
 ARG SOMNIUM_VERSION=
 ENV SOMNIUM_VERSION=$SOMNIUM_VERSION
+# the speech model for "Transcribe voice notes" (scripts/fetch-speech-model.mjs): taken from the sources when it is there
+# (the release fetches it first), else from Hugging Face, kept in BuildKit's cache. Unreachable: built without it.
+RUN --mount=type=cache,target=/root/.cache/somnium-speech node scripts/fetch-speech-model.mjs --cache /root/.cache/somnium-speech
 RUN corepack pnpm --filter @somnium/web exec vite build
 RUN corepack pnpm deploy --filter @somnium/server --prod /out \
  && cp -r apps/web/dist /out/web \

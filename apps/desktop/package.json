@@ -41,7 +41,11 @@
     "extraResources": [
       {
         "from": "../web/dist",
-        "to": "web"
+        "to": "web",
+        "filter": [
+          "**/*",
+          "!assets/stt-model-*{,/**}"
+        ]
       }
     ],
     "publish": {

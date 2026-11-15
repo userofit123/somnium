@@ -13,10 +13,11 @@ const root = path.resolve(import.meta.dirname, "../..");
 fs.rmSync("www", { recursive: true, force: true });
 // Only what the app runs: no source maps (they would ship the source and are of no use on a phone), no dotfiles or
 // editor and OS leftovers, and not the web app's service worker (main.ts never registers it inside the app, which
-// carries its own files). The manifest stays: index.html links it.
+// carries its own files). The manifest stays: index.html links it. Nor the speech model (assets/stt-model-*, LDJ-176): the
+// app loads it from the person's server when a server account first transcribes (src/core/transcribe.ts).
 const dist = path.join(root, "apps/web/dist");
 if (!fs.existsSync(path.join(dist, "index.html"))) throw new Error("apps/web/dist has no index.html: build the web app first");
-const skip = (name) => name.startsWith(".") || /\.map$/i.test(name) || /~$/.test(name) || /^(sw\.js|thumbs\.db|stats\.html)$/i.test(name);
+const skip = (name) => name.startsWith(".") || /\.map$/i.test(name) || /~$/.test(name) || /^(sw\.js|thumbs\.db|stats\.html)$/i.test(name) || /^stt-model-/.test(name);
 fs.cpSync(dist, "www", { recursive: true, filter: (src) => src === dist || !skip(path.basename(src)) });
 
 const file = path.join("www", "index.html");

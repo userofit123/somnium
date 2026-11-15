@@ -8,6 +8,7 @@ import { READY_FEATURES, CYCLE_RANGE, cycleOf, deviceFormats } from "@somnium/sh
 import { useMe, useSettings, saveSettings, loaded } from "../api/queries";
 import { session, signOut, isLocalAccount } from "../core/session";
 import { isPhone } from "../core/device";
+import { canTranscribe } from "../core/transcribe";
 import { useNeedsRecoveryKey } from "../core/recoveryNudge";
 import Icon from "../components/Icon.vue";
 import AppSelect from "../components/AppSelect.vue";
@@ -50,7 +51,7 @@ const KEYWORDS: Record<string, string> = {
   account: "name username devices signed in sync delete", security: "lock delay idle device verification fingerprint face screen lock windows hello touch id password recovery key two-factor 2fa authenticator backup codes sign out everywhere checklist screenshots",
   accounts: "server sync local switch", appearance: "theme dark light colours colors font density layout", formats: "week date clock 12 24 hour automatic device language", reminders: "notifications alarm wake-up bedtime wbtb wake back to bed morning journal practice lesson tray login test",
   "reality-checks": "reminders notifications quiet hours habit moments checks silent vibrate dream sign",
-  sleep: "sleep times bedtime wake cycle 90 minutes free nights sleep in lie-in weekend setup first run onboarding start again morning capture still dim", features: "optional extras voice notes sketches photos goals reports themes command palette local ai model switches", backup: "backups restore automatic encrypted", data: "export import save files json markdown csv delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
+  sleep: "sleep times bedtime wake cycle 90 minutes free nights sleep in lie-in weekend setup first run onboarding start again morning capture still dim", features: "optional extras voice notes transcribe speech to text sketches photos goals reports themes command palette local ai model switches", backup: "backups restore automatic encrypted", data: "export import save files json markdown csv delete", log: "activity history", admin: "invites sign-ups people", about: "version update download release notes what's new changelog github licence license credits",
 };
 // what "Automatic" means here, said under the formats
 const device = deviceFormats();
@@ -68,7 +69,9 @@ const SECTIONS = computed(() => ALL.value.flatMap(([, xs]) => xs));
 const needsKey = useNeedsRecoveryKey();
 const go = (k: string) => router.push(`/settings/${k}`);
 const set = (patch: Record<string, unknown>) => saveSettings(patch);
-const groups = computed(() => { const m = new Map<string, typeof READY_FEATURES>(); for (const f of READY_FEATURES) m.set(f.group, [...(m.get(f.group) ?? []), f]); return [...m]; });
+// transcription only where it can run: a build with the speech model, on an account on a server (core/transcribe.ts)
+const offered = (id: string) => id !== "transcribe" || canTranscribe();
+const groups = computed(() => { const m = new Map<string, typeof READY_FEATURES>(); for (const f of READY_FEATURES) if (offered(f.id)) m.set(f.group, [...(m.get(f.group) ?? []), f]); return [...m]; });
 // show the page once its data is in, all at once
 await loaded(me);
 </script>

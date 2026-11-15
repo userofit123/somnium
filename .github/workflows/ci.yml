@@ -24,6 +24,11 @@ jobs:
       - run: pnpm -r typecheck
       # the engine tests run two files at a time (maxForks 2 in its vitest config) so a shared runner keeps enough memory
       - run: pnpm -r test
+      # the speech model for "Transcribe voice notes" (scripts/fetch-speech-model.mjs): kept between runs; when Hugging
+      # Face can't be reached the build goes on without it
+      - uses: actions/cache@v4
+        with: { path: apps/web/stt-model, key: "speech-model-${{ hashFiles('scripts/fetch-speech-model.mjs') }}" }
+      - run: node scripts/fetch-speech-model.mjs
       - run: pnpm --filter @somnium/web exec vite build
   # Compiles the Android app (Java plugin included) without signing or publishing, so a broken build shows up before a release.
   android:

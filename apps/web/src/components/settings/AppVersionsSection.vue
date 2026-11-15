@@ -103,6 +103,7 @@ const mb = (n?: number) => (n ? ` · ${Math.max(1, Math.round(n / 1e6))} MB` : "
     <div class="card">
       <div class="li"><div class="grow"><div class="t">Look and feel</div><div class="s">From Money Manager and Motus. Fonts: Inter and Nunito (SIL Open Font License)</div></div></div>
       <div class="li"><div class="grow"><div class="t">Reading text from photos</div><div class="s">tesseract.js, its engine and the English model from tessdata (Apache License 2.0), kept in the app and run on this device</div></div></div>
+      <div class="li"><div class="grow"><div class="t">Transcribing voice notes</div><div class="s">Transformers.js (Apache License 2.0), ONNX Runtime Web and OpenAI's Whisper tiny.en model (MIT License), loaded from your server and run on this device</div></div></div>
       <div class="li"><div class="grow"><div class="t">Source</div><div class="s">Source code, all releases and installation help</div></div><a class="btn o s" :href="REPO_URL" target="_blank" rel="noopener">GitHub</a></div>
     </div>
   </div>

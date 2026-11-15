@@ -16,8 +16,8 @@ function inlineHashes(html: string): { scripts: string[]; styles: string[] } {
 
 /**
  * The Content-Security-Policy for the built app.
- * - 'wasm-unsafe-eval': the device database (PGlite) and the photo text reader (tesseract.js) are WebAssembly; it allows
- *   compiling WebAssembly and nothing else (no eval, no new Function).
+ * - 'wasm-unsafe-eval': the device database (PGlite), the photo text reader (tesseract.js) and the voice note transcriber
+ *   (onnxruntime-web) are WebAssembly; it allows compiling WebAssembly and nothing else (no eval, no new Function).
  * - style-src-attr 'unsafe-inline': Vue writes style="" attributes (static template styles it turns into HTML, the
  *   splash); <style> elements and style sheets still have to come from the app itself or match a hash.
  * - worker-src blob:: what tesseract.js may fall back to for its worker; ours is loaded from the app (ocr.ts).

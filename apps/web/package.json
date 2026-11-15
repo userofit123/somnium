@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "0.2.15",
+    "@huggingface/transformers": "3.8.1",
     "@somnium/engine": "workspace:*",
     "@somnium/knowledge": "workspace:*",
     "@somnium/shared": "workspace:*",

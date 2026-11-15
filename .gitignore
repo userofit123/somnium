@@ -8,6 +8,8 @@ secrets/
 
 # build output
 dist/
+# the speech model, fetched at build time (scripts/fetch-speech-model.mjs)
+apps/web/stt-model/
 build/
 *.tsbuildinfo
 apps/android/android/app/build/

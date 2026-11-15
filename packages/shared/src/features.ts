@@ -11,6 +11,7 @@ export const RETIRED_FEATURES = ["markdownExport", "shareText"] as const;
 export const FEATURES: FeatureDef[] = [
   // Journal
   { id: "voiceNotes", group: "Journal", name: "Voice notes", desc: "Record a dream by voice in the morning (up to 5 minutes); the recording is sealed before it leaves this device.", where: "Capture · Dream editor", to: "/capture", on: false },
+  { id: "transcribe", group: "Journal", name: "Transcribe voice notes", desc: "On this device · English · the first time about 55 MB is loaded from your server. Needs an account on a server: an account kept only on this device can't transcribe.", where: "Voice notes in the dream editor", to: "/journal", on: false },
   { id: "sketches", group: "Journal", name: "Sketches", desc: "Draw a scene from a dream next to its text.", where: "Dream editor", to: "/journal", on: false },
   { id: "photos", group: "Journal", name: "Photos and OCR", desc: "Add photos to a dream and read a paper journal page into its text. The reading happens on this device; place data is taken out of every photo.", where: "Dream editor", to: "/journal", on: false },
   { id: "dayNotes", group: "Journal", name: "Day notes", desc: "A line about your day, to see what shows up in dreams days later.", where: "+ sheet · Journal · Progress", to: "/journal", on: false },

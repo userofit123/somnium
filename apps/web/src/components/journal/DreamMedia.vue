@@ -11,6 +11,7 @@ import { addMedia, mediaBlob, mediaObjectUrl, removeMedia, saveOcrText, useDream
 import { saveNow } from "../../api/journal";
 import { useSettings } from "../../api/queries";
 import { confirm } from "../../core/ask";
+import { canTranscribe, stopStt, transcribe } from "../../core/transcribe";
 import { toast, toastError } from "../../core/toast";
 import Icon from "../Icon.vue";
 import Sheet from "../Sheet.vue";
@@ -93,7 +94,7 @@ const sketching = ref(false);
 const saveSketch = (b: Blob) => run("Saving the sketch", async () => { await upload(b, { kind: "sketch" }); sketching.value = false; }, "The sketch wasn't saved");
 
 // ----- voice notes -----
-// MediaRecorder, Opus in WebM where the browser has it (Safari records MP4/AAC). Nothing transcribes it.
+// MediaRecorder, Opus in WebM where the browser has it (Safari records MP4/AAC). Transcribing is a separate, optional step.
 const rec = ref<{ r: MediaRecorder; stream: MediaStream; started: number; secs: number } | null>(null);
 let tick: ReturnType<typeof setInterval> | undefined;
 const pickType = () => ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"].find((t) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(t)) ?? "";
@@ -131,6 +132,30 @@ function stop() { if (rec.value?.r.state !== "inactive") rec.value?.r.stop(); }
 function drop() { dropping = true; stop(); }
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
+// ----- transcribing a voice note (LDJ-176) -----
+// Only in the dream editor (its text is where the words go), with "Transcribe voice notes" on and the model on the
+// server (core/transcribe.ts; its worker starts on the first tap, never before). Heard on this device: the recording is
+// opened here and never sent anywhere. The words show in a sheet to check first, and go into the dream only on
+// "Add to dream", through the editor's draft like typed text.
+const canStt = computed(() => !!props.edit && !props.voice && on.value.voice && !!settings.value.features.transcribe && canTranscribe());
+const stt = ref<{ step: string; progress: number | null; text: string; done: boolean; error: string } | null>(null);
+async function transcribeNote(m: MediaRow) {
+  stt.value = { step: "Opening the voice note", progress: null, text: "", done: false, error: "" };
+  const o = stt.value;
+  try {
+    const blob = await mediaBlob(m.id);
+    const text = await transcribe(blob, (p) => { o.step = p.step; o.progress = p.progress; });
+    if (stt.value !== o) return;
+    o.text = text; o.done = true;
+    if (!text) o.error = "No words were heard in this voice note.";
+  } catch (e) { if (stt.value === o) o.error = e instanceof Error && e.message !== "Stopped" ? e.message : "This voice note couldn't be transcribed"; }
+}
+function addTranscript() {
+  const text = stt.value?.text.trim();
+  if (text) emit("text", text);
+  stt.value = null;
+}
+
 // ----- viewing and removing -----
 const viewing = ref<MediaRow | null>(null);
 async function remove(m: MediaRow) {
@@ -144,6 +169,8 @@ onBeforeUnmount(() => {
   clearInterval(tick);
   // the reader holds the page's text in its memory: it goes with the screen (it loads again from the cache next time)
   if (reader) void reader.stopOcr();
+  // the speech worker holds the recording and its words: the same
+  stopStt();
 });
 </script>
 
@@ -180,6 +207,7 @@ onBeforeUnmount(() => {
       <span v-else class="tiny jmut">Opening the voice note...</span>
       <span v-if="m.duration" class="tiny jmut">{{ clock(m.duration) }}</span>
       <button v-if="edit" class="ib plain sm" aria-label="Delete voice note" @click="remove(m)"><Icon name="trash" :size="14" /></button>
+      <button v-if="canStt" class="btn tonal s" :disabled="!!stt && !stt.done && !stt.error" @click="transcribeNote(m)">Transcribe on this device</button>
     </div>
 
     <Sheet v-if="ocr" title="Text in the photo" @close="ocr = null">
@@ -196,6 +224,23 @@ onBeforeUnmount(() => {
       <template #foot>
         <button class="btn o" @click="ocr = null">Cancel</button>
         <button class="btn" :disabled="!ocr.done || !ocr.text.trim() || !!busy" @click="useOcr">Use this text</button>
+      </template>
+    </Sheet>
+
+    <Sheet v-if="stt" title="Words in the voice note" @close="stt = null">
+      <div v-if="!stt.done && !stt.error" class="jocrp" aria-live="polite">
+        <div class="tiny">{{ stt.step }}{{ stt.progress !== null ? " · " + Math.round(stt.progress * 100) + "%" : "..." }}</div>
+        <div class="jbar2" :class="{ jbusy: stt.progress === null }"><div :style="stt.progress !== null ? { width: Math.round(stt.progress * 100) + '%' } : undefined" /></div>
+        <p class="tiny jmut">Heard on this device; the recording isn't sent anywhere. The first time, the English speech model (about 55 MB) is loaded from your server. A long note can take a minute or two.</p>
+      </div>
+      <p v-if="stt.error" class="tiny jerr">{{ stt.error }}</p>
+      <template v-if="stt.done">
+        <p class="tiny jmut">Check the words and fix what was misheard. They are added to the end of the dream.</p>
+        <textarea v-model="stt.text" class="jocrt" aria-label="Words heard in the voice note" />
+      </template>
+      <template #foot>
+        <button class="btn o" @click="stt = null">Cancel</button>
+        <button class="btn" :disabled="!stt.done || !stt.text.trim()" @click="addTranscript">Add to dream</button>
       </template>
     </Sheet>
 
@@ -219,8 +264,8 @@ onBeforeUnmount(() => {
 .jthb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .jthact { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
 .jthact .btn.tonal { min-width: 0; }
-.jvoice { display: flex; align-items: center; gap: var(--lpy); min-width: 0; }
-.jvoice audio { flex: 1; min-width: 0; max-width: 100%; }
+.jvoice { display: flex; flex-wrap: wrap; align-items: center; gap: var(--lpy); min-width: 0; }
+.jvoice audio { flex: 1 1 200px; min-width: 0; max-width: 100%; }
 .jrec { display: flex; align-items: center; gap: var(--lpy); }
 .jdot { width: 10px; height: 10px; border-radius: 50%; background: var(--neg); animation: jpulse 1.2s ease-in-out infinite; }
 @keyframes jpulse { 50% { opacity: 0.3; } }
@@ -228,6 +273,10 @@ onBeforeUnmount(() => {
 .jocrp { display: flex; flex-direction: column; gap: var(--lpy); }
 .jbar2 { height: 6px; border-radius: var(--pill); background: var(--s2); overflow: hidden; }
 .jbar2 div { height: 100%; background: var(--acc); transition: width 0.2s; }
+/* working, with no way to tell how far: a band that moves along */
+.jbar2.jbusy div { width: 30%; animation: jslide 1.4s ease-in-out infinite; }
+@keyframes jslide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) { .jbar2.jbusy div { width: 100%; opacity: 0.4; animation: none; } }
 .jocrt { width: 100%; min-height: 220px; resize: vertical; font-size: var(--fs); line-height: 1.5; }
 .jocrf { display: flex; justify-content: flex-end; gap: var(--lpy); margin-top: var(--lpy); }
 .jfullimg { display: block; max-width: 100%; max-height: 75vh; margin: 0 auto; border-radius: var(--r); }

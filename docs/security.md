@@ -470,7 +470,7 @@ password first.
 - **Who talks to whom.** The app talks to your own server (the page and `/api`, plus a live-update stream per signed-in
   person, `/api/events`). Nothing else leaves the device except the **update check**: GitHub's public "latest release"
   list, asked by the server (`apps/server/src/version.ts`, which the web app asks through `/api/update-check`), by the
-  Android app for a local account (`core/releases.ts`), and by the desktop auto-updater, sending no identifier. All analysis (lexicons, `compromise`, `tesseract.js`) runs on
+  Android app for a local account (`core/releases.ts`), and by the desktop auto-updater, sending no identifier. All analysis (lexicons, `compromise`, `tesseract.js`, the Whisper speech model) runs on
   the device; fonts are bundled; there are no analytics, telemetry or error reporting. A server account's browser
   talks to your server only; the server talks to the database and, for the update check, GitHub.
 - **Docker.** The `db` container (PostgreSQL 16) is only on an **internal** network (`backend`, `internal: true`): it has
@@ -494,7 +494,7 @@ password first.
     form-action 'self'; object-src 'none'`.
     The hashes are those of `index.html`'s inline pre-paint script and splash style, read from the built file (again
     whenever it changes), never typed in. `'wasm-unsafe-eval'` lets the device database (PGlite) and the photo text
-    reader (tesseract.js) compile WebAssembly; it does not allow `eval` or `new Function`. Style attributes are
+    reader (tesseract.js) and the voice note transcriber (onnxruntime-web) compile WebAssembly; it does not allow `eval` or `new Function`. Style attributes are
     allowed (`style-src-attr`, which Vue's static templates need); style sheets and `<style>` elements are not, unless
     bundled or hashed. `connect-src` is the server only: the update check goes through it, so a script that got in
     cannot call out.

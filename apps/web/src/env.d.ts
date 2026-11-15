@@ -9,3 +9,10 @@ declare module "virtual:ocr-eng" {
   const url: string;
   export default url;
 }
+declare module "virtual:stt-model" {
+  /** The speech model's folder and files (vite.config.ts sttModel): file name -> SHA-256, and their sizes in bytes.
+   *  wasmDir: where the engine's WebAssembly is in development (null: in `dir` with the rest). glue: the engine's loader
+   *  script, with the app's own files. null: built without it. */
+  const model: { dir: string; wasmDir: string | null; glue: string; files: Record<string, string>; sizes: Record<string, number> } | null;
+  export default model;
+}

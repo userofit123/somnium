@@ -1,7 +1,8 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, realpathSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Plugin } from "vite";
@@ -48,6 +49,49 @@ function ocrModel(): Plugin {
   };
 }
 
+// The speech model for "Transcribe voice notes" (src/core/transcribe.ts, LDJ-176): Whisper tiny.en, fetched at build time by
+// scripts/fetch-speech-model.mjs into stt-model/ (it writes manifest.json once every file is there and checked), and the
+// speech engine's WebAssembly (onnxruntime-web, single-threaded). All go to assets/stt-model-<hash>/, one folder whose
+// name changes with its content. The engine's small loader script (20 kB) goes with the app's own files instead
+// (assets/stt-ort-<hash>.js): a script can only be loaded from the app itself, never from the server's address. The desktop and Android builds leave that folder out (apps/desktop/package.json,
+// apps/android/prepare-web.mjs): their copies of the app load it from the person's server. `virtual:stt-model` is
+// null when the model wasn't fetched: the build goes on and the feature isn't offered.
+function sttModel(): Plugin {
+  const VID = "virtual:stt-model", RID = "\0" + VID;
+  const here = dirname(fileURLToPath(import.meta.url));
+  const dir = join(here, "stt-model");
+  // the engine's own file, next to the package Transformers.js depends on (pnpm keeps it out of apps/web/node_modules)
+  const ort = dirname(createRequire(realpathSync(join(here, "node_modules/@huggingface/transformers/package.json"))).resolve("onnxruntime-web/wasm"));
+  const wasm = join(ort, "ort-wasm-simd-threaded.wasm"), glue = join(ort, "ort-wasm-simd-threaded.mjs");
+  let build = false;
+  const read = () => {
+    try {
+      const m = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as { files: Record<string, string> };
+      return Object.keys(m.files).every((f) => existsSync(join(dir, f))) && existsSync(wasm) ? m.files : null;
+    } catch { return null; }
+  };
+  return {
+    name: "somnium-stt-model",
+    configResolved(c) { build = c.command === "build"; },
+    resolveId(id) { return id === VID ? RID : null; },
+    load(id) {
+      if (id !== RID) return null;
+      const files = read();
+      if (!files) { if (build) this.warn("no speech model in apps/web/stt-model (scripts/fetch-speech-model.mjs): built without it"); return "export default null;"; }
+      const wasmHash = createHash("sha256").update(readFileSync(wasm)).digest("hex");
+      const all: Record<string, string> = { ...files, "ort-wasm-simd-threaded.wasm": wasmHash };
+      const sizes = Object.fromEntries(Object.keys(all).map((f) => [f, readFileSync(f.endsWith(".wasm") ? wasm : join(dir, f)).length]));
+      if (!build) return `export default ${JSON.stringify({ dir: "/@fs" + dir + "/", wasmDir: "/@fs" + ort + "/", glue: "/@fs" + glue, files: all, sizes })};`;
+      const glueSrc = readFileSync(glue);
+      const glueName = `assets/stt-ort-${createHash("sha256").update(glueSrc).digest("hex").slice(0, 10)}.js`;
+      this.emitFile({ type: "asset", fileName: glueName, source: glueSrc });
+      const folder = `assets/stt-model-${createHash("sha256").update(JSON.stringify(all)).digest("hex").slice(0, 10)}/`;
+      for (const f of Object.keys(all)) this.emitFile({ type: "asset", fileName: folder + f, source: readFileSync(f.endsWith(".wasm") ? wasm : join(dir, f)) });
+      return `export default { dir: import.meta.env.BASE_URL + ${JSON.stringify(folder)}, wasmDir: null, glue: import.meta.env.BASE_URL + ${JSON.stringify(glueName)}, files: ${JSON.stringify(all)}, sizes: ${JSON.stringify(sizes)} };`;
+    },
+  };
+}
+
 // In Docker the page is opened through a proxy: Caddy at https://somnium.local, or Tailscale at
 // https://<machine>.ts.net:8444 from a phone. Hot reload then connects back to whatever address and port
 // the page came from (VITE_HMR_HOST is set in docker-compose.dev.yml).
@@ -79,7 +123,12 @@ const devHeaders = {
 };
 
 export default defineConfig({
-  plugins: [vue(), swBuildId(), ocrModel()],
+  plugins: [vue(), swBuildId(), ocrModel(), sttModel()],
+  // Transformers.js runs on the plain WebAssembly build of its engine (no WebGPU part, half the size): core/stt.worker.ts
+  resolve: { alias: [{ find: /^onnxruntime-web$/, replacement: "onnxruntime-web/wasm" }] },
+  // the speech worker loads Transformers.js only when it starts, which needs module workers
+  // (its files are named stt-*, so the service worker doesn't fetch them ahead for everyone: public/sw.js HEAVY)
+  worker: { format: "es", rollupOptions: { output: { entryFileNames: "assets/stt-[name]-[hash].js", chunkFileNames: "assets/stt-[name]-[hash].js" } } },
   // PGlite (the database for local accounts in the Android app) ships its own WebAssembly files
   optimizeDeps: { exclude: ["@electric-sql/pglite"] },
   define: { "import.meta.env.VITE_VERSION": JSON.stringify(process.env.SOMNIUM_VERSION ?? "") },

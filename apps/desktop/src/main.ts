@@ -86,7 +86,9 @@ function startProxy(acc: Account): Promise<{ port: number; close: () => Promise<
     const url = req.url ?? "/";
     let clean = url.split("?")[0]!;
     try { clean = decodeURIComponent(clean); } catch { /* left as it came */ }
-    if (url.startsWith("/api/")) {
+    // the speech model (LDJ-176) isn't in this app's own copy of the screens (package.json build.extraResources): it comes
+    // from the server, like the API
+    if (url.startsWith("/api/") || clean.startsWith("/assets/stt-model-")) {
       const headers = { ...req.headers, host: target.host, origin: target.origin };
       const p = lib.request({ protocol: target.protocol, hostname: target.hostname, port: target.port || undefined, path: url, method: req.method, headers }, (r) => {
         const h: http.OutgoingHttpHeaders = { ...r.headers };
