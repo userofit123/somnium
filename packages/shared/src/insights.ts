@@ -101,76 +101,87 @@ export interface RecallInsight {
   /** Monday first. */
   byWeekday: RecallRow[];
 }
+/**
+ * Dreams by morning: one entry per date, so two logs on one date (a night saved twice before the replica merged
+ * them) are one night with both logs' dreams. Naps and plans are left out. A night's dreams come from the dream list
+ * when it has any there, else from its own count.
+ */
+function mornings(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string): Map<string, number> {
+  const ns = nightsIn(nights, from, to).filter((n) => !n.nap);
+  const count = new Map<string, number>();
+  for (const d of dreamsOf(ns, dreams)) count.set(d.nightId, (count.get(d.nightId) ?? 0) + 1);
+  const byDate = new Map<string, number>();
+  for (const n of ns) byDate.set(n.date, (byDate.get(n.date) ?? 0) + (count.get(n.id) ?? n.dreamCount ?? 0));
+  return byDate;
+}
+
 /** Dreams per night and nights with recall, by week (or month) and by weekday of the morning. Naps aren't nights; their dreams are counted apart. */
 export function recallInsight(nights: InsightNight[], dreams: InsightDream[], from: string | null, to: string, b: Bucket = "week"): RecallInsight {
   const all = nightsIn(nights, from, to);
-  const ns = all.filter((n) => !n.nap);
-  const count = new Map<string, number>();
-  for (const d of dreamsOf(ns, dreams)) count.set(d.nightId, (count.get(d.nightId) ?? 0) + 1);
-  const dc = (n: InsightNight) => count.get(n.id) ?? n.dreamCount ?? 0;
+  const byDate = mornings(nights, dreams, from, to);
   const row = (key: string): RecallRow => ({ key, nights: 0, withRecall: 0, dreams: 0 });
-  const add = (r: RecallRow, n: InsightNight) => { r.nights++; r.dreams += dc(n); if (dc(n) > 0) r.withRecall++; };
-  const { first, last } = span(ns, from, to);
-  const buckets = new Map(ns.length ? bucketRange(first, last, b).map((k) => [k, row(k)]) : []);
+  const add = (r: RecallRow, dc: number) => { r.nights++; r.dreams += dc; if (dc > 0) r.withRecall++; };
+  const { first, last } = span([...byDate.keys()].map((date) => ({ date })), from, to);
+  const buckets = new Map(byDate.size ? bucketRange(first, last, b).map((k) => [k, row(k)]) : []);
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(row);
   const total = row("all");
-  for (const n of ns) { add(total, n); add(buckets.get(bucketOf(n.date, b)) ?? row(""), n); add(days[weekday(n.date)]!, n); }
+  for (const [date, dc] of byDate) { add(total, dc); add(buckets.get(bucketOf(date, b)) ?? row(""), dc); add(days[weekday(date)]!, dc); }
   const napDreams = dreamsOf(all.filter((n) => n.nap), dreams).length;
   return { nights: total.nights, withRecall: total.withRecall, dreams: total.dreams, napDreams, byBucket: [...buckets.values()], byWeekday: days };
 }
 
 // ---------- recall progress (LDJ-113) ----------
 // "Are you remembering more than when you started?" Dreams a night over the last two weeks against a starting point:
-// the person's own answer from the first-run setup when there is one (LDJ-180 will store it), otherwise the first two
-// weeks of the journal. Always since the start, whatever period the page shows. The course's two recall targets are
+// the person's own answer from the first-run setup when there is one (LDJ-180 will store it), otherwise the first 14
+// logged nights of the journal (before the last two weeks, so the two never share a night). Neither side is compared
+// until it has RECALL_MIN_NIGHTS nights: one or two nights say nothing. Always since the start, whatever period the page shows. The course's two recall targets are
 // 1 dream a night for 7 nights in a row, then 2 a night (RESEARCH.md C2, D5). Part of any rise is the journal itself:
 // keeping one makes people remember and report more dreams (the logbook enhancement effect, B48, C30, C30a), so the
-// page says so; recall still matters, since it predicts MILD success (B37, B38).
+// page says so; recall still matters, since better recall predicted induction success (B38).
 
 /** Nights in each of the two windows compared: the last two weeks and the first two. */
 export const RECALL_WINDOW = 14;
 export const RECALL_TARGETS = { run: 7, perNight: 2 } as const;
+/** Fewer logged nights than this in a window: no comparison, and no "2 a night" reached. */
+export const RECALL_MIN_NIGHTS = 7;
 export const RECALL_COUNTING_SOURCES = ["B48", "C30", "C30a"] as const;
 export const RECALL_TARGET_SOURCES = ["C2", "D5"] as const;
-export const RECALL_WHY_SOURCES = ["B37", "B38"] as const;
+export const RECALL_WHY_SOURCES = ["B38"] as const;
+/** The course puts recall first. */
+export const RECALL_FIRST_SOURCES = ["D5"] as const;
 /** The setup answer (LDJ-180): roughly how many dreams a night, and the person's own words for it. */
 export interface RecallBaseline { perNight: number; label: string }
 export interface RecallSpan { nights: number; dreams: number; perNight: number | null }
 export interface RecallProgress {
   /** the 14 mornings up to today */
   now: RecallSpan;
-  /** the first 14 mornings from the first logged night; null until they and "now" no longer overlap */
+  /** the first 14 logged nights before the last two weeks began; null while there are fewer than RECALL_MIN_NIGHTS */
   start: (RecallSpan & { from: string; to: string }) | null;
   /** the setup answer, when one is stored */
   said: RecallBaseline | null;
-  /** what "now" is set against: the setup answer when there is one, else the first two weeks; null when neither */
+  /** what "now" is set against: the setup answer when there is one, else the first 14 logged nights; null when neither */
   base: { perNight: number; from: "setup" | "journal" } | null;
   /** nights in a row with a dream, ending at the latest logged night (0 when that is older than yesterday), and the best run */
   run: number; bestRun: number;
-  /** the course targets reached: 7 nights in a row with a dream (ever), 2 a night over the last two weeks (7+ nights logged) */
+  /** the course targets reached: 7 nights in a row with a dream (ever), 2 a night over the last two weeks (RECALL_MIN_NIGHTS+ nights logged) */
   reached: { run: boolean; twoANight: boolean };
   /** dreams a night by week since the first night (weeks with no night logged have nights 0) */
   weekly: RecallRow[];
 }
 
 export function recallProgress(nights: InsightNight[], dreams: InsightDream[], today: string, said: RecallBaseline | null = null): RecallProgress {
-  const ns = nightsIn(nights, null, today).filter((n) => !n.nap);
-  const count = new Map<string, number>();
-  for (const d of dreamsOf(ns, dreams)) count.set(d.nightId, (count.get(d.nightId) ?? 0) + 1);
-  // one morning, one entry: two logs on one date are summed
-  const byDate = new Map<string, number>();
-  for (const n of ns) byDate.set(n.date, (byDate.get(n.date) ?? 0) + (count.get(n.id) ?? n.dreamCount ?? 0));
+  const byDate = mornings(nights, dreams, null, today);
   const dates = [...byDate.keys()].sort();
-  const spanOf = (from: string, to: string): RecallSpan => {
-    const ds = dates.filter((d) => d >= from && d <= to);
+  const spanOf = (ds: string[]): RecallSpan => {
     const sum = ds.reduce((s, d) => s + byDate.get(d)!, 0);
     return { nights: ds.length, dreams: sum, perNight: ds.length ? sum / ds.length : null };
   };
-  const now = spanOf(addDays(today, -(RECALL_WINDOW - 1)), today);
+  const nowFrom = addDays(today, -(RECALL_WINDOW - 1));
+  const now = spanOf(dates.filter((d) => d >= nowFrom));
   const first = dates[0];
-  // the first two weeks count only once they end before the last two begin, so the two never share a night
-  const start = first && addDays(first, RECALL_WINDOW - 1) < addDays(today, -(RECALL_WINDOW - 1))
-    ? { ...spanOf(first, addDays(first, RECALL_WINDOW - 1)), from: first, to: addDays(first, RECALL_WINDOW - 1) } : null;
+  // the first 14 logged nights, counted only from those before the last two weeks so the two never share a night
+  const early = dates.filter((d) => d < nowFrom).slice(0, RECALL_WINDOW);
+  const start = early.length >= RECALL_MIN_NIGHTS ? { ...spanOf(early), from: early[0]!, to: early.at(-1)! } : null;
   const base = said ? { perNight: said.perNight, from: "setup" as const } : start?.perNight != null ? { perNight: start.perNight, from: "journal" as const } : null;
   let run = 0, bestRun = 0, prev: string | null = null;
   for (const d of dates) {
@@ -183,17 +194,18 @@ export function recallProgress(nights: InsightNight[], dreams: InsightDream[], t
   if (!last || last < addDays(today, -1) || !byDate.get(last)) run = 0;
   return {
     now, start, said, base, run, bestRun,
-    reached: { run: bestRun >= RECALL_TARGETS.run, twoANight: now.nights >= 7 && (now.perNight ?? 0) >= RECALL_TARGETS.perNight },
+    reached: { run: bestRun >= RECALL_TARGETS.run, twoANight: now.nights >= RECALL_MIN_NIGHTS && (now.perNight ?? 0) >= RECALL_TARGETS.perNight },
     weekly: first ? recallInsight(nights, dreams, first, today, "week").byBucket : [],
   };
 }
 
-/** One plain line: "Up from 0.3 to 1.2 dreams a night", "About the same as ...", or "" with nothing to compare. */
+/** One plain line: "Up from 0.3 to 1.2 dreams a night", "About the same as ...", or "" with nothing to compare
+ *  (no starting point, or fewer than RECALL_MIN_NIGHTS nights in the last two weeks). */
 export function recallChangeText(p: Pick<RecallProgress, "now" | "base">): string {
-  if (p.now.perNight == null || !p.base) return "";
+  if (p.now.perNight == null || p.now.nights < RECALL_MIN_NIGHTS || !p.base) return "";
   const r = (v: number) => (Math.round(v * 10) / 10).toString();
   const a = r(p.base.perNight), b = r(p.now.perNight);
-  const since = p.base.from === "setup" ? "what you said at the start" : "your first two weeks";
+  const since = p.base.from === "setup" ? "what you said at the start" : "your first logged nights";
   const unit = `dream${b === "1" ? "" : "s"} a night`;
   if (a === b) return `About the same as ${since}: ${b} ${unit}`;
   return `${p.now.perNight > p.base.perNight ? "Up" : "Down"} from ${a} to ${b} ${unit}, against ${since}`;

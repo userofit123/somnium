@@ -176,7 +176,7 @@ describe("insights: recall progress (LDJ-113)", () => {
   // n days back from today, with that many dreams
   const ago = (k: number, dreams: number, o: Partial<InsightNight> = {}) => night(addDays(today, -k), { dreamCount: dreams, noRecall: !dreams, ...o });
 
-  it("sets the last two weeks against the first two once they no longer overlap", () => {
+  it("sets the last two weeks against the first 14 logged nights before them", () => {
     const early = Array.from({ length: 14 }, (_, i) => ago(40 - i, i % 2)); // 40..27 days back: 7 dreams over 14 nights
     const late = Array.from({ length: 14 }, (_, i) => ago(13 - i, 2)); // the last 14 mornings: 2 a night
     const p = recallProgress([...early, ...late, ago(3, 5, { nap: true, id: "nap" })], [], today);
@@ -185,11 +185,11 @@ describe("insights: recall progress (LDJ-113)", () => {
     expect(p.base).toEqual({ perNight: 0.5, from: "journal" });
     expect(p.reached).toEqual({ run: true, twoANight: true });
     expect(p.run).toBe(14);
-    expect(recallChangeText(p)).toBe("Up from 0.5 to 2 dreams a night, against your first two weeks");
+    expect(recallChangeText(p)).toBe("Up from 0.5 to 2 dreams a night, against your first logged nights");
     expect(p.weekly[0]!.key).toBe(bucketOf(addDays(today, -40), "week"));
   });
 
-  it("has no starting point while the journal is under four weeks old, and prefers the setup answer", () => {
+  it("has no starting point with fewer than 7 nights before the last two weeks, and prefers the setup answer", () => {
     const ns = Array.from({ length: 20 }, (_, i) => ago(19 - i, 1));
     expect(recallProgress(ns, [], today).start).toBeNull();
     expect(recallProgress(ns, [], today).base).toBeNull();
@@ -209,11 +209,42 @@ describe("insights: recall progress (LDJ-113)", () => {
   });
 
   it("counts a night's dreams from its dream list when given, and says when nothing changed", () => {
-    const a = ago(30, 0), b = ago(1, 0);
-    const p = recallProgress([a, b], [dream(a), dream(b)], today);
-    expect(p.start?.perNight).toBe(1);
-    expect(p.now.perNight).toBe(1);
-    expect(recallChangeText(p)).toBe("About the same as your first two weeks: 1 dream a night");
+    const early = Array.from({ length: 7 }, (_, i) => ago(30 - i, 0));
+    const late = Array.from({ length: 7 }, (_, i) => ago(7 - i, 0));
+    const p = recallProgress([...early, ...late], [...early, ...late].map((n) => dream(n)), today);
+    expect(p.start).toMatchObject({ nights: 7, perNight: 1 });
+    expect(p.now).toMatchObject({ nights: 7, perNight: 1 });
+    expect(recallChangeText(p)).toBe("About the same as your first logged nights: 1 dream a night");
     expect(recallProgress([], [], today)).toMatchObject({ now: { nights: 0, perNight: null }, start: null, run: 0, weekly: [] });
+  });
+
+  it("takes the first 14 logged nights, not 14 calendar days, and compares nothing under 7 nights a side", () => {
+    // every other morning from 60 days back: the first 14 logged nights run from 60 to 34 days back
+    const early = Array.from({ length: 20 }, (_, i) => ago(60 - 2 * i, i < 14 ? 1 : 3));
+    const late = Array.from({ length: 7 }, (_, i) => ago(6 - i, 2));
+    const p = recallProgress([...early, ...late], [], today);
+    expect(p.start).toMatchObject({ nights: 14, dreams: 14, perNight: 1, from: addDays(today, -60), to: addDays(today, -34) });
+    expect(recallChangeText(p)).toBe("Up from 1 to 2 dreams a night, against your first logged nights");
+    // six nights in the last two weeks: a starting point, but no comparison and no target reached
+    const thin = recallProgress([...early, ...late.slice(1)], [], today);
+    expect(thin.base).not.toBeNull();
+    expect(recallChangeText(thin)).toBe("");
+    expect(recallProgress([...early, ...late.slice(1).map((n) => ({ ...n, dreamCount: 3 }))], [], today).reached.twoANight).toBe(false);
+    // six nights before them: no starting point
+    expect(recallProgress([...early.slice(0, 6), ...late], [], today).start).toBeNull();
+  });
+
+  it("counts two logs on one morning as one night, and leaves out plans and naps", () => {
+    const d = addDays(today, -2);
+    const twice = [night(d, { id: "a", dreamCount: 1 }), night(d, { id: "b", dreamCount: 2 })];
+    const plan = night(addDays(today, -3)); // nothing logged, no "No recall" mark: a plan
+    const nap = night(addDays(today, -1), { nap: true, dreamCount: 4 });
+    const sameDay = night(addDays(today, -1), { dreamCount: 1 });
+    const all = [...twice, plan, nap, sameDay];
+    const p = recallProgress(all, [], today);
+    expect(p.now).toEqual({ nights: 2, dreams: 4, perNight: 2 });
+    const r = recallInsight(all, [], addDays(today, -13), today);
+    expect([r.nights, r.withRecall, r.dreams, r.napDreams]).toEqual([p.now.nights, 2, p.now.dreams, 0]);
+    expect(p.weekly.reduce((a, w) => a + w.nights, 0)).toBe(2);
   });
 });

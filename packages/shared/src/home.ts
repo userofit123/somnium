@@ -3,6 +3,7 @@
 // in); the clock only comes in as an hour or a timestamp passed by the caller.
 import { tonightOf } from "./course";
 import { addDays, journalStreak, loggedNights, recallRate, type NightLog } from "./rates";
+import { recallChangeText, recallProgress } from "./insights";
 
 /** The day turns over for the journal at 05:00, the same cut-off Train uses for tonight's plan. */
 export const NIGHT_CUTOFF = 5;
@@ -55,15 +56,6 @@ export function morningLine(s: MorningState): string {
   return parts.join(" · ");
 }
 
-/** Reality checks done today against the plan: "3 of 6 checks", or "2 checks" with no plan (reminders off). */
-export function checksLine(done: number, planned: number): string {
-  if (planned > 0) return `${done} of ${planned} checks`;
-  return done ? plural(done, "check") : "No checks yet";
-}
-
-/** Today's course practice: "1 of 3 done". Empty when the lesson has no practice items. */
-export const practiceLine = (done: number, total: number): string => (total ? `${done} of ${total} done` : "");
-
 /** The next reminder at or after `now` (timestamps), or null. */
 export function nextReminder(times: number[], now: number): number | null {
   let best: number | null = null;
@@ -81,6 +73,9 @@ export interface HomeRates {
   /** Lucid dreams filed under a morning of this calendar month, naps' dreams included (insights.ts: a nap is not a
    *  night, its dreams are dreams). Read from the nights' own counts, so it never depends on how many dreams are loaded. */
   lucidThisMonth: number;
+  /** "Your recall": dreams a night now against when you started (insights.ts recallProgress, the same line as
+   *  Progress · Recall); "" until both sides have enough nights. Read from the nights' own counts. */
+  recallChange: string;
 }
 
 export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[], today: string, days = 14): HomeRates {
@@ -94,6 +89,7 @@ export function homeRates(nights: (HomeNight & NightLog)[], dreams: HomeDream[],
     lucidThisMonth: nights.length && nights.every((n) => n.lucidCount != null)
       ? nights.filter((n) => n.date.slice(0, 7) === month).reduce((a, n) => a + (n.lucidCount ?? 0), 0)
       : dreams.filter((d) => d.lucid && !d.deletedAt && d.date.slice(0, 7) === month).length,
+    recallChange: recallChangeText(recallProgress(nights, [], today)),
   };
 }
 

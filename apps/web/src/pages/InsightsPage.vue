@@ -10,7 +10,7 @@ import { useRouter } from "vue-router";
 import { useQuery } from "@tanstack/vue-query";
 import {
   PERIODS, PERIOD_LABEL, BECAME_LUCID_LABEL, periodStart, bucketFor, bucketOf, recallInsight, recallProgress, recallChangeText,
-  RECALL_TARGETS, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
+  RECALL_TARGETS, RECALL_MIN_NIGHTS, RECALL_WINDOW, RECALL_COUNTING_SOURCES, RECALL_TARGET_SOURCES, RECALL_WHY_SOURCES, RECALL_FIRST_SOURCES, lucidityInsight, eventsInsight, emotionsInsight,
   checksInsight, whatWorks, pmWeek, localClock, EMOTION_ANCHORS, MIN_NIGHTS, UPSET_HINT, UPSET_SOURCES, type Period, type Bucket, type Comparison, type RealityCheck,
 } from "@somnium/shared";
 import { assessments, assessmentIds, optionFor } from "@somnium/knowledge/assessments";
@@ -32,6 +32,7 @@ import GoalCards from "../components/goals/GoalCards.vue";
 import LagCard from "../components/insights/LagCard.vue";
 import ThemesCard from "../components/insights/ThemesCard.vue";
 import SourceSheet from "../components/learn/SourceSheet.vue";
+import CiteChips from "../components/learn/CiteChips.vue";
 import "../styles/components/learn.css";
 import "../styles/components/insights.css";
 
@@ -80,6 +81,8 @@ const works = computed(() => {
 
 // ---------- labels ----------
 const mon = (ymd: string, o: Intl.DateTimeFormatOptions) => new Date(ymd.length === 7 ? ymd + "-01T12:00:00" : ymd + "T12:00:00").toLocaleDateString(undefined, o);
+// a chart's x from a morning or a month: local noon, so the axis never shows the day before west of UTC
+const dayX = (ymd: string) => new Date((ymd.length === 7 ? ymd + "-01" : ymd) + "T12:00:00").getTime();
 const bucketLabel = (key: string) => (key.length === 7 ? mon(key, { month: "short" }) : mon(key, { day: "numeric", month: "short" }));
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 const one = (v: number) => (Math.round(v * 10) / 10).toString();
@@ -91,9 +94,11 @@ const KIND: Record<string, string> = { nose: "Nose pinch", hands: "Hands", text:
 // ---------- recall ----------
 const recallBars = computed(() => recall.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.nights ? r.dreams / r.nights : 0, dim: !r.nights })));
 // recall progress (LDJ-113): weeks with a night logged, against the course's two targets
-const progressPoints = computed(() => progress.value.weekly.filter((r) => r.nights).map((r) => ({ x: Date.parse(r.key), y: r.dreams / r.nights, label: `Week of ${bucketLabel(r.key)} · ${plural(r.nights, "night")}` })));
+const progressPoints = computed(() => progress.value.weekly.filter((r) => r.nights).map((r) => ({ x: dayX(r.key), y: r.dreams / r.nights, label: `Week of ${bucketLabel(r.key)} · ${plural(r.nights, "night")}` })));
 const recallMarks = [{ y: 1, label: "1 a night" }, { y: RECALL_TARGETS.perNight, label: `${RECALL_TARGETS.perNight} a night` }];
 const progressLine = computed(() => recallChangeText(progress.value));
+// "part of the rise is counting" only when there is a rise to explain
+const progressRose = computed(() => !!progressLine.value && !!progress.value.base && (progress.value.now.perNight ?? 0) > progress.value.base.perNight);
 const weekdayBars = computed(() => recall.value.byWeekday.map((r) => ({ label: r.key, value: r.nights ? r.withRecall / r.nights : 0, dim: !r.nights })));
 
 // ---------- lucidity ----------
@@ -144,7 +149,7 @@ const eventSets = computed(() => [
   { title: "False awakenings", total: events.value.total.falseAwakenings, color: "var(--c2)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.falseAwakenings, color: "var(--c2)" })) },
   { title: "Sleep paralysis", total: events.value.total.sleepParalysis, color: "var(--c5)", bars: events.value.byBucket.map((r) => ({ label: bucketLabel(r.key), value: r.sleepParalysis, color: "var(--c5)" })) },
 ]);
-const emotionPoints = computed(() => emotions.value.byBucket.filter((r) => r.avg != null).map((r) => ({ x: Date.parse(r.key.length === 7 ? r.key + "-01" : r.key), y: r.avg!, label: `${bucketLabel(r.key)} · ${plural(r.rated, "dream")}` })));
+const emotionPoints = computed(() => emotions.value.byBucket.filter((r) => r.avg != null).map((r) => ({ x: dayX(r.key), y: r.avg!, label: `${bucketLabel(r.key)} · ${plural(r.rated, "dream")}` })));
 // numbers on the axis (the anchor words don't fit beside it); the tooltip's label names the period
 const feel = (v: number) => (v > 0 ? "+" : "") + one(v);
 
@@ -154,7 +159,7 @@ const answerSets = computed(() => assessmentIds.map((id) => {
   const last = list.at(-1);
   return {
     id, a: assessments[id], count: list.length, last, lastLabel: last ? optionFor(id, last.value)?.label ?? "" : "",
-    points: list.map((x) => ({ x: Date.parse(x.date), y: optionFor(id, x.value)?.rate ?? 0, label: `${optionFor(id, x.value)?.label ?? ""} · ${mon(x.date, { day: "numeric", month: "short", year: "numeric" })}` })),
+    points: list.map((x) => ({ x: dayX(x.date), y: optionFor(id, x.value)?.rate ?? 0, label: `${optionFor(id, x.value)?.label ?? ""} · ${mon(x.date, { day: "numeric", month: "short", year: "numeric" })}` })),
   };
 }).filter((s) => s.count));
 const dateShort = (ymd: string) => mon(ymd, { day: "numeric", month: "short" });
@@ -216,16 +221,16 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
     <section>
       <div class="sh"><h2>Recall</h2><button v-if="progress.weekly.length" class="ib sm plain" type="button" aria-label="About your recall progress" @click="info = 'recall'"><Icon name="info" :size="17" /></button></div>
       <template v-if="progress.weekly.length">
-        <div class="grid" :class="progress.said ? 'g4' : 'g3'">
-          <div class="card hero stat" data-testid="recall-now"><div class="lbl">Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks` : "no night logged in the last 2 weeks" }}</div></div>
-          <div class="card stat"><div class="lbl">When you started</div><div class="val num">{{ progress.start?.perNight == null ? "-" : one(progress.start.perNight) }}</div><div class="sub">{{ progress.start ? `first 2 weeks, from ${dateShort(progress.start.from)}` : "shows after your first 4 weeks" }}</div></div>
+        <div class="grid" :class="progress.said ? 'g4' : 'g3 keep'">
+          <div class="card hero stat" data-testid="recall-now"><div class="lbl">Dreams a night now</div><div class="val num">{{ progress.now.perNight == null ? "-" : one(progress.now.perNight) }}</div><div class="sub">{{ progress.now.nights ? `${plural(progress.now.nights, "night")} logged, last 2 weeks${progress.reached.twoANight ? ` · ${RECALL_TARGETS.perNight} a night reached` : ""}` : "no night logged in the last 2 weeks" }}</div></div>
+          <div class="card stat"><div class="lbl">When you started</div><div class="val num">{{ progress.start?.perNight == null ? "-" : one(progress.start.perNight) }}</div><div class="sub">{{ progress.start ? `first ${plural(progress.start.nights, "night")} logged, from ${dateShort(progress.start.from)}` : `shows once ${RECALL_MIN_NIGHTS} nights are logged before the last 2 weeks` }}</div></div>
           <div v-if="progress.said" class="card stat"><div class="lbl">You said</div><div class="val num">{{ one(progress.said.perNight) }}</div><div class="sub">{{ progress.said.label }}</div></div>
-          <div class="card stat"><div class="lbl">Nights in a row</div><div class="val num">{{ progress.run }}<small>of {{ RECALL_TARGETS.run }}</small></div><div class="sub">{{ progress.reached.run ? `reached · best ${progress.bestRun}` : `with a dream · best ${progress.bestRun}` }}</div></div>
+          <div class="card stat"><div class="lbl">Nights in a row</div><div class="val num">{{ progress.run }}<small v-if="progress.run < RECALL_TARGETS.run">of {{ RECALL_TARGETS.run }}</small></div><div class="sub">{{ progress.reached.run ? `reached · best ${progress.bestRun}` : `with a dream · best ${progress.bestRun}` }}</div></div>
         </div>
         <div class="card spt"><div class="lbl hgap">Dreams a night, by week since you started</div>
           <div v-if="progressPoints.length < 2" class="tiny">Log a second week of mornings to see the trend.</div>
           <LineChart v-else :points="progressPoints" :fmt="one" :marks="recallMarks" :height="150" zero />
-          <p class="tiny ins-note">{{ progressLine ? progressLine + ". " : "" }}Part of the rise is counting: a journal catches dreams you would forget, so keep going. <button v-for="sid in RECALL_COUNTING_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
+          <p class="tiny ins-note">{{ progressLine ? progressLine + ". " : "" }}{{ progressRose ? "Part of the rise is counting: a journal catches dreams you would forget, so keep going." : "Keep writing each morning: for most people a journal helps them remember more." }} <CiteChips :ids="RECALL_COUNTING_SOURCES" @cite="cite($event[0]!)" /></p>
         </div>
       </template>
       <div v-if="!recall.nights" class="card empty sm"><b>No nights logged in this period</b>Write down your dreams each morning, or mark "No recall", to see how often you remember them.</div>
@@ -319,15 +324,15 @@ const dateLong = (ymd: string) => mon(ymd, { day: "numeric", month: "long", year
       <p>A rate shows once there are {{ MIN_NIGHTS }} nights on each side. The grey bar is the nights without it.</p>
     </Sheet>
     <Sheet v-if="info === 'recall'" title="Your recall" @close="info = null">
-      <p>Dreams a night over the last two weeks, set against your first two weeks of journaling. Remembering dreams comes first because it goes with success at the later techniques, MILD most of all. <button v-for="sid in RECALL_WHY_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
-      <p>The course's targets: a dream remembered every night for {{ RECALL_TARGETS.run }} nights in a row, then {{ RECALL_TARGETS.perNight }} a night. <button v-for="sid in RECALL_TARGET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
-      <p>Part of the rise is counting: writing dreams down each morning catches some you would have forgotten, and keeping a journal itself helps you remember more. Both count. <button v-for="sid in RECALL_COUNTING_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
+      <p>Dreams a night over the last two weeks, set against your first {{ RECALL_WINDOW }} logged nights, once each side has {{ RECALL_MIN_NIGHTS }} nights. In the international induction study, people with better dream recall had more success with the techniques <CiteChips :ids="RECALL_WHY_SOURCES" @cite="cite($event[0]!)" />; the course puts recall first <CiteChips :ids="RECALL_FIRST_SOURCES" @cite="cite($event[0]!)" />.</p>
+      <p>The course's targets: a dream remembered every night for {{ RECALL_TARGETS.run }} nights in a row, then {{ RECALL_TARGETS.perNight }} a night. <CiteChips :ids="RECALL_TARGET_SOURCES" @cite="cite($event[0]!)" /></p>
+      <p>Part of any rise is counting: writing dreams down each morning catches some you would have forgotten. For most people keeping a journal also helps them remember more, though in one study it raised recall in people who remembered few or some dreams and lowered it in those who already remembered many. <CiteChips :ids="RECALL_COUNTING_SOURCES" @cite="cite($event[0]!)" /></p>
     </Sheet>
     <Sheet v-if="info === 'pm'" title="Memory targets" @close="info = null">
-      <p>A target you set and never logged counts as a miss once its day is over. LaBerge's exercise: keep going for at least a week, and if you still miss most targets, carry on until you hit most of them. <button v-for="sid in PM_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
+      <p>A target you set and never logged counts as a miss once its day is over. LaBerge's exercise: keep going for at least a week, and if you still miss most targets, carry on until you hit most of them. <CiteChips :ids="PM_SOURCES" @cite="cite($event[0]!)" /></p>
     </Sheet>
     <Sheet v-if="info === 'events'" title="Nightmares and bad dreams" @close="info = null">
-      <p>{{ UPSET_HINT }} <button v-for="sid in UPSET_SOURCES" :key="sid" type="button" class="cite" :aria-label="'Source ' + sid" @click="cite(sid)">{{ sid }}</button></p>
+      <p>{{ UPSET_HINT }} <CiteChips :ids="UPSET_SOURCES" @cite="cite($event[0]!)" /></p>
     </Sheet>
     <SourceSheet v-if="sourcesOpen" :ids="sourcesOpen" @close="sourcesOpen = null" />
   </div>

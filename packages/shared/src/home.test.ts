@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { tipIndex, homeNights, morningState, morningLine, checksLine, practiceLine, nextReminder, checksOn, homeRates, recallLine, lastLucid, type HomeDream } from "./home";
+import { tipIndex, homeNights, morningState, morningLine, nextReminder, checksOn, homeRates, recallLine, lastLucid, type HomeDream } from "./home";
+import { addDays } from "./rates";
 
 const night = (id: string, date: string, o: Record<string, unknown> = {}) => ({ id, date, nap: false, dreamCount: 0, noRecall: false, ...o });
 const dream = (id: string, nightId: string, date: string, o: Partial<HomeDream> = {}): HomeDream => ({ id, nightId, date, lucid: false, ...o });
@@ -49,16 +50,6 @@ describe("morningState", () => {
 });
 
 describe("progress strings", () => {
-  it("checks against the plan, or alone when reminders are off", () => {
-    expect(checksLine(3, 6)).toBe("3 of 6 checks");
-    expect(checksLine(0, 0)).toBe("No checks yet");
-    expect(checksLine(1, 0)).toBe("1 check");
-    expect(checksLine(4, 0)).toBe("4 checks");
-  });
-  it("practice", () => {
-    expect(practiceLine(1, 3)).toBe("1 of 3 done");
-    expect(practiceLine(0, 0)).toBe("");
-  });
   it("next reminder and today's checks", () => {
     expect(nextReminder([300, 100, 200], 150)).toBe(200);
     expect(nextReminder([100], 150)).toBeNull();
@@ -98,6 +89,13 @@ describe("homeRates", () => {
   it("counts lucid dreams this month from the nights' counts, naps' dreams included, whatever dreams are loaded", () => {
     const nights = [night("a", "2026-11-02", { lucidCount: 1 }), night("n", "2026-11-02", { nap: true, lucidCount: 1 }), night("o", "2026-10-30", { lucidCount: 3 })];
     expect(homeRates(nights, [], today).lucidThisMonth).toBe(2);
+  });
+  it("adds the recall line from Progress once both sides have 7 nights", () => {
+    const n = (k: number, dreams: number) => night(`r${k}`, addDays(today, -k), { dreamCount: dreams, noRecall: !dreams });
+    const early = Array.from({ length: 7 }, (_, i) => n(40 - i, i % 2 ? 0 : 1));
+    const late = Array.from({ length: 7 }, (_, i) => n(6 - i, 2));
+    expect(homeRates([...early, ...late], [], today).recallChange).toBe("Up from 0.6 to 2 dreams a night, against your first logged nights");
+    expect(homeRates(late, [], today).recallChange).toBe("");
   });
 });
 
