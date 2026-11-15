@@ -16,14 +16,9 @@ export const FEATURES: FeatureDef[] = [
   { id: "soundCue", group: "Train", name: "Sound cue training", desc: "Pair a soft tone with reality checks while awake, then play it quietly during a nap or after WBTB (targeted lucidity reactivation). Needs the screen on and the app open.", on: false },
   { id: "dreamYoga", group: "Train", name: "Dream yoga practices", desc: "Wangyal's four daytime practices as daily habits, shown as a tradition, with their source.", on: false },
   { id: "goals", group: "Train", name: "Goals", desc: "A lucid dream a week, a full journal month, and the like.", on: false },
-  // Home (PLAN.md §6.1): extra cards under the day's own blocks
-  { id: "homeSigns", group: "Home", name: "Top dream signs", desc: "Your most frequent dream signs on Home.", on: false },
-  { id: "homeLesson", group: "Home", name: "Next lesson", desc: "The course lesson you are on, on Home.", on: false },
-  { id: "homeTip", group: "Home", name: "A tip from Learn", desc: "A short article summary from Learn on Home, a different one each day.", on: false },
-  { id: "homeLastLucid", group: "Home", name: "Last lucid dream", desc: "The title and date of your latest lucid dream on Home.", on: false },
-  // Insights
-  { id: "reports", group: "Insights", name: "Month report and year in review", desc: "A summary page for each month and year.", on: false },
-  { id: "typicalThemes", group: "Insights", name: "Typical dream themes", desc: "How often the common dream themes (being chased, falling, flying...) show up in your dreams, beside how many people say they have ever had them.", on: false },
+  // Progress
+  { id: "reports", group: "Progress", name: "Month report and year in review", desc: "A summary page for each month and year.", on: false },
+  { id: "typicalThemes", group: "Progress", name: "Typical dream themes", desc: "How often the common dream themes (being chased, falling, flying...) show up in your dreams, beside how many people say they have ever had them.", on: false },
   // Integrations
   { id: "localModel", group: "Integrations", name: "Local AI model (advanced)", desc: "Summarise a dream, or ask for its elements, with a text model you run yourself on your own network (an Ollama address). Never a cloud service; only on request. Desktop app only for now.", on: false },
   { id: "palette", group: "Integrations", name: "Command palette", desc: "Ctrl+K to jump anywhere (desktop).", on: false },

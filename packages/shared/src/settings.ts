@@ -34,6 +34,42 @@ export interface Settings {
    * choices, nothing personal.
    */
   setup: { done: boolean; experience: SetupExperience };
+  /** blocks: Home's blocks in the order shown, each shown or hidden (Edit home, from Home's ⋮ menu). Plain ids. */
+  home: { blocks: HomeBlock[] };
+}
+
+export interface HomeBlock { id: string; on: boolean }
+/** Every Home block, in the default order; `on` is whether a new account sees it. Goals and Day note also need their
+ *  feature switched on, and are absent from Home and Edit home while it is off. Ids added later are appended to a saved
+ *  order. (Ported from Motus's HOME_BLOCKS.) */
+export const HOME_BLOCKS: HomeBlock[] = [
+  { id: "morning", on: true }, { id: "today", on: true }, { id: "tonight", on: true }, { id: "rates", on: true },
+  { id: "goals", on: true }, { id: "dayNote", on: true },
+  { id: "signs", on: false }, { id: "lesson", on: false }, { id: "tip", on: false }, { id: "lastLucid", on: false },
+];
+// Before Edit home these four cards were switches in Settings → Features; a layout never saved yet takes their state
+const LEGACY_HOME: Record<string, string> = { signs: "homeSigns", lesson: "homeLesson", tip: "homeTip", lastLucid: "homeLastLucid" };
+// shown on every Home, so Edit home gives them no switch
+export const FIXED_HOME_BLOCKS = new Set(["morning", "today"]);
+
+/** Home's blocks made safe (they sync from any device): unknown ids and repeats dropped, missing ones appended with
+ *  their default. With no saved layout, the old Features switches (features.homeSigns ...) carry over. */
+export function cleanHomeBlocks(saved: unknown, features: Record<string, boolean> = {}): HomeBlock[] {
+  const known = new Map(HOME_BLOCKS.map((x) => [x.id, x.on]));
+  const out: HomeBlock[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(saved)) {
+    for (const x of saved) {
+      const item: { id?: unknown; on?: unknown } = x && typeof x === "object" ? x : {};
+      const id = item.id;
+      if (typeof id !== "string" || !known.has(id) || seen.has(id)) continue;
+      seen.add(id);
+      out.push({ id, on: FIXED_HOME_BLOCKS.has(id) || (typeof item.on === "boolean" ? item.on : known.get(id)!) });
+    }
+  }
+  const legacy = !Array.isArray(saved);
+  for (const d of HOME_BLOCKS) if (!seen.has(d.id)) out.push({ id: d.id, on: legacy && LEGACY_HOME[d.id] && typeof features[LEGACY_HOME[d.id]!] === "boolean" ? features[LEGACY_HOME[d.id]!]! : d.on });
+  return out;
 }
 
 export type SetupExperience = "" | "new" | "some" | "regular";
@@ -51,6 +87,7 @@ export const DEFAULT_SETTINGS: Settings = {
   learn: { read: {}, pinned: [], last: "", assessments: { ldfs: [], madre: [] } },
   recommend: { dismissed: [] },
   setup: { done: false, experience: "" },
+  home: { blocks: HOME_BLOCKS },
 };
 
 /** Deep-merges saved settings over the defaults, so new settings get their default value. */
@@ -64,5 +101,8 @@ export function withDefaults(saved: unknown): Settings {
     }
     return s === undefined ? d : s;
   };
-  return merge(DEFAULT_SETTINGS, saved);
+  const out: Settings = merge(DEFAULT_SETTINGS, saved);
+  const blocks = saved && typeof saved === "object" ? (saved as { home?: { blocks?: unknown } }).home?.blocks : undefined;
+  out.home = { ...out.home, blocks: cleanHomeBlocks(blocks, out.features) };
+  return out;
 }

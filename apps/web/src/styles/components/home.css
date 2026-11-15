@@ -41,3 +41,8 @@ html.phone .hwrite .btn { width: 100%; justify-content: center; }
 .hcard { display: block; text-decoration: none; color: inherit; }
 .hcard .tiny { margin-top: calc(var(--hg) / 5); }
 .hclamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* Edit home: switched-off blocks fade back; the always-shown ones keep the switch's place so the arrows line up */
+.hed.off .grow { opacity: .55; }
+.hed label { cursor: pointer; min-width: 0; }
+.hed .hfix { visibility: hidden; }
